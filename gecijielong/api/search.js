@@ -1,4 +1,4 @@
-import sql from "../../lib/db";
+import sql from "../lib/db.js";
 
 export default async function handler(req, res) {
   const { q } = req.query;

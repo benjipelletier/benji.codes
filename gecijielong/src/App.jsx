@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import ExplorerDesktop from "../components/ExplorerDesktop";
-import ExplorerMobile from "../components/ExplorerMobile";
+import ExplorerDesktop from "./components/ExplorerDesktop";
+import ExplorerMobile from "./components/ExplorerMobile";
 
-export default function GeCiJieLong() {
+export default function App() {
   const [strictness, setStrictness] = useState("pinyin");
   const [history, setHistory] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -17,7 +17,6 @@ export default function GeCiJieLong() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Load featured lyric on mount
   useEffect(() => {
     fetch("/api/featured")
       .then(r => r.json())
@@ -27,7 +26,6 @@ export default function GeCiJieLong() {
       });
   }, []);
 
-  // Load chains when current line or strictness changes
   useEffect(() => {
     if (!current) return;
     fetch(`/api/chains?line_id=${current.id}&mode=${strictness}`)
