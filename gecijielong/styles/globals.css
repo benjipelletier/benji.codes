@@ -1,0 +1,12 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0a0f;
+  color: #f0e6d3;
+  font-family: 'Georgia', 'Songti SC', serif;
+  -webkit-font-smoothing: antialiased;
+}
