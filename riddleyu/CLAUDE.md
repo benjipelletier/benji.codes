@@ -44,10 +44,10 @@ Example for 马到成功:
   "meaning": "English meaning",
   "origin": "One sentence historical context",
   "riddles": [
-    { "text": "Chinese riddle (describes the category)", "hint": "English hint for hint button" },
-    { "text": "...", "hint": "..." },
-    { "text": "...", "hint": "..." },
-    { "text": "...", "hint": "..." }
+    { "type": "字谜|形谜|场景谜", "text": "Chinese riddle", "translation": "English translation of the riddle", "hint": "English hint for hint button" },
+    { "type": "...", "text": "...", "translation": "...", "hint": "..." },
+    { "type": "...", "text": "...", "translation": "...", "hint": "..." },
+    { "type": "...", "text": "...", "translation": "...", "hint": "..." }
   ],
   "grid": ["字", ...16 chars total, shuffled],
   "slotMap": [0, 1, 2, ...16 slot indices matching grid positions]
@@ -98,6 +98,27 @@ riddleyu/
 Ink-on-paper feel. Warm cream tones (`#f5f0e8`). Noto Serif SC for Chinese characters. Playfair Display for English labels. Red seal stamp decoration. Clean, focused, no clutter. Feels handcrafted rather than digital. See `index.css` for CSS variables.
 
 All styles are inline JS objects defined in a `const s = { ... }` block at the bottom of each component file.
+
+## Riddle types
+
+Each riddle uses one of three types. The `type` field is informational; the frontend doesn't render it differently.
+
+**字谜 (Character Composition)** — use when the character has 2+ clearly decomposable components.
+Describe how the parts combine without naming the character. e.g.:
+- 功: "出力又出工，缺一不可。" / "Effort and labor — neither can be missing." / hint: "工 (work) + 力 (strength) = 功"
+- 石: "山崖下藏着一张嘴，坚硬千年。" / "A mouth hidden beneath a cliff — hard for a thousand years." / hint: "厂 (cliff) + 口 (mouth) = 石"
+- 到: "持刀而至，方才到达。" / "Carry a blade beside 'arrive' — and you've gotten there." / hint: "至 (to reach) + 刂 (knife) = 到"
+
+**形谜 (Visual/Shape)** — use for visually simple characters (few strokes, geometric).
+Describe what you see without naming it. e.g.:
+- 一: "万物之始，我只有一笔，横贯天地。" / "The beginning of all things — just one stroke." / hint: "A single horizontal line"
+- 二: "比一多一笔，比三少一笔，两横平行。" / "One more than one, one fewer than three — two parallel lines." / hint: "Two horizontal strokes"
+
+**场景谜 (Scene Riddle)** — fallback when A/B don't work. A vivid specific scenario, NOT a broad category ("I am an animal" is forbidden). e.g.:
+- 马: "皇帝出征，骑着我才能打天下。" / "The emperor rides me to conquer the realm." / hint: "A powerful animal ridden by warriors and emperors"
+- 鸟: "春天清晨，我在树梢叫醒你。" / "On a spring morning, I wake you from the treetop." / hint: "A feathered creature that sings at dawn"
+
+The `translation` field is displayed below the Chinese riddle text in a small italic Playfair Display font, helping learners who can't fully read the Chinese. The `hint` is shown only when the player taps the hint button.
 
 ## Things to keep in mind
 

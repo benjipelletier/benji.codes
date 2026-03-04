@@ -148,6 +148,7 @@ export default function GameScreen({
         <div style={s.riddleBox}>
           <div style={s.riddleTag}>字 {currentSlot + 1} / 4</div>
           <p style={s.riddleText}>{puzzle.riddles[currentSlot].text}</p>
+          <p style={s.riddleTranslation}>{puzzle.riddles[currentSlot].translation}</p>
           {showHint
             ? <p style={s.hint}>💡 {puzzle.riddles[currentSlot].hint}</p>
             : <button style={s.hintBtn} onClick={() => setShowHint(true)}>提示 · hint</button>
@@ -399,6 +400,14 @@ const s = {
     lineHeight: 1.8,
     color: 'var(--ink)',
     marginTop: 4,
+  },
+  riddleTranslation: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: 'var(--grey)',
+    marginTop: 2,
+    lineHeight: 1.5,
   },
   hint: {
     marginTop: 10,
