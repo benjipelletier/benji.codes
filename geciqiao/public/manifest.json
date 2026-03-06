@@ -1,0 +1,32 @@
+{
+  "name": "歌词桥 · Lyrics Bridge",
+  "short_name": "歌词桥",
+  "description": "Share a Spotify song to find Chinese lyrics and send them to Pleco",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "url": "url",
+      "text": "text",
+      "title": "title"
+    }
+  }
+}
