@@ -7,6 +7,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "line_id is required" });
   }
 
+  if (!["char", "pinyin", "toneless"].includes(mode)) {
+    return res.status(400).json({ error: "Invalid mode" });
+  }
+
   const chains = await sql`
     SELECT * FROM (
       SELECT DISTINCT ON (s.id)
