@@ -30,20 +30,39 @@ export default function App() {
       .then(data => { setChains(data.chains); setChainsLoading(false); });
   }, [current, strictness]);
 
+  // Restore state on browser back/forward
+  useEffect(() => {
+    const onPopState = (e) => {
+      if (e.state) {
+        setCurrent(e.state.current ?? null);
+        setHistory(e.state.history ?? []);
+      } else {
+        setCurrent(null);
+        setHistory([]);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const handleStart = (line) => {
     setHistory([]);
     setCurrent(line);
+    window.history.pushState({ current: line, history: [] }, "", `?line=${line.id}`);
   };
 
   const handleSelect = (chain) => {
-    setHistory(prev => [...prev, current]);
+    const nextHistory = [...history, current];
+    setHistory(nextHistory);
     setCurrent(chain.to_line);
+    window.history.pushState({ current: chain.to_line, history: nextHistory }, "", `?line=${chain.to_line.id}`);
   };
 
   const handleReset = () => {
     setCurrent(null);
     setHistory([]);
     setChains([]);
+    window.history.pushState({ current: null, history: [] }, "", location.pathname);
   };
 
   // Landing page — no line selected yet
