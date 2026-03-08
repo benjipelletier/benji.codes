@@ -1,4 +1,5 @@
 import { useState } from "react";
+import useAudioPreview from "../hooks/useAudioPreview";
 
 const strictnessModes = [
   { id: "char", label: "字", desc: "Exact character" },
@@ -22,6 +23,8 @@ const EqLoader = () => (
 export default function ExplorerMobile({ current, chains, history, onSelect, onReset, strictness, onStrictnessChange, script, onScriptChange, convert, chainsLoading }) {
   const [selected, setSelected] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const { playingUrl, toggle } = useAudioPreview();
+  const visitedIds = new Set(history.map(h => h.id));
 
   const handleSelect = (chain) => {
     setSelected(chain.id);
@@ -152,6 +155,20 @@ export default function ExplorerMobile({ current, chains, history, onSelect, onR
               <div style={{ fontSize: "13px", fontWeight: "600" }}>{convert(current.song)}</div>
               <div style={{ fontSize: "11px", color: "rgba(240,230,211,0.4)" }}>{convert(current.artist)} · {current.year}</div>
             </div>
+            {current.preview_url && (
+              <button onClick={() => toggle(current.preview_url, current.timestamp_ms)} style={{
+                width: "32px", height: "32px", borderRadius: "50%", border: "none", cursor: "pointer",
+                background: playingUrl === current.preview_url ? "rgba(201,169,110,0.3)" : "rgba(201,169,110,0.12)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s", flexShrink: 0,
+                boxShadow: playingUrl === current.preview_url ? "0 0 10px rgba(201,169,110,0.4)" : "none",
+              }}>
+                {playingUrl === current.preview_url
+                  ? <svg width="12" height="12" viewBox="0 0 24 24" fill="#c9a96e"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  : <svg width="12" height="12" viewBox="0 0 24 24" fill="#c9a96e"><polygon points="5,3 19,12 5,21"/></svg>
+                }
+              </button>
+            )}
           </div>
         </div>
 
@@ -189,7 +206,7 @@ export default function ExplorerMobile({ current, chains, history, onSelect, onR
                 ),
                 <button key={chain.id} onClick={() => handleSelect(chain)} style={{
                   background: selected === chain.id ? "rgba(201,169,110,0.15)" : "rgba(255,255,255,0.03)",
-                  border: selected === chain.id ? "1px solid rgba(201,169,110,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                  border: selected === chain.id ? "1px solid rgba(201,169,110,0.5)" : visitedIds.has(chain.to_line?.id) ? "1px solid rgba(201,169,110,0.2)" : "1px solid rgba(255,255,255,0.07)",
                   borderRadius: "14px", padding: "14px 16px", cursor: "pointer",
                   display: "flex", alignItems: "center", gap: "12px",
                   transition: "all 0.2s", textAlign: "left", width: "100%",
@@ -212,6 +229,9 @@ export default function ExplorerMobile({ current, chains, history, onSelect, onR
                   <div style={{ fontSize: "10px", color: "rgba(240,230,211,0.35)" }}>{convert(chain.song)} · {convert(chain.artist)}</div>
                 </div>
                 <div style={{ fontSize: "9px", color: "rgba(240,230,211,0.2)", flexShrink: 0, textAlign: "right" }}>
+                  {visitedIds.has(chain.to_line?.id) && (
+                    <div style={{ fontSize: "9px", color: "rgba(201,169,110,0.5)", letterSpacing: "0.05em", marginBottom: "2px" }}>visited</div>
+                  )}
                   <div style={{ fontSize: "14px", color: "rgba(201,169,110,0.5)", fontWeight: "600" }}>{chain.connections}</div>
                   <div>chains</div>
                 </div>
