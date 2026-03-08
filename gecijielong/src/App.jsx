@@ -54,6 +54,8 @@ export default function App() {
         convert={convert}
         strictness={strictness}
         onStrictnessChange={setStrictness}
+        script={script}
+        onScriptChange={setScript}
       />
     );
   }

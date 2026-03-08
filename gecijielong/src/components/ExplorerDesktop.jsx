@@ -71,6 +71,19 @@ export default function ExplorerDesktop({ current, chains, history, onSelect, on
               onMouseEnter={e => e.target.style.color = "#c9a96e"}
               onMouseLeave={e => e.target.style.color = "rgba(240,230,211,0.3)"}
             >← New chain</button>
+            <div style={{ display: "flex", gap: "2px", background: "rgba(255,255,255,0.04)", borderRadius: "8px", padding: "3px", border: "1px solid rgba(255,255,255,0.06)" }}>
+              {[{ id: "simplified", label: "简" }, { id: "traditional", label: "繁" }].map(s => (
+                <button key={s.id} onClick={() => onScriptChange(s.id)} style={{
+                  padding: "5px 12px", borderRadius: "6px", border: "none", cursor: "pointer",
+                  fontSize: "13px", fontFamily: "inherit", transition: "all 0.2s",
+                  background: script === s.id ? "rgba(201,169,110,0.2)" : "transparent",
+                  color: script === s.id ? "#c9a96e" : "rgba(240,230,211,0.4)",
+                  fontWeight: script === s.id ? "600" : "400",
+                }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
             <div style={{ fontSize: "12px", color: "rgba(240,230,211,0.3)", letterSpacing: "0.05em" }}>Vibecoded with ♥ by <a href="https://instagram.com/benjipelletier" target="_blank" rel="noreferrer" style={{ color: "rgba(240,230,211,0.3)", textDecoration: "none" }}>笨鸡</a></div>
           </div>
         </div>
