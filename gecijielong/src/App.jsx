@@ -40,6 +40,12 @@ export default function App() {
     setCurrent(chain.to_line);
   };
 
+  const handleBack = () => {
+    if (history.length === 0) return;
+    setCurrent(history[history.length - 1]);
+    setHistory(h => h.slice(0, -1));
+  };
+
   const handleReset = () => {
     setCurrent(null);
     setHistory([]);
@@ -63,6 +69,7 @@ export default function App() {
   const props = {
     current, chains, history,
     onSelect: handleSelect,
+    onBack: handleBack,
     onReset: handleReset,
     strictness, onStrictnessChange: setStrictness,
     script, onScriptChange: setScript,
