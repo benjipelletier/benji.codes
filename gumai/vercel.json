@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ],
+  "crons": [
+    {
+      "path": "/api/gumai/generate",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
