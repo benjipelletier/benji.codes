@@ -48,6 +48,11 @@ export default async function handler(req, res) {
       JOIN songs s ON s.id = ll.song_id
       WHERE c.from_line_id = ${line_id}
         AND c.match_type = ${mode}
+        AND NOT (
+          (${mode} = 'char' AND ll.end_char = ll.start_char) OR
+          (${mode} = 'pinyin' AND ll.end_pinyin = ll.start_pinyin) OR
+          (${mode} = 'toneless' AND ll.end_pinyin_toneless = ll.start_pinyin_toneless)
+        )
       ORDER BY s.id, connections DESC
     ) deduped
     ORDER BY connections DESC
