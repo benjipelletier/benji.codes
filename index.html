@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>benji.codes</title>
+  <meta name="description" content="A collection of Chinese language tools and games." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400;1,600&family=JetBrains+Mono:wght@300;400&family=Noto+Serif+SC:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080712;
+      --text: #e8e4f0;
+      --muted: rgba(232, 228, 240, 0.45);
+      --border: rgba(232, 228, 240, 0.08);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Grain texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    /* Ambient blobs */
+    .blobs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+    }
+
+    .blob-red {
+      width: 600px; height: 600px;
+      background: #c0392b;
+      top: -200px; left: -150px;
+    }
+
+    .blob-gold {
+      width: 500px; height: 500px;
+      background: #c9a96e;
+      top: 30%; right: -100px;
+    }
+
+    .blob-teal {
+      width: 400px; height: 400px;
+      background: #4fc3c3;
+      bottom: -100px; left: 35%;
+    }
+
+    /* Constellation layer */
+    .constellation {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(232, 228, 240, 0.6);
+      animation: twinkle var(--dur, 3s) ease-in-out infinite var(--delay, 0s);
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: var(--min-op, 0.2); transform: scale(1); }
+      50% { opacity: var(--max-op, 0.8); transform: scale(1.4); }
+    }
+
+    /* Layout */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0 clamp(1.5rem, 5vw, 4rem);
+    }
+
+    /* Hero */
+    header {
+      padding: clamp(4rem, 10vh, 7rem) 0 clamp(3rem, 6vh, 5rem);
+      animation: fadeDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .site-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: clamp(44px, 8vw, 80px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      font-weight: 400;
+    }
+
+    .site-title .prefix {
+      color: var(--text);
+    }
+
+    .site-title .strikethrough {
+      color: rgba(255, 255, 255, 0.22);
+      text-decoration: line-through;
+      text-decoration-color: rgba(255, 255, 255, 0.30);
+      text-decoration-thickness: 2px;
+    }
+
+    .site-title .suffix {
+      color: #ffffff;
+    }
+
+    .site-subtitle {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    .card:nth-child(1) { grid-column: span 2; }
+    .card:nth-child(2) { grid-column: span 2; }
+    .card:nth-child(3) { grid-column: span 2; }
+    .card:nth-child(4) { grid-column: 2 / span 2; }
+    .card:nth-child(5) { grid-column: 4 / span 2; }
+
+    @media (max-width: 1023px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .card:nth-child(1),
+      .card:nth-child(2),
+      .card:nth-child(3),
+      .card:nth-child(4) { grid-column: span 1; }
+      .card:nth-child(5) { grid-column: span 2; }
+    }
+
+    @media (max-width: 639px) {
+      .grid { grid-template-columns: 1fr; }
+      .card:nth-child(1),
+      .card:nth-child(2),
+      .card:nth-child(3),
+      .card:nth-child(4),
+      .card:nth-child(5) { grid-column: span 1; }
+    }
+
+    /* Cards */
+    .card {
+      position: relative;
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      overflow: hidden;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 0.35s ease,
+                  box-shadow 0.35s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      border-color: rgba(var(--accent-rgb), 0.35);
+      box-shadow: 0 20px 60px rgba(var(--accent-rgb), 0.08);
+    }
+
+    /* Card glow overlay */
+    .card-glow {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      background: radial-gradient(
+        ellipse at var(--glow-x, 30%) var(--glow-y, 40%),
+        rgba(var(--accent-rgb), 0.14) 0%,
+        transparent 70%
+      );
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+
+    .card:hover .card-glow {
+      opacity: 1;
+    }
+
+    /* Card icon stamp */
+    .card-icon {
+      font-family: 'Noto Serif SC', serif;
+      font-weight: 900;
+      font-size: clamp(2.5rem, 5vw, 3.5rem);
+      line-height: 1;
+      color: var(--accent);
+      opacity: 0.85;
+      margin-bottom: 1.25rem;
+      display: block;
+      transition: opacity 0.35s ease;
+    }
+
+    .card:hover .card-icon {
+      opacity: 1;
+    }
+
+    /* Card name */
+    .card-name {
+      font-family: 'Noto Serif SC', serif;
+      font-weight: 700;
+      font-size: clamp(1.4rem, 2.5vw, 1.75rem);
+      letter-spacing: 0.05em;
+      line-height: 1.2;
+      margin-bottom: 0.35rem;
+    }
+
+    /* Card tagline */
+    .card-tagline {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      letter-spacing: 0.01em;
+    }
+
+    /* Card description */
+    .card-desc {
+      font-size: 0.8rem;
+      line-height: 1.65;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+
+    /* Card footer */
+    .card-footer {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(var(--accent-rgb), 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .card-tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+    }
+
+    .card-arrow {
+      color: var(--accent);
+      opacity: 0.6;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .card:hover .card-arrow {
+      transform: translateX(4px);
+      opacity: 1;
+    }
+
+    .card:focus-visible {
+      outline: 2px solid rgba(var(--accent-rgb), 0.7);
+      outline-offset: 3px;
+    }
+
+    /* Staggered card animations */
+    .card {
+      animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.15s; }
+    .card:nth-child(2) { animation-delay: 0.25s; }
+    .card:nth-child(3) { animation-delay: 0.35s; }
+    .card:nth-child(4) { animation-delay: 0.45s; }
+    .card:nth-child(5) { animation-delay: 0.55s; }
+
+    /* Footer */
+    footer {
+      padding: clamp(3rem, 6vh, 5rem) 0 clamp(2rem, 4vh, 3rem);
+      text-align: center;
+      animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
+    }
+
+    .footer-text {
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .footer-text a {
+      color: rgba(232, 228, 240, 0.6);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-text a:hover {
+      color: var(--text);
+    }
+
+    /* Keyframes */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="blobs" aria-hidden="true">
+    <div class="blob blob-red"></div>
+    <div class="blob blob-gold"></div>
+    <div class="blob blob-teal"></div>
+  </div>
+
+  <div class="constellation" aria-hidden="true" id="constellation"></div>
+
+  <div class="page">
+    <header>
+      <h1 class="site-title">
+        <span class="prefix">benji.</span><span class="strikethrough" aria-hidden="true">vibe</span><span class="suffix">codes</span>
+      </h1>
+      <p class="site-subtitle">Chinese language · tools &amp; games</p>
+    </header>
+
+    <main>
+      <div class="grid">
+
+        <!-- 謎語日 -->
+        <a class="card"
+           href="https://riddleyu.benji.codes"
+           style="--accent: #c0392b; --accent-rgb: 192, 57, 43;"
+           aria-label="谜语日 — riddleyu">
+          <div class="card-glow"></div>
+          <span class="card-icon" aria-hidden="true">谜</span>
+          <div class="card-name">谜语日</div>
+          <div class="card-tagline">riddleyu</div>
+          <div class="card-desc">A daily 成语 puzzle. Decode the ancient four-character idiom from cryptic clues — one chance each day.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="card-tag">成语</span>
+              <span class="card-tag">daily</span>
+              <span class="card-tag">puzzle</span>
+            </div>
+            <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+
+        <!-- 歌詞接龍 -->
+        <a class="card"
+           href="https://gecijielong.benji.codes"
+           style="--accent: #c9a96e; --accent-rgb: 201, 169, 110;"
+           aria-label="歌词接龙 — gecijielong">
+          <div class="card-glow"></div>
+          <span class="card-icon" aria-hidden="true">龙</span>
+          <div class="card-name">歌词接龙</div>
+          <div class="card-tagline">gecijielong</div>
+          <div class="card-desc">Chain Mandarin song lyrics together. Each player continues where the last left off — a flowing dragon of verse.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="card-tag">lyrics</span>
+              <span class="card-tag">chain</span>
+              <span class="card-tag">music</span>
+            </div>
+            <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+
+        <!-- 古脈 -->
+        <a class="card"
+           href="https://gumai.benji.codes"
+           style="--accent: #C23B22; --accent-rgb: 194, 59, 34;"
+           aria-label="古脉 — gumai">
+          <div class="card-glow"></div>
+          <span class="card-icon" aria-hidden="true">脉</span>
+          <div class="card-name">古脉</div>
+          <div class="card-tagline">gumai</div>
+          <div class="card-desc">Trace the pulse of classical Chinese. Explore the living network of ancient texts and their echoes through time.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="card-tag">classical</span>
+              <span class="card-tag">texts</span>
+              <span class="card-tag">history</span>
+            </div>
+            <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+
+        <!-- 同義詞星圖 -->
+        <a class="card"
+           href="https://synonyms.benji.codes"
+           style="--accent: #d9a441; --accent-rgb: 217, 164, 65;"
+           aria-label="同义词星图 — synonyms">
+          <div class="card-glow"></div>
+          <span class="card-icon" aria-hidden="true">星</span>
+          <div class="card-name">同义词星图</div>
+          <div class="card-tagline">synonyms</div>
+          <div class="card-desc">Visualize the constellation of Mandarin synonyms. See how words cluster and orbit each other in semantic space.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="card-tag">vocab</span>
+              <span class="card-tag">graph</span>
+              <span class="card-tag">visual</span>
+            </div>
+            <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+
+        <!-- 歌詞橋 -->
+        <a class="card"
+           href="https://geciqiao.benji.codes"
+           style="--accent: #4fc3c3; --accent-rgb: 79, 195, 195;"
+           aria-label="歌词桥 — geciqiao">
+          <div class="card-glow"></div>
+          <span class="card-icon" aria-hidden="true">桥</span>
+          <div class="card-name">歌词桥</div>
+          <div class="card-tagline">geciqiao</div>
+          <div class="card-desc">A bridge between songs and language learning. Study Mandarin through the lyrics of artists you love.</div>
+          <div class="card-footer">
+            <div class="card-tags">
+              <span class="card-tag">lyrics</span>
+              <span class="card-tag">learning</span>
+              <span class="card-tag">Spotify</span>
+            </div>
+            <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+
+      </div>
+    </main>
+
+    <footer>
+      <p class="footer-text">made with obsession · <a href="https://github.com/benjipelletier/benji.codes">github</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // Mouse-follow glow on cards
+    document.querySelectorAll('.card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1) + '%';
+        var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1) + '%';
+        card.style.setProperty('--glow-x', x);
+        card.style.setProperty('--glow-y', y);
+      });
+    });
+
+    // Decorative stars — skipped if prefers-reduced-motion
+    (function () {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      var layer = document.getElementById('constellation');
+      var count = 22;
+
+      for (var i = 0; i < count; i++) {
+        var star = document.createElement('div');
+        star.className = 'star';
+        var size = Math.random() * 2 + 1;
+        var dur = (Math.random() * 3 + 2).toFixed(1) + 's';
+        var delay = (Math.random() * 4).toFixed(2) + 's';
+        var minOp = (Math.random() * 0.15 + 0.05).toFixed(2);
+        var maxOp = (Math.random() * 0.4 + 0.4).toFixed(2);
+        star.style.cssText = [
+          'width:' + size + 'px',
+          'height:' + size + 'px',
+          'top:' + (Math.random() * 100) + '%',
+          'left:' + (Math.random() * 100) + '%',
+          '--dur:' + dur,
+          '--delay:' + delay,
+          '--min-op:' + minOp,
+          '--max-op:' + maxOp
+        ].join(';');
+        layer.appendChild(star);
+      }
+
+      // Parallax blobs on scroll — desktop only
+      if (window.innerWidth < 640) return;
+
+      var blobs = document.querySelectorAll('.blob');
+      var ticking = false;
+
+      window.addEventListener('scroll', function () {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () {
+          var y = window.scrollY;
+          blobs[0].style.transform = 'translateY(' + (y * 0.06) + 'px)';
+          blobs[1].style.transform = 'translateY(' + (-y * 0.04) + 'px)';
+          blobs[2].style.transform = 'translateY(' + (y * 0.03) + 'px)';
+          ticking = false;
+        });
+      }, { passive: true });
+    })();
+  </script>
+
+</body>
+</html>

@@ -35,6 +35,8 @@ export default function App() {
         if (!nodesRes.ok) throw new Error('nodes fetch failed');
 
         const nodesData = await nodesRes.json();
+        if (!nodesData.nodes?.length) throw new Error('no nodes in DB');
+
         const changelogData = changelogRes.ok ? await changelogRes.json() : { entries: [] };
 
         setNodes(nodesData.nodes || []);
