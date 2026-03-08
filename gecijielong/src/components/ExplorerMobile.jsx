@@ -177,15 +177,25 @@ export default function ExplorerMobile({ current, chains, history, onSelect, onR
                 <div style={{ fontSize: "12px", color: "rgba(240,230,211,0.35)", letterSpacing: "0.05em" }}>The chain ends here</div>
                 <div style={{ fontSize: "10px", marginTop: "4px", color: "rgba(240,230,211,0.2)" }}>Try 拼音 or 无声调 to find more connections</div>
               </div>
-            ) : chains.map(chain => (
-              <button key={chain.id} onClick={() => handleSelect(chain)} style={{
-                background: selected === chain.id ? "rgba(201,169,110,0.15)" : "rgba(255,255,255,0.03)",
-                border: selected === chain.id ? "1px solid rgba(201,169,110,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                borderRadius: "14px", padding: "14px 16px", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "12px",
-                transition: "all 0.2s", textAlign: "left", width: "100%",
-                transform: selected === chain.id ? "scale(0.98)" : "scale(1)",
-              }}>
+            ) : chains.flatMap((chain, i) => {
+              const showDivider = chain.is_loop && (i === 0 || !chains[i - 1].is_loop);
+              return [
+                showDivider && (
+                  <div key="loop-divider" style={{ display: "flex", alignItems: "center", gap: "8px", margin: "4px 0" }}>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.06)" }} />
+                    <span style={{ fontSize: "9px", letterSpacing: "0.15em", color: "rgba(240,230,211,0.2)", textTransform: "uppercase" }}>↩ loops back</span>
+                    <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.06)" }} />
+                  </div>
+                ),
+                <button key={chain.id} onClick={() => handleSelect(chain)} style={{
+                  background: selected === chain.id ? "rgba(201,169,110,0.15)" : "rgba(255,255,255,0.03)",
+                  border: selected === chain.id ? "1px solid rgba(201,169,110,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: "14px", padding: "14px 16px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: "12px",
+                  transition: "all 0.2s", textAlign: "left", width: "100%",
+                  transform: selected === chain.id ? "scale(0.98)" : "scale(1)",
+                  opacity: chain.is_loop ? 0.6 : 1,
+                }}>
                 <div style={{ position: "relative", width: "40px", height: "40px", flexShrink: 0 }}>
                   {chain.to_line?.album_art_url
                     ? <img src={chain.to_line.album_art_url} alt="" style={{ width: "40px", height: "40px", borderRadius: "10px", objectFit: "cover", display: "block" }} />
@@ -205,8 +215,9 @@ export default function ExplorerMobile({ current, chains, history, onSelect, onR
                   <div style={{ fontSize: "14px", color: "rgba(201,169,110,0.5)", fontWeight: "600" }}>{chain.connections}</div>
                   <div>chains</div>
                 </div>
-              </button>
-            ))}
+              </button>,
+              ].filter(Boolean);
+            })}
           </div>
         </div>
 
