@@ -25,8 +25,22 @@ if (typeof document !== 'undefined' && !document.getElementById('ch-anim')) {
       30%  { transform: scale(1.35); color: rgba(65,217,114,0.95); }
       100% { transform: scale(1);    color: #d9a441; }
     }
+    @keyframes wrongShake {
+      0%   { transform: translateX(0); }
+      20%  { transform: translateX(-6px); }
+      40%  { transform: translateX(5px); }
+      60%  { transform: translateX(-4px); }
+      80%  { transform: translateX(3px); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes explainSlideUp {
+      from { transform: translateY(10px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
     .ch-correct { animation: correctPulse 0.45s ease-out forwards; }
+    .ch-wrong   { animation: wrongShake 0.35s ease-out forwards; }
     .ch-score-flash { animation: scoreFlash 0.35s ease-out forwards; display: inline-block; }
+    .ch-explain { animation: explainSlideUp 0.2s cubic-bezier(0.22,1,0.36,1) forwards; }
   `;
   document.head.appendChild(st);
 }
@@ -145,7 +159,7 @@ export default function ChallengeMode({ cluster }: Props) {
           return (
             <button
               key={member.simplified}
-              className={isAnswered && isCorrect ? 'ch-correct' : ''}
+              className={isAnswered && isCorrect ? 'ch-correct' : isAnswered && isChosen && !isCorrect ? 'ch-wrong' : ''}
               style={{
                 ...s.choiceBtn,
                 border,
@@ -180,6 +194,7 @@ export default function ChallengeMode({ cluster }: Props) {
       {/* Explanation panel (shown after answer) */}
       {isAnswered && (
         <div
+          className="ch-explain"
           style={{
             ...s.explanation,
             borderColor: answerState === 'correct' ? 'rgba(65,217,114,0.2)' : 'rgba(217,65,65,0.2)',
