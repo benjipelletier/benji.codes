@@ -65,7 +65,7 @@ export default function HomePage() {
 
       {/* Top overlay bar */}
       <div className="ui-fade-down" style={s.topBar}>
-        <span className="zh" style={s.title}>同义词星图</span>
+        <span className="zh title-glow" style={s.title}>同义词星图</span>
 
         <div style={s.right}>
           <div style={s.historyRow}>
