@@ -127,14 +127,16 @@ export default function GalaxyGraph() {
       const hull = computeHull(pts, HULL_PAD);
       if (!hull) continue;
 
-      let fillAlpha: number, strokeAlpha: number, labelOpacity: number;
-      if (globalScale < 0.5) {
-        fillAlpha = 0.18; strokeAlpha = 0.4; labelOpacity = 1;
-      } else if (globalScale < 1.5) {
-        fillAlpha = 0.06; strokeAlpha = 0.2; labelOpacity = 0.3;
-      } else {
-        fillAlpha = 0.04; strokeAlpha = 0.12; labelOpacity = 0;
-      }
+      // Smooth interpolation of hull/label visibility across zoom levels
+      const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * clamp(t, 0, 1);
+      // t1: 0 at zoom=0.4, 1 at zoom=0.7 — transition from "zoomed-out" to "mid"
+      const t1 = clamp((globalScale - 0.4) / 0.3, 0, 1);
+      // t2: 0 at zoom=1.2, 1 at zoom=1.8 — transition from "mid" to "zoomed-in"
+      const t2 = clamp((globalScale - 1.2) / 0.6, 0, 1);
+      const fillAlpha   = lerp(lerp(0.18, 0.06, t1), 0.04, t2);
+      const strokeAlpha = lerp(lerp(0.40, 0.20, t1), 0.12, t2);
+      const labelOpacity = lerp(lerp(1.0, 0.3, t1), 0.0, t2);
 
       drawHull(
         ctx, hull,
