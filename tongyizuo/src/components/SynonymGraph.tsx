@@ -483,8 +483,8 @@ export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], a
           const lineH = 15;
           const tw = Math.max(...lines.map(l => l.length)) * 7 + 20;
           const th = lines.length * lineH + 14;
-          const tx = tooltip.x;
-          const ty = tooltip.y - nodeR - th - 6;
+          const tx = Math.max(tw / 2 + 6, Math.min(svgW - tw / 2 - 6, tooltip.x));
+          const ty = Math.max(8, tooltip.y - nodeR - th - 6);
           return (
             <g style={{ pointerEvents: 'none' }}>
               <rect x={tx - tw / 2} y={ty} width={tw} height={th} rx={6}
