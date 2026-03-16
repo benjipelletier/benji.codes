@@ -6,11 +6,23 @@ import dynamic from 'next/dynamic';
 
 const GalaxyGraph = dynamic(() => import('../components/GalaxyGraph'), { ssr: false });
 
+const HISTORY_KEY = 'tongyizuo:history';
+function loadHistory(): string[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch { return []; }
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const [history, setHistory] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   // Press '/' anywhere to focus search
   useEffect(() => {
@@ -47,22 +59,37 @@ export default function HomePage() {
       <div style={s.topBar}>
         <span className="zh" style={s.title}>同义词星图</span>
 
-        <form onSubmit={handleSubmit} style={s.form}>
-          <div style={s.inputWrap}>
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => { setInput(e.target.value); setError(''); }}
-              placeholder="探索词语..."
-              style={s.input}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <button type="submit" style={s.btn}>→</button>
-          </div>
-          {error && <p style={s.error}>{error}</p>}
-        </form>
+        <div style={s.right}>
+          {history.length > 0 && (
+            <div style={s.historyRow}>
+              {history.slice(0, 8).map((w) => (
+                <button
+                  key={w}
+                  style={s.historyPill}
+                  onClick={() => router.push(`/cluster/${encodeURIComponent(w)}`)}
+                >
+                  <span className="zh">{w}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <form onSubmit={handleSubmit} style={s.form}>
+            <div style={s.inputWrap}>
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => { setInput(e.target.value); setError(''); }}
+                placeholder="探索词语..."
+                style={s.input}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button type="submit" style={s.btn}>→</button>
+            </div>
+            {error && <p style={s.error}>{error}</p>}
+          </form>
+        </div>
       </div>
     </>
   );
@@ -76,10 +103,10 @@ const s: Record<string, React.CSSProperties> = {
     right: 0,
     zIndex: 10,
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     padding: '14px 24px',
-    background: 'linear-gradient(to bottom, rgba(10,8,6,0.85) 0%, rgba(10,8,6,0) 100%)',
+    background: 'linear-gradient(to bottom, rgba(10,8,6,0.88) 0%, rgba(10,8,6,0) 100%)',
   },
   title: {
     fontSize: '22px',
@@ -87,6 +114,34 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: '0.05em',
     textShadow: '0 0 20px rgba(217,164,65,0.4)',
     flexShrink: 0,
+    paddingTop: '2px',
+  },
+  right: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '8px',
+  },
+  historyRow: {
+    display: 'flex',
+    gap: '6px',
+    alignItems: 'center',
+    flexWrap: 'wrap' as const,
+    justifyContent: 'flex-end',
+  },
+  historyPill: {
+    background: 'rgba(10,8,6,0.6)',
+    border: '1px solid rgba(217,164,65,0.2)',
+    borderRadius: '16px',
+    padding: '2px 10px',
+    fontSize: '15px',
+    fontFamily: 'Noto Serif SC, serif',
+    fontWeight: 900,
+    color: 'rgba(217,164,65,0.55)',
+    cursor: 'pointer',
+    backdropFilter: 'blur(8px)',
+    transition: 'color 0.15s, border-color 0.15s',
+    lineHeight: 1.5,
   },
   form: {
     display: 'flex',

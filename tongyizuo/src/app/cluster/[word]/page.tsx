@@ -605,11 +605,8 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "'JetBrains Mono', monospace",
     margin: '4px 0 0 0',
     letterSpacing: '0.03em',
-    lineHeight: 1.4,
-    maxWidth: '220px',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
+    lineHeight: 1.6,
+    maxWidth: '240px',
   },
   clusterList: {
     display: 'flex',
