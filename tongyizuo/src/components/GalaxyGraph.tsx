@@ -9,6 +9,7 @@ import { forceCluster } from './galaxy/forceCluster';
 import { computeHull, drawHull, drawClusterLabel } from './galaxy/hull';
 import { useGalaxyData } from './galaxy/useGalaxyData';
 import { InfoCard } from './galaxy/InfoCard';
+import { shortGloss } from './SynonymGraph';
 import type { GraphNode, GraphLink, ClusterMeta } from './galaxy/types';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false });
@@ -294,6 +295,18 @@ export default function GalaxyGraph() {
       ctx.font = `300 ${pSize}px 'JetBrains Mono', monospace`;
       ctx.fillStyle = `rgba(232,213,176,${alpha * 0.5})`;
       ctx.fillText(node.pinyin, x, y + r + pSize * 0.9);
+
+      // Short gloss at very high zoom
+      if (globalScale >= 2.8 && node.raw_glosses?.length > 0) {
+        const gloss = shortGloss(node.raw_glosses[0]);
+        if (gloss) {
+          const gSize = r * 0.38;
+          ctx.font = `300 ${gSize}px 'JetBrains Mono', monospace`;
+          const glossAlpha = Math.min(1, (globalScale - 2.8) / 0.4);
+          ctx.fillStyle = `rgba(232,213,176,${alpha * 0.35 * glossAlpha})`;
+          ctx.fillText(gloss, x, y + r + pSize * 0.9 + gSize * 1.4);
+        }
+      }
     }
   }, []);
 
