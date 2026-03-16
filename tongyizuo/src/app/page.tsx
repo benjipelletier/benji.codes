@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 const GalaxyGraph = dynamic(() => import('../components/GalaxyGraph'), { ssr: false });
 
 const HISTORY_KEY = 'tongyizuo:history';
+const STARTERS = ['看','说','走','想','好','知道','觉得','认为'];
 function loadHistory(): string[] {
   if (typeof window === 'undefined') return [];
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
@@ -60,19 +61,17 @@ export default function HomePage() {
         <span className="zh" style={s.title}>同义词星图</span>
 
         <div style={s.right}>
-          {history.length > 0 && (
-            <div style={s.historyRow}>
-              {history.slice(0, 8).map((w) => (
-                <button
-                  key={w}
-                  style={s.historyPill}
-                  onClick={() => router.push(`/cluster/${encodeURIComponent(w)}`)}
-                >
-                  <span className="zh">{w}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <div style={s.historyRow}>
+            {(history.length > 0 ? history.slice(0, 8) : STARTERS).map((w) => (
+              <button
+                key={w}
+                style={s.historyPill}
+                onClick={() => router.push(`/cluster/${encodeURIComponent(w)}`)}
+              >
+                <span className="zh">{w}</span>
+              </button>
+            ))}
+          </div>
           <form onSubmit={handleSubmit} style={s.form}>
             <div style={s.inputWrap}>
               <input

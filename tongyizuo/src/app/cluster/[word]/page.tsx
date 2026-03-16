@@ -613,6 +613,9 @@ const s: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '6px',
     marginTop: '10px',
+    maxHeight: '280px',
+    overflowY: 'auto' as const,
+    scrollbarWidth: 'none' as const,
   },
   clusterRow: {
     display: 'flex',
