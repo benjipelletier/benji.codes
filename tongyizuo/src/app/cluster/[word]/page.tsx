@@ -439,7 +439,14 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
               <div className="mode-enter" style={s.challengeWrap}>
                 {/* Compact inline header — no absolute positioning in challenge mode */}
                 <header style={s.challengeHeader}>
-                  <span className="zh" style={s.challengeChar}>{simplified}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
+                    <span className="zh" style={s.challengeChar}>{simplified}</span>
+                    {data.word.pinyin_display && (
+                      <span style={{ fontSize: '13px', color: toneColor(data.word.pinyin_display), fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.06em' }}>
+                        {data.word.pinyin_display}
+                      </span>
+                    )}
+                  </div>
                   <div style={{ ...s.clusterList, maxHeight: 'none', flexDirection: 'row' as const, flexWrap: 'wrap' as const }}>
                     {data.clusters.map((cl, i) => {
                       const color = WORD_COLORS[i % WORD_COLORS.length];
