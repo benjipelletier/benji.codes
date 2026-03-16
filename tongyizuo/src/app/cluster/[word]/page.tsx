@@ -149,6 +149,31 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                     activeClusterIdx={activeClusterIdx}
                   />
                 </div>
+
+                {/* Collocation strip — appears when a cluster is selected */}
+                {activeClusterIdx !== null && (() => {
+                  const cl = data.clusters[activeClusterIdx];
+                  const color = WORD_COLORS[activeClusterIdx % WORD_COLORS.length];
+                  const colls = cl.members
+                    .flatMap(m => (m.collocations ?? []).map(c => ({ ...c, word: m.simplified })))
+                    .sort((a, b) => b.weight - a.weight)
+                    .filter((c, i, arr) => arr.findIndex(x => x.collocation === c.collocation) === i)
+                    .slice(0, 12);
+                  if (!colls.length) return null;
+                  return (
+                    <div style={{ ...s.collStrip, borderTopColor: `${color}22` }}>
+                      <span style={{ ...s.collLabel, color: `${color}66` }}>collocations</span>
+                      <div style={s.collItems}>
+                        {colls.map((c, i) => (
+                          <div key={i} style={s.collItem}>
+                            <span className="zh" style={{ ...s.collZh, color }}>{c.collocation}</span>
+                            {c.gloss && <span style={s.collGloss}>{c.gloss}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -397,6 +422,57 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
     maxWidth: '560px',
     fontStyle: 'italic',
+  },
+  collStrip: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '10px 24px 12px',
+    background: 'linear-gradient(to top, rgba(10,8,6,0.92) 60%, transparent)',
+    borderTop: '1px solid transparent',
+  },
+  collLabel: {
+    fontSize: '9px',
+    fontFamily: "'JetBrains Mono', monospace",
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase' as const,
+    flexShrink: 0,
+  },
+  collItems: {
+    display: 'flex',
+    gap: '10px',
+    overflowX: 'auto' as const,
+    scrollbarWidth: 'none' as const,
+  },
+  collItem: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '2px',
+    flexShrink: 0,
+    padding: '4px 8px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '6px',
+  },
+  collZh: {
+    fontSize: '16px',
+    lineHeight: 1,
+  },
+  collGloss: {
+    fontSize: '9px',
+    color: 'rgba(232,213,176,0.35)',
+    fontFamily: "'JetBrains Mono', monospace",
+    letterSpacing: '0.04em',
+    textAlign: 'center' as const,
+    maxWidth: '70px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
   },
 };
 
