@@ -48,7 +48,11 @@ export default function HomePage() {
       return;
     }
     setError('');
-    router.push(`/cluster/${encodeURIComponent(word)}`);
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as any).startViewTransition(() => router.push(`/cluster/${encodeURIComponent(word)}`));
+    } else {
+      router.push(`/cluster/${encodeURIComponent(word)}`);
+    }
   }
 
   return (
@@ -73,7 +77,13 @@ export default function HomePage() {
                   borderColor: hoveredPill === w ? 'rgba(217,164,65,0.45)' : 'rgba(217,164,65,0.2)',
                   background: hoveredPill === w ? 'rgba(217,164,65,0.1)' : 'rgba(10,8,6,0.6)',
                 }}
-                onClick={() => router.push(`/cluster/${encodeURIComponent(w)}`)}
+                onClick={() => {
+                  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+                    (document as any).startViewTransition(() => router.push(`/cluster/${encodeURIComponent(w)}`));
+                  } else {
+                    router.push(`/cluster/${encodeURIComponent(w)}`);
+                  }
+                }}
                 onMouseEnter={() => setHoveredPill(w)}
                 onMouseLeave={() => setHoveredPill(null)}
               >
