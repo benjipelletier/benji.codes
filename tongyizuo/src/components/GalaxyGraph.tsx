@@ -127,15 +127,20 @@ export default function GalaxyGraph() {
     const metas = clusterMetasRef.current;
     const nodes = graphDataRef.current.nodes;
 
-    // Draw static star-field in screen space
+    // Draw twinkling star-field in screen space
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const cw = (ctx.canvas as HTMLCanvasElement).width;
     const ch = (ctx.canvas as HTMLCanvasElement).height;
+    const t = Date.now() / 1000;
     for (const s of STARS) {
+      // Each star twinkles at its own pace using its position as phase offset
+      const phase = (s.x * 17.3 + s.y * 11.7) % (2 * Math.PI);
+      const osc = 0.5 + 0.5 * Math.sin(t * (0.4 + s.a * 1.5) + phase);
+      const alpha = s.a * (0.35 + 0.65 * osc);
       ctx.beginPath();
       ctx.arc(s.x * cw, s.y * ch, s.r, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgba(232,213,176,${s.a})`;
+      ctx.fillStyle = `rgba(232,213,176,${alpha})`;
       ctx.fill();
     }
     ctx.restore();
