@@ -99,60 +99,29 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
             {/* Word header */}
             <header style={s.wordHeader}>
               <span className="zh" style={s.wordDisplay}>{simplified}</span>
-              {/* Cluster selector pills */}
-              <div style={s.clusterPills}>
+              {/* Cluster list — vertical, one per cluster */}
+              <div style={s.clusterList}>
                 {data.clusters.map((cl, i) => {
                   const color = WORD_COLORS[i % WORD_COLORS.length];
                   const isActive = activeClusterIdx === i;
-                  const isDimmed = activeClusterIdx !== null && !isActive;
                   return (
                     <button
                       key={cl.id}
                       style={{
-                        ...s.clusterPill,
-                        color: isActive ? color : `${color}99`,
-                        borderColor: isActive ? `${color}88` : `${color}33`,
-                        background: isActive ? `${color}18` : 'transparent',
-                        opacity: isDimmed ? 0.35 : 1,
+                        ...s.clusterRow,
+                        opacity: isActive ? 1 : 0.22,
+                        color: isActive ? color : `${color}cc`,
                       }}
                       onClick={() => setActiveClusterIdx(prev => prev === i ? null : i)}
                     >
-                      {cl.label}
-                      <span style={{ ...s.clusterPillCount, color: `${color}66` }}>
-                        {cl.members.length}
+                      <span style={s.clusterRowLabel}>{cl.label}</span>
+                      <span style={{ ...s.clusterRowCount, color: isActive ? `${color}88` : `${color}44` }}>
+                        {cl.members.length - 1}
                       </span>
                     </button>
                   );
                 })}
               </div>
-              {/* Definitions row: active cluster label at full opacity, others dimmed */}
-              {(data.word as any).raw_glosses?.length > 0 && (() => {
-                const activeLabel = activeClusterIdx !== null
-                  ? data.clusters[activeClusterIdx]?.label
-                  : null;
-                const highlightLabel = activeLabel ?? primaryCluster.label;
-                const processed = ((data.word as any).raw_glosses as string[])
-                  .map(shortGloss)
-                  .filter(Boolean)
-                  .filter((g: string, i: number, arr: string[]) => arr.indexOf(g) === i)
-                  .slice(0, 10);
-                return (
-                  <div style={s.glossRow}>
-                    {processed.map((g, i) => (
-                      <span key={i} style={{
-                        ...s.glossPill,
-                        opacity: g === highlightLabel ? 1 : 0.28,
-                        fontWeight: g === highlightLabel ? 500 : 300,
-                        border: g === highlightLabel
-                          ? '1px solid rgba(217,164,65,0.4)'
-                          : '1px solid rgba(217,164,65,0.12)',
-                      }}>
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
               {data.word.core_scene && (
                 <p style={s.coreScene}>{data.word.core_scene}</p>
               )}
@@ -311,22 +280,32 @@ const s: Record<string, React.CSSProperties> = {
     textShadow: '0 0 40px rgba(217,164,65,0.3)',
     lineHeight: 1,
   },
-  wordMeta: {
+  clusterList: {
     display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
+    flexDirection: 'column',
+    gap: '2px',
+    marginTop: '8px',
   },
-  clusterLabel: {
+  clusterRow: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '8px',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '3px 0',
+    textAlign: 'left',
+    fontFamily: 'inherit',
+    transition: 'opacity 0.2s',
+  },
+  clusterRowLabel: {
     fontSize: '13px',
-    color: 'rgba(232,213,176,0.6)',
-    background: 'rgba(217,164,65,0.1)',
-    border: '1px solid rgba(217,164,65,0.2)',
-    borderRadius: '4px',
-    padding: '2px 8px',
+    fontFamily: "'JetBrains Mono', monospace",
+    letterSpacing: '0.04em',
   },
-  memberCount: {
-    fontSize: '12px',
-    color: 'rgba(232,213,176,0.35)',
+  clusterRowCount: {
+    fontSize: '11px',
+    fontFamily: "'JetBrains Mono', monospace",
   },
   coreScene: {
     fontSize: '14px',
@@ -334,45 +313,6 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
     maxWidth: '560px',
     fontStyle: 'italic',
-  },
-  clusterPills: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-    marginTop: '4px',
-  },
-  clusterPill: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    padding: '4px 12px',
-    borderRadius: '20px',
-    border: '1px solid',
-    fontSize: '12px',
-    fontFamily: "'JetBrains Mono', monospace",
-    letterSpacing: '0.06em',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    background: 'transparent',
-  },
-  clusterPillCount: {
-    fontSize: '10px',
-    fontFamily: "'JetBrains Mono', monospace",
-  },
-  glossRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
-    marginTop: '2px',
-  },
-  glossPill: {
-    fontSize: '12px',
-    color: '#d9a441',
-    fontFamily: "'JetBrains Mono', monospace",
-    background: 'rgba(217,164,65,0.06)',
-    borderRadius: '4px',
-    padding: '2px 8px',
-    letterSpacing: '0.03em',
   },
 };
 

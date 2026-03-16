@@ -148,15 +148,14 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
     });
   }, [selectedInfo, layouts]);
 
-  // Outer gloss ring: other definitions of each member, fanning outward
+  // Outer gloss ring: other definitions — only shown for the selected node
   const outerRing = useMemo(() => layouts.flatMap(({ cluster, members, memberPositions, cc }, ci) => {
     const color = WORD_COLORS[ci % WORD_COLORS.length];
-    const clusterDimmedOuter = activeClusterIdx !== null && activeClusterIdx !== ci;
     return members.flatMap((member, mi) => {
-      const pos = memberPositions[mi];
       const isSelected = selectedSimplified === member.simplified;
-      const isDimmed = selectedSimplified !== null && !isSelected;
-      const opacity = clusterDimmedOuter ? 0.06 : isDimmed ? 0.08 : isSelected ? 0.82 : 0.35;
+      if (!isSelected) return [];
+      const pos = memberPositions[mi];
+      const opacity = 0.82;
 
       const outward = (() => {
         const dx = pos.x - cc.x, dy = pos.y - cc.y;
