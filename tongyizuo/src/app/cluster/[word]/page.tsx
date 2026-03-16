@@ -334,14 +334,23 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                     <span style={{ ...s.wordPinyin, color: toneColor(data.word.pinyin_display) }}>{data.word.pinyin_display}</span>
                   )}
                   {data.word.raw_glosses.length > 0 && (
-                    <p style={s.wordGlosses}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px', marginTop: '4px' }}>
                       {data.word.raw_glosses
                         .map(g => shortGloss(g))
                         .filter(Boolean)
                         .filter((g, i, a) => a.indexOf(g) === i)
                         .slice(0, 3)
-                        .join('  ·  ')}
-                    </p>
+                        .map((g, i) => (
+                          <span key={i} style={{
+                            fontSize: '10px', color: 'rgba(232,213,176,0.55)',
+                            background: 'rgba(232,213,176,0.05)',
+                            border: '1px solid rgba(232,213,176,0.1)',
+                            borderRadius: '3px', padding: '2px 7px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            display: 'inline-block',
+                          }}>{g}</span>
+                        ))}
+                    </div>
                   )}
                   <div style={s.clusterList}>
                     {data.clusters.map((cl, i) => {

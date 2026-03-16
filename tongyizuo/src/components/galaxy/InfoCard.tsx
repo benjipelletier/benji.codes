@@ -59,7 +59,21 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glo
       )}
       <span className="zh" style={s.char}>{simplified}</span>
       <span style={{ ...s.pinyin, color: toneColor(pinyin) }}>{pinyin}</span>
-      {glossLine && <span style={s.glosses}>{glossLine}</span>}
+      {glossLine && (
+        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px', marginTop: '3px' }}>
+          {raw_glosses.map(g => shortGloss(g)).filter(Boolean)
+            .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).map((g, i) => (
+            <span key={i} style={{
+              fontSize: '10px', color: 'rgba(232,213,176,0.65)',
+              background: 'rgba(232,213,176,0.06)',
+              border: '1px solid rgba(232,213,176,0.12)',
+              borderRadius: '3px', padding: '2px 7px',
+              fontFamily: "'JetBrains Mono', monospace",
+              display: 'inline-block',
+            }}>{g}</span>
+          ))}
+        </div>
+      )}
       <span style={s.cluster}>{clusterLabel}</span>
       {core_scene && <p style={s.scene}>{core_scene}</p>}
       <button

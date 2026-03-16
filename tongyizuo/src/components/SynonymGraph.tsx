@@ -227,12 +227,21 @@ export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], f
           {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {peek.member.raw_glosses.length > 0 && (
-              <p style={{ fontSize: '13px', color: 'rgba(232,213,176,0.65)', fontFamily: "'JetBrains Mono', monospace", margin: '0 0 8px 0', lineHeight: 1.6 }}>
-                {peek.member.raw_glosses.map(g => shortGloss(g)).filter(Boolean).filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).join('  ·  ')}
-              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px', margin: '0 0 8px 0' }}>
+                {peek.member.raw_glosses.map(g => shortGloss(g)).filter(Boolean)
+                  .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).map((g, i) => (
+                  <span key={i} style={{
+                    fontSize: '11px', color: 'rgba(232,213,176,0.7)',
+                    background: `${peek.color}0d`,
+                    border: `1px solid ${peek.color}22`,
+                    borderRadius: '3px', padding: '2px 8px',
+                    fontFamily: "'JetBrains Mono', monospace",
+                  }}>{g}</span>
+                ))}
+              </div>
             )}
             {peek.member.core_scene && (
-              <p style={{ fontSize: '12px', color: 'rgba(232,213,176,0.35)', fontStyle: 'italic', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '12px', color: 'rgba(232,213,176,0.35)', fontStyle: 'italic', margin: '0 0 10px 0', lineHeight: 1.5, borderLeft: `2px solid ${peek.color}22`, paddingLeft: '8px' }}>
                 {peek.member.core_scene}
               </p>
             )}
