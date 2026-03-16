@@ -58,6 +58,8 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
   useEffect(() => {
     addToHistory(simplified);
     setHistory(loadHistory());
+    document.title = `${simplified} · 同义词星图`;
+    return () => { document.title = '同义词星图 — Synonym Cluster Graph'; };
   }, [simplified]);
 
   useEffect(() => {
