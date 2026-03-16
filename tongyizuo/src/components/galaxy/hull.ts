@@ -43,8 +43,8 @@ export function computeHull(points: Point[], pad: number): Point[] | null {
 }
 
 /**
- * Draw a convex hull on a canvas context with rounded appearance.
- * hullPoints must have >= 3 entries.
+ * Draw a convex hull on a canvas context with smooth blob appearance.
+ * Uses quadratic bezier curves through edge midpoints for organic roundness.
  */
 export function drawHull(
   ctx: CanvasRenderingContext2D,
@@ -53,11 +53,26 @@ export function drawHull(
   strokeStyle: string,
   lineWidth: number,
 ): void {
-  if (hullPoints.length < 2) return;
+  const n = hullPoints.length;
+  if (n < 2) return;
+
   ctx.beginPath();
-  ctx.moveTo(hullPoints[0].x, hullPoints[0].y);
-  for (let i = 1; i < hullPoints.length; i++) {
-    ctx.lineTo(hullPoints[i].x, hullPoints[i].y);
+  if (n === 2) {
+    ctx.moveTo(hullPoints[0].x, hullPoints[0].y);
+    ctx.lineTo(hullPoints[1].x, hullPoints[1].y);
+  } else {
+    // Smooth blob: draw through midpoints using hull vertices as control points
+    const mid = (i: number, j: number) => ({
+      x: (hullPoints[i].x + hullPoints[j].x) / 2,
+      y: (hullPoints[i].y + hullPoints[j].y) / 2,
+    });
+    const m0 = mid(n - 1, 0);
+    ctx.moveTo(m0.x, m0.y);
+    for (let i = 0; i < n; i++) {
+      const next = (i + 1) % n;
+      const mn = mid(i, next);
+      ctx.quadraticCurveTo(hullPoints[i].x, hullPoints[i].y, mn.x, mn.y);
+    }
   }
   ctx.closePath();
   ctx.fillStyle = fillStyle;
