@@ -28,6 +28,18 @@ interface Props {
 
 const MAX_MEMBERS = 7;
 
+const TONE_COLORS: Record<string, string> = {
+  '1': '#d94141',  // 1st tone — rose
+  '2': '#d97841',  // 2nd tone — orange
+  '3': '#41d972',  // 3rd tone — green
+  '4': '#41b8d9',  // 4th tone — cyan
+};
+
+export function toneColor(pinyin: string): string {
+  const m = pinyin.match(/[1-4]/);
+  return m ? (TONE_COLORS[m[0]] ?? 'rgba(232,213,176,0.4)') : 'rgba(232,213,176,0.35)';
+}
+
 export function shortGloss(raw: string): string {
   let g = raw.trim();
   for (const sep of ['/', ';', '(']) {
@@ -321,7 +333,8 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                         {member.simplified}
                       </text>
                       <text y={nodeR + 12} textAnchor="middle" dominantBaseline="middle"
-                        fontSize={9} fill="rgba(232,213,176,0.4)"
+                        fontSize={9}
+                        fill={toneColor(member.pinyin_display ?? member.pinyin)}
                         style={{ fontFamily: 'inherit' }}>
                         {member.pinyin_display ?? member.pinyin}
                       </text>
