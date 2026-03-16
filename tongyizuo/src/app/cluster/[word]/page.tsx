@@ -83,9 +83,9 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
       <main style={s.main}>
         {loading && (
           <div style={s.loading}>
-            <div style={s.spinner} />
-            <p style={s.loadingText}>Building cluster for <span className="zh" style={s.loadingWord}>{simplified}</span>...</p>
-            <p style={s.loadingHint}>Analyzing CC-CEDICT + enriching with AI — this takes 5–10s on first visit</p>
+            <span className="zh" style={s.loadingChar}>{simplified}</span>
+            <p style={s.loadingText}>mapping the constellation…</p>
+            <p style={s.loadingHint}>first visit takes 5–10s</p>
           </div>
         )}
 
@@ -274,6 +274,8 @@ const s: Record<string, React.CSSProperties> = {
     flex: 1,
     position: 'relative',
     overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   },
   exploreWrap: {
     position: 'absolute',
@@ -297,31 +299,30 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '16px',
-    marginTop: '80px',
+    justifyContent: 'center',
+    gap: '20px',
+    height: '100%',
   },
-  spinner: {
-    width: '32px',
-    height: '32px',
-    border: '2px solid rgba(217,164,65,0.15)',
-    borderTop: '2px solid #d9a441',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
+  loadingChar: {
+    fontSize: '96px',
+    color: '#d9a441',
+    textShadow: '0 0 60px rgba(217,164,65,0.35)',
+    animation: 'pulse 2s ease-in-out infinite',
+    lineHeight: 1,
   },
   loadingText: {
-    fontSize: '15px',
-    color: 'rgba(232,213,176,0.7)',
-  },
-  loadingWord: {
-    color: '#d9a441',
-    fontSize: '18px',
+    fontSize: '13px',
+    color: 'rgba(232,213,176,0.4)',
+    fontFamily: "'JetBrains Mono', monospace",
+    letterSpacing: '0.12em',
+    margin: 0,
   },
   loadingHint: {
-    fontSize: '12px',
-    color: 'rgba(232,213,176,0.3)',
-    textAlign: 'center',
-    maxWidth: '320px',
-    lineHeight: 1.5,
+    fontSize: '11px',
+    color: 'rgba(232,213,176,0.2)',
+    fontFamily: "'JetBrains Mono', monospace",
+    letterSpacing: '0.08em',
+    margin: 0,
   },
   errorBox: {
     display: 'flex',
@@ -476,9 +477,15 @@ const s: Record<string, React.CSSProperties> = {
   },
 };
 
-// Inject spinner animation
+// Inject animations
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
-  style.textContent = `@keyframes spin { to { transform: rotate(360deg); } }`;
+  style.textContent = `
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.7; text-shadow: 0 0 40px rgba(217,164,65,0.2); }
+      50% { opacity: 1; text-shadow: 0 0 80px rgba(217,164,65,0.55); }
+    }
+  `;
   document.head.appendChild(style);
 }
