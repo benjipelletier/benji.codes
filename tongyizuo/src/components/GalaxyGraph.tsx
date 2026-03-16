@@ -25,6 +25,7 @@ export default function GalaxyGraph() {
   const clusterMetasRef = useRef<ClusterMeta[]>([]);
   const graphDataRef = useRef(graphData);
   const selectedNodeIdRef = useRef<string | null>(null);
+  const hoveredNodeIdRef = useRef<string | null>(null);
   const loadMoreRef = useRef(loadMore);
   const hasMoreRef = useRef(hasMore);
   const loadingMoreRef = useRef(false);
@@ -77,6 +78,7 @@ export default function GalaxyGraph() {
     if (typeof document !== 'undefined') {
       document.body.style.cursor = node ? 'pointer' : 'default';
     }
+    hoveredNodeIdRef.current = node?.id ?? null;
   }, []);
 
   // Hull + viewport-load-trigger drawn before nodes
@@ -218,6 +220,15 @@ export default function GalaxyGraph() {
     ctx.strokeStyle = `hsla(${hue}, 55%, 65%, ${alpha})`;
     ctx.lineWidth = r * 0.08;
     ctx.stroke();
+
+    // Hover ring
+    if (hoveredNodeIdRef.current === node.id && !isSelected) {
+      ctx.beginPath();
+      ctx.arc(x, y, r + 4, 0, 2 * Math.PI);
+      ctx.strokeStyle = `hsla(${hue}, 65%, 70%, 0.5)`;
+      ctx.lineWidth = 1 / globalScale;
+      ctx.stroke();
+    }
 
     // Selection ring
     if (isSelected) {
