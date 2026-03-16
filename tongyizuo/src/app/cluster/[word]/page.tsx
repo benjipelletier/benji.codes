@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ClusterResponse } from '../../../../lib/types';
-import SynonymGraph, { shortGloss } from '../../../components/SynonymGraph';
+import SynonymGraph from '../../../components/SynonymGraph';
 import ChallengeMode from '../../../components/ChallengeMode';
 import { WORD_COLORS } from '../../../components/WordNode';
 
