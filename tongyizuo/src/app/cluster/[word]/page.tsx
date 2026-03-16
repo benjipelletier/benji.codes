@@ -303,9 +303,10 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
 
             {mode === 'challenge' && (
               <div style={s.challengeWrap}>
-                <header style={s.wordHeader}>
-                  <span className="zh" style={s.wordDisplay}>{simplified}</span>
-                  <div style={s.clusterList}>
+                {/* Compact inline header — no absolute positioning in challenge mode */}
+                <header style={s.challengeHeader}>
+                  <span className="zh" style={s.challengeChar}>{simplified}</span>
+                  <div style={{ ...s.clusterList, maxHeight: 'none', flexDirection: 'row' as const, flexWrap: 'wrap' as const }}>
                     {data.clusters.map((cl, i) => {
                       const color = WORD_COLORS[i % WORD_COLORS.length];
                       const isActive = activeClusterIdx === i;
@@ -516,6 +517,21 @@ const s: Record<string, React.CSSProperties> = {
     maxWidth: '900px',
     margin: '0 auto',
     width: '100%',
+    overflowY: 'auto' as const,
+  },
+  challengeHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    marginBottom: '28px',
+    flexWrap: 'wrap' as const,
+  },
+  challengeChar: {
+    fontSize: '48px',
+    color: '#d9a441',
+    textShadow: '0 0 30px rgba(217,164,65,0.3)',
+    lineHeight: 1,
+    flexShrink: 0,
   },
   loading: {
     display: 'flex',
