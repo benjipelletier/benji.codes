@@ -25,6 +25,14 @@ function addToHistory(word: string) {
   } catch { /* ignore */ }
 }
 
+function navigate(router: ReturnType<typeof useRouter>, url: string) {
+  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+    (document as any).startViewTransition(() => router.push(url));
+  } else {
+    router.push(url);
+  }
+}
+
 export default function ClusterPage({ params }: { params: Promise<{ word: string }> }) {
   const { word } = use(params);
   const simplified = decodeURIComponent(word);
@@ -55,7 +63,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
     if (!w || !/[\u4e00-\u9fff]/.test(w)) return;
     setNavSearch('');
     setNavOpen(false);
-    router.push(`/cluster/${encodeURIComponent(w)}`);
+    navigate(router, `/cluster/${encodeURIComponent(w)}`);
   }
 
   useEffect(() => {
@@ -121,7 +129,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
             style={{ ...s.backBtn, color: backHover ? 'rgba(217,164,65,0.85)' : 'rgba(217,164,65,0.55)' }}
             onClick={() => {
               if (window.history.length > 1) router.back();
-              else router.push('/');
+              else navigate(router, '/');
             }}
             onMouseEnter={() => setBackHover(true)}
             onMouseLeave={() => setBackHover(false)}
@@ -133,7 +141,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
               <span style={s.breadcrumbSep}>/</span>
               <button
                 style={{ ...s.breadcrumbFrom, color: fromHover ? 'rgba(217,164,65,0.8)' : 'rgba(217,164,65,0.5)' }}
-                onClick={() => router.push(`/cluster/${encodeURIComponent(fromWord)}`)}
+                onClick={() => navigate(router, `/cluster/${encodeURIComponent(fromWord)}`)}
                 onMouseEnter={() => setFromHover(true)}
                 onMouseLeave={() => setFromHover(false)}
               >
@@ -217,7 +225,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                     cursor: isCurrent ? 'default' : 'pointer',
                   }}
                   onClick={() => {
-                    if (!isCurrent) router.push(`/cluster/${encodeURIComponent(w)}?from=${encodeURIComponent(simplified)}`);
+                    if (!isCurrent) navigate(router, `/cluster/${encodeURIComponent(w)}?from=${encodeURIComponent(simplified)}`);
                   }}
                 >
                   <span className="zh">{w}</span>
@@ -246,7 +254,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
             <p style={s.errorMsg}>{error}</p>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button style={s.retryBtn} onClick={() => setRetryCount(c => c + 1)}>↺ Try again</button>
-              <button style={{ ...s.retryBtn, color: 'rgba(232,213,176,0.4)', borderColor: 'rgba(217,164,65,0.15)' }} onClick={() => router.push('/')}>← Back to search</button>
+              <button style={{ ...s.retryBtn, color: 'rgba(232,213,176,0.4)', borderColor: 'rgba(217,164,65,0.15)' }} onClick={() => navigate(router, '/')}>← Back to search</button>
             </div>
           </div>
         )}
@@ -347,7 +355,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                                 transform: isHovered ? 'translateY(-1px)' : 'none',
                                 transition: 'background 0.15s, transform 0.15s',
                               }}
-                              onClick={() => isChinese && router.push(`/cluster/${encodeURIComponent(c.collocation)}?from=${encodeURIComponent(simplified)}`)}
+                              onClick={() => isChinese && navigate(router, `/cluster/${encodeURIComponent(c.collocation)}?from=${encodeURIComponent(simplified)}`)}
                               onMouseEnter={() => isChinese && setHoveredCollIdx(i)}
                               onMouseLeave={() => setHoveredCollIdx(null)}
                             >
