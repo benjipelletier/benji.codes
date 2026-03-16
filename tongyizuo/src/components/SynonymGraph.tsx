@@ -24,6 +24,7 @@ interface Props {
   clusters: ClusterData[];
   focusWord: string;
   focusGlosses?: string[];
+  focusPinyin?: string;
   activeClusterIdx?: number | null;
 }
 
@@ -66,7 +67,7 @@ interface PeekState {
   color: string;
 }
 
-export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], activeClusterIdx = null }: Props) {
+export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], focusPinyin, activeClusterIdx = null }: Props) {
   const router = useRouter();
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -528,6 +529,14 @@ export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], a
                 fill="rgba(217,164,65,0.92)">
                 {focusWord}
               </text>
+              {focusPinyin && (
+                <text y={focusR + 11} textAnchor="middle" dominantBaseline="middle"
+                  fontSize={9}
+                  fill={toneColor(focusPinyin)}
+                  style={{ fontFamily: 'inherit' }}>
+                  {focusPinyin}
+                </text>
+              )}
             </g>
           );
         })()}

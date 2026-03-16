@@ -308,6 +308,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                     clusters={data.clusters}
                     focusWord={simplified}
                     focusGlosses={data.word.raw_glosses}
+                    focusPinyin={data.word.pinyin_display ?? undefined}
                     activeClusterIdx={activeClusterIdx}
                   />
                 </div>
