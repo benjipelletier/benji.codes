@@ -60,11 +60,17 @@ interface TooltipState {
   y: number;
 }
 
+interface PeekState {
+  member: import('../../lib/types').ClusterMember;
+  color: string;
+}
+
 export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = null }: Props) {
   const router = useRouter();
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [peek, setPeek] = useState<PeekState | null>(null);
   const [visited, setVisited] = useState<Set<string>>(new Set());
 
   useEffect(() => { setVisited(loadVisited()); }, []);
@@ -139,8 +145,7 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
     return { cluster, cc, members, memberPositions, crossEdges };
   }), [clusters, clusterCenters, focusWord]);
 
-  function navigateTo(word: string) {
-    if (clickedWord) return;
+  function doNavigate(word: string) {
     setClickedWord(word);
     markVisited(word);
     const url = `/cluster/${encodeURIComponent(word)}?from=${encodeURIComponent(focusWord)}`;
@@ -154,7 +159,78 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   }
 
   return (
-    <div style={s.wrap}>
+    <div style={s.wrap} onClick={e => { if (e.target === e.currentTarget) setPeek(null); }}>
+      {/* Peek card — slides up from bottom when a node is clicked */}
+      {peek && (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
+          background: 'rgba(10,8,6,0.97)',
+          borderTop: `1px solid ${peek.color}44`,
+          padding: '16px 24px 20px',
+          display: 'flex', gap: '20px', alignItems: 'flex-start',
+          animation: 'slideUp 0.2s ease-out',
+        }}>
+          {/* Close */}
+          <button onClick={() => setPeek(null)} style={{
+            position: 'absolute', top: '10px', right: '16px',
+            background: 'none', border: 'none', color: 'rgba(232,213,176,0.3)',
+            fontSize: '16px', cursor: 'pointer', fontFamily: 'inherit',
+          }}>✕</button>
+
+          {/* Character */}
+          <div style={{ flexShrink: 0 }}>
+            <div className="zh" style={{ fontSize: '56px', color: peek.color, lineHeight: 1, textShadow: `0 0 30px ${peek.color}44` }}>
+              {peek.member.simplified}
+            </div>
+            <div style={{ fontSize: '12px', color: toneColor(peek.member.pinyin_display ?? peek.member.pinyin), fontFamily: "'JetBrains Mono', monospace", marginTop: '4px' }}>
+              {peek.member.pinyin_display ?? peek.member.pinyin}
+            </div>
+            {peek.member.hsk_level && (
+              <div style={{ fontSize: '10px', color: `${peek.color}88`, fontFamily: "'JetBrains Mono', monospace", marginTop: '2px' }}>
+                HSK {peek.member.hsk_level}
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {peek.member.raw_glosses.length > 0 && (
+              <p style={{ fontSize: '13px', color: 'rgba(232,213,176,0.65)', fontFamily: "'JetBrains Mono', monospace", margin: '0 0 8px 0', lineHeight: 1.6 }}>
+                {peek.member.raw_glosses.slice(0, 3).map(g => shortGloss(g)).filter(Boolean).join('  ·  ')}
+              </p>
+            )}
+            {peek.member.core_scene && (
+              <p style={{ fontSize: '12px', color: 'rgba(232,213,176,0.35)', fontStyle: 'italic', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                {peek.member.core_scene}
+              </p>
+            )}
+            {(peek.member.collocations ?? []).length > 0 && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
+                {peek.member.collocations.slice(0, 5).map((c, i) => (
+                  <span key={i} style={{ fontSize: '13px', color: peek.color, fontFamily: 'Noto Serif SC, serif', background: `${peek.color}0d`, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${peek.color}33` }}>
+                    {c.collocation}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Explore CTA */}
+          <button
+            onClick={() => doNavigate(peek.member.simplified)}
+            style={{
+              flexShrink: 0, alignSelf: 'center',
+              background: `${peek.color}18`, border: `1px solid ${peek.color}55`,
+              borderRadius: '8px', padding: '10px 18px',
+              color: peek.color, fontSize: '13px', fontFamily: 'inherit',
+              cursor: 'pointer', letterSpacing: '0.06em',
+              transition: 'background 0.15s',
+            }}>
+            探索 →
+          </button>
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${svgW} ${svgH}`}
         preserveAspectRatio="xMidYMid meet"
@@ -290,6 +366,7 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
               {members.map((member, mi) => {
                 const pos = memberPositions[mi];
                 const isClicked = clickedWord === member.simplified;
+                const isPeeked = peek?.member.simplified === member.simplified;
                 const isVisited = visited.has(member.simplified);
                 const nodeDelay = clusterBaseDelay + mi * 30;
                 const fSize = member.simplified.length <= 1 ? nodeR * 0.88
@@ -302,8 +379,15 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                   .filter((g, i, a) => a.indexOf(g) === i);
                 return (
                   <g key={member.simplified}
-                    onClick={() => navigateTo(member.simplified)}
-                    onMouseEnter={() => setTooltip({ word: member.simplified, glosses: glossLines, x: pos.x, y: pos.y })}
+                    onClick={() => {
+                      setTooltip(null);
+                      if (peek?.member.simplified === member.simplified) {
+                        doNavigate(member.simplified);
+                      } else {
+                        setPeek({ member, color });
+                      }
+                    }}
+                    onMouseEnter={() => !peek && setTooltip({ word: member.simplified, glosses: glossLines, x: pos.x, y: pos.y })}
                     onMouseLeave={() => setTooltip(null)}
                     style={{
                       transform: mounted
@@ -321,9 +405,9 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                     </>}
                     <g className={isClicked ? 'node-clicked' : ''}>
                       <circle r={nodeR}
-                        fill={isClicked ? `${color}22` : isVisited ? `${color}18` : `${color}10`}
-                        stroke={color}
-                        strokeWidth={isClicked ? 2.2 : isVisited ? 1.8 : 1.4}
+                        fill={isClicked ? `${color}22` : isPeeked ? `${color}28` : isVisited ? `${color}18` : `${color}10`}
+                        stroke={isPeeked ? color : color}
+                        strokeWidth={isClicked ? 2.2 : isPeeked ? 2.5 : isVisited ? 1.8 : 1.4}
                         strokeDasharray={isVisited ? 'none' : 'none'}
                         opacity={isVisited ? 0.75 : 1}
                       />
@@ -415,5 +499,15 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
 }
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  wrap: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' },
 };
+
+if (typeof document !== 'undefined') {
+  const existing = document.getElementById('sg-anim');
+  if (!existing) {
+    const st = document.createElement('style');
+    st.id = 'sg-anim';
+    st.textContent = `@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`;
+    document.head.appendChild(st);
+  }
+}
