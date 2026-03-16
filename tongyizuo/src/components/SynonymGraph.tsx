@@ -26,10 +26,18 @@ export function shortGloss(raw: string): string {
   return g.length > 22 ? g.slice(0, 20) + '…' : g;
 }
 
+interface TooltipState {
+  word: string;
+  glosses: string[];
+  x: number;
+  y: number;
+}
+
 export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = null }: Props) {
   const router = useRouter();
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 40);
@@ -249,9 +257,16 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                 const fSize = member.simplified.length <= 1 ? nodeR * 0.88
                   : member.simplified.length === 2 ? nodeR * 0.68
                   : nodeR * 0.52;
+                const glossLines = (member.raw_glosses ?? [])
+                  .slice(0, 2)
+                  .map(g => shortGloss(g))
+                  .filter(Boolean)
+                  .filter((g, i, a) => a.indexOf(g) === i);
                 return (
                   <g key={member.simplified}
                     onClick={() => navigateTo(member.simplified)}
+                    onMouseEnter={() => setTooltip({ word: member.simplified, glosses: glossLines, x: pos.x, y: pos.y })}
+                    onMouseLeave={() => setTooltip(null)}
                     style={{
                       transform: mounted
                         ? `translate(${pos.x}px, ${pos.y}px)`
@@ -285,6 +300,32 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
             </g>
           );
         })}
+
+        {/* Hover tooltip — always on top */}
+        {tooltip && (() => {
+          const lines = tooltip.glosses;
+          if (!lines.length) return null;
+          const lineH = 15;
+          const tw = Math.max(...lines.map(l => l.length)) * 7 + 20;
+          const th = lines.length * lineH + 14;
+          const tx = tooltip.x;
+          const ty = tooltip.y - nodeR - th - 6;
+          return (
+            <g style={{ pointerEvents: 'none' }}>
+              <rect x={tx - tw / 2} y={ty} width={tw} height={th} rx={6}
+                fill="rgba(10,8,6,0.96)" stroke="rgba(217,164,65,0.4)" strokeWidth={1} />
+              {lines.map((line, i) => (
+                <text key={i}
+                  x={tx} y={ty + 10 + i * lineH}
+                  textAnchor="middle" dominantBaseline="hanging"
+                  fontSize={11} fill="rgba(232,213,176,0.85)"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  {line}
+                </text>
+              ))}
+            </g>
+          );
+        })()}
 
         {/* Focus node at center — scales in */}
         {(() => {
