@@ -5,6 +5,21 @@ import { useRouter } from 'next/navigation';
 import type { ClusterData } from '../../lib/types';
 import { WORD_COLORS } from './WordNode';
 
+const VISITED_KEY = 'tongyizuo:visited';
+function loadVisited(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try { return new Set(JSON.parse(localStorage.getItem(VISITED_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function markVisited(word: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const v = loadVisited();
+    v.add(word);
+    localStorage.setItem(VISITED_KEY, JSON.stringify([...v]));
+  } catch { /* ignore */ }
+}
+
 interface Props {
   clusters: ClusterData[];
   focusWord: string;
@@ -38,11 +53,20 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [visited, setVisited] = useState<Set<string>>(new Set());
+
+  useEffect(() => { setVisited(loadVisited()); }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 40);
     return () => clearTimeout(t);
   }, []);
+
+  // Mark the focus word as visited when this cluster is loaded
+  useEffect(() => {
+    markVisited(focusWord);
+    setVisited(loadVisited());
+  }, [focusWord]);
 
   const K = clusters.length;
   const svgW = 900;
@@ -106,6 +130,7 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   function navigateTo(word: string) {
     if (clickedWord) return;
     setClickedWord(word);
+    markVisited(word);
     const url = '/cluster/' + encodeURIComponent(word);
     setTimeout(() => {
       if (typeof document !== 'undefined' && 'startViewTransition' in document) {
@@ -253,6 +278,7 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
               {members.map((member, mi) => {
                 const pos = memberPositions[mi];
                 const isClicked = clickedWord === member.simplified;
+                const isVisited = visited.has(member.simplified);
                 const nodeDelay = clusterBaseDelay + mi * 30;
                 const fSize = member.simplified.length <= 1 ? nodeR * 0.88
                   : member.simplified.length === 2 ? nodeR * 0.68
@@ -282,10 +308,16 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                         style={{ animation: 'nodeRipple2 0.5s 0.05s ease-out forwards', transformBox: 'fill-box', transformOrigin: 'center' }} />
                     </>}
                     <g className={isClicked ? 'node-clicked' : ''}>
-                      <circle r={nodeR} fill={isClicked ? `${color}22` : `${color}10`}
-                        stroke={color} strokeWidth={isClicked ? 2.2 : 1.4} />
+                      <circle r={nodeR}
+                        fill={isClicked ? `${color}22` : isVisited ? `${color}18` : `${color}10`}
+                        stroke={color}
+                        strokeWidth={isClicked ? 2.2 : isVisited ? 1.8 : 1.4}
+                        strokeDasharray={isVisited ? 'none' : 'none'}
+                        opacity={isVisited ? 0.75 : 1}
+                      />
                       <text textAnchor="middle" dominantBaseline="middle"
-                        fontSize={fSize} className="zh" fill={color}>
+                        fontSize={fSize} className="zh"
+                        fill={isVisited ? `${color}99` : color}>
                         {member.simplified}
                       </text>
                       <text y={nodeR + 12} textAnchor="middle" dominantBaseline="middle"
@@ -293,6 +325,11 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                         style={{ fontFamily: 'inherit' }}>
                         {member.pinyin_display ?? member.pinyin}
                       </text>
+                      {/* Tiny visited dot at top-right */}
+                      {isVisited && (
+                        <circle cx={nodeR * 0.68} cy={-nodeR * 0.68} r={4}
+                          fill={color} opacity={0.6} />
+                      )}
                     </g>
                   </g>
                 );
