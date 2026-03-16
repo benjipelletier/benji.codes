@@ -36,6 +36,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
   const [loading, setLoading] = useState(true);
   const [showSlowHint, setShowSlowHint] = useState(false);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const [mode, setMode] = useState<Mode>('explore');
   const [activeClusterIdx, setActiveClusterIdx] = useState<number | null>(null);
   const [navSearch, setNavSearch] = useState('');
@@ -86,7 +87,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
 
     const hintTimer = setTimeout(() => setShowSlowHint(true), 4000);
 
-    fetch(`/api/cluster/${encodeURIComponent(simplified)}`)
+    fetch(`/api/cluster/${encodeURIComponent(simplified)}${retryCount > 0 ? `?retry=${retryCount}` : ''}`)
       .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -106,7 +107,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
       });
 
     return () => clearTimeout(hintTimer);
-  }, [simplified]);
+  }, [simplified, retryCount]);
 
   const primaryCluster = data?.clusters?.[0];
   const hasSituations = (primaryCluster?.situations?.length ?? 0) > 0;
@@ -243,7 +244,10 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
           <div style={s.errorBox}>
             <p style={s.errorTitle}>Could not load cluster</p>
             <p style={s.errorMsg}>{error}</p>
-            <button style={s.retryBtn} onClick={() => router.push('/')}>← Back to search</button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button style={s.retryBtn} onClick={() => setRetryCount(c => c + 1)}>↺ Try again</button>
+              <button style={{ ...s.retryBtn, color: 'rgba(232,213,176,0.4)', borderColor: 'rgba(217,164,65,0.15)' }} onClick={() => router.push('/')}>← Back to search</button>
+            </div>
           </div>
         )}
 
