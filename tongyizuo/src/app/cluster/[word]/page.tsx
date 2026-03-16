@@ -43,6 +43,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
   const [navHover, setNavHover] = useState(false);
   const [backHover, setBackHover] = useState(false);
   const [hoveredCollIdx, setHoveredCollIdx] = useState<number | null>(null);
+  const [hoveredClusterIdx, setHoveredClusterIdx] = useState<number | null>(null);
   const navInputRef = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState<string[]>([]);
 
@@ -261,11 +262,13 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                           style={{
                             ...s.clusterRow,
                             opacity: activeClusterIdx === null ? 1 : isActive ? 1 : 0.3,
-                            color: isActive ? color : `${color}aa`,
-                            background: isActive ? `${color}12` : 'transparent',
-                            borderColor: isActive ? `${color}88` : `${color}44`,
+                            color: isActive ? color : hoveredClusterIdx === i ? `${color}dd` : `${color}aa`,
+                            background: isActive ? `${color}12` : hoveredClusterIdx === i ? `${color}0a` : 'transparent',
+                            borderColor: isActive ? `${color}88` : hoveredClusterIdx === i ? `${color}66` : `${color}44`,
                           }}
                           onClick={() => setActiveClusterIdx(prev => prev === i ? null : i)}
+                          onMouseEnter={() => !isActive && setHoveredClusterIdx(i)}
+                          onMouseLeave={() => setHoveredClusterIdx(null)}
                         >
                           <span style={s.clusterRowLabel}>{cl.label}</span>
                           <span style={{ ...s.clusterRowCount, color: isActive ? `${color}88` : `${color}44` }}>

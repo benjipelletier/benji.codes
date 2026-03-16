@@ -15,6 +15,7 @@ export default function ChallengeMode({ cluster }: Props) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answerState, setAnswerState] = useState<AnswerState>('unanswered');
   const [chosenWordId, setChosenWordId] = useState<number | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
 
   const current = situations[currentIdx];
@@ -99,9 +100,10 @@ export default function ChallengeMode({ cluster }: Props) {
           const isChosen = chosenWordId === member.id;
           const isCorrect = member.id === current.answer_word_id;
 
-          let border = `1px solid ${color}44`;
-          let bg = `${color}08`;
-          let glow = '';
+          const isHovered = !isAnswered && hoveredId === member.id;
+          let border = `1px solid ${isHovered ? color + '88' : color + '44'}`;
+          let bg = isHovered ? `${color}14` : `${color}08`;
+          let glow = isHovered ? `0 0 12px ${color}22` : '';
 
           if (isAnswered) {
             if (isCorrect) {
@@ -111,9 +113,11 @@ export default function ChallengeMode({ cluster }: Props) {
             } else if (isChosen) {
               border = `2px solid #d9414188`;
               bg = `rgba(217,65,65,0.1)`;
+              glow = '';
             } else {
               border = `1px solid ${color}22`;
               bg = `${color}04`;
+              glow = '';
             }
           }
 
@@ -127,8 +131,11 @@ export default function ChallengeMode({ cluster }: Props) {
                 boxShadow: glow || 'none',
                 cursor: isAnswered ? 'default' : 'pointer',
                 opacity: isAnswered && !isCorrect && !isChosen ? 0.45 : 1,
+                transform: isHovered ? 'translateY(-2px)' : 'none',
               }}
               onClick={() => handleAnswer(member)}
+              onMouseEnter={() => !isAnswered && setHoveredId(member.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
               <span className="zh" style={{ fontSize: '36px', color, lineHeight: 1 }}>
                 {member.simplified}
