@@ -362,6 +362,7 @@ export default function GalaxyGraph() {
           pinyin={selectedNode.pinyin}
           clusterLabel={selectedNode.clusterLabel}
           core_scene={selectedNode.core_scene}
+          raw_glosses={selectedNode.raw_glosses}
           onDismiss={() => setSelectedNodeId(null)}
         />
       )}

@@ -5,6 +5,7 @@ export interface GalaxyWord {
   pinyin: string;
   degree: number;
   core_scene: string | null;
+  raw_glosses: string[];
 }
 
 export interface GalaxyEdge {

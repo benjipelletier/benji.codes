@@ -2,17 +2,22 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { shortGloss } from '../SynonymGraph';
 
 interface InfoCardProps {
   simplified: string;
   pinyin: string;
   clusterLabel: string;
   core_scene: string | null;
+  raw_glosses?: string[];
   onDismiss?: () => void;
 }
 
-export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, onDismiss }: InfoCardProps) {
+export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss }: InfoCardProps) {
   const router = useRouter();
+  const glossLine = raw_glosses
+    .map(g => shortGloss(g)).filter(Boolean)
+    .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).join('  ·  ');
 
   return (
     <div style={s.card}>
@@ -21,6 +26,7 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, onDismi
       )}
       <span className="zh" style={s.char}>{simplified}</span>
       <span style={s.pinyin}>{pinyin}</span>
+      {glossLine && <span style={s.glosses}>{glossLine}</span>}
       <span style={s.cluster}>{clusterLabel}</span>
       {core_scene && <p style={s.scene}>{core_scene}</p>}
       <button
@@ -63,6 +69,14 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "'JetBrains Mono', monospace",
     display: 'block',
     marginTop: '2px',
+  },
+  glosses: {
+    fontSize: '11px',
+    color: 'rgba(232,213,176,0.45)',
+    fontFamily: "'JetBrains Mono', monospace",
+    display: 'block',
+    marginTop: '3px',
+    letterSpacing: '0.02em',
   },
   cluster: {
     fontSize: '11px',

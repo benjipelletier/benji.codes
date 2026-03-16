@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       w.simplified,
       w.pinyin,
       w.core_scene,
+      w.raw_glosses,
       (
         SELECT COUNT(*)::int FROM synonym_edges
         WHERE word1_id = w.id OR word2_id = w.id
@@ -88,6 +89,7 @@ export async function GET(req: NextRequest) {
       pinyin: w.pinyin ?? '',
       degree: w.degree ?? 1,
       core_scene: w.core_scene ?? null,
+      raw_glosses: (w.raw_glosses as string[]) ?? [],
     })),
     edges: (edgesByCluster[c.id] ?? []).map((e) => ({
       source: e.source,
