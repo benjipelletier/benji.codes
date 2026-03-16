@@ -109,8 +109,10 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                       key={cl.id}
                       style={{
                         ...s.clusterRow,
-                        opacity: isActive ? 1 : 0.22,
-                        color: isActive ? color : `${color}cc`,
+                        opacity: isActive ? 1 : 0.3,
+                        color: isActive ? color : `${color}aa`,
+                        background: isActive ? `${color}12` : 'transparent',
+                        borderColor: isActive ? `${color}88` : `${color}44`,
                       }}
                       onClick={() => setActiveClusterIdx(prev => prev === i ? null : i)}
                     >
@@ -283,28 +285,30 @@ const s: Record<string, React.CSSProperties> = {
   clusterList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '2px',
-    marginTop: '8px',
+    gap: '6px',
+    marginTop: '10px',
   },
   clusterRow: {
     display: 'flex',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: '8px',
     background: 'none',
-    border: 'none',
+    border: '1px solid currentColor',
+    borderRadius: '20px',
     cursor: 'pointer',
-    padding: '3px 0',
+    padding: '5px 14px',
     textAlign: 'left',
     fontFamily: 'inherit',
-    transition: 'opacity 0.2s',
+    transition: 'opacity 0.2s, background 0.2s',
+    alignSelf: 'flex-start',
   },
   clusterRowLabel: {
-    fontSize: '13px',
+    fontSize: '12px',
     fontFamily: "'JetBrains Mono', monospace",
-    letterSpacing: '0.04em',
+    letterSpacing: '0.06em',
   },
   clusterRowCount: {
-    fontSize: '11px',
+    fontSize: '10px',
     fontFamily: "'JetBrains Mono', monospace",
   },
   coreScene: {
