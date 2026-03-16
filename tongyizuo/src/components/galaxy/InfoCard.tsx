@@ -1,6 +1,7 @@
 // src/components/galaxy/InfoCard.tsx
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { shortGloss } from '../SynonymGraph';
 
@@ -28,14 +29,33 @@ if (typeof document !== 'undefined' && !document.getElementById('ic-anim')) {
 
 export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss }: InfoCardProps) {
   const router = useRouter();
+  const [btnHover, setBtnHover] = useState(false);
+  const [closeHover, setCloseHover] = useState(false);
   const glossLine = raw_glosses
     .map(g => shortGloss(g)).filter(Boolean)
     .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).join('  ·  ');
 
+  function navigate() {
+    const url = `/cluster/${encodeURIComponent(simplified)}`;
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as any).startViewTransition(() => router.push(url));
+    } else {
+      router.push(url);
+    }
+  }
+
   return (
-    <div className="ic-enter" style={s.card}>
+    <div key={simplified} className="ic-enter" style={s.card}>
       {onDismiss && (
-        <button onClick={onDismiss} style={s.close}>✕</button>
+        <button
+          onClick={onDismiss}
+          style={{
+            ...s.close,
+            color: closeHover ? 'rgba(232,213,176,0.65)' : 'rgba(232,213,176,0.3)',
+          }}
+          onMouseEnter={() => setCloseHover(true)}
+          onMouseLeave={() => setCloseHover(false)}
+        >✕</button>
       )}
       <span className="zh" style={s.char}>{simplified}</span>
       <span style={s.pinyin}>{pinyin}</span>
@@ -43,8 +63,16 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glo
       <span style={s.cluster}>{clusterLabel}</span>
       {core_scene && <p style={s.scene}>{core_scene}</p>}
       <button
-        style={s.btn}
-        onClick={() => router.push(`/cluster/${encodeURIComponent(simplified)}`)}
+        style={{
+          ...s.btn,
+          background: btnHover ? 'rgba(217,164,65,0.22)' : 'rgba(217,164,65,0.12)',
+          borderColor: btnHover ? 'rgba(217,164,65,0.55)' : 'rgba(217,164,65,0.35)',
+          transform: btnHover ? 'translateY(-1px)' : 'none',
+          transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
+        }}
+        onClick={navigate}
+        onMouseEnter={() => setBtnHover(true)}
+        onMouseLeave={() => setBtnHover(false)}
       >
         探索 →
       </button>
@@ -126,10 +154,10 @@ const s: Record<string, React.CSSProperties> = {
     right: '12px',
     background: 'none',
     border: 'none',
-    color: 'rgba(232,213,176,0.3)',
     fontSize: '14px',
     cursor: 'pointer',
     fontFamily: 'inherit',
     lineHeight: 1,
+    transition: 'color 0.15s',
   },
 };
