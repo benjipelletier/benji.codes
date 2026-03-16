@@ -22,12 +22,17 @@ if (typeof document !== 'undefined' && !document.getElementById('ic-anim')) {
       from { transform: translateY(16px); opacity: 0; }
       to   { transform: translateY(0);   opacity: 1; }
     }
+    @keyframes cardSlideOut {
+      from { transform: translateY(0); opacity: 1; }
+      to   { transform: translateY(10px); opacity: 0; }
+    }
     .ic-enter { animation: cardSlideIn 0.22s cubic-bezier(0.22,1,0.36,1) forwards; }
+    .ic-exit  { animation: cardSlideOut 0.16s ease-in forwards; }
   `;
   document.head.appendChild(st);
 }
 
-export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss }: InfoCardProps) {
+export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss, dismissing = false }: InfoCardProps & { dismissing?: boolean }) {
   const router = useRouter();
   const [btnHover, setBtnHover] = useState(false);
   const [closeHover, setCloseHover] = useState(false);
@@ -45,7 +50,7 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glo
   }
 
   return (
-    <div key={simplified} className="ic-enter" style={s.card}>
+    <div key={simplified} className={dismissing ? 'ic-exit' : 'ic-enter'} style={s.card}>
       {onDismiss && (
         <button
           onClick={onDismiss}

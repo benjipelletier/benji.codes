@@ -32,6 +32,8 @@ export default function GalaxyGraph() {
   const router = useRouter();
   const { graphData, clusterMetas, loading, error, loadingMore, loadMore, hasMore } = useGalaxyData();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [cardDismissing, setCardDismissing] = useState(false);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [dims, setDims] = useState({ width: 800, height: 600 });
   const graphRef = useRef<any>(null);
   const fittedRef = useRef(false);
@@ -46,6 +48,15 @@ export default function GalaxyGraph() {
   const hasMoreRef = useRef(hasMore);
   const loadingMoreRef = useRef(false);
   const dimsRef = useRef(dims);
+
+  function dismissCard() {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    setCardDismissing(true);
+    dismissTimerRef.current = setTimeout(() => {
+      setSelectedNodeId(null);
+      setCardDismissing(false);
+    }, 160);
+  }
 
   // Keep refs in sync
   useEffect(() => { clusterMetasRef.current = clusterMetas; }, [clusterMetas]);
@@ -86,21 +97,23 @@ export default function GalaxyGraph() {
   }, []);
 
   const handleNodeClick = useCallback((node: GraphNode) => {
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    setCardDismissing(false);
     setSelectedNodeId((prev) => prev === node.id ? null : node.id);
   }, []);
 
   const handleBackgroundClick = useCallback(() => {
-    setSelectedNodeId(null);
+    dismissCard();
   }, []);
 
   // Escape key to dismiss InfoCard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSelectedNodeId(null);
+      if (e.key === 'Escape' && selectedNodeId) dismissCard();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [selectedNodeId]);
 
   const handleNodeHover = useCallback((node: GraphNode | null) => {
     if (typeof document !== 'undefined') {
@@ -480,7 +493,8 @@ export default function GalaxyGraph() {
           clusterLabel={selectedNode.clusterLabel}
           core_scene={selectedNode.core_scene}
           raw_glosses={selectedNode.raw_glosses}
-          onDismiss={() => setSelectedNodeId(null)}
+          onDismiss={dismissCard}
+          dismissing={cardDismissing}
         />
       )}
       {loadingMore && (
