@@ -130,8 +130,15 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
           <button
             style={{ ...s.backBtn, color: backHover ? 'rgba(217,164,65,0.85)' : 'rgba(217,164,65,0.55)' }}
             onClick={() => {
-              if (window.history.length > 1) router.back();
-              else navigate(router, '/');
+              const go = () => {
+                if (window.history.length > 1) router.back();
+                else router.push('/');
+              };
+              if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+                (document as any).startViewTransition(go);
+              } else {
+                go();
+              }
             }}
             onMouseEnter={() => setBackHover(true)}
             onMouseLeave={() => setBackHover(false)}
