@@ -264,7 +264,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
             {mode === 'explore' && (
               <div style={s.exploreWrap}>
                 {/* Word header — floating overlay top-left */}
-                <header style={s.wordHeader}>
+                <header className="word-header-enter" style={s.wordHeader}>
                   <span className="zh" style={s.wordDisplay}>{simplified}</span>
                   {data.word.pinyin_display && (
                     <span style={s.wordPinyin}>{data.word.pinyin_display}</span>
@@ -817,6 +817,11 @@ if (typeof document !== 'undefined' && !document.getElementById('cp-anim')) {
       to   { transform: translateY(0);    opacity: 1; }
     }
     .coll-strip-enter { animation: collSlideUp 0.22s cubic-bezier(0.22,1,0.36,1) forwards; }
+    @keyframes headerFadeIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .word-header-enter { animation: headerFadeIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards; }
   `;
   document.head.appendChild(style);
 }

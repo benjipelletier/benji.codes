@@ -21,6 +21,7 @@ export default function HomePage() {
   const [history, setHistory] = useState<string[]>([]);
   const [btnHover, setBtnHover] = useState(false);
   const [hoveredPill, setHoveredPill] = useState<string | null>(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function HomePage() {
             ))}
           </div>
           <form onSubmit={handleSubmit} style={s.form}>
-            <div style={s.inputWrap}>
+            <div style={{ ...s.inputWrap, position: 'relative' }}>
               <input
                 ref={inputRef}
                 type="text"
@@ -102,7 +103,26 @@ export default function HomePage() {
                 style={s.input}
                 autoComplete="off"
                 spellCheck={false}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
               />
+              {!inputFocused && !input && (
+                <span style={{
+                  position: 'absolute',
+                  right: '46px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '10px',
+                  color: 'rgba(217,164,65,0.25)',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  letterSpacing: '0.04em',
+                  pointerEvents: 'none',
+                  border: '1px solid rgba(217,164,65,0.18)',
+                  borderRadius: '3px',
+                  padding: '1px 5px',
+                  lineHeight: 1.6,
+                }}>/</span>
+              )}
               <button
                 type="submit"
                 style={{
