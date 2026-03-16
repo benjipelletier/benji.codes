@@ -700,6 +700,9 @@ const s: Record<string, React.CSSProperties> = {
     overflowY: 'auto' as const,
     scrollbarWidth: 'none' as const,
     pointerEvents: 'auto' as const,
+    maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' as any,
+    WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' as any,
+    paddingBottom: '12px',
   },
   clusterRow: {
     display: 'flex',
