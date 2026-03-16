@@ -340,8 +340,38 @@ export default function GalaxyGraph() {
 
   if (loading) {
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#0a0806', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'rgba(217,164,65,0.35)', fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase' as const }}>
+      <div style={{ position: 'fixed', inset: 0, background: '#0a0806', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+        <style>{`
+          @keyframes glxTwinkle { 0%,100%{opacity:0.12} 50%{opacity:0.6} }
+          @keyframes glxPulse { 0%,100%{transform:scale(1);opacity:0.55} 50%{transform:scale(1.55);opacity:1} }
+          @keyframes glxFadeIn { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+          .glx-loading { animation: glxFadeIn 0.65s cubic-bezier(0.22,1,0.36,1) both; }
+          .glx-t1 { animation: glxTwinkle 2.1s ease-in-out infinite; }
+          .glx-t2 { animation: glxTwinkle 1.8s ease-in-out infinite 0.5s; }
+          .glx-t3 { animation: glxTwinkle 2.5s ease-in-out infinite 1.1s; }
+          .glx-t4 { animation: glxTwinkle 1.6s ease-in-out infinite 0.3s; }
+          .glx-t5 { animation: glxTwinkle 2.3s ease-in-out infinite 0.8s; }
+          .glx-center { animation: glxPulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+        `}</style>
+        <svg className="glx-loading" width={280} height={90} viewBox="0 0 280 90" fill="none">
+          <line x1="32" y1="20" x2="78" y2="48" stroke="#d9a441" strokeWidth="0.7" opacity="0.14"/>
+          <line x1="78" y1="48" x2="132" y2="14" stroke="#d9a441" strokeWidth="0.7" opacity="0.14"/>
+          <line x1="132" y1="14" x2="188" y2="52" stroke="#d9a441" strokeWidth="0.7" opacity="0.14"/>
+          <line x1="188" y1="52" x2="248" y2="24" stroke="#d9a441" strokeWidth="0.7" opacity="0.14"/>
+          <line x1="78" y1="48" x2="112" y2="74" stroke="#d9a441" strokeWidth="0.7" opacity="0.09"/>
+          <line x1="188" y1="52" x2="212" y2="76" stroke="#d9a441" strokeWidth="0.7" opacity="0.09"/>
+          <circle cx="50" cy="66" r="1" fill="#d9a441" opacity="0.2" className="glx-t3"/>
+          <circle cx="162" cy="72" r="1" fill="#d9a441" opacity="0.2" className="glx-t5"/>
+          <circle cx="258" cy="62" r="1" fill="#d9a441" opacity="0.15" className="glx-t2"/>
+          <circle cx="32" cy="20" r="2" fill="#d9a441" opacity="0.45" className="glx-t1"/>
+          <circle cx="78" cy="48" r="2.5" fill="#d9a441" opacity="0.5" className="glx-t2"/>
+          <circle cx="132" cy="14" r="2" fill="#d9a441" opacity="0.4" className="glx-t4"/>
+          <circle cx="188" cy="52" r="3" fill="#d9a441" opacity="0.7" className="glx-center"/>
+          <circle cx="248" cy="24" r="2" fill="#d9a441" opacity="0.45" className="glx-t3"/>
+          <circle cx="112" cy="74" r="1.5" fill="#d9a441" opacity="0.3" className="glx-t5"/>
+          <circle cx="212" cy="76" r="1.5" fill="#d9a441" opacity="0.35" className="glx-t1"/>
+        </svg>
+        <span className="glx-loading" style={{ color: 'rgba(217,164,65,0.38)', fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, fontFamily: "'JetBrains Mono', monospace", animationDelay: '0.18s' }}>
           Loading star map…
         </span>
       </div>
