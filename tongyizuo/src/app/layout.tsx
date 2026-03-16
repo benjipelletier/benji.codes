@@ -49,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ::-webkit-scrollbar { width: 6px; }
           ::-webkit-scrollbar-track { background: #0a0806; }
           ::-webkit-scrollbar-thumb { background: rgba(217, 164, 65, 0.3); border-radius: 3px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
           @keyframes uiFadeDown {
             from { opacity: 0; transform: translateY(-8px); }
             to   { opacity: 1; transform: translateY(0); }

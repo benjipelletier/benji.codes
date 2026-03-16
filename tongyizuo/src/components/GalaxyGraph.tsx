@@ -439,6 +439,18 @@ export default function GalaxyGraph() {
           onDismiss={() => setSelectedNodeId(null)}
         />
       )}
+      {loadingMore && (
+        <div style={{
+          position: 'fixed', bottom: '14px', right: '16px',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          color: 'rgba(217,164,65,0.35)', fontSize: '10px',
+          fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em',
+          pointerEvents: 'none',
+        }}>
+          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite', transformOrigin: 'center' }}>✦</span>
+          <span>expanding</span>
+        </div>
+      )}
     </>
   );
 }
