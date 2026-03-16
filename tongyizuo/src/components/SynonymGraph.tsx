@@ -72,6 +72,7 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [peek, setPeek] = useState<PeekState | null>(null);
   const [visited, setVisited] = useState<Set<string>>(new Set());
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   useEffect(() => { setVisited(loadVisited()); }, []);
 
@@ -397,8 +398,11 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                         setPeek({ member, color });
                       }
                     }}
-                    onMouseEnter={() => !peek && setTooltip({ word: member.simplified, glosses: glossLines, x: pos.x, y: pos.y })}
-                    onMouseLeave={() => setTooltip(null)}
+                    onMouseEnter={() => {
+                      setHoveredKey(nodeKey);
+                      if (!peek) setTooltip({ word: member.simplified, glosses: glossLines, x: pos.x, y: pos.y });
+                    }}
+                    onMouseLeave={() => { setHoveredKey(null); setTooltip(null); }}
                     style={{
                       transform: mounted
                         ? `translate(${pos.x}px, ${pos.y}px)`
@@ -414,11 +418,17 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                         style={{ animation: 'nodeRipple2 0.5s 0.05s ease-out forwards', transformBox: 'fill-box', transformOrigin: 'center' }} />
                     </>}
                     <g className={isClicked ? 'node-clicked' : ''}>
+                      {hoveredKey === nodeKey && !peek && (
+                        <circle r={nodeR + 6}
+                          fill="none" stroke={color} strokeWidth={1}
+                          opacity={0.25}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      )}
                       <circle r={nodeR}
                         fill={isClicked ? `${color}22` : isPeeked ? `${color}28` : isVisited ? `${color}18` : `${color}10`}
                         stroke={isPeeked ? color : color}
-                        strokeWidth={isClicked ? 2.2 : isPeeked ? 2.5 : isVisited ? 1.8 : 1.4}
-                        strokeDasharray={isVisited ? 'none' : 'none'}
+                        strokeWidth={isClicked ? 2.2 : isPeeked ? 2.5 : isVisited ? 1.8 : hoveredKey === nodeKey ? 2 : 1.4}
                         opacity={isVisited ? 0.75 : 1}
                       />
                       <text textAnchor="middle" dominantBaseline="middle"
