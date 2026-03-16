@@ -39,6 +39,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
   const [activeClusterIdx, setActiveClusterIdx] = useState<number | null>(null);
   const [navSearch, setNavSearch] = useState('');
   const [navOpen, setNavOpen] = useState(false);
+  const [navHover, setNavHover] = useState(false);
   const navInputRef = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState<string[]>([]);
 
@@ -128,7 +129,17 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
             <button type="submit" style={s.navSearchBtn}>→</button>
           </form>
         ) : (
-          <button style={s.navSearchTrigger} onClick={() => setNavOpen(true)} title="Search another word">
+          <button
+            style={{
+              ...s.navSearchTrigger,
+              borderColor: navHover ? 'rgba(217,164,65,0.45)' : 'rgba(217,164,65,0.18)',
+              color: navHover ? 'rgba(217,164,65,0.8)' : 'rgba(217,164,65,0.45)',
+            }}
+            onClick={() => setNavOpen(true)}
+            onMouseEnter={() => setNavHover(true)}
+            onMouseLeave={() => setNavHover(false)}
+            title="Search another word"
+          >
             ⌕
           </button>
         )}
@@ -261,6 +272,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                   <SynonymGraph
                     clusters={data.clusters}
                     focusWord={simplified}
+                    focusGlosses={data.word.raw_glosses}
                     activeClusterIdx={activeClusterIdx}
                   />
                 </div>

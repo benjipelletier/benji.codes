@@ -23,6 +23,7 @@ function markVisited(word: string) {
 interface Props {
   clusters: ClusterData[];
   focusWord: string;
+  focusGlosses?: string[];
   activeClusterIdx?: number | null;
 }
 
@@ -65,7 +66,7 @@ interface PeekState {
   color: string;
 }
 
-export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = null }: Props) {
+export default function SynonymGraph({ clusters, focusWord, focusGlosses = [], activeClusterIdx = null }: Props) {
   const router = useRouter();
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -219,11 +220,16 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
             )}
             {(peek.member.collocations ?? []).length > 0 && (
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
-                {peek.member.collocations.slice(0, 5).map((c, i) => (
-                  <span key={i} style={{ fontSize: '13px', color: peek.color, fontFamily: 'Noto Serif SC, serif', background: `${peek.color}0d`, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${peek.color}33` }}>
-                    {c.collocation}
-                  </span>
-                ))}
+                {peek.member.collocations.slice(0, 5).map((c, i) => {
+                  const isChinese = /[\u4e00-\u9fff]/.test(c.collocation);
+                  return (
+                    <button key={i}
+                      style={{ fontSize: '13px', color: peek.color, fontFamily: 'Noto Serif SC, serif', background: `${peek.color}0d`, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${peek.color}33`, cursor: isChinese ? 'pointer' : 'default', lineHeight: 1.4 }}
+                      onClick={() => isChinese && router.push(`/cluster/${encodeURIComponent(c.collocation)}?from=${encodeURIComponent(focusWord)}`)}>
+                      {c.collocation}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -500,12 +506,21 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
         {(() => {
           const fSize = focusWord.length <= 1 ? focusR * 0.92
             : focusWord.length === 2 ? focusR * 0.72 : focusR * 0.55;
+          const focusGlossLines = focusGlosses
+            .map(g => shortGloss(g)).filter(Boolean)
+            .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3);
           return (
             <g style={{
               transform: `translate(${cx}px, ${cy}px)`,
               opacity: mounted ? 1 : 0,
               transition: 'opacity 0.4s ease 0ms',
-            }}>
+              cursor: 'default',
+            }}
+              onMouseEnter={() => {
+                if (focusGlossLines.length) setTooltip({ word: focusWord, glosses: focusGlossLines, x: cx, y: cy });
+              }}
+              onMouseLeave={() => setTooltip(null)}
+            >
               <circle r={focusR} fill="rgba(217,164,65,0.10)"
                 stroke="rgba(217,164,65,0.65)" strokeWidth={1.8} />
               <text textAnchor="middle" dominantBaseline="middle"
