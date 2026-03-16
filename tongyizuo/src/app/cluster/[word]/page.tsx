@@ -193,7 +193,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
           <div style={s.loading}>
             <span className="zh" style={s.loadingChar}>{simplified}</span>
             <p style={s.loadingText}>mapping the constellation…</p>
-            <p style={s.loadingHint}>first visit takes 5–10s</p>
+            <p style={s.loadingHint}>first visit may take 20–40s while we map synonyms</p>
           </div>
         )}
 

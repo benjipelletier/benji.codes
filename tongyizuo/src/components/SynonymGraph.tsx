@@ -169,7 +169,10 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   }
 
   return (
-    <div style={s.wrap} onClick={e => { if (e.target === e.currentTarget) setPeek(null); }}>
+    <div style={s.wrap} onClick={e => {
+      const t = e.target as Element;
+      if (t === e.currentTarget || t.tagName === 'svg' || t.tagName === 'line' || t.tagName === 'defs') setPeek(null);
+    }}>
       {/* Peek card — slides up from bottom when a node is clicked */}
       {peek && (
         <div style={{
