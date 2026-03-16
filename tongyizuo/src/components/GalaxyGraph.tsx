@@ -293,7 +293,7 @@ export default function GalaxyGraph() {
           ].map(([x,y], i) => (
             <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 2.5 : 1.5} fill="#d9a441" />
           ))}
-          {[[40,20],[80,50],[130,15],[190,45],[240,20]].reduce((acc: JSX.Element[], _, i, arr) => {
+          {[[40,20],[80,50],[130,15],[190,45],[240,20]].reduce((acc: React.ReactElement[], _, i, arr) => {
             if (i < arr.length - 1) acc.push(
               <line key={i} x1={arr[i][0]} y1={arr[i][1]} x2={arr[i+1][0]} y2={arr[i+1][1]}
                 stroke="#d9a441" strokeWidth={0.8} />
