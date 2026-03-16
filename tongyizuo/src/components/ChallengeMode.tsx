@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { ClusterData, ClusterMember } from '../../lib/types';
 import { WORD_COLORS } from './WordNode';
+import { toneColor } from './SynonymGraph';
 
 interface Props {
   cluster: ClusterData;
@@ -88,6 +89,22 @@ export default function ChallengeMode({ cluster }: Props) {
     setCurrentIdx((prev) => (prev + 1) % situations.length);
   }
 
+  // Keyboard shortcuts: 1-4 selects answer, Enter/Space advances
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const idx = parseInt(e.key) - 1;
+      if (!isAnswered && idx >= 0 && idx < cluster.members.length) {
+        handleAnswer(cluster.members[idx]);
+      } else if (isAnswered && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        handleNext();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isAnswered, currentIdx, cluster.members]);
+
   if (situations.length === 0) {
     return (
       <div style={s.empty}>
@@ -162,6 +179,7 @@ export default function ChallengeMode({ cluster }: Props) {
             }
           }
 
+          const pinyin = member.pinyin_display ?? member.pinyin;
           return (
             <button
               key={member.simplified}
@@ -180,11 +198,16 @@ export default function ChallengeMode({ cluster }: Props) {
               onMouseEnter={() => !isAnswered && setHoveredId(member.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
+              {!isAnswered && (
+                <span style={{ fontSize: '9px', color: `${color}55`, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.04em', alignSelf: 'flex-end', marginBottom: '-2px' }}>
+                  {i + 1}
+                </span>
+              )}
               <span className="zh" style={{ fontSize: '36px', color, lineHeight: 1 }}>
                 {member.simplified}
               </span>
-              <span style={{ fontSize: '11px', color: 'rgba(232,213,176,0.45)' }}>
-                {member.pinyin_display ?? member.pinyin}
+              <span style={{ fontSize: '11px', color: toneColor(pinyin) }}>
+                {pinyin}
               </span>
               {isAnswered && isCorrect && (
                 <span style={{ fontSize: '18px', marginTop: '4px' }}>✓</span>
@@ -232,12 +255,14 @@ export default function ChallengeMode({ cluster }: Props) {
             background: nextHover ? 'rgba(217,164,65,0.18)' : 'rgba(217,164,65,0.1)',
             borderColor: nextHover ? 'rgba(217,164,65,0.5)' : 'rgba(217,164,65,0.3)',
             transform: nextHover ? 'translateY(-1px)' : 'none',
+            display: 'flex', alignItems: 'center', gap: '10px',
           }}
           onClick={handleNext}
           onMouseEnter={() => setNextHover(true)}
           onMouseLeave={() => setNextHover(false)}
         >
           {currentIdx < situations.length - 1 ? 'Next situation →' : 'Start over ↺'}
+          <span style={{ fontSize: '9px', border: '1px solid rgba(217,164,65,0.25)', borderRadius: '3px', padding: '1px 5px', color: 'rgba(217,164,65,0.4)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.6 }}>↵</span>
         </button>
       )}
     </div>
