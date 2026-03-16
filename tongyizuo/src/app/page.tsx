@@ -19,6 +19,8 @@ export default function HomePage() {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [history, setHistory] = useState<string[]>([]);
+  const [btnHover, setBtnHover] = useState(false);
+  const [hoveredPill, setHoveredPill] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,8 +67,15 @@ export default function HomePage() {
             {(history.length > 0 ? history.slice(0, 8) : STARTERS).map((w) => (
               <button
                 key={w}
-                style={s.historyPill}
+                style={{
+                  ...s.historyPill,
+                  color: hoveredPill === w ? 'rgba(217,164,65,0.85)' : 'rgba(217,164,65,0.55)',
+                  borderColor: hoveredPill === w ? 'rgba(217,164,65,0.45)' : 'rgba(217,164,65,0.2)',
+                  background: hoveredPill === w ? 'rgba(217,164,65,0.1)' : 'rgba(10,8,6,0.6)',
+                }}
                 onClick={() => router.push(`/cluster/${encodeURIComponent(w)}`)}
+                onMouseEnter={() => setHoveredPill(w)}
+                onMouseLeave={() => setHoveredPill(null)}
               >
                 <span className="zh">{w}</span>
               </button>
@@ -84,7 +93,16 @@ export default function HomePage() {
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button type="submit" style={s.btn}>→</button>
+              <button
+                type="submit"
+                style={{
+                  ...s.btn,
+                  background: btnHover ? 'rgba(217,164,65,0.25)' : 'rgba(217,164,65,0.15)',
+                  borderColor: btnHover ? 'rgba(217,164,65,0.55)' : 'rgba(217,164,65,0.35)',
+                }}
+                onMouseEnter={() => setBtnHover(true)}
+                onMouseLeave={() => setBtnHover(false)}
+              >→</button>
             </div>
             {error && <p style={s.error}>{error}</p>}
           </form>

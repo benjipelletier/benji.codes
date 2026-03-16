@@ -40,6 +40,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
   const [navSearch, setNavSearch] = useState('');
   const [navOpen, setNavOpen] = useState(false);
   const [navHover, setNavHover] = useState(false);
+  const [backHover, setBackHover] = useState(false);
   const navInputRef = useRef<HTMLInputElement>(null);
   const [history, setHistory] = useState<string[]>([]);
 
@@ -92,10 +93,15 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
       {/* Top nav */}
       <nav style={s.nav}>
         <div style={s.breadcrumb}>
-          <button style={s.backBtn} onClick={() => {
-            if (window.history.length > 1) router.back();
-            else router.push('/');
-          }}>
+          <button
+            style={{ ...s.backBtn, color: backHover ? 'rgba(217,164,65,0.85)' : 'rgba(217,164,65,0.55)' }}
+            onClick={() => {
+              if (window.history.length > 1) router.back();
+              else router.push('/');
+            }}
+            onMouseEnter={() => setBackHover(true)}
+            onMouseLeave={() => setBackHover(false)}
+          >
             ← 星图
           </button>
           {fromWord && (
