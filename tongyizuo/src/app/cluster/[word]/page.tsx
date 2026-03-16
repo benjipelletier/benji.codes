@@ -132,7 +132,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
 
             {mode === 'explore' && (
               <SynonymGraph
-                cluster={primaryCluster}
+                clusters={data.clusters}
                 focusWord={simplified}
               />
             )}
