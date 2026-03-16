@@ -1,2 +1,9 @@
 .vercel
 .env*.local
+.next/
+node_modules/
+.playwright-mcp/
+.superpowers/
+*.png
+tsconfig.tsbuildinfo
+data/cedict_ts.u8
