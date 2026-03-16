@@ -9,6 +9,7 @@ interface InfoCardProps {
   simplified: string;
   pinyin: string;
   clusterLabel: string;
+  clusterHue?: number;
   core_scene: string | null;
   raw_glosses?: string[];
   onDismiss?: () => void;
@@ -32,7 +33,7 @@ if (typeof document !== 'undefined' && !document.getElementById('ic-anim')) {
   document.head.appendChild(st);
 }
 
-export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss, dismissing = false }: InfoCardProps & { dismissing?: boolean }) {
+export function InfoCard({ simplified, pinyin, clusterLabel, clusterHue, core_scene, raw_glosses = [], onDismiss, dismissing = false }: InfoCardProps & { dismissing?: boolean }) {
   const router = useRouter();
   const [btnHover, setBtnHover] = useState(false);
   const [closeHover, setCloseHover] = useState(false);
@@ -79,7 +80,12 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glo
           ))}
         </div>
       )}
-      <span style={s.cluster}>{clusterLabel}</span>
+      <span style={s.cluster}>
+        {clusterHue !== undefined && (
+          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: `hsla(${clusterHue}, 60%, 60%, 0.8)`, marginRight: '6px', verticalAlign: 'middle', marginBottom: '1px' }} />
+        )}
+        {clusterLabel}
+      </span>
       {core_scene && <p style={s.scene}>{core_scene}</p>}
       <button
         style={{

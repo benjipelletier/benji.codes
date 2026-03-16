@@ -491,6 +491,7 @@ export default function GalaxyGraph() {
           simplified={selectedNode.id}
           pinyin={selectedNode.pinyin}
           clusterLabel={selectedNode.clusterLabel}
+          clusterHue={selectedNode.hue}
           core_scene={selectedNode.core_scene}
           raw_glosses={selectedNode.raw_glosses}
           onDismiss={dismissCard}
