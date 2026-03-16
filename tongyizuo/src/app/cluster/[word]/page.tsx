@@ -74,17 +74,20 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
     if (navOpen) setTimeout(() => navInputRef.current?.focus(), 50);
   }, [navOpen]);
 
-  // Press '/' to open nav search
+  // Press '/' to open nav search, Escape to close it
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === '/' && document.activeElement !== navInputRef.current) {
         e.preventDefault();
         setNavOpen(true);
+      } else if (e.key === 'Escape' && navOpen) {
+        setNavOpen(false);
+        setNavSearch('');
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [navOpen]);
 
   useEffect(() => {
     addToHistory(simplified);

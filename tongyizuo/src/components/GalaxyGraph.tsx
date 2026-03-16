@@ -93,6 +93,15 @@ export default function GalaxyGraph() {
     setSelectedNodeId(null);
   }, []);
 
+  // Escape key to dismiss InfoCard
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSelectedNodeId(null);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const handleNodeHover = useCallback((node: GraphNode | null) => {
     if (typeof document !== 'undefined') {
       document.body.style.cursor = node ? 'pointer' : 'default';

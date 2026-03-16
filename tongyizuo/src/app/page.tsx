@@ -26,6 +26,10 @@ export default function HomePage() {
 
   useEffect(() => {
     setHistory(loadHistory());
+    // Auto-focus search on load (desktop only — skip on touch devices)
+    if (!window.matchMedia('(pointer: coarse)').matches) {
+      inputRef.current?.focus();
+    }
   }, []);
 
   // Press '/' anywhere to focus search
