@@ -20,7 +20,13 @@ if (typeof document !== 'undefined' && !document.getElementById('ch-anim')) {
       40%  { box-shadow: 0 0 28px var(--pulse-color, rgba(65,217,114,0.6)); }
       100% { box-shadow: 0 0 14px var(--pulse-color, rgba(65,217,114,0.3)); }
     }
+    @keyframes scoreFlash {
+      0%   { transform: scale(1);    color: #d9a441; }
+      30%  { transform: scale(1.35); color: rgba(65,217,114,0.95); }
+      100% { transform: scale(1);    color: #d9a441; }
+    }
     .ch-correct { animation: correctPulse 0.45s ease-out forwards; }
+    .ch-score-flash { animation: scoreFlash 0.35s ease-out forwards; display: inline-block; }
   `;
   document.head.appendChild(st);
 }
@@ -78,7 +84,7 @@ export default function ChallengeMode({ cluster }: Props) {
       {/* Score + progress */}
       <div style={s.topBar}>
         <div style={s.scoreDisplay}>
-          <span style={s.scoreNum}>{score.correct}</span>
+          <span key={score.correct} className="ch-score-flash" style={s.scoreNum}>{score.correct}</span>
           <span style={s.scoreSep}>/</span>
           <span style={s.scoreTotal}>{score.total}</span>
           <span style={s.scoreLabel}>correct</span>

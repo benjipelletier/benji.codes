@@ -13,6 +13,19 @@ interface InfoCardProps {
   onDismiss?: () => void;
 }
 
+if (typeof document !== 'undefined' && !document.getElementById('ic-anim')) {
+  const st = document.createElement('style');
+  st.id = 'ic-anim';
+  st.textContent = `
+    @keyframes cardSlideIn {
+      from { transform: translateY(16px); opacity: 0; }
+      to   { transform: translateY(0);   opacity: 1; }
+    }
+    .ic-enter { animation: cardSlideIn 0.22s cubic-bezier(0.22,1,0.36,1) forwards; }
+  `;
+  document.head.appendChild(st);
+}
+
 export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glosses = [], onDismiss }: InfoCardProps) {
   const router = useRouter();
   const glossLine = raw_glosses
@@ -20,7 +33,7 @@ export function InfoCard({ simplified, pinyin, clusterLabel, core_scene, raw_glo
     .filter((g, i, a) => a.indexOf(g) === i).slice(0, 3).join('  ·  ');
 
   return (
-    <div style={s.card}>
+    <div className="ic-enter" style={s.card}>
       {onDismiss && (
         <button onClick={onDismiss} style={s.close}>✕</button>
       )}
