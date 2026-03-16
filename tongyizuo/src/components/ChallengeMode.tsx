@@ -59,6 +59,7 @@ export default function ChallengeMode({ cluster }: Props) {
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [nextHover, setNextHover] = useState(false);
+  const [answerHistory, setAnswerHistory] = useState<boolean[]>([]);
 
   const current = situations[currentIdx];
   const isAnswered = answerState !== 'unanswered';
@@ -81,12 +82,18 @@ export default function ChallengeMode({ cluster }: Props) {
       correct: prev.correct + (correct ? 1 : 0),
       total: prev.total + 1,
     }));
+    setAnswerHistory((prev) => { const h = [...prev]; h[currentIdx] = correct; return h; });
   }
 
   function handleNext() {
     setAnswerState('unanswered');
     setChosenWordId(null);
-    setCurrentIdx((prev) => (prev + 1) % situations.length);
+    setCurrentIdx((prev) => {
+      const next = (prev + 1) % situations.length;
+      // Reset history when cycling back to start
+      if (next === 0) setAnswerHistory([]);
+      return next;
+    });
   }
 
   // Keyboard shortcuts: 1-4 selects answer, Enter/Space advances
@@ -127,19 +134,24 @@ export default function ChallengeMode({ cluster }: Props) {
           <span style={s.scoreLabel}>correct</span>
         </div>
         <div style={s.progress}>
-          {situations.map((_, i) => (
-            <div
-              key={i}
-              style={{
-                ...s.dot,
-                background: i === currentIdx
-                  ? '#d9a441'
-                  : i < currentIdx
-                    ? 'rgba(217,164,65,0.4)'
-                    : 'rgba(217,164,65,0.1)',
-              }}
-            />
-          ))}
+          {situations.map((_, i) => {
+            const answered = i in answerHistory;
+            const wasCorrect = answerHistory[i];
+            return (
+              <div
+                key={i}
+                style={{
+                  ...s.dot,
+                  background: i === currentIdx
+                    ? '#d9a441'
+                    : answered
+                      ? wasCorrect ? 'rgba(65,217,114,0.6)' : 'rgba(217,65,65,0.5)'
+                      : 'rgba(217,164,65,0.1)',
+                  transform: i === currentIdx ? 'scale(1.3)' : 'scale(1)',
+                }}
+              />
+            );
+          })}
         </div>
         <div style={{ ...s.difficulty, color: difficultyColor }}>
           {difficultyLabel}
