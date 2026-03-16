@@ -18,6 +18,7 @@ export interface UseGalaxyDataReturn {
   graphData: GalaxyGraphData;
   clusterMetas: ClusterMeta[];
   loading: boolean;
+  error: string | null;
   loadingMore: boolean;
   hasMore: boolean;
   loadMore: () => void;
@@ -28,6 +29,7 @@ export function useGalaxyData(): UseGalaxyDataReturn {
   const [links, setLinks] = useState<GraphLink[]>([]);
   const [clusterMetas, setClusterMetas] = useState<ClusterMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const offsetRef = useRef(0);
@@ -88,7 +90,10 @@ export function useGalaxyData(): UseGalaxyDataReturn {
         offsetRef.current = BATCH_SIZE;
         mergeBatch(data);
       })
-      .catch((err) => console.error('[useGalaxyData] initial load failed:', err))
+      .catch((err) => {
+        console.error('[useGalaxyData] initial load failed:', err);
+        setError(err.message ?? 'Failed to load galaxy data');
+      })
       .finally(() => setLoading(false));
   }, [mergeBatch]);
 
@@ -113,6 +118,7 @@ export function useGalaxyData(): UseGalaxyDataReturn {
     graphData,
     clusterMetas,
     loading,
+    error,
     loadingMore,
     hasMore,
     loadMore,

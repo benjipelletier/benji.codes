@@ -73,11 +73,12 @@ Returns a self-contained batch of cluster data.
   clusters: Array<{
     id: number
     label: string        // e.g. "fall"
-    hue: number          // 0-359, pre-computed from label hash
+    hue: number          // 0-359, computed server-side: hash label chars → hue = (sum of char codes * 31) % 360
     words: Array<{
       id: string         // simplified character(s)
       pinyin: string
       degree: number     // synonym edge count (for node sizing)
+      core_scene: string | null  // one-sentence description; null if not yet enriched
     }>
     edges: Array<{
       source: string     // simplified
@@ -88,6 +89,8 @@ Returns a self-contained batch of cluster data.
   hasMore: boolean
 }
 ```
+
+**Color note:** `hue` is a free HSL hue (0–359), distinct from the existing 6-color per-position palette used in the cluster detail page. The galaxy uses continuous hue per cluster; the cluster detail page uses positional palette slots. No conflict.
 
 Cache: `revalidate: 3600`. No auth required.
 
@@ -110,17 +113,38 @@ Client-only (`'use client'` + `dynamic(..., { ssr: false })`).
 - `forceCollide`: radius = `nodeRadius + 6`
 
 **Custom cluster force:**
+
+D3 custom forces are factory functions that return a mutating function receiving `(alpha)` and closing over the node array via the force's `.initialize(nodes)` method:
+
 ```ts
-function forceCluster(nodes, alpha) {
-  // compute centroids per cluster
-  // nudge each node toward its cluster centroid * alpha * 0.12
+function forceCluster() {
+  let nodes: GraphNode[] = [];
+  function force(alpha: number) {
+    // compute centroid per cluster from current node positions
+    const centroids: Record<string, { x: number; y: number; n: number }> = {};
+    for (const n of nodes) {
+      const c = centroids[n.cluster] ?? (centroids[n.cluster] = { x: 0, y: 0, n: 0 });
+      c.x += n.x ?? 0; c.y += n.y ?? 0; c.n++;
+    }
+    for (const c of Object.values(centroids)) { c.x /= c.n; c.y /= c.n; }
+    // nudge each node toward its cluster centroid
+    const strength = 0.12 * alpha;
+    for (const n of nodes) {
+      const c = centroids[n.cluster];
+      if (!c) continue;
+      n.vx = (n.vx ?? 0) + (c.x - (n.x ?? 0)) * strength;
+      n.vy = (n.vy ?? 0) + (c.y - (n.y ?? 0)) * strength;
+    }
+  }
+  force.initialize = (n: GraphNode[]) => { nodes = n; };
+  return force;
 }
 ```
-Applied via `graphRef.current.d3Force('cluster', forceCluster)`.
+Applied via `graphRef.current.d3Force('cluster', forceCluster())`.
 
 **Hull rendering (`onRenderFramePre`):**
 - For each loaded cluster, collect the `(x, y)` positions of its word nodes
-- Compute convex hull using `d3.polygonHull` (already available via d3-polygon, a transitive dep of d3-force)
+- Compute convex hull using `polygonHull` from `d3-polygon` — must be added as an explicit dependency (`npm install d3-polygon`); it is not a transitive dep of the currently installed packages
 - Expand hull outward by `hullPad = 20` pixels
 - At `globalScale < 0.5`: fill = `hsla(hue, 55%, 55%, 0.18)`, stroke = `hsla(hue, 55%, 55%, 0.4)`, draw label
 - At `0.5 ≤ globalScale < 1.5`: fill `0.06`, stroke `0.2`, label at 30% opacity
@@ -151,9 +175,12 @@ Applied via `graphRef.current.d3Force('cluster', forceCluster)`.
 - Dismiss on empty-canvas click (handled in `onBackgroundClick` prop)
 
 **Viewport-based load trigger:**
-- On every `onRenderFramePre` call (throttled to once per 2s): compute the fraction of the viewport that contains loaded nodes
-- If `< 0.4` and `!loadingMore` and `hasMore`: trigger `loadMore()`
-- `loadMore()` increments offset, fetches next batch, merges into simulation
+- On every `onRenderFramePre` call (throttled to once per 2s using a `lastCheckRef`):
+  - Get the current graph-space viewport bounds via `graphRef.current.getGraphBbox()` (returns `{ x: [min,max], y: [min,max] }`)
+  - Count nodes whose `(x, y)` position falls within those bounds → `nodesInView`
+  - Compute `fraction = nodesInView / totalLoadedNodes`
+- If `fraction < 0.4` and `!loadingMore` and `hasMore`: trigger `loadMore()`
+- `loadMore()` increments offset by 30, fetches `/api/galaxy?offset=N&limit=30`, merges new nodes+links into the graph data, calls `graphRef.current.d3ReheatSimulation()` to re-settle
 
 ### Updated `page.tsx`
 

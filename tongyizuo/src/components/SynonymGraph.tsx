@@ -111,9 +111,9 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
   return (
     <div style={s.wrap}>
       <svg
-        width={svgW} height={svgH}
         viewBox={`0 0 ${svgW} ${svgH}`}
-        style={{ overflow: 'visible', width: svgW, height: svgH, flexShrink: 0 }}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ overflow: 'visible', width: '100%', height: '100%', display: 'block' }}
       >
         <defs>
           <style>{`
@@ -190,7 +190,12 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
                 const i2 = members.findIndex(m => m.simplified === edge.word2);
                 if (i1 < 0 || i2 < 0) return null;
                 const p1 = memberPositions[i1], p2 = memberPositions[i2];
-                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                // Offset label perpendicular to edge so it doesn't sit on nodes
+                const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                const perpX = -dy / len * 18, perpY = dx / len * 18;
+                const midX = (p1.x + p2.x) / 2 + perpX;
+                const midY = (p1.y + p2.y) / 2 + perpY;
                 const pw = Math.min(edge.gloss.length * 6.5 + 18, 90), ph = 17;
                 return (
                   <g key={`cross-${ci}-${edge.word1}-${edge.word2}`}
@@ -307,5 +312,5 @@ export default function SynonymGraph({ clusters, focusWord, activeClusterIdx = n
 }
 
 const s: Record<string, React.CSSProperties> = {
-  wrap: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px', position: 'relative' },
+  wrap: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 };

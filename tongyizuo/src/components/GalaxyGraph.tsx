@@ -16,7 +16,7 @@ const HULL_PAD = 22;
 const LOAD_CHECK_INTERVAL_MS = 2000;
 
 export default function GalaxyGraph() {
-  const { graphData, clusterMetas, loading, loadingMore, loadMore, hasMore } = useGalaxyData();
+  const { graphData, clusterMetas, loading, error, loadingMore, loadMore, hasMore } = useGalaxyData();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [dims, setDims] = useState({ width: 800, height: 600 });
   const graphRef = useRef<any>(null);
@@ -274,8 +274,22 @@ export default function GalaxyGraph() {
   if (loading) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: '#0a0806', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: 'rgba(217,164,65,0.35)', fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+        <span style={{ color: 'rgba(217,164,65,0.35)', fontSize: '13px', letterSpacing: '0.2em', textTransform: 'uppercase' as const }}>
           Loading star map…
+        </span>
+      </div>
+    );
+  }
+
+  if (error || graphData.nodes.length === 0) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#0a0806', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+        <span style={{ color: 'rgba(217,164,65,0.2)', fontSize: '48px' }}>✦</span>
+        <span style={{ color: 'rgba(217,164,65,0.45)', fontSize: '14px', letterSpacing: '0.08em' }}>
+          星图暂时无法加载
+        </span>
+        <span style={{ color: 'rgba(217,164,65,0.2)', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.06em' }}>
+          Search a word above to explore its cluster
         </span>
       </div>
     );

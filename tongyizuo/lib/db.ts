@@ -22,7 +22,7 @@ export async function getWordCluster(simplified: string): Promise<ClusterRespons
     SELECT DISTINCT sc.id, sc.label
     FROM synonym_clusters sc
     JOIN cluster_members cm ON cm.cluster_id = sc.id
-    WHERE cm.word_id = ANY(${wordIds as any})
+    WHERE cm.word_id = ANY(${wordIds as any}::int[])
   `;
 
   if (clusterRows.rows.length === 0) return null;
@@ -51,11 +51,11 @@ export async function getWordCluster(simplified: string): Promise<ClusterRespons
             FROM collocations c
             LEFT JOIN collocation_sharing cs ON cs.collocation_id = c.id
             LEFT JOIN words w2 ON w2.id = cs.also_word_id
-            WHERE c.word_id = ANY(${memberIds}::int[])
+            WHERE c.word_id = ANY(${memberIds as unknown as string}::int[])
             GROUP BY c.id, c.word_id, c.collocation, c.pinyin, c.gloss, c.weight, c.pattern_type
             ORDER BY c.weight DESC
           `
-        : { rows: [] };
+        : ({ rows: [] as any[] } as const);
 
       // Group collocations by word_id
       const collByWord: Record<number, typeof collRows.rows> = {};

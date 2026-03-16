@@ -1,0 +1,6 @@
+{
+  "/api/galaxy/route": "app/api/galaxy/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/cluster/[word]/page": "app/cluster/[word]/page.js"
+}
