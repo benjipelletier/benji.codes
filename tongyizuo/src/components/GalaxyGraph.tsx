@@ -272,15 +272,17 @@ export default function GalaxyGraph() {
       ctx.stroke();
     }
 
-    // Selection ring
+    // Selection ring — slowly rotating dashes
     if (isSelected) {
       ctx.beginPath();
       ctx.arc(x, y, r + 3, 0, 2 * Math.PI);
       ctx.strokeStyle = '#d9a441';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 2]);
+      ctx.lineDashOffset = -(Date.now() / 80);
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
     }
 
     // Character
