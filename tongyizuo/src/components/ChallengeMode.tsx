@@ -250,7 +250,17 @@ export default function ChallengeMode({ cluster }: Props) {
               marginBottom: '10px',
             }}
           >
-            {answerState === 'correct' ? '✓ Correct' : `✗ The answer is ${answerWord?.simplified ?? '?'}`}
+            {answerState === 'correct' ? '✓ Correct' : (
+              <>
+                ✗ The answer is{' '}
+                <span className="zh" style={{ fontSize: '16px' }}>{answerWord?.simplified ?? '?'}</span>
+                {answerWord && (
+                  <span style={{ fontSize: '11px', color: toneColor(answerWord.pinyin_display ?? answerWord.pinyin), marginLeft: '6px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 400 }}>
+                    {answerWord.pinyin_display ?? answerWord.pinyin}
+                  </span>
+                )}
+              </>
+            )}
           </p>
           <p style={s.explanationText}>{current.explanation}</p>
           {current.example_zh && (

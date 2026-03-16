@@ -408,6 +408,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                     .filter((c, i, arr) => arr.findIndex(x => x.collocation === c.collocation) === i)
                     .slice(0, 12);
                   if (!colls.length) return null;
+                  const maxWeight = colls[0]?.weight ?? 1;
                   return (
                     <div className="coll-strip-enter" style={{ ...s.collStrip, borderTopColor: `${color}22` }}>
                       <span style={{ ...s.collLabel, color: `${color}66` }}>
@@ -418,6 +419,8 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                         {colls.map((c, i) => {
                           const isChinese = /[\u4e00-\u9fff]/.test(c.collocation);
                           const isHovered = hoveredCollIdx === i && isChinese;
+                          const norm = Math.sqrt(c.weight / maxWeight); // sqrt for less extreme spread
+                          const zhSize = 13 + norm * 5; // 13–18px
                           return (
                             <button
                               key={i}
@@ -435,7 +438,7 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
                               onMouseEnter={() => isChinese && setHoveredCollIdx(i)}
                               onMouseLeave={() => setHoveredCollIdx(null)}
                             >
-                              <span className="zh" style={{ ...s.collZh, color, opacity: isHovered ? 1 : 0.85, transition: 'opacity 0.15s' }}>{c.collocation}</span>
+                              <span className="zh" style={{ ...s.collZh, color, fontSize: `${zhSize}px`, opacity: isHovered ? 1 : 0.85, transition: 'opacity 0.15s' }}>{c.collocation}</span>
                               {c.gloss && <span style={s.collGloss}>{c.gloss}</span>}
                             </button>
                           );
