@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -10,6 +10,19 @@ export default function HomePage() {
   const router = useRouter();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Press '/' anywhere to focus search
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === '/' && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,6 +50,7 @@ export default function HomePage() {
         <form onSubmit={handleSubmit} style={s.form}>
           <div style={s.inputWrap}>
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => { setInput(e.target.value); setError(''); }}

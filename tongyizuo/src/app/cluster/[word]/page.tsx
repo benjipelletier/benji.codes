@@ -50,7 +50,10 @@ export default function ClusterPage({ params }: { params: Promise<{ word: string
     <div style={s.page}>
       {/* Top nav */}
       <nav style={s.nav}>
-        <button style={s.backBtn} onClick={() => router.push('/')}>
+        <button style={s.backBtn} onClick={() => {
+          if (window.history.length > 1) router.back();
+          else router.push('/');
+        }}>
           ← 同义词星图
         </button>
         {data && !loading && (
