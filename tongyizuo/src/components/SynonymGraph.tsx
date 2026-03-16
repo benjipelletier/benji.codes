@@ -37,9 +37,24 @@ const TONE_COLORS: Record<string, string> = {
   '4': '#41b8d9',  // 4th tone — cyan
 };
 
+// Unicode tone-mark → tone digit mapping
+const TONE_MARK_MAP: Record<string, string> = {
+  'ā':'1','ē':'1','ī':'1','ō':'1','ū':'1','ǖ':'1','Ā':'1','Ē':'1','Ī':'1','Ō':'1','Ū':'1',
+  'á':'2','é':'2','í':'2','ó':'2','ú':'2','ǘ':'2','Á':'2','É':'2','Í':'2','Ó':'2','Ú':'2',
+  'ǎ':'3','ě':'3','ǐ':'3','ǒ':'3','ǔ':'3','ǚ':'3','Ǎ':'3','Ě':'3','Ǐ':'3','Ǒ':'3','Ǔ':'3',
+  'à':'4','è':'4','ì':'4','ò':'4','ù':'4','ǜ':'4','À':'4','È':'4','Ì':'4','Ò':'4','Ù':'4',
+};
+
 export function toneColor(pinyin: string): string {
-  const m = pinyin.match(/[1-4]/);
-  return m ? (TONE_COLORS[m[0]] ?? 'rgba(232,213,176,0.4)') : 'rgba(232,213,176,0.35)';
+  // Number notation: "zhi1 dao4" → first digit wins
+  const numMatch = pinyin.match(/[1-4]/);
+  if (numMatch) return TONE_COLORS[numMatch[0]] ?? 'rgba(232,213,176,0.4)';
+  // Unicode tone marks: "zhī dào" → first marked vowel wins
+  for (const ch of pinyin) {
+    const t = TONE_MARK_MAP[ch];
+    if (t) return TONE_COLORS[t];
+  }
+  return 'rgba(232,213,176,0.35)';
 }
 
 export function shortGloss(raw: string): string {
