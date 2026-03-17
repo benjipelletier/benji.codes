@@ -90,7 +90,7 @@ function buildEchoChoices(subject, allEntries) {
 
 // ── Main component ────────────────────────────────────────────
 
-export default function EmojiPrototype() {
+export default function Game() {
   const [puzzle, setPuzzle] = useState(null)
   const [solved, setSolved] = useState([false, false, false, false])
   const [activeChar, setActiveChar] = useState(0)

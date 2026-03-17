@@ -78,7 +78,7 @@ riddleyu/
 │   ├── App.jsx               # Renders EmojiPrototype + Analytics
 │   ├── index.css             # CSS variables, global reset
 │   ├── puzzles.js            # Hardcoded puzzles (dev) + getPuzzleForDate()
-│   ├── EmojiPrototype.jsx    # The entire game (story canvas, witness box, archive, echo)
+│   ├── Game.jsx              # The entire game (story canvas, witness box, archive, echo)
 │   ├── components/           # Old grid-game components — kept but unused
 │   │   ├── IntroScreen.jsx
 │   │   ├── GameScreen.jsx
