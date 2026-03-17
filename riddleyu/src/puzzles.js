@@ -207,12 +207,21 @@ export const HARDCODED_PUZZLES = [
   },
 ]
 
+function isValidPuzzle(p) {
+  return p?.story && p?.riddles?.[0]?.witnesses && p?.riddles?.[0]?.emoji
+}
+
 export async function getPuzzleForDate(dateStr) {
   if (import.meta.env.DEV) {
     return HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
   }
-  const res = await fetch(`/api/puzzle?date=${dateStr}`)
-  return res.json()
+  try {
+    const res = await fetch(`/api/puzzle?date=${dateStr}`)
+    const puzzle = await res.json()
+    if (isValidPuzzle(puzzle)) return puzzle
+  } catch {}
+  // KV has stale/old-format data — fall back to hardcoded until cron regenerates
+  return HARDCODED_PUZZLES[0]
 }
 
 export function getTodayString() {
