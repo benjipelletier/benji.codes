@@ -18,19 +18,29 @@ function computeDisplaySlots(puzzle, solvedGroups) {
   return slots
 }
 
+function getCharPinyin(puzzle, gridIndex) {
+  const char = puzzle.grid[gridIndex]
+  const group = puzzle.gridGroups[gridIndex]
+  const cy = puzzle.chengyus[group]
+  const pos = cy.chars.indexOf(char)
+  if (pos < 0) return ''
+  return cy.pinyin.split(' ')[pos] || ''
+}
+
 export default function GameScreen({
   puzzle, currentChengyu, selected, solvedGroups, lives, maxLives,
   wrongFlash, flashCorrect, toggleSelect, submitGroup, resetSelection,
   attempts, solveOverlay, dismissOverlay,
 }) {
-  const [revealLevel, setRevealLevel] = useState(0)
-  React.useEffect(() => { setRevealLevel(0) }, [currentChengyu])
+  const [showSource, setShowSource] = useState(false)
+  React.useEffect(() => { setShowSource(false) }, [currentChengyu])
 
   const riddle = puzzle.chengyus[currentChengyu]
   const displaySlots = computeDisplaySlots(puzzle, solvedGroups)
   const currentAttempts = attempts.filter(a => a.group === currentChengyu && !a.correct)
   const isInteractionDisabled = !!flashCorrect
   const lastWrongAttempt = wrongFlash ? currentAttempts.at(-1) : null
+  const showHint = currentAttempts.length > 0
 
   return (
     <div style={s.root}>
@@ -64,14 +74,15 @@ export default function GameScreen({
       {/* Riddle */}
       <div style={s.riddleBox}>
         <div style={s.riddleTag}>谜 · riddle</div>
-        <p style={s.riddleText}>{riddle.riddle}</p>
-        {revealLevel >= 1 && <p style={s.riddleTranslation}>{riddle.riddle_translation}</p>}
-        {revealLevel >= 2
-          ? <p style={s.hint}>{riddle.hint}</p>
-          : <button style={s.hintBtn} onClick={() => setRevealLevel(r => r + 1)}>
-              {revealLevel === 0 ? '译 · translate' : '提示 · hint'}
-            </button>
+        {/* English translation shown by default — accessible to learners */}
+        <p style={s.riddleTranslation}>{riddle.riddle_translation}</p>
+        {/* Classical Chinese source — optional enrichment */}
+        {showSource
+          ? <p style={s.riddleText}>{riddle.riddle}</p>
+          : <button style={s.hintBtn} onClick={() => setShowSource(true)}>典故 · source</button>
         }
+        {/* Hint auto-reveals after first wrong attempt */}
+        {showHint && <p style={s.hint}>{riddle.hint}</p>}
         {currentAttempts.length > 0 && (
           <div style={s.attemptHistory}>
             {currentAttempts.map((attempt, i) => (
@@ -93,6 +104,7 @@ export default function GameScreen({
         <div style={s.grid}>
           {displaySlots.map((slot, idx) => {
             if (slot.type === 'solved') {
+              const pinyin = puzzle.chengyus[slot.group].pinyin.split(' ')[slot.charPos] || ''
               return (
                 <div
                   key={`s-${slot.group}-${slot.charPos}`}
@@ -106,7 +118,8 @@ export default function GameScreen({
                     animation: undefined,
                   }}
                 >
-                  {slot.char}
+                  <span>{slot.char}</span>
+                  <span style={s.charPinyin}>{pinyin}</span>
                 </div>
               )
             }
@@ -117,6 +130,7 @@ export default function GameScreen({
             const selectionIdx = isSelected ? selected.indexOf(gridIndex) : -1
             const flashColor = lastWrongAttempt && selectionIdx >= 0 ? lastWrongAttempt.colors[selectionIdx] : null
             const canSelect = !isInteractionDisabled && (isSelected || selected.length < 4)
+            const pinyin = getCharPinyin(puzzle, gridIndex)
 
             const tileStyle = isCorrectFlashing
               ? { background: '#538d4e', color: 'var(--paper)', borderColor: '#538d4e' }
@@ -140,7 +154,8 @@ export default function GameScreen({
                 onClick={() => !isInteractionDisabled && toggleSelect(gridIndex)}
                 disabled={isInteractionDisabled || (!isSelected && selected.length >= 4)}
               >
-                {char}
+                <span>{char}</span>
+                <span style={s.charPinyin}>{pinyin}</span>
               </button>
             )
           })}
@@ -261,20 +276,22 @@ const s = {
     fontFamily: "'Noto Sans SC', sans-serif",
     fontWeight: 500,
   },
-  riddleText: {
-    fontFamily: "'Noto Serif SC', serif",
-    fontSize: 15,
-    lineHeight: 1.8,
-    color: 'var(--ink)',
-    marginTop: 4,
-  },
   riddleTranslation: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 11,
+    fontSize: 14,
     fontStyle: 'italic',
+    color: 'var(--ink)',
+    marginTop: 4,
+    lineHeight: 1.7,
+  },
+  riddleText: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 12,
+    lineHeight: 1.8,
     color: 'var(--grey)',
-    marginTop: 2,
-    lineHeight: 1.5,
+    marginTop: 8,
+    borderTop: '1px solid #e8e4dc',
+    paddingTop: 8,
   },
   hint: {
     marginTop: 10,
@@ -320,10 +337,11 @@ const s = {
     gap: 8,
   },
   charBtn: {
-    aspectRatio: '1',
+    aspectRatio: '1 / 1.25',
     borderRadius: 10,
     border: '1.5px solid',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: "'Noto Serif SC', serif",
@@ -334,6 +352,15 @@ const s = {
     borderColor: '#e0d9ce',
     color: '#c0b8ae',
     cursor: 'pointer',
+    gap: 2,
+  },
+  charPinyin: {
+    fontSize: 8,
+    fontFamily: "'Noto Sans SC', sans-serif",
+    fontWeight: 400,
+    opacity: 0.65,
+    letterSpacing: 0.3,
+    lineHeight: 1,
   },
   bottom: {
     padding: '14px 20px 24px',

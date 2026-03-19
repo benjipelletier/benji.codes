@@ -73,7 +73,7 @@ function RowDragger({ chars, offset, onOffsetChange, pinyin, correctIndex, isWon
         transition: 'padding 0.15s ease',
         whiteSpace: 'nowrap',
       }}>
-        {chars[offset]}
+        {pinyin.split(' ')[offset] || ''}
       </div>
     </div>
   )
