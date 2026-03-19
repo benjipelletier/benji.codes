@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { useGame } from './hooks/useGame'
 import IntroScreen from './components/IntroScreen'
 import GameScreen from './components/GameScreen'
+import SlidingScreen from './components/SlidingScreen'
 import ResultScreen from './components/ResultScreen'
 
 export default function App() {
@@ -27,48 +28,49 @@ export default function App() {
     )
   }
 
-  if (game.phase === 'intro') {
-    return (
-      <>
-        <Analytics />
-        <IntroScreen onStart={game.startGame} />
-      </>
-    )
-  }
+  if (game.phase === 'intro') return (
+    <><Analytics /><IntroScreen onStart={game.startGame} /></>
+  )
 
-  if (game.phase === 'result') {
-    return (
-      <>
-        <Analytics />
-        <ResultScreen
-          puzzle={game.puzzle}
-          won={game.won}
-          attempts={game.attempts}
-          lives={game.lives}
-          maxLives={game.maxLives}
-        />
-      </>
-    )
-  }
-
-  return (
+  if (game.phase === 'connections') return (
     <>
       <Analytics />
       <GameScreen
         puzzle={game.puzzle}
-        currentSlot={game.currentSlot}
-        chain={game.chain}
+        currentChengyu={game.currentChengyu}
+        selected={game.selected}
+        solvedGroups={game.solvedGroups}
         lives={game.lives}
         maxLives={game.maxLives}
+        wrongFlash={game.wrongFlash}
+        toggleSelect={game.toggleSelect}
+        submitGroup={game.submitGroup}
+        resetSelection={game.resetSelection}
+      />
+    </>
+  )
+
+  if (game.phase === 'sliding') return (
+    <>
+      <Analytics />
+      <SlidingScreen
+        puzzle={game.puzzle}
+        offsets={game.offsets}
+        won={game.won}
+        updateOffset={game.updateOffset}
+      />
+    </>
+  )
+
+  return (
+    <>
+      <Analytics />
+      <ResultScreen
+        puzzle={game.puzzle}
+        won={game.won}
         attempts={game.attempts}
-        chainComplete={game.chainComplete}
-        selectChar={game.selectChar}
-        resetChain={game.resetChain}
-        submitChain={game.submitChain}
-        isSelectable={game.isSelectable}
-        isSelected={game.isSelected}
-        getChainPosition={game.getChainPosition}
-        unselectSlot={game.unselectSlot}
+        lives={game.lives}
+        maxLives={game.maxLives}
       />
     </>
   )

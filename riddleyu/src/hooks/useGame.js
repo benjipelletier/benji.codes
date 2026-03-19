@@ -5,124 +5,103 @@ const MAX_LIVES = 5
 
 export function useGame() {
   const [puzzle, setPuzzle] = useState(null)
-  const [phase, setPhase] = useState('intro') // intro | game | result
-  const [currentSlot, setCurrentSlot] = useState(0)
-  const [chain, setChain] = useState([null, null, null, null]) // char or null per slot
-  const [selectedIndices, setSelectedIndices] = useState([null, null, null, null]) // grid index per slot
+  const [phase, setPhase] = useState('intro') // intro | connections | sliding | result
+  const [currentChengyu, setCurrentChengyu] = useState(0) // 0–3
+  const [selected, setSelected] = useState([]) // grid indices currently selected
+  const [solvedGroups, setSolvedGroups] = useState([false, false, false, false])
   const [lives, setLives] = useState(MAX_LIVES)
-  const [attempts, setAttempts] = useState([]) // [{chain: [...], feedback: [...]}]
+  const [attempts, setAttempts] = useState([]) // { group, chars, correct }
+  const [wrongFlash, setWrongFlash] = useState(false)
+  const [offsets, setOffsets] = useState([0, 0, 0, 0]) // sliding phase: active char index per row
   const [won, setWon] = useState(false)
 
   useEffect(() => {
-    getPuzzleForDate(getTodayString()).then(p => {
-      const grid = [...p.grid].sort(() => Math.random() - 0.5)
-      setPuzzle({ ...p, grid })
-    })
+    getPuzzleForDate(getTodayString()).then(setPuzzle)
   }, [])
 
   function startGame() {
-    setPhase('game')
+    setPhase('connections')
   }
 
-  // Is this grid char selectable right now?
-  function isSelectable(gridIndex) {
-    if (phase !== 'game') return false
-    if (chain[currentSlot] !== null) return false
-    return !selectedIndices.includes(gridIndex)
-  }
+  // --- CONNECTIONS PHASE ---
 
-  // Is this grid char already locked into the chain?
-  function isSelected(gridIndex) {
-    return selectedIndices.includes(gridIndex)
-  }
-
-  // Returns 1-4 if this grid char is in the chain, null otherwise
-  function getChainPosition(gridIndex) {
-    const idx = selectedIndices.indexOf(gridIndex)
-    return idx === -1 ? null : idx + 1
-  }
-
-  function selectChar(gridIndex) {
-    if (!isSelectable(gridIndex)) return
-    const char = puzzle.grid[gridIndex]
-    const newChain = [...chain]
-    newChain[currentSlot] = char
-    setChain(newChain)
-
-    const newIndices = [...selectedIndices]
-    newIndices[currentSlot] = gridIndex
-    setSelectedIndices(newIndices)
-
-    const nextSlot = currentSlot + 1
-    if (nextSlot < 4) setCurrentSlot(nextSlot)
-  }
-
-  function resetChain() {
-    setChain([null, null, null, null])
-    setSelectedIndices([null, null, null, null])
-    setCurrentSlot(0)
-  }
-
-  function unselectSlot(slotIndex) {
-    const newChain = [...chain]
-    const newIndices = [...selectedIndices]
-    for (let i = slotIndex; i < 4; i++) {
-      newChain[i] = null
-      newIndices[i] = null
+  function toggleSelect(gridIndex) {
+    const group = puzzle.gridGroups[gridIndex]
+    if (solvedGroups[group]) return
+    if (selected.includes(gridIndex)) {
+      setSelected(selected.filter(i => i !== gridIndex))
+    } else if (selected.length < 4) {
+      setSelected([...selected, gridIndex])
     }
-    setChain(newChain)
-    setSelectedIndices(newIndices)
-    setCurrentSlot(slotIndex)
   }
 
-  function getFeedback(ch) {
-    return ch.map((char, i) => {
-      if (char === puzzle.chengyu[i]) return 'green'
-      if (puzzle.chengyu.includes(char)) return 'yellow'
-      return 'grey'
-    })
-  }
+  function submitGroup() {
+    if (selected.length !== 4) return
+    const selectedGroups = selected.map(i => puzzle.gridGroups[i])
+    const correct = selectedGroups.every(g => g === currentChengyu)
+    const selectedChars = selected.map(i => puzzle.grid[i])
+    setAttempts(prev => [...prev, { group: currentChengyu, chars: selectedChars, correct }])
 
-  function submitChain() {
-    if (chain.some(c => c === null)) return
-    const feedback = getFeedback(chain)
-    const attempt = { chain: [...chain], feedback }
-    const newAttempts = [...attempts, attempt]
-    setAttempts(newAttempts)
-
-    if (feedback.every(f => f === 'green')) {
-      setWon(true)
-      setTimeout(() => setPhase('result'), 800)
-    } else {
-      const newLives = lives - 1
-      setLives(newLives)
-      if (newLives === 0) {
-        setTimeout(() => setPhase('result'), 800)
+    if (correct) {
+      const newSolved = [...solvedGroups]
+      newSolved[currentChengyu] = true
+      setSolvedGroups(newSolved)
+      setSelected([])
+      if (currentChengyu === 3) {
+        setTimeout(() => setPhase('sliding'), 700)
       } else {
-        resetChain()
+        setTimeout(() => setCurrentChengyu(prev => prev + 1), 400)
       }
+    } else {
+      setWrongFlash(true)
+      setTimeout(() => {
+        setWrongFlash(false)
+        setSelected([])
+        const newLives = lives - 1
+        setLives(newLives)
+        if (newLives === 0) setPhase('result')
+      }, 600)
     }
   }
 
-  const chainComplete = chain.every(c => c !== null)
+  function resetSelection() {
+    setSelected([])
+  }
+
+  // --- SLIDING PHASE ---
+
+  function updateOffset(rowIndex, newOffset) {
+    const clamped = Math.max(0, Math.min(3, newOffset))
+    const next = [...offsets]
+    next[rowIndex] = clamped
+    setOffsets(next)
+
+    // Check win: each row's active char must match hidden.chars[rowIndex]
+    const allCorrect = puzzle.chengyus.every((cy, i) => {
+      return cy.chars[next[i]] === puzzle.hidden.chars[i]
+    })
+    if (allCorrect) {
+      setWon(true)
+      setTimeout(() => setPhase('result'), 1400)
+    }
+  }
 
   return {
     puzzle,
     phase,
-    currentSlot,
-    chain,
+    currentChengyu,
+    selected,
+    solvedGroups,
     lives,
     maxLives: MAX_LIVES,
     attempts,
+    wrongFlash,
+    offsets,
     won,
-    chainComplete,
     startGame,
-    selectChar,
-    resetChain,
-    unselectSlot,
-    submitChain,
-    isSelectable,
-    isSelected,
-    getChainPosition,
+    toggleSelect,
+    submitGroup,
+    resetSelection,
+    updateOffset,
   }
 }

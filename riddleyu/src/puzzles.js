@@ -1,95 +1,79 @@
 // Puzzle shape:
 // {
 //   date: "YYYY-MM-DD",
-//   chengyu: ["字","字","字","字"],
-//   pinyin: "...",
-//   meaning: "...",
-//   origin: "...",
-//   riddles: [ { text: "...", hint: "..." }, x4 ],
-//   grid: ["字", ...16 chars shuffled]  // 4 real + 12 imposters, any can go in any slot
+//   chengyus: [
+//     { chars, pinyin, meaning, riddle, riddle_translation, hint },  // x4
+//   ],
+//   hidden: { chars, pinyin, meaning },   // the 5th chengyu formed by sliding
+//   hiddenPositions: [0,0,0,1],           // which index in each chengyu's chars contributes to hidden
+//   grid: [...16 chars shuffled],         // all 4 chengyus' chars mixed
+//   gridGroups: [...16 group indices],    // parallel to grid: which chengyu (0-3) each char belongs to
 // }
 
 export const HARDCODED_PUZZLES = [
   {
-    date: "2026-02-26",
-    chengyu: ["马", "到", "成", "功"],
-    pinyin: "mǎ dào chéng gōng",
-    meaning: "Immediate success upon arrival — achieving your goal the moment you begin.",
-    origin: "A Song dynasty phrase describing a cavalry charge so swift and decisive that victory came the instant the horses arrived.",
-    origin_zh: "宋朝时，人们用这句话形容骑兵冲锋，战马一到，胜利就来了。",
-    riddles: [
+    date: "2026-03-19",
+    chengyus: [
       {
-        type: "场景谜",
-        text: "皇帝出征，骑着我才能打天下。",
-        translation: "The emperor rides me to conquer the realm.",
-        hint: "A powerful animal ridden by warriors and emperors into battle",
+        chars: ["一", "石", "二", "鸟"],
+        pinyin: "yī shí èr niǎo",
+        meaning: "Kill two birds with one stone — one action, two results.",
+        riddle: "旅人投一石，双鸟齐落。一举，两获。",
+        riddle_translation: "A traveler throws one stone — two birds fall. One move, two gains.",
+        hint: "One action achieves two goals at once",
       },
       {
-        type: "字谜",
-        text: "持刀而至，方才到达。",
-        translation: "Carry a blade beside 'arrive' — and you've gotten there.",
-        hint: "至 (to reach) + 刂 (knife radical) = 到",
+        chars: ["马", "到", "成", "功"],
+        pinyin: "mǎ dào chéng gōng",
+        meaning: "Immediate success upon arrival — victory the moment you begin.",
+        riddle: "将旗未落，战马蹄声中城门已开。",
+        riddle_translation: "The battle flag still raised — city gates open to the sound of approaching hooves.",
+        hint: "Success arrives the moment you do — no delay, no struggle",
       },
       {
-        type: "场景谜",
-        text: "万事开头难，坚持到最后，空白变成了我。",
-        translation: "Everything is hard at first — persist to the end, and emptiness becomes me.",
-        hint: "What happens when a task is finally finished — accomplished, complete",
+        chars: ["当", "仁", "不", "让"],
+        pinyin: "dāng rén bù ràng",
+        meaning: "When righteousness calls, yield to no one — step forward without hesitation.",
+        riddle: "皇帝问谁敢直言。一位大臣迈步向前，不让他人。",
+        riddle_translation: "The emperor asks who dares speak truth. One minister steps forward, yielding to no one.",
+        hint: "When duty calls, a person of integrity steps up without waiting",
       },
       {
-        type: "字谜",
-        text: "出力又出工，缺一不可。",
-        translation: "Effort and labor — neither can be missing.",
-        hint: "工 (work) + 力 (strength/effort) = 功",
-      },
-    ],
-    // 4 real chars + 3 imposters each, shuffled together (16 total)
-    // Slot 0 (马): imposters 龙,虎,牛
-    // Slot 1 (到): imposters 来,去,行
-    // Slot 2 (成): imposters 为,变,做
-    // Slot 3 (功): imposters 果,绩,效
-    grid: ["龙", "来", "成", "果", "马", "为", "去", "绩", "虎", "到", "变", "行", "牛", "做", "功", "效"],
-  },
-  {
-    date: "2026-02-27",
-    chengyu: ["一", "石", "二", "鸟"],
-    pinyin: "yī shí èr niǎo",
-    meaning: "Kill two birds with one stone — achieving two goals with a single action.",
-    origin: "A universal idiom describing elegant efficiency, found across many cultures. In Chinese it paints a vivid image of a single thrown stone felling two birds.",
-    origin_zh: "用一块石头打下两只鸟，比喻一个行动同时达到两个目的。",
-    riddles: [
-      {
-        type: "形谜",
-        text: "万物之始，我只有一笔，横贯天地。",
-        translation: "The beginning of all things — just one stroke, crossing heaven and earth.",
-        hint: "A single horizontal line — the simplest character",
-      },
-      {
-        type: "字谜",
-        text: "山崖下藏着一张嘴，坚硬千年。",
-        translation: "A mouth hidden beneath a cliff — hard for a thousand years.",
-        hint: "厂 (cliff/overhang) + 口 (mouth) = 石",
-      },
-      {
-        type: "形谜",
-        text: "比一多一笔，比三少一笔，两横平行。",
-        translation: "One more stroke than one, one fewer than three — two parallel lines.",
-        hint: "Two horizontal strokes, one above the other",
-      },
-      {
-        type: "场景谜",
-        text: "春天清晨，我在树梢叫醒你。",
-        translation: "On a spring morning, I wake you from the treetop.",
-        hint: "A feathered creature that sings at dawn — look for it in the spring sky",
+        chars: ["争", "先", "恐", "后"],
+        pinyin: "zhēng xiān kǒng hòu",
+        meaning: "Everyone scrambles to be first, terrified of falling behind.",
+        riddle: "城门一开，百人蜂拥，人人唯恐落于人后。",
+        riddle_translation: "The gates open — a hundred people surge forward, each terrified of falling even one step behind.",
+        hint: "A frantic rush where everyone fears being last",
       },
     ],
-    grid: ["一", "石", "二", "鸟", "三", "木", "三", "鱼", "七", "土", "两", "蝶", "万", "水", "双", "虫"],
+    hidden: {
+      chars: ["一", "马", "当", "先"],
+      pinyin: "yī mǎ dāng xiān",
+      meaning: "To charge ahead of all others — to take the lead without hesitation.",
+    },
+    // hiddenPositions[i] = index within chengyus[i].chars that contributes to hidden
+    // 一石二鸟[0]=一, 马到成功[0]=马, 当仁不让[0]=当, 争先恐后[1]=先
+    hiddenPositions: [0, 0, 0, 1],
+    grid: ["一","石","二","鸟","马","到","成","功","当","仁","不","让","争","先","恐","后"],
+    gridGroups: [0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3],
   },
 ]
 
 export async function getPuzzleForDate(dateStr) {
   if (import.meta.env.DEV) {
-    return HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
+    const puzzle = HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
+    // Shuffle grid and gridGroups together using Fisher-Yates
+    const indices = puzzle.grid.map((_, i) => i)
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]]
+    }
+    return {
+      ...puzzle,
+      grid: indices.map(i => puzzle.grid[i]),
+      gridGroups: indices.map(i => puzzle.gridGroups[i]),
+    }
   }
   const res = await fetch(`/api/puzzle?date=${dateStr}`)
   return res.json()

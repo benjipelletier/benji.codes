@@ -1,14 +1,11 @@
 import React, { useState } from 'react'
 
-const FB_COLOR = { green: '#2d7a4f', yellow: '#c97d10', grey: '#7a7570' }
-const FB_BG = { green: '#d4edda', yellow: '#fef3cd', grey: '#e8e4dc' }
-const FB_EMOJI = { green: '🟩', yellow: '🟨', grey: '⬜' }
-
 function buildShareText(puzzle, won, attempts, lives, maxLives) {
   const date = puzzle.date
-  const result = won ? `${maxLives - lives + 1}/${maxLives} ❤️` : `X/${maxLives}`
-  const grid = attempts.map(a => a.feedback.map(f => FB_EMOJI[f]).join('')).join('\n')
-  return `谜语 RiddleYu · ${date}\n${result}\n\n${grid}\n\nriddleyu.benji.codes`
+  const solvedCount = attempts.filter(a => a.correct).length
+  const result = won ? `${solvedCount}/${maxLives} ❤️` : `X/${maxLives}`
+  const rows = attempts.map(a => a.correct ? '🟩🟩🟩🟩' : '⬜⬜⬜⬜').join('\n')
+  return `谜语 RiddleYu · ${date}\n${result}\n\n${rows}\n\nriddleyu.benji.codes`
 }
 
 export default function ResultScreen({ puzzle, won, attempts, lives, maxLives }) {
@@ -22,6 +19,10 @@ export default function ResultScreen({ puzzle, won, attempts, lives, maxLives })
     })
   }
 
+  const solvedChengyus = puzzle.chengyus.filter((_, i) => {
+    return attempts.some(a => a.group === i && a.correct)
+  })
+
   return (
     <div style={s.root}>
       <div style={s.card}>
@@ -31,45 +32,45 @@ export default function ResultScreen({ puzzle, won, attempts, lives, maxLives })
           {won ? '成功' : '下次再来'}
         </div>
 
-        <div style={s.chengyuRow}>
-          {puzzle.chengyu.map((c, i) => (
-            <div key={i} style={s.chengyuChar}>{c}</div>
-          ))}
+        {/* The 4 solved chengyus */}
+        <div style={s.sectionLabel}>今日成语 · Today's idioms</div>
+        <div style={s.chengyuList}>
+          {puzzle.chengyus.map((cy, i) => {
+            const solved = attempts.some(a => a.group === i && a.correct)
+            return (
+              <div key={i} style={{ ...s.chengyuItem, opacity: solved ? 1 : 0.35 }}>
+                <div style={s.charRow}>
+                  {cy.chars.map((c, j) => (
+                    <div key={j} style={s.chengyuChar}>{c}</div>
+                  ))}
+                </div>
+                <div style={s.chengyuMeta}>
+                  <span style={s.pinyin}>{cy.pinyin}</span>
+                  <span style={s.meaning}>{cy.meaning}</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
-        <div style={s.pinyin}>{puzzle.pinyin}</div>
-        <p style={s.meaning}>{puzzle.meaning}</p>
-        <p style={s.origin}>{puzzle.origin}</p>
-        {puzzle.origin_zh && <p style={s.originZh}>{puzzle.origin_zh}</p>}
+
+        {/* The hidden 5th */}
+        {won && (
+          <>
+            <div style={s.divider} />
+            <div style={s.sectionLabel}>隐藏成语 · Hidden idiom</div>
+            <div style={s.hiddenSection}>
+              <div style={s.charRow}>
+                {puzzle.hidden.chars.map((c, i) => (
+                  <div key={i} style={s.hiddenChar}>{c}</div>
+                ))}
+              </div>
+              <div style={s.pinyin}>{puzzle.hidden.pinyin}</div>
+              <p style={s.hiddenMeaning}>{puzzle.hidden.meaning}</p>
+            </div>
+          </>
+        )}
 
         <div style={s.divider} />
-
-        <div style={s.historyLabel}>Your attempts</div>
-        <div style={s.history}>
-          {attempts.map((a, ai) => (
-            <div key={ai} style={s.attemptRow}>
-              {a.chain.map((char, ci) => (
-                <React.Fragment key={ci}>
-                  <div style={{
-                    ...s.chip,
-                    background: FB_BG[a.feedback[ci]],
-                    color: FB_COLOR[a.feedback[ci]],
-                    border: `1.5px solid ${FB_COLOR[a.feedback[ci]]}`,
-                  }}>
-                    {char}
-                  </div>
-                  {ci < 3 && <span style={s.arrow}>›</span>}
-                </React.Fragment>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div style={s.livesLeft}>
-          {won
-            ? `Solved with ${lives} ${lives === 1 ? 'life' : 'lives'} remaining`
-            : `Used all ${maxLives} lives`
-          }
-        </div>
 
         <button style={s.shareBtn} onClick={handleShare}>
           {copied ? '已复制 · Copied!' : '分享 · Share'}
@@ -94,7 +95,7 @@ const s = {
     background: 'var(--paper)',
     border: '1.5px solid #c8bfaa',
     borderRadius: 24,
-    padding: '36px 28px',
+    padding: '36px 24px',
     maxWidth: 380,
     width: '100%',
     textAlign: 'center',
@@ -145,51 +146,90 @@ const s = {
     marginBottom: 20,
     letterSpacing: 1,
   },
-  chengyuRow: {
+  sectionLabel: {
+    fontSize: 9,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: 'var(--grey)',
+    marginBottom: 14,
+    fontFamily: "'Noto Sans SC', sans-serif",
+  },
+  chengyuList: {
     display: 'flex',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 8,
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 4,
+  },
+  chengyuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    textAlign: 'left',
+    transition: 'opacity 0.3s',
+  },
+  charRow: {
+    display: 'flex',
+    gap: 4,
+    flexShrink: 0,
   },
   chengyuChar: {
-    width: 56,
-    height: 56,
+    width: 36,
+    height: 36,
     background: 'var(--ink)',
     color: 'var(--paper)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 6,
     fontFamily: "'Noto Serif SC', serif",
-    fontSize: 26,
+    fontSize: 17,
     fontWeight: 700,
+  },
+  chengyuMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    minWidth: 0,
   },
   pinyin: {
     fontFamily: "'Playfair Display', serif",
-    fontSize: 14,
-    color: 'var(--grey)',
-    letterSpacing: 1,
-    marginBottom: 14,
-  },
-  meaning: {
-    fontFamily: "'Noto Serif SC', serif",
-    fontSize: 15,
-    lineHeight: 1.7,
-    color: 'var(--ink)',
-    marginBottom: 10,
-  },
-  origin: {
-    fontSize: 12,
-    lineHeight: 1.7,
+    fontSize: 11,
     color: 'var(--grey)',
     fontStyle: 'italic',
+    display: 'block',
   },
-  originZh: {
+  meaning: {
+    fontSize: 11,
+    color: 'var(--grey)',
+    lineHeight: 1.5,
+    display: 'block',
+  },
+  hiddenSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hiddenChar: {
+    width: 52,
+    height: 52,
+    background: '#d4edda',
+    color: '#2d7a4f',
+    border: '1.5px solid #2d7a4f',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
     fontFamily: "'Noto Serif SC', serif",
-    fontSize: 13,
-    lineHeight: 1.8,
+    fontSize: 24,
+    fontWeight: 700,
+  },
+  hiddenMeaning: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 14,
     color: 'var(--ink)',
-    marginTop: 10,
+    lineHeight: 1.7,
+    marginTop: 4,
   },
   divider: {
     width: '100%',
@@ -197,49 +237,10 @@ const s = {
     background: 'var(--paper3)',
     margin: '20px 0',
   },
-  historyLabel: {
-    fontSize: 9,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: 'var(--grey)',
-    marginBottom: 10,
-  },
-  history: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    marginBottom: 16,
-  },
-  attemptRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  chip: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: "'Noto Serif SC', serif",
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  arrow: {
-    color: '#c8bfaa',
-    fontSize: 14,
-  },
-  livesLeft: {
-    fontSize: 12,
-    color: 'var(--grey)',
-    marginBottom: 16,
-  },
   shareBtn: {
     width: '100%',
     padding: '12px 0',
-    marginBottom: 16,
+    marginBottom: 14,
     background: 'var(--ink)',
     color: 'var(--paper)',
     border: 'none',

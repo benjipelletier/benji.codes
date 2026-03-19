@@ -8,23 +8,22 @@ export default function IntroScreen({ onStart }) {
         <div style={s.logoZh}>谜语</div>
         <div style={s.logoEn}>RiddleYu</div>
         <div style={s.divider} />
-        <p style={s.tagline}>每天一个成语。<br />四道谜题，四个汉字。</p>
+        <p style={s.tagline}>每天四个成语。<br />猜完之后，找出第五个。</p>
         <p style={s.sub}>
-          A new 成语 every day. Solve 4 riddles, pick characters from the grid, 
-          chain them together, and uncover the idiom.
+          Four idioms a day. Solve each riddle, pick the right characters from the grid, then slide the rows to reveal a hidden fifth 成语.
         </p>
-        <div style={s.legend}>
-          <div style={s.legendRow}>
-            <span style={{...s.dot, background:'#2d7a4f'}} />
-            <span style={s.legendText}>correct character, correct position</span>
+        <div style={s.steps}>
+          <div style={s.step}>
+            <span style={s.stepNum}>一</span>
+            <span style={s.stepText}>Read the riddle. It describes a whole 成语.</span>
           </div>
-          <div style={s.legendRow}>
-            <span style={{...s.dot, background:'#c97d10'}} />
-            <span style={s.legendText}>correct character, wrong position</span>
+          <div style={s.step}>
+            <span style={s.stepNum}>二</span>
+            <span style={s.stepText}>Pick 4 characters from the grid that spell it.</span>
           </div>
-          <div style={s.legendRow}>
-            <span style={{...s.dot, background:'#7a7570'}} />
-            <span style={s.legendText}>not in today's 成语</span>
+          <div style={s.step}>
+            <span style={s.stepNum}>三</span>
+            <span style={s.stepText}>Solve all four, then drag the rows to find the hidden fifth.</span>
           </div>
         </div>
         <div style={s.lives}>You have <strong>5 lives</strong>. 加油！</div>
@@ -107,45 +106,39 @@ const s = {
     color: 'var(--grey)',
     marginBottom: 20,
   },
-  legend: {
+  steps: {
     background: 'var(--paper2)',
     borderRadius: 10,
-    padding: '12px 16px',
-    marginBottom: 16,
+    padding: '14px 16px',
+    marginBottom: 18,
     textAlign: 'left',
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: 12,
   },
-  legendRow: {
+  step: {
     display: 'flex',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: '50%',
+  stepNum: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 14,
+    fontWeight: 900,
+    color: 'var(--ink)',
     flexShrink: 0,
+    width: 20,
+    textAlign: 'center',
   },
-  legendText: {
+  stepText: {
     fontSize: 12,
     color: 'var(--grey)',
+    lineHeight: 1.6,
   },
   lives: {
     fontSize: 13,
     color: 'var(--grey)',
     marginBottom: 24,
-  },
-  vibe: {
-    marginTop: 16,
-    fontSize: 11,
-    color: '#c8bfaa',
-    fontStyle: 'normal',
-  },
-  vibeLink: {
-    color: '#c8bfaa',
-    textDecoration: 'none',
   },
   btn: {
     width: '100%',
@@ -160,5 +153,14 @@ const s = {
     letterSpacing: 2,
     cursor: 'pointer',
     boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+  },
+  vibe: {
+    marginTop: 16,
+    fontSize: 11,
+    color: '#c8bfaa',
+  },
+  vibeLink: {
+    color: '#c8bfaa',
+    textDecoration: 'none',
   },
 }
