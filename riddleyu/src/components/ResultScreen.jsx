@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
 
 function buildShareText(puzzle, declarations) {
-  const tiles = declarations.map(d => d.correct ? '🟩' : '🟨').join('')
+  const tiles = declarations.flatMap(d => {
+    if (d.type === 'cluster' && !d.correct) return ['🟨','🟨','🟨','🟨']
+    if (d.type === 'specific' && !d.correct) return ['🟨']
+    if (d.type === 'specific' && d.correct) return ['🟩']
+    return []
+  }).join('')
   return `谜语 ${puzzle.date}\n${tiles}\nriddleyu.benji.codes`
 }
 

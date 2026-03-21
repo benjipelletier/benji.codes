@@ -56,14 +56,13 @@ export default function App() {
         <GameScreen
           puzzle={game.puzzle}
           selected={game.selected}
-          opened={game.opened}
-          claims={game.claims}
-          viewingClaim={game.viewingClaim}
-          nextPosition={game.nextPosition}
+          solvedClusters={game.solvedClusters}
+          answers={game.answers}
+          currentCluster={game.currentCluster}
+          subPhase={game.subPhase}
           wrongFlash={game.wrongFlash}
           selectChar={game.selectChar}
-          declareZai={game.declareZai}
-          declareBuzai={game.declareBuzai}
+          submitCluster={game.submitCluster}
         />
       )}
       {game.phase === 'result' && (

@@ -1,33 +1,59 @@
 import React from 'react'
 
-export default function CharacterGrid({ grid, opened, selected, wrongFlash, onSelect }) {
+export default function CharacterGrid({
+  grid, selected, solvedClusters, answers, wrongFlash,
+  subPhase, currentClusterChars, onSelect,
+}) {
+  const solvedChars = new Set(solvedClusters)
+  const answerSet = new Set(answers)
+  const currentSet = new Set(currentClusterChars || [])
+  const choosing = subPhase === 'choosing'
+
   return (
     <div style={s.grid}>
       {grid.map((char, idx) => {
-        const status = opened[char] // 'zai' | 'buzai' | undefined
-        const isSelected = selected === char
-        const isFlashing = wrongFlash === char
+        const isSolvedNonAnswer = solvedChars.has(char) && !answerSet.has(char)
+        const isAnswer = answerSet.has(char)
+        const isSelected = selected.has(char)
+        const isFlashing = wrongFlash && wrongFlash.has(char)
+        const isCurrentCluster = currentSet.has(char)
 
-        const cardStyle = status === 'zai'
-          ? s.cardZai
-          : status === 'buzai'
-            ? s.cardBuzai
+        // During choosing, only current cluster chars are active
+        const isDimmed = choosing && !isCurrentCluster && !isAnswer && !isSolvedNonAnswer
+
+        const cardStyle = isAnswer
+          ? s.cardAnswer
+          : isSolvedNonAnswer
+            ? s.cardSolved
             : isSelected
               ? s.cardSelected
               : isFlashing
                 ? s.cardFlash
-                : s.cardClosed
+                : choosing && isCurrentCluster
+                  ? s.cardClusterActive
+                  : isDimmed
+                    ? s.cardDimmed
+                    : s.cardClosed
+
+        const disabled = isAnswer || isSolvedNonAnswer || isDimmed
 
         return (
           <button
             key={`${char}-${idx}`}
-            className={[isFlashing && 'shake', status === 'zai' && 'card-zai', status === 'buzai' && 'card-buzai'].filter(Boolean).join(' ') || undefined}
+            className={[
+              isFlashing && 'shake',
+              isAnswer && 'card-zai',
+              isSolvedNonAnswer && 'card-buzai',
+            ].filter(Boolean).join(' ') || undefined}
             style={{ ...s.card, ...cardStyle }}
-            onClick={() => onSelect(char)}
+            onClick={() => !disabled && onSelect(char)}
+            disabled={disabled}
           >
-            <span style={s.charText}>{char}</span>
-            {status === 'zai' && <span style={s.statusLabel}>在</span>}
-            {status === 'buzai' && <span style={s.statusLabel}>不在</span>}
+            <span style={{
+              ...s.charText,
+              ...(isSolvedNonAnswer ? s.charMuted : {}),
+              ...(isDimmed ? s.charDimmed : {}),
+            }}>{char}</span>
           </button>
         )
       })}
@@ -59,7 +85,6 @@ const s = {
   cardClosed: {
     background: 'white',
     borderColor: '#d4cabb',
-    cursor: 'pointer',
   },
   cardSelected: {
     background: '#fff8f0',
@@ -67,20 +92,31 @@ const s = {
     borderWidth: 2.5,
     boxShadow: '0 2px 12px rgba(192, 57, 43, 0.15)',
   },
-  cardZai: {
+  cardAnswer: {
     background: '#e8f5e9',
     borderColor: '#2d7a4f',
-    cursor: 'pointer',
+    cursor: 'default',
   },
-  cardBuzai: {
+  cardSolved: {
     background: 'var(--paper2)',
     borderColor: '#e0d9ce',
-    cursor: 'pointer',
+    cursor: 'default',
     opacity: 0.5,
   },
   cardFlash: {
     background: '#fdecea',
     borderColor: 'var(--red)',
+  },
+  cardClusterActive: {
+    background: 'white',
+    borderColor: '#d4cabb',
+    borderWidth: 2,
+  },
+  cardDimmed: {
+    background: 'var(--paper2)',
+    borderColor: '#e0d9ce',
+    cursor: 'default',
+    opacity: 0.3,
   },
   charText: {
     fontFamily: "'Noto Serif SC', serif",
@@ -88,13 +124,10 @@ const s = {
     fontWeight: 700,
     color: 'var(--ink)',
   },
-  statusLabel: {
-    position: 'absolute',
-    bottom: 3,
-    right: 5,
-    fontSize: 8,
-    fontWeight: 700,
-    fontFamily: "'Noto Sans SC', sans-serif",
+  charMuted: {
     color: 'var(--grey)',
+  },
+  charDimmed: {
+    color: '#ccc',
   },
 }

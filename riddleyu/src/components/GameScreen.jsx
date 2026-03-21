@@ -3,10 +3,19 @@ import ClaimBar from './ClaimBar'
 import CharacterGrid from './CharacterGrid'
 
 export default function GameScreen({
-  puzzle, selected, opened, claims, viewingClaim, nextPosition, wrongFlash,
-  selectChar, declareZai, declareBuzai,
+  puzzle, selected, solvedClusters, answers, currentCluster, subPhase,
+  wrongFlash, selectChar, submitCluster,
 }) {
-  const canDeclare = selected && !wrongFlash
+  const cluster = puzzle.clusters[currentCluster]
+  const solvedChars = new Set(solvedClusters.flatMap(i => puzzle.clusters[i].chars))
+
+  // Hint/lesson text
+  const barLabel = subPhase === 'picking'
+    ? `第${['一','二','三','四'][currentCluster]}组`
+    : '选一个'
+  const barText = subPhase === 'picking' ? cluster.hint : cluster.lesson
+
+  const canSubmit = subPhase === 'picking' && selected.size === 4 && !wrongFlash
 
   return (
     <div style={s.root}>
@@ -19,19 +28,19 @@ export default function GameScreen({
         <span style={s.date}>{puzzle.date}</span>
       </div>
 
-      {/* Claim bar */}
-      <ClaimBar claims={claims} selected={selected} viewingClaim={viewingClaim} puzzle={puzzle} />
+      {/* Hint / lesson bar */}
+      <ClaimBar label={barLabel} text={barText} />
 
       {/* Progress dots */}
       <div style={s.progress}>
         {[0, 1, 2, 3].map(i => (
           <div key={i}
-            className={i === nextPosition && nextPosition <= 3 ? 'dot-pulse' : undefined}
+            className={i === currentCluster ? 'dot-pulse' : undefined}
             style={{
               ...s.dot,
-              ...(i < nextPosition
+              ...(i < currentCluster || (i === currentCluster && subPhase === 'choosing')
                 ? s.dotFilled
-                : i === nextPosition
+                : i === currentCluster
                   ? s.dotCurrent
                   : s.dotEmpty),
             }}
@@ -42,28 +51,28 @@ export default function GameScreen({
       {/* Grid */}
       <CharacterGrid
         grid={puzzle.grid}
-        opened={opened}
         selected={selected}
+        solvedClusters={[...solvedChars]}
+        answers={answers}
         wrongFlash={wrongFlash}
+        subPhase={subPhase}
+        currentClusterChars={cluster.chars}
         onSelect={selectChar}
       />
 
       {/* Action bar */}
       <div style={s.actionBar}>
-        <button
-          style={{ ...s.btn, ...s.btnBuzai, ...(canDeclare ? {} : s.btnDisabled) }}
-          onClick={declareBuzai}
-          disabled={!canDeclare}
-        >
-          不在
-        </button>
-        <button
-          style={{ ...s.btn, ...s.btnZai, ...(canDeclare ? {} : s.btnDisabled) }}
-          onClick={declareZai}
-          disabled={!canDeclare}
-        >
-          在
-        </button>
+        {subPhase === 'picking' ? (
+          <button
+            style={{ ...s.btn, ...s.btnSubmit, ...(canSubmit ? {} : s.btnDisabled) }}
+            onClick={submitCluster}
+            disabled={!canSubmit}
+          >
+            提交 ({selected.size}/4)
+          </button>
+        ) : (
+          <div style={s.chooseHint}>点击你认为在成语中的字</div>
+        )}
       </div>
     </div>
   )
@@ -112,6 +121,7 @@ const s = {
     gap: 10,
     padding: '16px 20px 28px',
     marginTop: 'auto',
+    justifyContent: 'center',
   },
   btn: {
     flex: 1,
@@ -124,19 +134,21 @@ const s = {
     cursor: 'pointer',
     transition: 'opacity 0.15s',
   },
-  btnBuzai: {
-    background: 'transparent',
-    border: '1.5px solid #d4cabb',
-    color: 'var(--grey)',
-  },
-  btnZai: {
-    background: '#2d7a4f',
+  btnSubmit: {
+    background: 'var(--ink)',
     border: 'none',
-    color: 'white',
-    boxShadow: '0 4px 12px rgba(45,122,79,0.3)',
+    color: 'var(--paper)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
   },
   btnDisabled: {
     opacity: 0.3,
     cursor: 'default',
+  },
+  chooseHint: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 13,
+    color: 'var(--grey)',
+    fontStyle: 'italic',
+    padding: '14px 0',
   },
 }

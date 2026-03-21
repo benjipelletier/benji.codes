@@ -15,15 +15,15 @@ export default function IntroScreen({ onStart }) {
         <div style={s.steps}>
           <div style={s.step}>
             <span style={s.stepNum}>一</span>
-            <span style={s.stepText}>Read the claim — it describes the idiom's structure.</span>
+            <span style={s.stepText}>Read the hint — it describes a group of 4 related characters.</span>
           </div>
           <div style={s.step}>
             <span style={s.stepNum}>二</span>
-            <span style={s.stepText}>Tap a character, then declare 在 or 不在.</span>
+            <span style={s.stepText}>Find and select the 4 characters that match.</span>
           </div>
           <div style={s.step}>
             <span style={s.stepNum}>三</span>
-            <span style={s.stepText}>Each correct declaration reveals a new claim. Find all 4 characters.</span>
+            <span style={s.stepText}>Learn the differences, then pick which one is in the 成语.</span>
           </div>
         </div>
         <button style={s.btn} onClick={onStart}>开始 · Start</button>

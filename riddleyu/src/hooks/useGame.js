@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { getPuzzleForDate, getTodayString } from '../puzzles'
 
 export function useGame() {
   const [puzzle, setPuzzle] = useState(null)
   const [loadError, setLoadError] = useState(false)
   const [phase, setPhase] = useState('intro')
-  const [selected, setSelected] = useState(null)
-  const [opened, setOpened] = useState({})       // char → 'zai' | 'buzai'
-  const [claims, setClaims] = useState([])        // [{ char, claim, zai }]
-  const [declarations, setDeclarations] = useState([]) // [{ char, declared, correct }]
-  const [nextPosition, setNextPosition] = useState(1)  // pos 0 is given
-  const [wrongFlash, setWrongFlash] = useState(null)
+  const [currentCluster, setCurrentCluster] = useState(0)
+  const [subPhase, setSubPhase] = useState('picking') // 'picking' | 'choosing'
+  const [selected, setSelected] = useState(new Set())  // multi-select for picking
+  const [solvedClusters, setSolvedClusters] = useState([]) // indices of solved clusters
+  const [answers, setAnswers] = useState([]) // answer chars found
+  const [declarations, setDeclarations] = useState([]) // { type, correct } for share
+  const [wrongFlash, setWrongFlash] = useState(null) // Set of chars flashing
 
   function loadPuzzle() {
     setLoadError(false)
@@ -23,62 +24,77 @@ export function useGame() {
 
   function startGame() {
     if (!puzzle) return
-    // Auto-open position 0 — deliberately NOT added to declarations
-    // so it doesn't appear as a tile in the share result
-    const firstChar = puzzle.chengyu.chars[0]
-    const charData = puzzle.characters[firstChar]
-    setOpened({ [firstChar]: 'zai' })
-    setClaims([{ char: firstChar, claim: charData.claim, zai: true }])
     setPhase('game')
+    setCurrentCluster(0)
+    setSubPhase('picking')
   }
 
-  const [viewingClaim, setViewingClaim] = useState(null) // char whose claim is being viewed
+  function toggleSelect(char) {
+    if (subPhase !== 'picking' || wrongFlash) return
+    // Can't select solved chars
+    const solvedChars = new Set(solvedClusters.flatMap(i => puzzle.clusters[i].chars))
+    if (solvedChars.has(char)) return
 
-  function selectChar(char) {
-    if (wrongFlash) return
-    // Tapping an opened card → view its claim
-    if (opened[char]) {
-      setViewingClaim(prev => prev === char ? null : char)
-      setSelected(null)
-      return
-    }
-    setViewingClaim(null)
-    setSelected(prev => prev === char ? null : char)
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(char)) {
+        next.delete(char)
+      } else if (next.size < 4) {
+        next.add(char)
+      }
+      return next
+    })
   }
 
-  function declare(judgment) {
-    if (!selected || wrongFlash) return
-    const charData = puzzle.characters[selected]
-    const actualStatus = charData.zai ? 'zai' : 'buzai'
+  function submitCluster() {
+    if (selected.size !== 4 || subPhase !== 'picking' || wrongFlash) return
 
-    // Special: declaring 在 for a character that IS 在 but at wrong position
-    let isCorrect
-    if (judgment === 'zai' && charData.zai && charData.position !== nextPosition) {
-      isCorrect = false
-    } else {
-      isCorrect = judgment === actualStatus
-    }
-
-    const char = selected
-    setDeclarations(prev => [...prev, { char, declared: judgment, correct: isCorrect }])
+    const cluster = puzzle.clusters[currentCluster]
+    const clusterSet = new Set(cluster.chars)
+    const isCorrect = [...selected].every(c => clusterSet.has(c)) && selected.size === clusterSet.size
 
     if (isCorrect) {
-      setOpened(prev => ({ ...prev, [char]: judgment }))
-      setClaims(prev => [...prev, { char, claim: charData.claim, zai: charData.zai }])
-      setSelected(null)
-      setViewingClaim(null)
-      if (judgment === 'zai') {
-        const newPos = nextPosition + 1
-        setNextPosition(newPos)
-        if (newPos > 3) {
-          // Win! All 4 found
-          setTimeout(() => setPhase('result'), 1500)
-        }
+      setSolvedClusters(prev => [...prev, currentCluster])
+      setSelected(new Set())
+      setSubPhase('choosing')
+    } else {
+      setDeclarations(prev => [...prev, { type: 'cluster', correct: false }])
+      setWrongFlash(new Set(selected))
+      setTimeout(() => {
+        setWrongFlash(null)
+        setSelected(new Set())
+      }, 600)
+    }
+  }
+
+  function chooseAnswer(char) {
+    if (subPhase !== 'choosing' || wrongFlash) return
+    const cluster = puzzle.clusters[currentCluster]
+    if (!cluster.chars.includes(char)) return
+
+    if (char === cluster.answer) {
+      setDeclarations(prev => [...prev, { type: 'specific', correct: true }])
+      setAnswers(prev => [...prev, char])
+
+      const nextCluster = currentCluster + 1
+      if (nextCluster >= 4) {
+        setTimeout(() => setPhase('result'), 1500)
+      } else {
+        setCurrentCluster(nextCluster)
+        setSubPhase('picking')
       }
     } else {
-      setWrongFlash(char)
-      setSelected(null)
+      setDeclarations(prev => [...prev, { type: 'specific', correct: false }])
+      setWrongFlash(new Set([char]))
       setTimeout(() => setWrongFlash(null), 600)
+    }
+  }
+
+  function selectChar(char) {
+    if (subPhase === 'picking') {
+      toggleSelect(char)
+    } else if (subPhase === 'choosing') {
+      chooseAnswer(char)
     }
   }
 
@@ -87,16 +103,15 @@ export function useGame() {
     loadError,
     retryLoad: loadPuzzle,
     phase,
+    currentCluster,
+    subPhase,
     selected,
-    opened,
-    claims,
-    viewingClaim,
+    solvedClusters,
+    answers,
     declarations,
-    nextPosition,
     wrongFlash,
     startGame,
     selectChar,
-    declareZai: () => declare('zai'),
-    declareBuzai: () => declare('buzai'),
+    submitCluster,
   }
 }
