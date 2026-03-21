@@ -8,25 +8,24 @@ export default function IntroScreen({ onStart }) {
         <div style={s.logoZh}>谜语</div>
         <div style={s.logoEn}>RiddleYu</div>
         <div style={s.divider} />
-        <p style={s.tagline}>每天四个成语。<br />猜完之后，找出第五个。</p>
+        <p style={s.tagline}>每天一个成语推理。</p>
         <p style={s.sub}>
-          Four idioms a day. Solve each riddle, pick the right characters from the grid, then slide the rows to reveal a hidden fifth 成语.
+          One idiom a day. Deduce it character by character.
         </p>
         <div style={s.steps}>
           <div style={s.step}>
             <span style={s.stepNum}>一</span>
-            <span style={s.stepText}>Read the riddle. It describes a whole 成语.</span>
+            <span style={s.stepText}>Read the claim — it describes the idiom's structure.</span>
           </div>
           <div style={s.step}>
             <span style={s.stepNum}>二</span>
-            <span style={s.stepText}>Pick 4 characters from the grid that spell it.</span>
+            <span style={s.stepText}>Tap a character, then declare 在 or 不在.</span>
           </div>
           <div style={s.step}>
             <span style={s.stepNum}>三</span>
-            <span style={s.stepText}>Solve all four, then drag the rows to find the hidden fifth.</span>
+            <span style={s.stepText}>Each correct declaration reveals a new claim. Find all 4 characters.</span>
           </div>
         </div>
-        <div style={s.lives}>You have <strong>5 lives</strong>. 加油！</div>
         <button style={s.btn} onClick={onStart}>开始 · Start</button>
         <p style={s.vibe}>Vibecoded with ♥ by <a href="https://instagram.com/benjipelletier" target="_blank" rel="noreferrer" style={s.vibeLink}>笨鸡</a></p>
       </div>
@@ -110,7 +109,7 @@ const s = {
     background: 'var(--paper2)',
     borderRadius: 10,
     padding: '14px 16px',
-    marginBottom: 18,
+    marginBottom: 24,
     textAlign: 'left',
     display: 'flex',
     flexDirection: 'column',
@@ -134,11 +133,6 @@ const s = {
     fontSize: 12,
     color: 'var(--grey)',
     lineHeight: 1.6,
-  },
-  lives: {
-    fontSize: 13,
-    color: 'var(--grey)',
-    marginBottom: 24,
   },
   btn: {
     width: '100%',
