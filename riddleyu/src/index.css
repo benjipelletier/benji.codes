@@ -61,7 +61,12 @@ body {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-.card-opened:hover {
+.card-zai:hover {
+  box-shadow: 0 2px 12px rgba(45, 122, 79, 0.25);
+  border-color: #2d7a4f !important;
+}
+
+.card-buzai:hover {
   box-shadow: 0 2px 12px rgba(192, 57, 43, 0.15);
   border-color: var(--red) !important;
 }

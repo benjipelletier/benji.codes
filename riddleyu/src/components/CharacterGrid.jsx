@@ -21,7 +21,7 @@ export default function CharacterGrid({ grid, opened, selected, wrongFlash, onSe
         return (
           <button
             key={`${char}-${idx}`}
-            className={[isFlashing && 'shake', status && 'card-opened'].filter(Boolean).join(' ') || undefined}
+            className={[isFlashing && 'shake', status === 'zai' && 'card-zai', status === 'buzai' && 'card-buzai'].filter(Boolean).join(' ') || undefined}
             style={{ ...s.card, ...cardStyle }}
             onClick={() => onSelect(char)}
           >
