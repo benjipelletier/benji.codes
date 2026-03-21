@@ -28,6 +28,7 @@ export function useGame() {
     getPuzzleForDate(getTodayString())
       .then(p => setPuzzle({
         ...p,
+        grid: shuffle(p.grid),
         clusters: p.clusters.map(c => ({ ...c, chars: shuffle(c.chars) })),
       }))
       .catch(() => setLoadError(true))

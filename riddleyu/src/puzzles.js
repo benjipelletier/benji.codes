@@ -43,13 +43,7 @@ export function setDevUseBackend(val) { localStorage.setItem('dev_use_backend', 
 
 export async function getPuzzleForDate(dateStr) {
   if (import.meta.env.DEV && !getDevUseBackend()) {
-    const puzzle = HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
-    const shuffled = [...puzzle.grid]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return { ...puzzle, grid: shuffled }
+    return HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
   }
   try {
     const res = await fetch(`/api/puzzle?date=${dateStr}`)
