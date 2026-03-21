@@ -30,7 +30,7 @@ Pick a well-known 成语 suitable for intermediate learners.
 Each cluster = 1 correct character + 3 distractors that share a semantic field:
 - All 4 should genuinely relate to the same concept
 - The distractors should be close enough that the player needs the lesson to distinguish
-- All 16 characters across all clusters must be distinct
+- CRITICAL: All 16 characters across all 4 clusters must be completely distinct — no character may appear in more than one cluster. Double-check this before outputting.
 
 **Step 3: Write hints (one per cluster).**
 Each hint is one sentence in Chinese describing what all 4 characters in the cluster have in common. Should be clear enough to find them in the grid.
