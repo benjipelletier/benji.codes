@@ -3,7 +3,7 @@ import ClaimBar from './ClaimBar'
 import CharacterGrid from './CharacterGrid'
 
 export default function GameScreen({
-  puzzle, selected, opened, claims, nextPosition, wrongFlash,
+  puzzle, selected, opened, claims, viewingClaim, nextPosition, wrongFlash,
   selectChar, declareZai, declareBuzai,
 }) {
   const canDeclare = selected && !wrongFlash
@@ -20,7 +20,7 @@ export default function GameScreen({
       </div>
 
       {/* Claim bar */}
-      <ClaimBar claims={claims} />
+      <ClaimBar claims={claims} selected={selected} viewingClaim={viewingClaim} puzzle={puzzle} />
 
       {/* Progress dots */}
       <div style={s.progress}>

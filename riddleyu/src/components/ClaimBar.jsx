@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
 
-export default function ClaimBar({ claims }) {
+export default function ClaimBar({ claims, selected, viewingClaim, puzzle }) {
   const [viewIndex, setViewIndex] = useState(null) // null = latest
   const touchStart = useRef(null)
 
@@ -30,6 +30,28 @@ export default function ClaimBar({ claims }) {
     }
   }
 
+  // Mode 1: Viewing a specific opened card's claim
+  if (viewingClaim && puzzle) {
+    const charData = puzzle.characters[viewingClaim]
+    return (
+      <div style={s.root}>
+        <div style={s.label}>来自：{viewingClaim}</div>
+        <p style={s.text}>{charData.claim}</p>
+      </div>
+    )
+  }
+
+  // Mode 2: A closed card is selected — show instruction
+  if (selected) {
+    return (
+      <div style={s.root}>
+        <div style={s.label}>已选：{selected}</div>
+        <p style={s.instruction}>这个字在成语里吗？点击下方 「在」 或 「不在」。</p>
+      </div>
+    )
+  }
+
+  // Mode 3: Default — show claim history
   if (!claim) return null
 
   return (
@@ -89,6 +111,13 @@ const s = {
     fontSize: 15,
     lineHeight: 1.8,
     color: 'var(--ink)',
+  },
+  instruction: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 14,
+    lineHeight: 1.8,
+    color: 'var(--grey)',
+    fontStyle: 'italic',
   },
   dots: {
     display: 'flex',

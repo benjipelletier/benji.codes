@@ -58,6 +58,7 @@ export default function App() {
           selected={game.selected}
           opened={game.opened}
           claims={game.claims}
+          viewingClaim={game.viewingClaim}
           nextPosition={game.nextPosition}
           wrongFlash={game.wrongFlash}
           selectChar={game.selectChar}

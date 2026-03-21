@@ -32,8 +32,17 @@ export function useGame() {
     setPhase('game')
   }
 
+  const [viewingClaim, setViewingClaim] = useState(null) // char whose claim is being viewed
+
   function selectChar(char) {
-    if (opened[char] || wrongFlash) return
+    if (wrongFlash) return
+    // Tapping an opened card → view its claim
+    if (opened[char]) {
+      setViewingClaim(prev => prev === char ? null : char)
+      setSelected(null)
+      return
+    }
+    setViewingClaim(null)
     setSelected(prev => prev === char ? null : char)
   }
 
@@ -57,6 +66,7 @@ export function useGame() {
       setOpened(prev => ({ ...prev, [char]: judgment }))
       setClaims(prev => [...prev, { char, claim: charData.claim, zai: charData.zai }])
       setSelected(null)
+      setViewingClaim(null)
       if (judgment === 'zai') {
         const newPos = nextPosition + 1
         setNextPosition(newPos)
@@ -80,6 +90,7 @@ export function useGame() {
     selected,
     opened,
     claims,
+    viewingClaim,
     declarations,
     nextPosition,
     wrongFlash,

@@ -23,8 +23,7 @@ export default function CharacterGrid({ grid, opened, selected, wrongFlash, onSe
             key={`${char}-${idx}`}
             className={isFlashing ? 'shake' : undefined}
             style={{ ...s.card, ...cardStyle }}
-            onClick={() => !status && onSelect(char)}
-            disabled={!!status}
+            onClick={() => onSelect(char)}
           >
             <span style={s.charText}>{char}</span>
             {status === 'zai' && <span style={s.statusLabel}>在</span>}
