@@ -1,17 +1,41 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { useGame } from './hooks/useGame'
+import { getDevUseBackend, setDevUseBackend } from './puzzles'
 import IntroScreen from './components/IntroScreen'
 import GameScreen from './components/GameScreen'
 import ResultScreen from './components/ResultScreen'
 
+const devToggleStyle = {
+  position: 'fixed', bottom: 12, right: 12, zIndex: 9999,
+  display: 'flex', alignItems: 'center', gap: 6,
+  background: '#2c2416', color: '#f5f0e8', padding: '6px 12px',
+  borderRadius: 8, fontSize: 11, fontFamily: 'monospace',
+  cursor: 'pointer', opacity: 0.7, border: 'none',
+}
+
 export default function App() {
+  const [useBackend, setUseBackend] = useState(getDevUseBackend)
   const game = useGame()
+
+  function toggleSource() {
+    const next = !useBackend
+    setUseBackend(next)
+    setDevUseBackend(next)
+    game.reloadPuzzle()
+  }
+
+  const devToggle = import.meta.env.DEV && (
+    <button style={devToggleStyle} onClick={toggleSource}>
+      {useBackend ? '🌐 Backend' : '📦 Hardcoded'}
+    </button>
+  )
 
   if (!game.puzzle) {
     return (
       <>
         <Analytics />
+        {devToggle}
         <div style={{
           minHeight: '100dvh',
           display: 'flex',
@@ -51,6 +75,7 @@ export default function App() {
   return (
     <>
       <Analytics />
+      {devToggle}
       {game.phase === 'intro' && <IntroScreen onStart={game.startGame} />}
       {game.phase === 'game' && (
         <GameScreen

@@ -29,7 +29,12 @@ export default function GameScreen({
       </div>
 
       {/* Hint / lesson bar */}
-      <ClaimBar label={barLabel} text={barText} />
+      <ClaimBar
+        label={barLabel}
+        text={barText}
+        subPhase={subPhase}
+        clusterChars={cluster.chars}
+      />
 
       {/* Progress dots */}
       <div style={s.progress}>

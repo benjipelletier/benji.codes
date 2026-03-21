@@ -16,30 +16,30 @@ function IconGrid() {
   )
 }
 
-// Lesson icon — speech bubble with lightbulb
-function IconLesson() {
+// Repeat icon — 2×2 grid of green tiles forming the idiom
+function IconRepeat() {
   return (
     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <path d="M8 10 h32 a4 4 0 0 1 4 4 v18 a4 4 0 0 1-4 4 H18 l-6 6 v-6 H8 a4 4 0 0 1-4-4 V14 a4 4 0 0 1 4-4z" fill="#fff" stroke="#d4cabb" strokeWidth="1.5"/>
-      <circle cx="24" cy="22" r="6" fill="none" stroke="#c0392b" strokeWidth="1.5"/>
-      <line x1="24" y1="28" x2="24" y2="31" stroke="#c0392b" strokeWidth="1.5" strokeLinecap="round"/>
-      <line x1="21" y1="31" x2="27" y2="31" stroke="#c0392b" strokeWidth="1.5" strokeLinecap="round"/>
-      <line x1="24" y1="16" x2="24" y2="18" stroke="#c0392b" strokeWidth="1.5" strokeLinecap="round"/>
-      <line x1="28.2" y1="17.8" x2="26.8" y2="19.2" stroke="#c0392b" strokeWidth="1.2" strokeLinecap="round"/>
-      <line x1="19.8" y1="17.8" x2="21.2" y2="19.2" stroke="#c0392b" strokeWidth="1.2" strokeLinecap="round"/>
+      <rect x="4" y="4" width="18" height="18" rx="3" fill="#e8f5e9" stroke="#2d7a4f" strokeWidth="1.5"/>
+      <rect x="26" y="4" width="18" height="18" rx="3" fill="#e8f5e9" stroke="#2d7a4f" strokeWidth="1.5"/>
+      <rect x="4" y="26" width="18" height="18" rx="3" fill="#e8f5e9" stroke="#2d7a4f" strokeWidth="1.5"/>
+      <rect x="26" y="26" width="18" height="18" rx="3" fill="#e8f5e9" stroke="#2d7a4f" strokeWidth="1.5"/>
+      <text x="13" y="17" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#2d7a4f">马</text>
+      <text x="35" y="17" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#2d7a4f">到</text>
+      <text x="13" y="39" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#2d7a4f">成</text>
+      <text x="35" y="39" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#2d7a4f">功</text>
     </svg>
   )
 }
 
-// Pick icon — one char highlighted green among grey
-function IconPick() {
+// Reveal icon — two chars side by side, correct one green with checkmark
+function IconReveal() {
   return (
     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
       <rect x="2" y="14" width="20" height="20" rx="3" fill="#e0d9ce" stroke="#d4cabb" strokeWidth="1.5"/>
       <rect x="26" y="14" width="20" height="20" rx="3" fill="#e8f5e9" stroke="#2d7a4f" strokeWidth="2"/>
       <text x="12" y="28" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#aaa">达</text>
       <text x="36" y="28" textAnchor="middle" fontFamily="'Noto Serif SC', serif" fontSize="10" fontWeight="700" fill="#2d7a4f">到</text>
-      <path d="M33 21 l2.5 3 l4.5-5" stroke="#2d7a4f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   )
 }
@@ -69,20 +69,20 @@ export default function IntroScreen({ onStart }) {
           <div style={s.stepDivider} />
 
           <div style={s.step}>
-            <div style={s.stepIcon}><IconLesson /></div>
+            <div style={s.stepIcon}><IconReveal /></div>
             <div style={s.stepContent}>
-              <div style={s.stepLabel}>学习区别</div>
-              <div style={s.stepText}>A mini lesson explains what makes each character unique.</div>
+              <div style={s.stepLabel}>选出正确</div>
+              <div style={s.stepText}>Read the clue and pick the one that belongs in the 成语.</div>
             </div>
           </div>
 
           <div style={s.stepDivider} />
 
           <div style={s.step}>
-            <div style={s.stepIcon}><IconPick /></div>
+            <div style={s.stepIcon}><IconRepeat /></div>
             <div style={s.stepContent}>
-              <div style={s.stepLabel}>选出正确</div>
-              <div style={s.stepText}>Pick which one belongs in the 成语. Repeat four times to reveal the idiom.</div>
+              <div style={s.stepLabel}>揭晓成语</div>
+              <div style={s.stepText}>Solve all four to reveal the idiom.</div>
             </div>
           </div>
         </div>

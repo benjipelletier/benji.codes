@@ -87,10 +87,10 @@ const s = {
     borderColor: '#d4cabb',
   },
   cardSelected: {
-    background: '#fff8f0',
-    borderColor: 'var(--red)',
+    background: '#fdf6e3',
+    borderColor: '#b8860b',
     borderWidth: 2.5,
-    boxShadow: '0 2px 12px rgba(192, 57, 43, 0.15)',
+    boxShadow: '0 2px 12px rgba(184, 134, 11, 0.2)',
   },
   cardAnswer: {
     background: '#e8f5e9',

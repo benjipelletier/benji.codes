@@ -61,6 +61,15 @@ body {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+.claimbar-enter {
+  animation: claimbarIn 0.35s ease;
+}
+
+@keyframes claimbarIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .card-zai:hover {
   box-shadow: 0 2px 12px rgba(45, 122, 79, 0.25);
   border-color: #2d7a4f !important;

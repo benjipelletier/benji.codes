@@ -37,8 +37,12 @@ export const HARDCODED_PUZZLES = [
   },
 ]
 
+// In dev, track whether to use hardcoded or backend data (persisted across reloads)
+export function getDevUseBackend() { return localStorage.getItem('dev_use_backend') === 'true' }
+export function setDevUseBackend(val) { localStorage.setItem('dev_use_backend', val ? 'true' : 'false') }
+
 export async function getPuzzleForDate(dateStr) {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && !getDevUseBackend()) {
     const puzzle = HARDCODED_PUZZLES.find(p => p.date === dateStr) || HARDCODED_PUZZLES[0]
     const shuffled = [...puzzle.grid]
     for (let i = shuffled.length - 1; i > 0; i--) {

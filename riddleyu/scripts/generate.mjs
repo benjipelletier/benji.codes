@@ -1,7 +1,15 @@
+#!/usr/bin/env node
+import { config } from 'dotenv'
+config({ path: '.env.local' })
 import Anthropic from '@anthropic-ai/sdk'
-import { kv } from '@vercel/kv'
+import { createClient } from '@vercel/kv'
+import { createInterface } from 'readline'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const kv = createClient({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+})
 
 const SYSTEM_PROMPT = `You are a Chinese language educator specializing in 成语 (chéngyǔ — four-character idioms).
 You generate daily puzzles for a deduction game called RiddleYu.
@@ -69,79 +77,106 @@ Output this exact JSON shape (no markdown, no extra text):
   ]
 }`
 
-export default async function handler(req, res) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' })
+function validate(puzzle) {
+  if (!puzzle.chengyu?.chars || puzzle.chengyu.chars.length !== 4) {
+    throw new Error('Invalid chengyu structure')
   }
-
-  const date = req.query.date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
-
-  let existing = null
-  try {
-    existing = await kv.get(`puzzle:${date}`)
-    if (existing && req.query.force !== 'true') {
-      return res.status(200).json({ status: 'already cached', date })
+  if (!puzzle.clusters || puzzle.clusters.length !== 4) {
+    throw new Error('Need exactly 4 clusters')
+  }
+  if (!puzzle.grid || puzzle.grid.length !== 16) {
+    throw new Error('Grid must have exactly 16 characters')
+  }
+  if (new Set(puzzle.grid).size !== 16) {
+    throw new Error('Grid has duplicate characters')
+  }
+  for (let i = 0; i < 4; i++) {
+    const c = puzzle.clusters[i]
+    if (!c.chars || c.chars.length !== 4) {
+      throw new Error(`Cluster ${i} must have exactly 4 characters`)
     }
-  } catch (e) {
-    console.error('KV read error:', e)
+    if (!c.chars.includes(c.answer)) {
+      throw new Error(`Cluster ${i} answer must be in its chars`)
+    }
+    if (c.answer !== puzzle.chengyu.chars[i]) {
+      throw new Error(`Cluster ${i} answer must match chengyu position ${i}`)
+    }
   }
+  // Check all cluster chars are in grid
+  const gridSet = new Set(puzzle.grid)
+  for (const c of puzzle.clusters) {
+    for (const ch of c.chars) {
+      if (!gridSet.has(ch)) {
+        throw new Error(`Cluster char "${ch}" not found in grid`)
+      }
+    }
+  }
+}
 
-  const forceChengyu = (req.query.force === 'true' && existing?.chengyu)
-    ? existing.chengyu.chars.join('')
-    : null
+function ask(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans) }))
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const date = args[0] || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const forceChengyu = args[1] || null // optional: pass a specific 成语
+
+  console.log(`\n📅 Generating puzzle for ${date}...`)
 
   let usedChengyu = []
   try {
     usedChengyu = (await kv.get('used_chengyu')) || []
+    console.log(`📋 ${usedChengyu.length} previously used 成语`)
   } catch (e) {
-    console.error('KV read error (used_chengyu):', e)
+    console.error('⚠️  Could not read used_chengyu from KV:', e.message)
   }
 
-  try {
-    const msg = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: PUZZLE_PROMPT(date, usedChengyu, forceChengyu) }],
-    })
-    const puzzle = JSON.parse(msg.content[0].text.trim())
+  const MAX_ATTEMPTS = 5
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    console.log(`\n🎲 Attempt ${attempt}/${MAX_ATTEMPTS}...`)
+    try {
+      const msg = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: PUZZLE_PROMPT(date, usedChengyu, forceChengyu) }],
+      })
+      const raw = msg.content[0].text.trim()
+      const puzzle = JSON.parse(raw)
+      validate(puzzle)
 
-    // Validation
-    if (!puzzle.chengyu?.chars || puzzle.chengyu.chars.length !== 4) {
-      throw new Error('Invalid chengyu structure')
-    }
-    if (!puzzle.clusters || puzzle.clusters.length !== 4) {
-      throw new Error('Need exactly 4 clusters')
-    }
-    if (!puzzle.grid || puzzle.grid.length !== 16) {
-      throw new Error('Grid must have exactly 16 characters')
-    }
-    if (new Set(puzzle.grid).size !== 16) {
-      throw new Error('Grid has duplicate characters')
-    }
-    for (let i = 0; i < 4; i++) {
-      const c = puzzle.clusters[i]
-      if (!c.chars || c.chars.length !== 4) {
-        throw new Error(`Cluster ${i} must have exactly 4 characters`)
+      console.log(`\n✅ Valid puzzle generated!`)
+      console.log(`   成语: ${puzzle.chengyu.chars.join('')} (${puzzle.chengyu.pinyin})`)
+      console.log(`   Meaning: ${puzzle.chengyu.meaning}`)
+      console.log(`   Grid: ${puzzle.grid.join(' ')}`)
+      for (let i = 0; i < 4; i++) {
+        const c = puzzle.clusters[i]
+        console.log(`   Cluster ${i + 1}: [${c.chars.join(', ')}] → ${c.answer}`)
+        console.log(`     Hint: ${c.hint}`)
+        console.log(`     Lesson: ${c.lesson}`)
       }
-      if (!c.chars.includes(c.answer)) {
-        throw new Error(`Cluster ${i} answer must be in its chars`)
+      console.log(`   Story: ${puzzle.story}`)
+
+      const answer = await ask(`\n💾 Save to KV as puzzle:${date}? (y/n) `)
+      if (answer.toLowerCase() === 'y') {
+        await kv.set(`puzzle:${date}`, puzzle)
+        const newEntry = puzzle.chengyu.chars.join('')
+        if (!usedChengyu.includes(newEntry)) {
+          await kv.set('used_chengyu', [...usedChengyu, newEntry])
+        }
+        console.log('✅ Saved to KV!')
+      } else {
+        console.log('❌ Skipped.')
       }
-      if (c.answer !== puzzle.chengyu.chars[i]) {
-        throw new Error(`Cluster ${i} answer must match chengyu position ${i}`)
-      }
+      return
+    } catch (e) {
+      console.error(`❌ Attempt ${attempt} failed: ${e.message}`)
     }
-
-    await kv.set(`puzzle:${date}`, puzzle)
-
-    const newEntry = puzzle.chengyu.chars.join('')
-    if (!usedChengyu.includes(newEntry)) {
-      await kv.set('used_chengyu', [...usedChengyu, newEntry])
-    }
-
-    return res.status(200).json({ status: 'generated', date, chengyu: newEntry })
-  } catch (e) {
-    console.error('Generation error:', e)
-    return res.status(500).json({ error: 'Failed to generate puzzle', detail: e.message })
   }
+  console.error(`\n💀 All ${MAX_ATTEMPTS} attempts failed.`)
+  process.exit(1)
 }
+
+main()

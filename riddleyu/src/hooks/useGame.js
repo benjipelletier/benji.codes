@@ -15,12 +15,25 @@ export function useGame() {
 
   function loadPuzzle() {
     setLoadError(false)
+    setPuzzle(null)
     getPuzzleForDate(getTodayString())
       .then(setPuzzle)
       .catch(() => setLoadError(true))
   }
 
   useEffect(() => { loadPuzzle() }, [])
+
+  function reloadPuzzle() {
+    setPhase('intro')
+    setCurrentCluster(0)
+    setSubPhase('picking')
+    setSelected(new Set())
+    setSolvedClusters([])
+    setAnswers([])
+    setDeclarations([])
+    setWrongFlash(null)
+    loadPuzzle()
+  }
 
   function startGame() {
     if (!puzzle) return
@@ -113,5 +126,6 @@ export function useGame() {
     startGame,
     selectChar,
     submitCluster,
+    reloadPuzzle,
   }
 }
