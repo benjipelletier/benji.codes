@@ -1,1 +1,5 @@
-{"framework": "nextjs"}
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
+}
