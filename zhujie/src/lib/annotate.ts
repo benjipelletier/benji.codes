@@ -37,16 +37,13 @@ export async function generateContentMap(text: string): Promise<ContentMap> {
     model: MODEL,
     max_tokens: 4096,
     system: PASS1_SYSTEM,
-    messages: [
-      { role: 'user', content: text },
-      { role: 'assistant', content: '{' },
-    ],
+    messages: [{ role: 'user', content: text }],
   });
 
   const content = response.content[0];
   if (content.type !== 'text') throw new Error('Unexpected response type');
 
-  return parseJSON<ContentMap>('{' + content.text);
+  return parseJSON<ContentMap>(content.text);
 }
 
 function parseJSON<T>(raw: string): T {
@@ -153,14 +150,11 @@ ${surroundingLines}`;
     model: MODEL,
     max_tokens: 4096,
     system: PASS2_SYSTEM,
-    messages: [
-      { role: 'user', content: userMessage },
-      { role: 'assistant', content: '{' },
-    ],
+    messages: [{ role: 'user', content: userMessage }],
   });
 
   const content = response.content[0];
   if (content.type !== 'text') throw new Error('Unexpected response type');
 
-  return parseJSON<LineAnnotation>('{' + content.text);
+  return parseJSON<LineAnnotation>(content.text);
 }
