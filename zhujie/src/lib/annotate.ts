@@ -8,7 +8,7 @@ function getClient() {
   }
   return _client;
 }
-const MODEL = 'claude-opus-4-6';
+const MODEL = 'claude-sonnet-4-6';
 
 // ─── Pass 1: Content Map ─────────────────────────────────────────────────────
 
