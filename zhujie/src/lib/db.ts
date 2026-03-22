@@ -47,8 +47,8 @@ export async function getContent(contentHash: string): Promise<ContentRow | null
   const sql = getSql();
   const rows = await sql`
     SELECT * FROM contents WHERE content_hash = ${contentHash}
-  `;
-  return (rows[0] as ContentRow) ?? null;
+  ` as Record<string, unknown>[];
+  return (rows[0] as unknown as ContentRow) ?? null;
 }
 
 export async function storeContent(
@@ -83,8 +83,9 @@ export async function getLineAnnotation(
   const rows = await sql`
     SELECT annotation FROM line_annotations
     WHERE content_hash = ${contentHash} AND line_index = ${lineIndex}
-  `;
-  return (rows[0]?.annotation as LineAnnotation) ?? null;
+  ` as Record<string, unknown>[];
+  const row = rows[0] as unknown as { annotation: LineAnnotation } | undefined;
+  return row?.annotation ?? null;
 }
 
 export async function storeLineAnnotation(
