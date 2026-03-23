@@ -53,7 +53,12 @@ export default function LineList({
     <div style={s.container}>
       {lines.map((line, i) => (
         <div key={i} style={s.line(i === activeLineIndex)} onClick={() => onLineClick(i)}>
-          <div style={s.lineNumber}>{i + 1}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={s.lineNumber}>{i + 1}</div>
+            {annotatedLines.has(i) && (
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: colors.vocab, flexShrink: 0 }} />
+            )}
+          </div>
           <div style={s.lineText(i === activeLineIndex)}>{line}</div>
         </div>
       ))}
