@@ -7,7 +7,8 @@ function buildShareText(puzzle, declarations) {
     if (d.type === 'specific' && d.correct) return ['🟩']
     return []
   }).join('')
-  return `谜语 ${puzzle.date}\n${tiles}\nriddleyu.benji.codes`
+  const chengyu = puzzle.chengyu.chars.join('')
+  return `谜语 ${puzzle.date}\n${chengyu} · ${puzzle.chengyu.pinyin}\n${tiles}\nriddleyu.benji.codes`
 }
 
 function getTimeUntilMidnightET() {
@@ -56,6 +57,31 @@ export default function ResultScreen({ puzzle, declarations }) {
 
         <div style={s.divider} />
         <p style={s.story}>{puzzle.story}</p>
+
+        <div style={s.divider} />
+
+        {/* 解析 section */}
+        <div style={s.breakdownSection}>
+          <div style={s.breakdownTitle}>解析</div>
+          {puzzle.clusters.map((cluster, i) => {
+            const distractors = cluster.chars.filter(c => c !== cluster.answer)
+            return (
+              <div key={i} style={s.breakdownEntry}>
+                <div style={s.breakdownHeader}>
+                  <span style={s.answerChar}>{cluster.answer}</span>
+                  <span style={s.distractorChars}>
+                    {distractors.map((c, j) => (
+                      <span key={j} style={s.distractorChar}>{c}</span>
+                    ))}
+                  </span>
+                </div>
+                <p style={s.breakdownText}>
+                  {cluster.breakdown || cluster.lesson}
+                </p>
+              </div>
+            )
+          })}
+        </div>
 
         <div style={s.divider} />
 
@@ -165,6 +191,67 @@ const s = {
     height: 1,
     background: 'var(--paper3)',
     margin: '20px 0',
+  },
+  breakdownSection: {
+    textAlign: 'left',
+  },
+  breakdownTitle: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 2,
+    color: '#a09880',
+    textTransform: 'uppercase',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  breakdownEntry: {
+    marginBottom: 18,
+  },
+  breakdownHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  answerChar: {
+    width: 36,
+    height: 36,
+    background: '#d4edda',
+    color: '#2d7a4f',
+    border: '1.5px solid #2d7a4f',
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 18,
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  distractorChars: {
+    display: 'flex',
+    gap: 4,
+  },
+  distractorChar: {
+    width: 28,
+    height: 28,
+    background: 'var(--paper2)',
+    color: '#a09880',
+    border: '1px solid #d4cabb',
+    borderRadius: 6,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 14,
+    fontWeight: 700,
+  },
+  breakdownText: {
+    fontFamily: "'Noto Serif SC', serif",
+    fontSize: 13,
+    color: 'var(--grey)',
+    lineHeight: 1.8,
   },
   shareBtn: {
     width: '100%',

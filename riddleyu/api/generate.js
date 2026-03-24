@@ -39,11 +39,16 @@ The hint should be a playful one-sentence riddle that describes what all 4 chara
 Examples: "我们都能在天上飞。" / "我们都是人体的一部分。" / "我们都和水有关。"
 
 **Step 4: Write lessons (one per cluster).**
-Use first-person style from the perspective of the correct character: "我是___" or "我能___" or "我的特点是___".
-The lesson is one sentence explaining what makes this character unique among the 4. It teaches a real semantic distinction — not obvious, but educational. It should help the learner understand the difference between similar characters.
-Examples: "我专指远处的眺望，还带着期盼的心情。" / "我是冬天开花的那一个，果实又酸又甜。"
+Use first-person style from the perspective of the correct character.
+The lesson is 1–2 sentences that: (1) briefly names what all 4 share, (2) explains YOUR specific meaning and why it fits this idiom position, (3) names at least 2 of the other 3 characters and why they don't fit.
+The goal: a learner should be able to pick the right character from the lesson alone. Don't be vague — be specific about semantic, register, or contextual differences.
+Example: "我们都能表示到达，但我专指具体踏上某处——马踏上战场，感受得到那一刻的气势。'达'更侧重于抽象目标的实现，'至'偏书面语，所以成语选了我。"
 
-**Step 5: Write a story summary.**
+**Step 5: Write a breakdown (one per cluster).**
+Write 2–3 sentences in Chinese, third-person, for the result screen. Explain all four characters' meanings and differences, then conclude with why the correct one fits this specific idiom. This is the "aha moment" — be concrete about the distinctions (etymology, register, usage context, connotation).
+Example for 马/骑/驰/牛 → 马: "这四个字都跟骑乘或动物有关。'骑'是动词（骑马的动作），'驰'描述快速奔跑的状态，'牛'象征力气而非速度，而'马'是古代战争和行动的核心意象。成语用'马'是因为它代表整个出征的气势——马一到，行动就开始了。"
+
+**Step 6: Write a story summary.**
 1–2 sentences in Chinese explaining the idiom's origin and meaning.
 
 ## Output format
@@ -63,7 +68,8 @@ Output this exact JSON shape (no markdown, no extra text):
       "hint": "我们都能/都是/都和___有关（第一人称谜语）",
       "chars": ["字","字","字","字"],
       "answer": "字",
-      "lesson": "我是/我能/我的特点是___（第一人称，解释正确字的独特之处）"
+      "lesson": "我是/我能/我的特点是___（第一人称，对比其他三个字，解释为什么我在成语里）",
+      "breakdown": "第三人称，2-3句，解析这四个字的区别，说明为什么答案字适合这个成语位置"
     },
     ...4 clusters total...
   ]
@@ -129,6 +135,9 @@ export default async function handler(req, res) {
       }
       if (c.answer !== puzzle.chengyu.chars[i]) {
         throw new Error(`Cluster ${i} answer must match chengyu position ${i}`)
+      }
+      if (!c.breakdown) {
+        throw new Error(`Cluster ${i} missing breakdown`)
       }
     }
 
