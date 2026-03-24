@@ -61,8 +61,8 @@ export default function IntroScreen({ onStart }) {
           <div style={s.step}>
             <div style={s.stepIcon}><IconGrid /></div>
             <div style={s.stepContent}>
-              <div style={s.stepLabel}>找到同类</div>
-              <div style={s.stepText}>Read the hint and find 4 related characters in the grid.</div>
+              <div style={s.stepLabel}>找四个同类字</div>
+              <div style={s.stepText}>Read the hint, then select all 4 characters that share the same theme. Submit when you have 4.</div>
             </div>
           </div>
 
@@ -71,8 +71,8 @@ export default function IntroScreen({ onStart }) {
           <div style={s.step}>
             <div style={s.stepIcon}><IconReveal /></div>
             <div style={s.stepContent}>
-              <div style={s.stepLabel}>选出正确</div>
-              <div style={s.stepText}>Read the clue and pick the one that belongs in the 成语.</div>
+              <div style={s.stepLabel}>选出成语里的字</div>
+              <div style={s.stepText}>Pick the one character from those 4 that belongs in the idiom. Make your guess first — then see the explanation.</div>
             </div>
           </div>
 
@@ -82,7 +82,7 @@ export default function IntroScreen({ onStart }) {
             <div style={s.stepIcon}><IconRepeat /></div>
             <div style={s.stepContent}>
               <div style={s.stepLabel}>揭晓成语</div>
-              <div style={s.stepText}>Solve all four to reveal the idiom.</div>
+              <div style={s.stepText}>Do this for all four positions to reveal today's 成语.</div>
             </div>
           </div>
         </div>

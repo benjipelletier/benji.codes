@@ -86,8 +86,10 @@ export default function App() {
           currentCluster={game.currentCluster}
           subPhase={game.subPhase}
           wrongFlash={game.wrongFlash}
+          lessonShown={game.lessonShown}
           selectChar={game.selectChar}
           submitCluster={game.submitCluster}
+          skipPicking={game.skipPicking}
         />
       )}
       {game.phase === 'result' && (
