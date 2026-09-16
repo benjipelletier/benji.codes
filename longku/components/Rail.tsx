@@ -2,6 +2,7 @@
 
 import { AddChengyu } from "./AddChengyu";
 import { ThemeToggle } from "./ThemeToggle";
+import { signOut } from "@longku/lib/auth-client";
 import type { State } from "@longku/lib/store";
 import type { BankStats } from "@longku/lib/chains";
 
@@ -18,6 +19,8 @@ interface Props {
   onOpenStats: () => void;
   /** Spectator view — the add field is hidden rather than shown and ignored. */
   readOnly?: boolean;
+  /** Signed-in owner's address. Present only when writes will persist. */
+  ownerEmail?: string | null;
 }
 
 /**
@@ -34,6 +37,7 @@ export function Rail({
   onView,
   onOpenStats,
   readOnly = false,
+  ownerEmail = null,
 }: Props) {
   const pct = coverage > 0 && coverage < 0.001 ? "<0.1" : (coverage * 100).toFixed(coverage < 0.1 ? 1 : 0);
 
@@ -90,6 +94,17 @@ export function Rail({
           </button>
         </div>
         <ThemeToggle />
+        {ownerEmail && (
+          <button
+            type="button"
+            className="longku-icon-btn"
+            onClick={signOut}
+            title={`Signed in as ${ownerEmail} — sign out`}
+            aria-label={`Signed in as ${ownerEmail}. Sign out.`}
+          >
+            ⏻
+          </button>
+        )}
         <a className="longku-home" href="/">← benji.codes</a>
       </div>
     </header>

@@ -15,6 +15,7 @@ import { DrillModal } from "./DrillModal";
 import { ChainView } from "./ChainView";
 import { ChainPlay } from "./ChainPlay";
 import { Rail, type View } from "./Rail";
+import { signInWithGoogle, signOut } from "@longku/lib/auth-client";
 import { StatsSheet } from "./StatsSheet";
 
 interface Props {
@@ -152,6 +153,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           onView={setView}
           onOpenStats={() => setSheetOpen(true)}
           readOnly={mode === "spectator"}
+          ownerEmail={mode === "server" ? email : null}
         />
         {mode === "spectator" && <SpectatorBanner email={email} />}
       </div>
@@ -218,26 +220,6 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
  * site-wide Neon Auth mount jazz uses, so one Google sign-in covers both.
  */
 function SpectatorBanner({ email }: { email: string | null }) {
-  async function signIn() {
-    const callbackURL = `${window.location.origin}${window.location.pathname}`;
-    const res = await fetch("/api/auth/sign-in/social", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: "google", callbackURL }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (data?.url) window.location.href = data.url;
-  }
-
-  async function signOut() {
-    await fetch("/api/auth/sign-out", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-    });
-    window.location.reload();
-  }
-
   return (
     <div className="longku-spectator">
       <span className="longku-spectator-dot" aria-hidden />
@@ -255,7 +237,10 @@ function SpectatorBanner({ email }: { email: string | null }) {
           </>
         )}
       </span>
-      <button className="longku-btn longku-spectator-cta" onClick={email ? signOut : signIn}>
+      <button
+        className="longku-btn longku-spectator-cta"
+        onClick={email ? signOut : signInWithGoogle}
+      >
         {email ? "Sign out" : "Sign in"}
       </button>
     </div>
