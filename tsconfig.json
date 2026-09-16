@@ -35,6 +35,9 @@
       ],
       "@jazz/*": [
         "jazz/*"
+      ],
+      "@longku/*": [
+        "longku/*"
       ]
     }
   },
@@ -49,10 +52,13 @@
     "gecijielong/src/**/*.jsx",
     "jazz/lib/**/*.ts",
     "jazz/components/**/*.tsx",
+    "longku/lib/**/*.ts",
+    "longku/components/**/*.tsx",
     "projects.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "lib/**/*.ts"
   ],
   "exclude": [
     "node_modules",

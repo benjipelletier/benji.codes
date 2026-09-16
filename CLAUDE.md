@@ -16,14 +16,16 @@ benji.codes/
 │   ├── riddleyu/           # /riddleyu route
 │   ├── gecijielong/        # /gecijielong route
 │   ├── jazz/               # /jazz route
+│   ├── longku/             # /longku route
 │   └── api/                # API routes namespaced per project
 │       ├── riddleyu/
 │       ├── gecijielong/
-│       └── jazz/
+│       └── longku/
 ├── projects.config.ts      # Enable/disable projects, metadata
 ├── riddleyu/               # Source code (components, lib, styles)
 ├── gecijielong/            # Source code
-└── jazz/                   # Source code
+├── jazz/                   # Source code
+└── longku/                 # Source code
 ```
 
 ## Running locally
@@ -36,7 +38,7 @@ npm run dev   # localhost:3000
 ## Enabling/disabling projects
 
 Set `enabled: true/false` in `projects.config.ts`. Disabled projects don't appear
-on the landing page. All current projects are enabled.
+on the landing page. All four current projects are enabled.
 
 ## Key conventions
 
@@ -44,7 +46,7 @@ on the landing page. All current projects are enabled.
 - Env vars namespaced: `<PROJECT>_DATABASE_URL` (e.g., `GECIJIELONG_DATABASE_URL`)
 - Vite projects use `dynamic(() => import(...), { ssr: false })` page wrappers
 - Lazy DB initialization pattern with `getDb()` to avoid build-time env var evaluation
-- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*` defined in tsconfig paths
+- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*` defined in tsconfig paths
 
 ## Per-project CLAUDE.md
 

@@ -44,4 +44,15 @@ export const projects: ProjectConfig[] = [
     tags: ['jazz', 'music', 'chords'],
     enabled: true,
   },
+  {
+    name: 'longku',
+    displayName: '龙库',
+    icon: '库',
+    accent: '#4a5d8c',
+    accentRgb: '74, 93, 140',
+    tagline: 'longku',
+    description: 'A corpus of every 成语 you know. Dump what you learn and it files each one under its starting syllable — then drill the gaps with 接龙 chains.',
+    tags: ['成语', 'corpus', 'jielong'],
+    enabled: true,
+  },
 ]
