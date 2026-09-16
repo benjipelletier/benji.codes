@@ -9,15 +9,28 @@ import { createNeonAuth } from '@neondatabase/auth/next/server';
  * first can't verify. Projects share the session and each decide separately
  * who counts as their owner (see longku/lib/session.ts, jazz/lib/session-user.ts).
  *
- * Env vars keep the JAZZ_ names as a fallback because that is what the existing
- * Neon ↔ Vercel integration injects; the unprefixed names are preferred for new
- * deploys now that this is shared infrastructure.
+ * The base URL and the cookie secret are resolved together, as a pair, and
+ * never merged across prefixes. They identify one Neon Auth project: pairing a
+ * base URL from one project with a secret from another yields an instance that
+ * redirects correctly and then fails to verify the cookie it gets back, which
+ * looks like "sign-in silently does nothing". This environment has a stale
+ * unprefixed NEON_AUTH_BASE_URL left over from a retired project and no
+ * matching secret, so a prefix is only used when both halves are present.
  */
+const CANDIDATES = [
+  { baseUrl: process.env.NEON_AUTH_BASE_URL, secret: process.env.NEON_AUTH_COOKIE_SECRET },
+  {
+    baseUrl: process.env.JAZZ_NEON_AUTH_BASE_URL,
+    secret: process.env.JAZZ_NEON_AUTH_COOKIE_SECRET,
+  },
+];
+
+const config = CANDIDATES.find((c) => c.baseUrl && c.secret) ?? CANDIDATES[1];
+
 export const auth = createNeonAuth({
-  baseUrl: (process.env.NEON_AUTH_BASE_URL ?? process.env.JAZZ_NEON_AUTH_BASE_URL)!,
+  baseUrl: config.baseUrl!,
   cookies: {
-    secret: (process.env.NEON_AUTH_COOKIE_SECRET ??
-      process.env.JAZZ_NEON_AUTH_COOKIE_SECRET)!,
+    secret: config.secret!,
     // OAuth redirects from Google → Neon Auth → our app are cross-site top-level
     // navigations. SameSite=Strict (the SDK default) drops the cookie at the
     // last hop, so the session never lands. 'lax' is the standard for OAuth.
