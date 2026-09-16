@@ -160,10 +160,13 @@
 
 /* ----------------------------------------------------------------- rail -- */
 
-.longku-rail {
+.longku-top {
   position: sticky;
   top: 0;
   z-index: 30;
+}
+
+.longku-rail {
   display: flex;
   align-items: center;
   gap: 18px;
@@ -171,9 +174,10 @@
   min-height: var(--lg-rail-h);
   background: var(--lg-surface);
   border-bottom: 1px solid var(--lg-rule);
-  box-shadow: var(--lg-shadow-sm);
   flex-wrap: wrap;
 }
+
+.longku-top { box-shadow: var(--lg-shadow-sm); }
 
 .longku-title {
   display: flex;
@@ -316,7 +320,7 @@
   color: var(--lg-ink-faint);
   text-align: right;
   position: sticky;
-  top: calc(var(--lg-rail-h) + 8px);
+  top: calc(var(--lg-top-h, var(--lg-rail-h)) + 8px);
 }
 
 .longku-row-cells {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { bootstrap, hydrate, type Mode, type State } from "@longku/lib/store";
 import { stats as bankStats } from "@longku/lib/chains";
 import {
@@ -36,6 +36,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   const [view, setView] = useState<View>("wall");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [startAt, setStartAt] = useState<{ syl: string; nonce: number }>({ syl: "", nonce: 0 });
+  const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +94,20 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, mode]);
 
+  // The sticky header's height varies — the rail wraps on narrow screens and
+  // the spectator banner comes and goes — so publish it as a custom property
+  // instead of hard-coding an offset the row letters would eventually get wrong.
+  useEffect(() => {
+    const el = topRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--lg-top-h", `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hydrated, mode]);
+
   const bankArr = useMemo(() => Object.values(state.bank), [state]);
   const s = useMemo(() => bankStats(state), [state]);
   const cov = useMemo(() => usageCoverage(bankArr, corpusMass), [bankArr, corpusMass]);
@@ -127,18 +142,19 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
 
   return (
     <div className="longku">
-      <Rail
-        state={state}
-        onChange={setState}
-        stats={s}
-        coverage={cov.share}
-        view={view}
-        onView={setView}
-        onOpenStats={() => setSheetOpen(true)}
-        readOnly={mode === "spectator"}
-      />
-
-      {mode === "spectator" && <SpectatorBanner email={email} />}
+      <div className="longku-top" ref={topRef}>
+        <Rail
+          state={state}
+          onChange={setState}
+          stats={s}
+          coverage={cov.share}
+          view={view}
+          onView={setView}
+          onOpenStats={() => setSheetOpen(true)}
+          readOnly={mode === "spectator"}
+        />
+        {mode === "spectator" && <SpectatorBanner email={email} />}
+      </div>
 
       <main className="longku-canvas">
         {!hydrated ? (
