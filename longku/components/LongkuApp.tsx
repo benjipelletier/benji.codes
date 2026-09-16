@@ -17,6 +17,7 @@ import { ChainPlay } from "./ChainPlay";
 import { Rail, type View } from "./Rail";
 import { signInWithGoogle, signOut } from "@longku/lib/auth-client";
 import { StatsSheet } from "./StatsSheet";
+import { ProgressStrip } from "./ProgressStrip";
 
 interface Props {
   syllables: SyllableSummary[];
@@ -160,6 +161,15 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
       </div>
 
       <main className="longku-canvas">
+        {hydrated && (
+          <ProgressStrip
+            coverage={cov.share}
+            byTier={byTier}
+            offCorpusCount={tiers.offcorpus}
+            stats={s}
+            onOpenStats={() => setSheetOpen(true)}
+          />
+        )}
         {!hydrated ? (
           <p className="longku-wall-empty">Loading…</p>
         ) : view === "wall" ? (
@@ -204,10 +214,6 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           tierCounts={tiers}
           corpusWords={corpusWords}
           onClose={() => setSheetOpen(false)}
-          onPickSyllable={(syl) => {
-            setSheetOpen(false);
-            setActiveSyl(syl);
-          }}
         />
       )}
     </div>

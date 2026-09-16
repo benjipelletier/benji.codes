@@ -70,10 +70,6 @@ export function Rail({
           <span className="longku-figure-n">{stats.chains}</span>
           <span className="longku-figure-label">chains</span>
         </span>
-        <span className="longku-figure">
-          <span className="longku-figure-n">{stats.deadEnds.length}</span>
-          <span className="longku-figure-label">gaps</span>
-        </span>
         {/* The bank's tier mix as proportion rather than four more numbers —
             it answers "what kind of words do I have" at a glance. */}
         <TierMix counts={tierCounts} total={stats.total} />

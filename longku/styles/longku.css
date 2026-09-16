@@ -1294,18 +1294,120 @@
 .longku-mix-seg.tier-rare { background: var(--lg-rare-2); }
 .longku-mix-seg.tier-offcorpus { background: var(--lg-rare-1); }
 
-/* ------------------------------------------------------- sheet: gaps -- */
-.longku-chip.longku-gap {
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  padding: 5px 11px;
-  border-style: solid;
-  border-color: var(--lg-rule-strong);
-  color: var(--lg-warn);
+
+
+
+/* ------------------------------------- main page: tier & coverage strip -- */
+.longku-progress-strip {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--lg-rule);
+  flex-wrap: wrap;
 }
 
-.longku-chip.longku-gap:hover {
-  border-color: var(--lg-warn);
-  background: color-mix(in srgb, var(--lg-warn) 12%, transparent);
-  color: var(--lg-warn);
+.longku-strip-lead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  background: none;
+  border: 0;
+  padding: 0 4px 0 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  flex: none;
+}
+
+.longku-strip-pct {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--lg-accent);
+}
+
+.longku-strip-lead:hover .longku-strip-pct { color: var(--lg-btn-hover); }
+
+.longku-strip-lead-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+}
+
+.longku-strip-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px 20px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.longku-strip-tier-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.longku-strip-tier-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-soft);
+}
+
+.longku-strip-tier-n { font-size: 11px; color: var(--lg-ink-faint); }
+.longku-strip-mine { color: var(--lg-ink); font-weight: 600; }
+.longku-strip-slash { opacity: 0.5; margin: 0 2px; }
+
+.longku-strip-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--lg-sunken);
+  overflow: hidden;
+}
+
+.longku-strip-track.is-empty { opacity: 0.4; }
+
+.longku-strip-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+
+.longku-strip-tier.tier-core .longku-strip-fill { background: var(--lg-tier-core); }
+.longku-strip-tier.tier-core .longku-strip-mine { color: var(--lg-tier-core); }
+.longku-strip-tier.tier-common .longku-strip-fill { background: var(--lg-tier-common); }
+.longku-strip-tier.tier-common .longku-strip-mine { color: var(--lg-tier-common); }
+.longku-strip-tier.tier-uncommon .longku-strip-fill { background: var(--lg-tier-uncommon); }
+.longku-strip-tier.tier-uncommon .longku-strip-mine { color: var(--lg-tier-uncommon); }
+.longku-strip-tier.tier-offcorpus .longku-strip-mine { color: var(--lg-rare-1); }
+
+/* Rare keeps its shimmer here too, on the label and the fill. */
+.longku-strip-tier.tier-rare .longku-strip-fill,
+.longku-strip-tier.tier-rare .longku-strip-label {
+  background-image: linear-gradient(
+    100deg,
+    var(--lg-rare-1) 0%,
+    var(--lg-rare-2) 22%,
+    var(--lg-rare-3) 44%,
+    var(--lg-rare-4) 66%,
+    var(--lg-rare-1) 100%
+  );
+  background-size: 200% 100%;
+  animation: longku-shimmer 7s linear infinite;
+}
+
+@media (max-width: 720px) {
+  .longku-progress-strip { gap: 14px; margin-bottom: 14px; padding-bottom: 12px; }
+  .longku-strip-pct { font-size: 24px; }
+  .longku-strip-tiers { grid-template-columns: repeat(2, 1fr); gap: 8px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .longku-strip-tier.tier-rare .longku-strip-fill { animation: none; background-position: 25% 50%; }
 }

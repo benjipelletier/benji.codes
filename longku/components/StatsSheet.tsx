@@ -11,8 +11,6 @@ interface Props {
   tierCounts: Record<string, number>;
   corpusWords: number;
   onClose: () => void;
-  /** Open a syllable's bucket — how a gap gets closed. */
-  onPickSyllable: (syl: string) => void;
 }
 
 /**
@@ -27,7 +25,6 @@ export function StatsSheet({
   tierCounts,
   corpusWords,
   onClose,
-  onPickSyllable,
 }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -121,29 +118,6 @@ export function StatsSheet({
           </div>
         </section>
 
-        {stats.deadEnds.length > 0 && (
-          <section className="longku-modal-section">
-            <h3 className="longku-subhead">Gaps</h3>
-            <p className="longku-hint" style={{ marginBottom: 8 }}>
-              Chains die on these syllables because nothing in your bank starts with
-              them. Learning one word for any of them joins two chains into one —
-              click a syllable to open its bucket.
-            </p>
-            <div className="longku-chips">
-              {stats.deadEnds.map((syl) => (
-                <button
-                  key={syl}
-                  type="button"
-                  className="longku-chip longku-gap"
-                  onClick={() => onPickSyllable(syl)}
-                  title={`Open the ${syl} bucket and add a word for it`}
-                >
-                  {syl}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );
