@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   importWords,
-  recordRecall,
+  playWord,
+  startChain,
   resetSweep,
   type BankEntry,
   type State,
@@ -50,27 +51,27 @@ interface Props {
 }
 
 export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
-  /** Words in the current chain, in order. */
-  const [chain, setChain] = useState<BankEntry[]>([]);
   const [need, setNeed] = useState<string>("");
   const [draft, setDraft] = useState("");
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [teach, setTeach] = useState<Suggestion[] | null>(null);
   const [loadingTeach, setLoadingTeach] = useState(false);
-  /** Chains already closed this sweep, oldest first. */
-  const [history, setHistory] = useState<BankEntry[][]>([]);
   /** Revealing what the bank offers for the current syllable. */
   const [peek, setPeek] = useState(false);
-  // Archiving happens from effects and handlers that don't have the current
-  // chain in scope, so keep a live reference rather than adding it to deps.
-  const chainRef = useRef<BankEntry[]>([]);
-  chainRef.current = chain;
 
-  /** Close the chain in progress, keeping it in the log if it has anything. */
-  const archive = useCallback(() => {
-    const cur = chainRef.current;
-    if (cur.length > 0) setHistory((h) => [...h, cur]);
-  }, []);
+  // The sweep's chains live in the store so they survive a reload, and are
+  // rendered as bank entries here. A word removed from the bank mid-sweep is
+  // dropped rather than rendered as a hole.
+  const chains = useMemo(
+    () =>
+      state.chains
+        .map((c) => c.map((w) => state.bank[w]).filter(Boolean))
+        .filter((c) => c.length > 0),
+    [state],
+  );
+
+  /** The chain in progress: whatever the store's last chain holds. */
+  const chain = chains.length > 0 ? chains[chains.length - 1] : [];
 
   const remaining = useMemo(() => unused(state), [state]);
   const bankSize = Object.keys(state.bank).length;
@@ -85,14 +86,12 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   // Open a chain whenever the caller asks for one.
   useEffect(() => {
     if (!startAt.syl) return;
-    archive();
-    setChain([]);
+    onChange(startChain());
     setNeed(startAt.syl);
     setDraft("");
     setMsg(null);
     setTeach(null);
     setPeek(false);
-    // archive is stable; chain is read through the ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startAt.syl, startAt.nonce]);
 
@@ -148,9 +147,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
       return;
     }
 
-    const next = recordRecall(word);
-    onChange(next);
-    setChain((c) => [...c, entry]);
+    onChange(playWord(word, true));
     setDraft("");
     setMsg(null);
     setPeek(false);
@@ -175,8 +172,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   function newChain() {
     const start = pickChainStart(state);
     if (!start) return;
-    archive();
-    setChain([]);
+    onChange(startChain());
     setNeed(start.fs);
     setDraft("");
     setMsg(null);
@@ -190,11 +186,9 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     onChange(added);
   }
 
-  /** Play a word straight from the revealed list. */
+  /** Play a word the user was shown rather than recalled. */
   function play(entry: BankEntry) {
-    const next = recordRecall(entry.w);
-    onChange(next);
-    setChain((c) => [...c, entry]);
+    onChange(playWord(entry.w, false));
     setDraft("");
     setMsg(null);
     setPeek(false);
@@ -202,10 +196,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   }
 
   function startOver() {
-    const next = resetSweep();
-    onChange(next);
-    setChain([]);
-    setHistory([]);
+    onChange(resetSweep());
     setMsg(null);
     setPeek(false);
     onRerollStart();
@@ -226,26 +217,18 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
 
   return (
     <section aria-label="Play">
-      {(history.length > 0 || chain.length > 0) && (
+      {chains.length > 0 && (
         <div className="longku-chain-log">
-          {history.map((c, i) => (
+          {chains.map((c, i) => (
             <ChainRow
-              key={`done-${i}`}
+              key={i}
               chain={c}
               index={i + 1}
               bank={state.bank}
               onBank={bank}
+              live={i === chains.length - 1}
             />
           ))}
-          {chain.length > 0 && (
-            <ChainRow
-              chain={chain}
-              index={history.length + 1}
-              bank={state.bank}
-              onBank={bank}
-              live
-            />
-          )}
         </div>
       )}
 

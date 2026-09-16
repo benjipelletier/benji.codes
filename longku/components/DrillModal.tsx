@@ -113,7 +113,7 @@ export function DrillModal({
               {mine.map((e) => (
                 <li key={e.w} className="longku-bucket-item">
                   <span className="longku-bucket-word">{e.w}</span>
-                  <TierPill f={e.f} />
+                  <TierPill f={e.f} offCorpus={e.offCorpus} />
                   <span className="longku-bucket-meta">
                     {e.fs} → {e.ls ?? "?"}
                   </span>

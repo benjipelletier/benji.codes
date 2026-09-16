@@ -1,6 +1,6 @@
 import { syllables, bySyllable, entries, commonCounts } from "@longku/lib/data";
 import { LongkuApp } from "@longku/components/LongkuApp";
-import { tierOf, type TierCount, type TierMass } from "@longku/lib/frequency";
+import { freqTierOf, type TierCount, type TierMass } from "@longku/lib/frequency";
 
 export default function LongkuPage() {
   const sylls = syllables();
@@ -23,7 +23,7 @@ export default function LongkuPage() {
   let corpusMass = 0;
   for (const e of all) {
     corpusMass += e.f;
-    const t = tierOf(e.f);
+    const t = freqTierOf(e.f);
     tierMass[t] += e.f;
     tierWords[t] += 1;
   }

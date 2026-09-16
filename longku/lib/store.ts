@@ -37,11 +37,21 @@ export interface State {
   bank: Record<string, BankEntry>;
   /** Words already used in the current sweep through the bank. */
   sweep: string[];
+  /**
+   * The sweep's chains, oldest first, each an ordered list of words. The last
+   * entry is the chain in progress.
+   *
+   * Stored rather than derived: `sweep` records which words were used but not
+   * how they grouped, and the grouping is the part worth looking at. Keeping it
+   * here also means the log survives a reload, which it didn't when it lived in
+   * component state beside a sweep counter that did persist.
+   */
+  chains: string[][];
 }
 
 export type Mode = "server" | "spectator" | "local";
 
-const EMPTY: State = { bank: {}, sweep: [] };
+const EMPTY: State = { bank: {}, sweep: [], chains: [] };
 
 let _state: State = { ...EMPTY };
 let _mode: Mode = "local";
@@ -88,7 +98,7 @@ function migrateV1(raw: unknown): State | null {
       if (!bank[w]) bank[w] = { w, fs, ls: null, recalls: 0, added };
     }
   }
-  return Object.keys(bank).length > 0 ? { bank, sweep: [] } : null;
+  return Object.keys(bank).length > 0 ? { bank, sweep: [], chains: [] } : null;
 }
 
 function readKey(key: string): unknown {
@@ -103,7 +113,13 @@ function readKey(key: string): unknown {
 function loadLocal(): State {
   if (typeof window === "undefined") return { ...EMPTY };
   const current = readKey(STORAGE_KEY);
-  if (isV2(current)) return { bank: current.bank ?? {}, sweep: current.sweep ?? [] };
+  if (isV2(current)) {
+    return {
+      bank: current.bank ?? {},
+      sweep: current.sweep ?? [],
+      chains: current.chains ?? [],
+    };
+  }
   // Adopt the newest legacy state we can find. Legacy keys are left in place
   // rather than deleted, so nothing is lost if this needs to be undone.
   for (const key of LEGACY_KEYS) {
@@ -167,7 +183,7 @@ export async function bootstrap(): Promise<Bootstrap> {
         _mode = d.isOwner ? "server" : "spectator";
         const bank: Record<string, BankEntry> = {};
         for (const e of d.bank ?? []) bank[e.w] = e as BankEntry;
-        _state = { bank, sweep: d.sweep ?? [] };
+        _state = { bank, sweep: d.sweep ?? [], chains: d.chains ?? [] };
         return { state: _state, mode: _mode, email: d.email ?? null };
       }
     }
@@ -206,7 +222,11 @@ export interface ImportSummary {
 
 /** Snapshot so React sees a new object and re-renders. */
 function commit(): State {
-  _state = { bank: { ..._state.bank }, sweep: [..._state.sweep] };
+  _state = {
+    bank: { ..._state.bank },
+    sweep: [..._state.sweep],
+    chains: _state.chains.map((c) => [...c]),
+  };
   saveLocal();
   return _state;
 }
@@ -279,27 +299,49 @@ export function hydrate(
   return commit();
 }
 
-/** Record that the user produced `word` in play, and mark it used this sweep. */
-export function recordRecall(word: string): State {
+/**
+ * Play `word` into the current chain.
+ *
+ * `recalled` is false when the word was revealed first — clicked out of the
+ * "Stuck?" list rather than produced from memory. Those still advance the
+ * sweep and join the chain, but they don't increment the recall count, because
+ * that number is the whole progress model and "times I was shown it" is not
+ * the same claim as "times I produced it".
+ */
+export function playWord(word: string, recalled: boolean): State {
   const e = _state.bank[word];
   if (!e) return _state;
-  e.recalls += 1;
-  e.lastRecalled = Date.now();
+  if (recalled) {
+    e.recalls += 1;
+    e.lastRecalled = Date.now();
+  }
   if (!_state.sweep.includes(word)) _state.sweep.push(word);
-  push({ op: "recall", w: word });
+  if (_state.chains.length === 0) _state.chains.push([]);
+  _state.chains[_state.chains.length - 1].push(word);
+  push({ op: "play", w: word, recalled, chains: _state.chains });
+  return commit();
+}
+
+/** Open a fresh chain. A chain left empty is reused rather than stacked. */
+export function startChain(): State {
+  const last = _state.chains[_state.chains.length - 1];
+  if (!last || last.length > 0) _state.chains.push([]);
+  push({ op: "chains", chains: _state.chains });
   return commit();
 }
 
 export function removeWord(word: string): State {
   delete _state.bank[word];
   _state.sweep = _state.sweep.filter((w) => w !== word);
-  push({ op: "remove", w: word });
+  _state.chains = _state.chains.map((c) => c.filter((w) => w !== word));
+  push({ op: "remove", w: word, chains: _state.chains });
   return commit();
 }
 
 /** Begin a fresh pass over the bank. */
 export function resetSweep(): State {
   _state.sweep = [];
+  _state.chains = [];
   push({ op: "resetSweep" });
   return commit();
 }

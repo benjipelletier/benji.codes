@@ -1258,3 +1258,18 @@
 .longku-stuck { gap: 7px; }
 .longku-stuck-line { font-size: 14px; }
 .longku-stuck-next { margin-left: auto; flex: none; }
+
+/* Off-corpus: a word the dictionary doesn't have, so its frequency is unknown
+   rather than low. Given its own neutral-violet treatment so it never reads as
+   the bottom of the frequency scale. */
+.longku-pill.tier-offcorpus.is-on {
+  border-color: var(--lg-rare-1);
+  background: color-mix(in srgb, var(--lg-rare-1) 14%, transparent);
+}
+
+.longku-pill.tier-offcorpus.is-on .longku-pill-n { color: var(--lg-rare-1); }
+
+.longku-pill.is-mini.tier-offcorpus {
+  color: var(--lg-rare-1);
+  border-color: color-mix(in srgb, var(--lg-rare-1) 55%, transparent);
+}

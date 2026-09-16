@@ -10,7 +10,7 @@
 // the way the language does — learning 画蛇添足 is worth more than learning a
 // variant nobody writes.
 
-export type Tier = "core" | "common" | "uncommon" | "rare";
+export type Tier = "core" | "common" | "uncommon" | "rare" | "offcorpus";
 
 export interface TierSpec {
   id: Tier;
@@ -25,21 +25,42 @@ export interface TierSpec {
  * Cuts chosen so each tier lands on a round share of usage:
  * core ≈ the first half, common ≈ up to 90%, uncommon ≈ up to 99%.
  */
-export const TIERS: TierSpec[] = [
+export const FREQUENCY_TIERS: TierSpec[] = [
   { id: "core", label: "core", min: 4000, blurb: "624 words — over half of all chengyu usage" },
   { id: "common", label: "common", min: 700, blurb: "up to 90% of usage" },
   { id: "uncommon", label: "uncommon", min: 80, blurb: "up to 99% of usage" },
   { id: "rare", label: "rare", min: 0, blurb: "the long tail — 1% of usage between 24,000 words" },
 ];
 
-export function tierOf(f: number | undefined): Tier {
-  if (f === undefined || f === null) return "rare";
-  for (const t of TIERS) if (f >= t.min) return t.id;
-  return "rare";
+/**
+ * Words the reference corpus doesn't contain.
+ *
+ * Not a frequency band — a word with no entry has no frequency at all, and
+ * filing it under "rare" was a claim the data doesn't support: 各种各样 is one
+ * of the commonest four-character expressions in Mandarin and the corpus
+ * simply omits it. Its own tier says "unmeasured", which is the truth.
+ */
+export const OFF_CORPUS: TierSpec = {
+  id: "offcorpus",
+  label: "off-corpus",
+  min: -1,
+  blurb: "not in the reference dictionary, so its frequency is unknown",
+};
+
+/** All tiers, for labelling. Coverage bars use FREQUENCY_TIERS only. */
+export const TIERS: TierSpec[] = [...FREQUENCY_TIERS, OFF_CORPUS];
+
+export function tierOf(f: number | undefined, offCorpus?: boolean): Tier {
+  if (offCorpus) return "offcorpus";
+  // No frequency and not flagged: an entry that predates frequency storage, or
+  // one still waiting to be hydrated. Treated as off-corpus rather than rare
+  // for the same reason — we don't know, so don't assert.
+  if (f === undefined || f === null) return "offcorpus";
+  return freqTierOf(f);
 }
 
 export function tierSpec(id: Tier): TierSpec {
-  return TIERS.find((t) => t.id === id) ?? TIERS[TIERS.length - 1];
+  return TIERS.find((t) => t.id === id) ?? OFF_CORPUS;
 }
 
 /**
@@ -57,10 +78,23 @@ export function usageCoverage(
   return { mass, share: corpusMass > 0 ? Math.min(1, mass / corpusMass) : 0 };
 }
 
+/**
+ * A tier a corpus word can hold. Off-corpus is excluded by construction: every
+ * entry in the reference dictionary has a frequency, so the corpus-side totals
+ * can never include it.
+ */
+export type FreqTier = Exclude<Tier, "offcorpus">;
+
+/** Which frequency band a known frequency falls in. */
+export function freqTierOf(f: number): FreqTier {
+  for (const t of FREQUENCY_TIERS) if (f >= t.min) return t.id as FreqTier;
+  return "rare";
+}
+
 /** Total corpus frequency mass per tier — the denominators for tier coverage. */
-export type TierMass = Record<Tier, number>;
+export type TierMass = Record<FreqTier, number>;
 /** Corpus word count per tier — the denominator for each bar's mine/corpus. */
-export type TierCount = Record<Tier, number>;
+export type TierCount = Record<FreqTier, number>;
 
 export interface TierCoverage {
   id: Tier;
@@ -82,23 +116,24 @@ export interface TierCoverage {
  * rare barely moves and is worth 1% of usage between 24,000 words.
  */
 export function coverageByTier(
-  bank: Array<{ f?: number }>,
+  bank: Array<{ f?: number; offCorpus?: boolean }>,
   tierMass: TierMass,
   tierWords: TierCount,
 ): TierCoverage[] {
-  const total = TIERS.reduce((n, t) => n + (tierMass[t.id] ?? 0), 0);
+  const total = FREQUENCY_TIERS.reduce((n, t) => n + (tierMass[t.id] ?? 0), 0);
   const held: Record<Tier, { mass: number; words: number }> = {
     core: { mass: 0, words: 0 },
     common: { mass: 0, words: 0 },
     uncommon: { mass: 0, words: 0 },
     rare: { mass: 0, words: 0 },
+    offcorpus: { mass: 0, words: 0 },
   };
   for (const e of bank) {
-    const id = tierOf(e.f);
+    const id = tierOf(e.f, e.offCorpus);
     held[id].mass += e.f ?? 0;
     held[id].words += 1;
   }
-  return TIERS.map((t) => {
+  return FREQUENCY_TIERS.map((t) => {
     const denom = tierMass[t.id] ?? 0;
     return {
       id: t.id,
@@ -113,8 +148,16 @@ export function coverageByTier(
 }
 
 /** Count of bank words per tier. */
-export function tierCounts(bank: Array<{ f?: number }>): Record<Tier, number> {
-  const out: Record<Tier, number> = { core: 0, common: 0, uncommon: 0, rare: 0 };
-  for (const e of bank) out[tierOf(e.f)] += 1;
+export function tierCounts(
+  bank: Array<{ f?: number; offCorpus?: boolean }>,
+): Record<Tier, number> {
+  const out: Record<Tier, number> = {
+    core: 0,
+    common: 0,
+    uncommon: 0,
+    rare: 0,
+    offcorpus: 0,
+  };
+  for (const e of bank) out[tierOf(e.f, e.offCorpus)] += 1;
   return out;
 }

@@ -227,8 +227,8 @@ export function AddChengyu({ state, onChange }: Props) {
 }
 
 /** Small frequency badge. Tiers are cut so each lands on a round share of usage. */
-export function TierPill({ f }: { f?: number }) {
-  const id = tierOf(f);
+export function TierPill({ f, offCorpus }: { f?: number; offCorpus?: boolean }) {
+  const id = tierOf(f, offCorpus);
   const spec = tierSpec(id);
   return (
     <span className={`longku-pill is-mini tier-${id}`} title={`${spec.label} — ${spec.blurb}`}>

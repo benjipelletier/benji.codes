@@ -29,7 +29,7 @@ interface Props {
 }
 
 export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props) {
-  const [state, setState] = useState<State>({ bank: {}, sweep: [] });
+  const [state, setState] = useState<State>({ bank: {}, sweep: [], chains: [] });
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<Mode>("local");
   const [email, setEmail] = useState<string | null>(null);

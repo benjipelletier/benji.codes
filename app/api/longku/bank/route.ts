@@ -4,6 +4,20 @@ import { getViewer, NotOwnerError, requireOwner } from "@longku/lib/session";
 
 export const dynamic = "force-dynamic";
 
+/** The sweep is always written whole — it's small and never partially updated. */
+async function saveChains(
+  sql: ReturnType<typeof getDb>,
+  owner: string,
+  chains: string[][],
+): Promise<void> {
+  await sql`
+    insert into longku_sweep (owner_email, chains, updated)
+    values (${owner}, ${JSON.stringify(chains)}::jsonb, now())
+    on conflict (owner_email) do update
+      set chains = excluded.chains, updated = now()
+  `;
+}
+
 /** Whose bank this site serves. Reads are public; only this account writes. */
 function ownerEmail(): string | null {
   return process.env.LONGKU_OWNER_EMAIL ?? null;
@@ -49,6 +63,11 @@ export async function GET() {
     order by added asc
   `) as unknown as BankRow[];
 
+  const sweepRows = (await sql`
+    select chains from longku_sweep where owner_email = ${owner}
+  `) as unknown as Array<{ chains: string[][] }>;
+  const chains = sweepRows[0]?.chains ?? [];
+
   return NextResponse.json({
     configured: true,
     isOwner: viewer.isOwner,
@@ -64,13 +83,15 @@ export async function GET() {
       ...(r.off_corpus ? { offCorpus: true } : {}),
     })),
     sweep: rows.filter((r) => r.in_sweep).map((r) => r.w),
+    chains,
   });
 }
 
 type Op =
   | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
-  | { op: "remove"; w: string }
-  | { op: "recall"; w: string }
+  | { op: "remove"; w: string; chains?: string[][] }
+  | { op: "play"; w: string; recalled: boolean; chains: string[][] }
+  | { op: "chains"; chains: string[][] }
   | { op: "resetSweep" }
   | { op: "hydrate"; readings: Array<{ w: string; fs?: string; ls?: string | null; f?: number }> };
 
@@ -134,21 +155,38 @@ export async function POST(req: NextRequest) {
     case "remove": {
       if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
       await sql`delete from longku_bank where owner_email = ${owner} and w = ${body.w}`;
+      if (body.chains) await saveChains(sql, owner, body.chains);
       return NextResponse.json({ ok: true });
     }
 
-    case "recall": {
+    case "play": {
       if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
-      await sql`
-        update longku_bank
-        set recalls = recalls + 1, last_recalled = now(), in_sweep = true
-        where owner_email = ${owner} and w = ${body.w}
-      `;
+      // A prompted play advances the sweep but leaves the recall count alone —
+      // it records that the word came up, not that it was produced.
+      if (body.recalled) {
+        await sql`
+          update longku_bank
+          set recalls = recalls + 1, last_recalled = now(), in_sweep = true
+          where owner_email = ${owner} and w = ${body.w}
+        `;
+      } else {
+        await sql`
+          update longku_bank set in_sweep = true
+          where owner_email = ${owner} and w = ${body.w}
+        `;
+      }
+      await saveChains(sql, owner, body.chains ?? []);
+      return NextResponse.json({ ok: true });
+    }
+
+    case "chains": {
+      await saveChains(sql, owner, body.chains ?? []);
       return NextResponse.json({ ok: true });
     }
 
     case "resetSweep": {
       await sql`update longku_bank set in_sweep = false where owner_email = ${owner}`;
+      await saveChains(sql, owner, []);
       return NextResponse.json({ ok: true });
     }
 
