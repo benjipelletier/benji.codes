@@ -19,6 +19,28 @@ interface Suggestion {
   f?: number;
 }
 
+/**
+ * Top corpus suggestion per starting syllable, cached across rows.
+ *
+ * Every closed chain in the log wants the most frequent chengyu that would
+ * have continued it. Several chains often end on the same syllable, and the
+ * log re-renders on every keystroke, so the fetch is memoised by syllable and
+ * shared rather than repeated per row.
+ */
+const topCache = new Map<string, Promise<Suggestion[]>>();
+
+function topForSyllable(syl: string): Promise<Suggestion[]> {
+  let p = topCache.get(syl);
+  if (!p) {
+    p = fetch(`/api/longku/syllable/${encodeURIComponent(syl)}?limit=8`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => (d?.chengyus ?? []) as Suggestion[])
+      .catch(() => []);
+    topCache.set(syl, p);
+  }
+  return p;
+}
+
 interface Props {
   state: State;
   onChange: (s: State) => void;
@@ -162,16 +184,10 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     setPeek(false);
   }
 
-  /**
-   * Bank a suggested word and play it immediately. It sits among the chain
-   * options rather than the "worth learning" cards, so one click should
-   * continue the chain — the cards below remain the add-without-playing path.
-   */
-  function learnAndPlay(sg: Suggestion) {
+  /** Bank a suggested word without disturbing the chain in progress. */
+  function bank(sg: Suggestion) {
     const { state: added } = importWords([{ w: sg.w, fs: sg.fs, ls: sg.ls, f: sg.f }]);
     onChange(added);
-    const entry = added.bank[sg.w];
-    if (entry) play(entry);
   }
 
   /** Play a word straight from the revealed list. */
@@ -213,10 +229,22 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
       {(history.length > 0 || chain.length > 0) && (
         <div className="longku-chain-log">
           {history.map((c, i) => (
-            <ChainRow key={`done-${i}`} chain={c} index={i + 1} />
+            <ChainRow
+              key={`done-${i}`}
+              chain={c}
+              index={i + 1}
+              bank={state.bank}
+              onBank={bank}
+            />
           ))}
           {chain.length > 0 && (
-            <ChainRow chain={chain} index={history.length + 1} live />
+            <ChainRow
+              chain={chain}
+              index={history.length + 1}
+              bank={state.bank}
+              onBank={bank}
+              live
+            />
           )}
         </div>
       )}
@@ -234,40 +262,35 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
       ) : stuck ? (
         <div className="longku-stuck">
           <p className="longku-stuck-line">
-            Nothing left in your bank starts with <strong>{need}</strong> — this chain
-            is finished{chain.length > 0 ? ` at ${chain.length}` : ""}.
+            Nothing in your bank starts with <strong>{need}</strong> — chain
+            finished{chain.length > 0 ? ` at ${chain.length}` : ""}.
           </p>
-          {loadingTeach && <p className="longku-hint">Looking for one to learn…</p>}
-          {teach && teach.length > 0 && (
-            <>
-              <p className="longku-hint">
-                Learn one of these and the chain keeps going:
-              </p>
-              <div className="longku-teach">
-                {teach.map((s) => (
+          <div className="longku-peek-row">
+            <span className="longku-peek-label">worth learning for {need}</span>
+            {loadingTeach && <span className="longku-hint">looking…</span>}
+            {teach && teach.length > 0 && (
+              <div className="longku-peek-words">
+                {teach.map((sg) => (
                   <button
-                    key={s.w}
-                    className="longku-teach-card"
-                    onClick={() => learn(s)}
-                    title={`${s.fs} → ${s.ls}`}
+                    key={sg.w}
+                    type="button"
+                    className="longku-peek-word is-new"
+                    onClick={() => learn(sg)}
+                    title={`${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank`}
                   >
-                    <span className="longku-teach-word">{s.w}</span>
-                    <span className="longku-teach-pinyin">{s.p}</span>
-                    <TierPill f={s.f} />
-                    <span className="longku-teach-add">+ add to bank</span>
+                    {sg.w}
+                    <TierPill f={sg.f} />
                   </button>
                 ))}
               </div>
-            </>
-          )}
-          {teach && teach.length === 0 && !loadingTeach && (
-            <p className="longku-hint">
-              The corpus has nothing new starting with {need} either.
-            </p>
-          )}
-          <button className="longku-btn" onClick={newChain}>
-            Start a new chain ({remaining.length} left)
-          </button>
+            )}
+            {teach && teach.length === 0 && !loadingTeach && (
+              <span className="longku-hint">nothing new in the corpus either</span>
+            )}
+            <button className="longku-btn longku-stuck-next" onClick={newChain}>
+              New chain ({remaining.length} left)
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -335,17 +358,6 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
                     </button>
                   ))
                 )}
-                {teach && teach[0] && !state.bank[teach[0].w] && (
-                  <button
-                    type="button"
-                    className="longku-peek-word is-new"
-                    onClick={() => learnAndPlay(teach[0])}
-                    title={`${teach[0].p} · not in your bank — adds it and plays it`}
-                  >
-                    {teach[0].w}
-                    <span className="longku-peek-new">new</span>
-                  </button>
-                )}
               </div>
 
               {/* What you could add. Adding is deliberately separate from
@@ -355,19 +367,17 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
                 <span className="longku-peek-label">worth learning for {need}</span>
                 {loadingTeach && <span className="longku-hint">looking…</span>}
                 {teach && teach.length > 0 && (
-                  <div className="longku-teach">
+                  <div className="longku-peek-words">
                     {teach.map((sg) => (
                       <button
                         key={sg.w}
                         type="button"
-                        className="longku-teach-card"
+                        className="longku-peek-word is-new"
                         onClick={() => learn(sg)}
-                        title={`${sg.fs} → ${sg.ls}`}
+                        title={`${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank`}
                       >
-                        <span className="longku-teach-word">{sg.w}</span>
-                        <span className="longku-teach-pinyin">{sg.p}</span>
+                        {sg.w}
                         <TierPill f={sg.f} />
-                        <span className="longku-teach-add">+ add to bank</span>
                       </button>
                     ))}
                   </div>
@@ -402,12 +412,38 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
 function ChainRow({
   chain,
   index,
+  bank,
+  onBank,
   live = false,
 }: {
   chain: BankEntry[];
   index: number;
+  /** Words already held, so a suggestion is never something you own. */
+  bank: Record<string, BankEntry>;
+  onBank: (s: Suggestion) => void;
   live?: boolean;
 }) {
+  const endsOn = chain.length > 0 ? chain[chain.length - 1].ls : null;
+  const [next, setNext] = useState<Suggestion | null>(null);
+
+  // What the most frequent continuation would have been. The endpoint returns
+  // the bucket already ranked by corpus frequency, so the first word not
+  // already held is the most frequent one worth learning.
+  useEffect(() => {
+    if (!endsOn) {
+      setNext(null);
+      return;
+    }
+    let cancelled = false;
+    topForSyllable(endsOn).then((list) => {
+      if (cancelled) return;
+      setNext(list.find((c) => !bank[c.w]) ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [endsOn, bank]);
+
   return (
     <div className={`longku-chain-row ${live ? "is-live" : ""}`}>
       <span className="longku-chain-n">{index}</span>
@@ -420,6 +456,20 @@ function ChainRow({
             </span>
           </li>
         ))}
+        {next && (
+          <li>
+            <span className="longku-chain-arrow">→</span>
+            <button
+              type="button"
+              className="longku-chain-next"
+              onClick={() => onBank(next)}
+              title={`${next.p} — not in your bank. Learn it and this chain goes on.`}
+            >
+              {next.w}
+              <span className="longku-chain-next-tag">learn</span>
+            </button>
+          </li>
+        )}
       </ol>
       <span className="longku-chain-len">{chain.length}</span>
     </div>

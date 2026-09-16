@@ -1151,8 +1151,6 @@
   padding-top: 8px;
   border-top: 1px dashed var(--lg-rule);
 }
-.longku-peek-add .longku-teach-card { padding: 7px 11px; }
-.longku-peek-add .longku-teach-word { font-size: 18px; }
 
 /* A suggestion sitting among the playable words. Dashed and accented so it
    reads as an offer rather than something already earned. */
@@ -1182,3 +1180,84 @@
   background: var(--lg-tier-core);
   color: var(--lg-on-accent);
 }
+
+/* --- compact reveal: two label+chips rows, no cards --- */
+.longku-peek {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 7px 9px;
+  margin-top: 6px;
+}
+
+.longku-peek-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.longku-peek-add {
+  padding-top: 5px;
+  border-top: 1px dashed var(--lg-rule);
+  gap: 10px;
+}
+
+.longku-peek-word {
+  font-size: 17px;
+  padding: 1px 8px;
+  gap: 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* A word you don't hold: dashed and accented, never mistakable for banked. */
+.longku-peek-word.is-new {
+  border-style: dashed;
+  border-color: var(--lg-tier-core);
+  background: color-mix(in srgb, var(--lg-tier-core) 9%, transparent);
+  color: var(--lg-ink);
+}
+
+.longku-peek-word.is-new:hover {
+  border-style: solid;
+  background: color-mix(in srgb, var(--lg-tier-core) 18%, transparent);
+  color: var(--lg-ink);
+}
+
+/* --- the continuation a finished chain never got --- */
+.longku-chain-next {
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px dashed var(--lg-tier-core);
+  border-radius: 4px;
+  background: none;
+  color: var(--lg-tier-core);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.longku-chain-next:hover {
+  border-style: solid;
+  background: color-mix(in srgb, var(--lg-tier-core) 16%, transparent);
+  opacity: 1;
+}
+
+.longku-chain-next-tag {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.longku-chain-row:not(.is-live) .longku-chain-next { font-size: 15px; }
+
+/* Dead end sits on two tight lines rather than a block of cards. */
+.longku-stuck { gap: 7px; }
+.longku-stuck-line { font-size: 14px; }
+.longku-stuck-next { margin-left: auto; flex: none; }
