@@ -1273,3 +1273,39 @@
   color: var(--lg-rare-1);
   border-color: color-mix(in srgb, var(--lg-rare-1) 55%, transparent);
 }
+
+/* ---------------------------------------------- rail: bank tier mix bar -- */
+.longku-mix {
+  display: inline-flex;
+  width: 64px;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--lg-sunken);
+  align-self: center;
+  margin-left: 2px;
+  gap: 1px;
+}
+
+.longku-mix-seg { flex-basis: 0; min-width: 2px; }
+.longku-mix-seg.tier-core { background: var(--lg-tier-core); }
+.longku-mix-seg.tier-common { background: var(--lg-tier-common); }
+.longku-mix-seg.tier-uncommon { background: var(--lg-tier-uncommon); }
+.longku-mix-seg.tier-rare { background: var(--lg-rare-2); }
+.longku-mix-seg.tier-offcorpus { background: var(--lg-rare-1); }
+
+/* ------------------------------------------------------- sheet: gaps -- */
+.longku-chip.longku-gap {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  padding: 5px 11px;
+  border-style: solid;
+  border-color: var(--lg-rule-strong);
+  color: var(--lg-warn);
+}
+
+.longku-chip.longku-gap:hover {
+  border-color: var(--lg-warn);
+  background: color-mix(in srgb, var(--lg-warn) 12%, transparent);
+  color: var(--lg-warn);
+}

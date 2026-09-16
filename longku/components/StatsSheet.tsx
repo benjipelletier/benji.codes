@@ -10,21 +10,24 @@ interface Props {
   byTier: TierCoverage[];
   tierCounts: Record<string, number>;
   corpusWords: number;
-  corpusSyllables: number;
-  syllablesCovered: number;
   onClose: () => void;
+  /** Open a syllable's bucket — how a gap gets closed. */
+  onPickSyllable: (syl: string) => void;
 }
 
-/** Everything the rail condenses, in full. Reuses the modal overlay pattern. */
+/**
+ * Everything the rail condenses, in three groups rather than one pile: what the
+ * bank covers, how it chains, and where it breaks. The last of those used to be
+ * a bare count, which named a problem without offering a way at it.
+ */
 export function StatsSheet({
   stats,
   coverage,
   byTier,
   tierCounts,
   corpusWords,
-  corpusSyllables,
-  syllablesCovered,
   onClose,
+  onPickSyllable,
 }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -54,9 +57,11 @@ export function StatsSheet({
               {(coverage * 100).toFixed(coverage < 0.1 ? 1 : 0)}%
             </span>
             <p className="longku-coverage-note">
-              of all chengyu usage you&rsquo;d recognize. Each tier is worth what it
-              is used, not what it costs to learn — core is 624 words carrying
-              over half the language.
+              of all chengyu usage you&rsquo;d recognize, from{" "}
+              <strong>{stats.total}</strong> words against a corpus of{" "}
+              {corpusWords.toLocaleString()}. Each tier is worth what it is used, not
+              what it costs to learn — core is 624 words carrying over half the
+              language.
             </p>
           </div>
           <div className="longku-coverage-bars">
@@ -64,11 +69,7 @@ export function StatsSheet({
               <TierBar key={t.id} t={t} />
             ))}
           </div>
-        </section>
-
-        <section className="longku-modal-section">
-          <h3 className="longku-subhead">Bank by tier</h3>
-          <div className="longku-tiers">
+          <div className="longku-tiers" style={{ marginTop: 16 }}>
             {TIERS.map((t) => (
               <span
                 key={t.id}
@@ -83,29 +84,14 @@ export function StatsSheet({
         </section>
 
         <section className="longku-modal-section">
-          <h3 className="longku-subhead">The bank</h3>
+          <h3 className="longku-subhead">How it chains</h3>
           <div className="longku-sheet-fig">
-            <Fig
-              label="Word bank"
-              value={`${stats.total} / ${corpusWords.toLocaleString()}`}
-              sub="of the reference corpus"
-            />
-            <Fig
-              label="Playable"
-              value={`${pct(syllablesCovered, corpusSyllables)}%`}
-              sub={`${syllablesCovered} / ${corpusSyllables} syllables — one word for every syllable means a chain can always go on`}
-            />
-            <Fig
-              label="Recalled"
-              value={`${stats.recalled} / ${stats.total}`}
-              sub={`${stats.totalRecalls} recall${stats.totalRecalls === 1 ? "" : "s"} in total`}
-            />
             <Fig
               label="Chains to exhaust"
               value={String(stats.chains)}
               sub={
                 stats.total > 0
-                  ? `avg ${(stats.total / Math.max(1, stats.chains)).toFixed(1)} words per chain`
+                  ? `avg ${(stats.total / Math.max(1, stats.chains)).toFixed(1)} words each — lower is better`
                   : "add words to begin"
               }
             />
@@ -114,7 +100,7 @@ export function StatsSheet({
               value={String(stats.longest)}
               sub={
                 stats.longest > 0
-                  ? "words in one unbroken run — the best a bounded search found, so a floor not a ceiling"
+                  ? "words in one unbroken run, as far as a bounded search found"
                   : "add words to begin"
               }
             />
@@ -133,12 +119,31 @@ export function StatsSheet({
               }
             />
           </div>
-          <p className="longku-stat-sub" style={{ marginTop: 14 }}>
-            Chains to exhaust is the fewest 接龙 runs that use every word once. It
-            drops when you learn a word starting where a chain dead-ends, and
-            rises when you add one nothing connects to.
-          </p>
         </section>
+
+        {stats.deadEnds.length > 0 && (
+          <section className="longku-modal-section">
+            <h3 className="longku-subhead">Gaps</h3>
+            <p className="longku-hint" style={{ marginBottom: 8 }}>
+              Chains die on these syllables because nothing in your bank starts with
+              them. Learning one word for any of them joins two chains into one —
+              click a syllable to open its bucket.
+            </p>
+            <div className="longku-chips">
+              {stats.deadEnds.map((syl) => (
+                <button
+                  key={syl}
+                  type="button"
+                  className="longku-chip longku-gap"
+                  onClick={() => onPickSyllable(syl)}
+                  title={`Open the ${syl} bucket and add a word for it`}
+                >
+                  {syl}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -170,12 +175,6 @@ function TierBar({ t }: { t: TierCoverage }) {
       </div>
     </div>
   );
-}
-
-function pct(n: number, d: number) {
-  if (d <= 0) return "0";
-  const v = (n / d) * 100;
-  return v > 0 && v < 1 ? v.toFixed(1) : String(Math.round(v));
 }
 
 function Fig({ label, value, sub }: { label: string; value: string; sub: string }) {

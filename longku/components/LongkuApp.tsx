@@ -149,6 +149,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           onChange={setState}
           stats={s}
           coverage={cov.share}
+          tierCounts={tiers}
           view={view}
           onView={setView}
           onOpenStats={() => setSheetOpen(true)}
@@ -202,9 +203,11 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           byTier={byTier}
           tierCounts={tiers}
           corpusWords={corpusWords}
-          corpusSyllables={syllables.length}
-          syllablesCovered={sylCovered}
           onClose={() => setSheetOpen(false)}
+          onPickSyllable={(syl) => {
+            setSheetOpen(false);
+            setActiveSyl(syl);
+          }}
         />
       )}
     </div>

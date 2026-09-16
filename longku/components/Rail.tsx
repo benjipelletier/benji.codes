@@ -5,6 +5,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { signOut } from "@longku/lib/auth-client";
 import type { State } from "@longku/lib/store";
 import type { BankStats } from "@longku/lib/chains";
+import { FREQUENCY_TIERS, OFF_CORPUS, type Tier } from "@longku/lib/frequency";
 
 export type View = "wall" | "graph";
 
@@ -14,6 +15,8 @@ interface Props {
   stats: BankStats;
   /** Share of all chengyu usage the bank covers, 0..1. */
   coverage: number;
+  /** Bank words per tier, for the mix bar. */
+  tierCounts: Record<string, number>;
   view: View;
   onView: (v: View) => void;
   onOpenStats: () => void;
@@ -33,6 +36,7 @@ export function Rail({
   onChange,
   stats,
   coverage,
+  tierCounts,
   view,
   onView,
   onOpenStats,
@@ -66,6 +70,13 @@ export function Rail({
           <span className="longku-figure-n">{stats.chains}</span>
           <span className="longku-figure-label">chains</span>
         </span>
+        <span className="longku-figure">
+          <span className="longku-figure-n">{stats.deadEnds.length}</span>
+          <span className="longku-figure-label">gaps</span>
+        </span>
+        {/* The bank's tier mix as proportion rather than four more numbers —
+            it answers "what kind of words do I have" at a glance. */}
+        <TierMix counts={tierCounts} total={stats.total} />
       </button>
 
       {readOnly ? (
@@ -108,5 +119,27 @@ export function Rail({
         <a className="longku-home" href="/">← benji.codes</a>
       </div>
     </header>
+  );
+}
+
+const MIX: Tier[] = [...FREQUENCY_TIERS.map((t) => t.id), OFF_CORPUS.id];
+
+function TierMix({ counts, total }: { counts: Record<string, number>; total: number }) {
+  if (total <= 0) return null;
+  return (
+    <span className="longku-mix" aria-hidden>
+      {MIX.map((id) => {
+        const n = counts[id] ?? 0;
+        if (n === 0) return null;
+        return (
+          <span
+            key={id}
+            className={`longku-mix-seg tier-${id}`}
+            style={{ flexGrow: n }}
+            title={`${n} ${id}`}
+          />
+        );
+      })}
+    </span>
   );
 }
