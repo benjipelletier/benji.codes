@@ -466,7 +466,7 @@ function ChainRow({
               title={`${next.p} — not in your bank. Learn it and this chain goes on.`}
             >
               {next.w}
-              <span className="longku-chain-next-tag">learn</span>
+              <TierPill f={next.f} />
             </button>
           </li>
         )}

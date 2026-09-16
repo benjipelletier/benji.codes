@@ -1214,14 +1214,15 @@
 /* A word you don't hold: dashed and accented, never mistakable for banked. */
 .longku-peek-word.is-new {
   border-style: dashed;
-  border-color: var(--lg-tier-core);
-  background: color-mix(in srgb, var(--lg-tier-core) 9%, transparent);
-  color: var(--lg-ink);
+  border-color: var(--lg-rule-strong);
+  background: none;
+  color: var(--lg-ink-soft);
 }
 
 .longku-peek-word.is-new:hover {
   border-style: solid;
-  background: color-mix(in srgb, var(--lg-tier-core) 18%, transparent);
+  border-color: var(--lg-accent);
+  background: var(--lg-accent-soft);
   color: var(--lg-ink);
 }
 
@@ -1234,25 +1235,21 @@
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
-  border: 1px dashed var(--lg-tier-core);
+  /* Dashed alone carries "not in your bank". Colour is left to the tier pill,
+     which otherwise competes with it — a core suggestion was gold for being
+     unbanked and gold again for being core. */
+  border: 1px dashed var(--lg-rule-strong);
   border-radius: 4px;
   background: none;
-  color: var(--lg-tier-core);
+  color: var(--lg-ink-soft);
   cursor: pointer;
-  opacity: 0.85;
 }
 
 .longku-chain-next:hover {
   border-style: solid;
-  background: color-mix(in srgb, var(--lg-tier-core) 16%, transparent);
-  opacity: 1;
-}
-
-.longku-chain-next-tag {
-  font-size: 8px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.8;
+  border-color: var(--lg-accent);
+  background: var(--lg-accent-soft);
+  color: var(--lg-ink);
 }
 
 .longku-chain-row:not(.is-live) .longku-chain-next { font-size: 15px; }
