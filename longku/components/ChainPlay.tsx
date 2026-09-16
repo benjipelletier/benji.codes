@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   importWords,
   recordRecall,
@@ -35,6 +35,20 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [teach, setTeach] = useState<Suggestion[] | null>(null);
   const [loadingTeach, setLoadingTeach] = useState(false);
+  /** Chains already closed this sweep, oldest first. */
+  const [history, setHistory] = useState<BankEntry[][]>([]);
+  /** Revealing what the bank offers for the current syllable. */
+  const [peek, setPeek] = useState(false);
+  // Archiving happens from effects and handlers that don't have the current
+  // chain in scope, so keep a live reference rather than adding it to deps.
+  const chainRef = useRef<BankEntry[]>([]);
+  chainRef.current = chain;
+
+  /** Close the chain in progress, keeping it in the log if it has anything. */
+  const archive = useCallback(() => {
+    const cur = chainRef.current;
+    if (cur.length > 0) setHistory((h) => [...h, cur]);
+  }, []);
 
   const remaining = useMemo(() => unused(state), [state]);
   const bankSize = Object.keys(state.bank).length;
@@ -49,20 +63,25 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   // Open a chain whenever the caller asks for one.
   useEffect(() => {
     if (!startAt.syl) return;
+    archive();
     setChain([]);
     setNeed(startAt.syl);
     setDraft("");
     setMsg(null);
     setTeach(null);
+    setPeek(false);
+    // archive is stable; chain is read through the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startAt.syl, startAt.nonce]);
 
   const stuck = need !== "" && !canContinue(need);
 
-  // When the chain can't continue, fetch chengyus from the reference corpus
-  // that start where we're stuck. Learning one of these is what merges two
-  // chains into a longer one.
+  // Chengyus from the reference corpus that start where the chain needs to go.
+  // Wanted in two situations: the chain has dead-ended, and the user has asked
+  // what else exists while still mid-chain. Learning one of these is what
+  // merges two chains into a longer one.
   useEffect(() => {
-    if (!stuck || !need) {
+    if ((!stuck && !peek) || !need) {
       setTeach(null);
       return;
     }
@@ -83,7 +102,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [stuck, need, state.bank]);
+  }, [stuck, peek, need, state.bank]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +131,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     setChain((c) => [...c, entry]);
     setDraft("");
     setMsg(null);
+    setPeek(false);
     setNeed(entry.ls ?? "");
     if (entry.ls === null) {
       setMsg({
@@ -125,24 +145,53 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     const { state: next } = importWords([{ w: s.w, fs: s.fs, ls: s.ls, f: s.f }]);
     onChange(next);
     setMsg({ kind: "success", text: `${s.w} added to your bank — the chain can go on.` });
-    setTeach(null);
+    // Mid-peek the panel stays open, so the word shows up in the row above and
+    // can be played straight away. At a dead end there is nothing to return to.
+    if (!peek) setTeach(null);
   }
 
   function newChain() {
     const start = pickChainStart(state);
     if (!start) return;
+    archive();
     setChain([]);
     setNeed(start.fs);
     setDraft("");
     setMsg(null);
     setTeach(null);
+    setPeek(false);
+  }
+
+  /**
+   * Bank a suggested word and play it immediately. It sits among the chain
+   * options rather than the "worth learning" cards, so one click should
+   * continue the chain — the cards below remain the add-without-playing path.
+   */
+  function learnAndPlay(sg: Suggestion) {
+    const { state: added } = importWords([{ w: sg.w, fs: sg.fs, ls: sg.ls, f: sg.f }]);
+    onChange(added);
+    const entry = added.bank[sg.w];
+    if (entry) play(entry);
+  }
+
+  /** Play a word straight from the revealed list. */
+  function play(entry: BankEntry) {
+    const next = recordRecall(entry.w);
+    onChange(next);
+    setChain((c) => [...c, entry]);
+    setDraft("");
+    setMsg(null);
+    setPeek(false);
+    setNeed(entry.ls ?? "");
   }
 
   function startOver() {
     const next = resetSweep();
     onChange(next);
     setChain([]);
+    setHistory([]);
     setMsg(null);
+    setPeek(false);
     onRerollStart();
   }
 
@@ -161,17 +210,15 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
 
   return (
     <section aria-label="Play">
-      {chain.length > 0 && (
-        <ol className="longku-chain-strip" style={{ marginBottom: 10 }}>
-          {chain.map((c, i) => (
-            <li key={c.w}>
-              {i > 0 && <span className="longku-chain-arrow">→</span>}
-              <span className="longku-chain-word" title={`${c.fs} → ${c.ls ?? "?"}`}>
-                {c.w}
-              </span>
-            </li>
+      {(history.length > 0 || chain.length > 0) && (
+        <div className="longku-chain-log">
+          {history.map((c, i) => (
+            <ChainRow key={`done-${i}`} chain={c} index={i + 1} />
           ))}
-        </ol>
+          {chain.length > 0 && (
+            <ChainRow chain={chain} index={history.length + 1} live />
+          )}
+        </div>
       )}
 
       {sweepDone ? (
@@ -245,6 +292,15 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
               <button className="longku-btn is-primary" type="submit">
                 Chain it
               </button>
+              <button
+                type="button"
+                className="longku-btn"
+                onClick={() => setPeek((p) => !p)}
+                aria-expanded={peek}
+                title="Show what your bank offers for this syllable"
+              >
+                {peek ? "Hide" : "Stuck?"}
+              </button>
             </div>
             <div className="longku-sweep">
               <div className="longku-sweep-bar">
@@ -260,6 +316,70 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
               </span>
             </div>
           </form>
+          {peek && (
+            <div className="longku-peek">
+              <span className="longku-peek-label">in your bank, starting with {need}</span>
+              <div className="longku-peek-words">
+                {available(state, need).length === 0 ? (
+                  <span className="longku-hint">nothing yet</span>
+                ) : (
+                  available(state, need).map((e) => (
+                    <button
+                      key={e.w}
+                      type="button"
+                      className="longku-peek-word"
+                      onClick={() => play(e)}
+                      title={`${e.fs} → ${e.ls ?? "?"} · ${e.recalls} recall${e.recalls === 1 ? "" : "s"}`}
+                    >
+                      {e.w}
+                    </button>
+                  ))
+                )}
+                {teach && teach[0] && !state.bank[teach[0].w] && (
+                  <button
+                    type="button"
+                    className="longku-peek-word is-new"
+                    onClick={() => learnAndPlay(teach[0])}
+                    title={`${teach[0].p} · not in your bank — adds it and plays it`}
+                  >
+                    {teach[0].w}
+                    <span className="longku-peek-new">new</span>
+                  </button>
+                )}
+              </div>
+
+              {/* What you could add. Adding is deliberately separate from
+                  playing: a word you were just shown hasn't been recalled, and
+                  counting it as one would make the recall number a lie. */}
+              <div className="longku-peek-add">
+                <span className="longku-peek-label">worth learning for {need}</span>
+                {loadingTeach && <span className="longku-hint">looking…</span>}
+                {teach && teach.length > 0 && (
+                  <div className="longku-teach">
+                    {teach.map((sg) => (
+                      <button
+                        key={sg.w}
+                        type="button"
+                        className="longku-teach-card"
+                        onClick={() => learn(sg)}
+                        title={`${sg.fs} → ${sg.ls}`}
+                      >
+                        <span className="longku-teach-word">{sg.w}</span>
+                        <span className="longku-teach-pinyin">{sg.p}</span>
+                        <TierPill f={sg.f} />
+                        <span className="longku-teach-add">+ add to bank</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {teach && teach.length === 0 && !loadingTeach && (
+                  <span className="longku-hint">
+                    you already hold everything common here
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           {msg ? (
             <p className={`longku-input-msg is-${msg.kind}`} style={{ marginTop: 6 }}>
               {msg.text}
@@ -272,5 +392,36 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * One chain in the log. Closed chains stay visible so a sweep reads as a
+ * record of what you got through, not just whatever you're on right now.
+ */
+function ChainRow({
+  chain,
+  index,
+  live = false,
+}: {
+  chain: BankEntry[];
+  index: number;
+  live?: boolean;
+}) {
+  return (
+    <div className={`longku-chain-row ${live ? "is-live" : ""}`}>
+      <span className="longku-chain-n">{index}</span>
+      <ol className="longku-chain-strip">
+        {chain.map((c, i) => (
+          <li key={c.w}>
+            {i > 0 && <span className="longku-chain-arrow">→</span>}
+            <span className="longku-chain-word" title={`${c.fs} → ${c.ls ?? "?"}`}>
+              {c.w}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <span className="longku-chain-len">{chain.length}</span>
+    </div>
   );
 }

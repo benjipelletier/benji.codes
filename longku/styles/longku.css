@@ -1044,3 +1044,141 @@
 .longku-spectator-text { flex: 1; }
 .longku-spectator-text strong { font-weight: normal; color: var(--lg-ink); }
 .longku-spectator-cta { font-size: 12px; padding: 5px 12px; flex: none; }
+
+/* ---------------------------------------------- chain log (dock grows up) -- */
+.longku-chain-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* The dock rises as chains accumulate, then caps and scrolls so it can
+     never swallow the wall. Newest sits at the bottom, nearest the input. */
+  max-height: min(34vh, 300px);
+  overflow-y: auto;
+  margin-bottom: 10px;
+  padding-right: 4px;
+}
+
+.longku-chain-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0.55;
+}
+
+.longku-chain-row.is-live {
+  opacity: 1;
+  background: var(--lg-sunken);
+}
+
+.longku-chain-n {
+  flex: none;
+  width: 1.4em;
+  text-align: right;
+  font-size: 10px;
+  color: var(--lg-ink-faint);
+}
+
+.longku-chain-len {
+  flex: none;
+  font-size: 10px;
+  color: var(--lg-ink-faint);
+  margin-left: auto;
+}
+
+.longku-chain-row.is-live .longku-chain-len { color: var(--lg-accent); }
+
+/* Closed chains shrink so the live one keeps the weight. */
+.longku-chain-row:not(.is-live) .longku-chain-word { font-size: 17px; }
+.longku-chain-row:not(.is-live) .longku-chain-arrow { font-size: 10px; margin: 0 4px; }
+
+/* ------------------------------------------------------------- the reveal -- */
+.longku-peek {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--lg-sunken);
+}
+
+.longku-peek-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+  flex: none;
+}
+
+.longku-peek-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.longku-peek-word {
+  font: inherit;
+  font-size: 19px;
+  padding: 2px 9px;
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 4px;
+  background: var(--lg-surface);
+  color: var(--lg-ink);
+  cursor: pointer;
+}
+
+.longku-peek-word:hover {
+  border-color: var(--lg-accent);
+  color: var(--lg-accent);
+  background: var(--lg-accent-soft);
+}
+
+@media (max-width: 720px) {
+  .longku-chain-log { max-height: 26vh; }
+  .longku-peek-word { font-size: 17px; }
+}
+
+/* Suggestions inside the reveal sit under what you already hold. */
+.longku-peek { flex-direction: column; align-items: stretch; gap: 8px; }
+.longku-peek-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px dashed var(--lg-rule);
+}
+.longku-peek-add .longku-teach-card { padding: 7px 11px; }
+.longku-peek-add .longku-teach-word { font-size: 18px; }
+
+/* A suggestion sitting among the playable words. Dashed and accented so it
+   reads as an offer rather than something already earned. */
+.longku-peek-word.is-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-style: dashed;
+  border-color: var(--lg-tier-core);
+  background: color-mix(in srgb, var(--lg-tier-core) 10%, transparent);
+  color: var(--lg-tier-core);
+}
+
+.longku-peek-word.is-new:hover {
+  border-style: solid;
+  border-color: var(--lg-tier-core);
+  background: color-mix(in srgb, var(--lg-tier-core) 18%, transparent);
+  color: var(--lg-tier-core);
+}
+
+.longku-peek-new {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--lg-tier-core);
+  color: var(--lg-on-accent);
+}
