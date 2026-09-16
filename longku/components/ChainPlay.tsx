@@ -412,8 +412,12 @@ function ChainRow({
   // What the most frequent continuation would have been. The endpoint returns
   // the bucket already ranked by corpus frequency, so the first word not
   // already held is the most frequent one worth learning.
+  //
+  // Only on finished chains. Dangling a word off the chain in progress reads
+  // as the answer to the prompt you're still trying to fill, and when that
+  // chain does run out the dead-end panel makes the same offer anyway.
   useEffect(() => {
-    if (!endsOn) {
+    if (!endsOn || live) {
       setNext(null);
       return;
     }
@@ -425,7 +429,7 @@ function ChainRow({
     return () => {
       cancelled = true;
     };
-  }, [endsOn, bank]);
+  }, [endsOn, bank, live]);
 
   return (
     <div className={`longku-chain-row ${live ? "is-live" : ""}`}>

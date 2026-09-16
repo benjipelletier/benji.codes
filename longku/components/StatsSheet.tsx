@@ -91,9 +91,9 @@ export function StatsSheet({
               sub="of the reference corpus"
             />
             <Fig
-              label="Syllables"
-              value={`${syllablesCovered} / ${corpusSyllables}`}
-              sub="you can start a chain from"
+              label="Playable"
+              value={`${pct(syllablesCovered, corpusSyllables)}%`}
+              sub={`${syllablesCovered} / ${corpusSyllables} syllables — one word for every syllable means a chain can always go on`}
             />
             <Fig
               label="Recalled"
@@ -110,11 +110,25 @@ export function StatsSheet({
               }
             />
             <Fig
+              label="Longest chain"
+              value={String(stats.longest)}
+              sub={
+                stats.longest > 0
+                  ? "words in one unbroken run — the best a bounded search found, so a floor not a ceiling"
+                  : "add words to begin"
+              }
+            />
+            <Fig
+              label="Loops"
+              value={String(stats.cycles)}
+              sub="independent cycles — where a chain can double back instead of running out"
+            />
+            <Fig
               label="Dead ends"
-              value={`${stats.deadEnds.length} / ${syllablesCovered || 0}`}
+              value={`${stats.deadEnds.length} / ${stats.endings}`}
               sub={
                 stats.deadEnds.length > 0
-                  ? "syllables you reach but can't leave"
+                  ? "of the syllables you can land on, this many have nothing leaving them"
                   : "every ending has a continuation"
               }
             />
@@ -156,6 +170,12 @@ function TierBar({ t }: { t: TierCoverage }) {
       </div>
     </div>
   );
+}
+
+function pct(n: number, d: number) {
+  if (d <= 0) return "0";
+  const v = (n / d) * 100;
+  return v > 0 && v < 1 ? v.toFixed(1) : String(Math.round(v));
 }
 
 function Fig({ label, value, sub }: { label: string; value: string; sub: string }) {

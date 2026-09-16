@@ -26,8 +26,14 @@ export interface BankStats {
   chains: number;
   /** Syllables the bank can reach but never leave. */
   deadEnds: string[];
+  /** Distinct syllables the bank can land on — the set deadEnds is drawn from. */
+  endings: number;
   /** Words with no usable ending syllable — they can close a chain only. */
   danglers: number;
+  /** Longest chain found (words). See longestChain — a search, not a proof. */
+  longest: number;
+  /** Independent loops in the bank. See cycleCount. */
+  cycles: number;
 }
 
 /** Index the bank by starting syllable. */
@@ -94,6 +100,86 @@ export function minChains(bank: BankEntry[]): number {
   return total;
 }
 
+/**
+ * The longest chain the bank can produce, as far as a bounded search can tell.
+ *
+ * This is the longest trail in a directed multigraph, which is NP-hard, so the
+ * number is a floor rather than a maximum: a best-effort depth-first search
+ * with a step budget. At a few hundred words it explores the space thoroughly;
+ * past that it returns the best it found before the budget ran out, which never
+ * overstates — a chain of that length demonstrably exists.
+ */
+export function longestChain(bank: BankEntry[], budget = 60_000): number {
+  const byStart = byFirstSyllable(bank);
+  let best = 0;
+  let steps = 0;
+
+  function walk(from: string, used: Set<string>, depth: number) {
+    if (steps++ > budget) return;
+    if (depth > best) best = depth;
+    for (const e of byStart.get(from) ?? []) {
+      if (used.has(e.w) || e.ls === null) continue;
+      used.add(e.w);
+      walk(e.ls, used, depth + 1);
+      used.delete(e.w);
+    }
+  }
+
+  for (const e of bank) {
+    if (steps > budget) break;
+    // A word with no ending syllable is a chain of one and can't be extended.
+    if (e.ls === null) {
+      best = Math.max(best, 1);
+      continue;
+    }
+    walk(e.ls, new Set([e.w]), 1);
+  }
+  return best;
+}
+
+/**
+ * How many independent loops the bank contains — its circuit rank, E − V + C
+ * over the syllable graph.
+ *
+ * Loops are what let a chain come back on itself instead of running off the
+ * end, so this is the structural counterpart to the dead-end count: dead ends
+ * say where chains die, cycles say how much room they have to keep going.
+ * Counting every distinct cycle would be exponential; the circuit rank is the
+ * number of genuinely independent ones and is exact.
+ */
+export function cycleCount(bank: BankEntry[]): number {
+  const adj = new Map<string, Set<string>>();
+  const touch = (k: string) => {
+    if (!adj.has(k)) adj.set(k, new Set());
+    return adj.get(k)!;
+  };
+  let edges = 0;
+  for (const e of bank) {
+    if (e.ls === null) {
+      touch(e.fs);
+      continue;
+    }
+    touch(e.fs).add(e.ls);
+    touch(e.ls).add(e.fs);
+    edges++;
+  }
+
+  const seen = new Set<string>();
+  let components = 0;
+  for (const node of adj.keys()) {
+    if (seen.has(node)) continue;
+    components++;
+    const stack = [node];
+    while (stack.length) {
+      const c = stack.pop()!;
+      if (seen.has(c)) continue;
+      seen.add(c);
+      for (const n of adj.get(c) ?? []) if (!seen.has(n)) stack.push(n);
+    }
+  }
+  return Math.max(0, edges - adj.size + components);
+}
+
 export function stats(state: State): BankStats {
   const bank = Object.values(state.bank);
   const starts = new Set(bank.map((e) => e.fs));
@@ -104,7 +190,10 @@ export function stats(state: State): BankStats {
     totalRecalls: bank.reduce((n, e) => n + e.recalls, 0),
     chains: minChains(bank),
     deadEnds: [...ends].filter((s) => !starts.has(s)).sort(),
+    endings: ends.size,
     danglers: bank.filter((e) => e.ls === null).length,
+    longest: longestChain(bank),
+    cycles: cycleCount(bank),
   };
 }
 
