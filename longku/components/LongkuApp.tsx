@@ -19,6 +19,7 @@ import { signInWithGoogle, signOut } from "@longku/lib/auth-client";
 import { StatsSheet } from "./StatsSheet";
 import { ProgressStrip } from "./ProgressStrip";
 import { LearnNext } from "./LearnNext";
+import { WordList } from "./WordList";
 
 interface Props {
   syllables: SyllableSummary[];
@@ -202,10 +203,17 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           />
         ) : view === "graph" ? (
           <ChainView state={state} />
-        ) : (
+        ) : view === "learn" ? (
           <LearnNext
             state={state}
             onChange={setState}
+            readOnly={mode === "spectator"}
+          />
+        ) : (
+          <WordList
+            state={state}
+            onChange={setState}
+            onPickSyllable={(syl) => setActiveSyl(syl)}
             readOnly={mode === "spectator"}
           />
         )}

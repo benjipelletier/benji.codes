@@ -1574,3 +1574,105 @@
   background: var(--lg-accent);
   transition: width 0.3s ease;
 }
+
+/* ------------------------------------------------------ every word, ranked -- */
+.longku-words-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.longku-words-filter { max-width: 320px; font-size: 14px; padding: 7px 11px; }
+.longku-words-isolated { font-weight: normal; color: var(--lg-warn); }
+
+.longku-words-table { display: flex; flex-direction: column; gap: 1px; }
+
+.longku-words-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.6fr) minmax(140px, 1.1fr) 62px 62px 74px 108px 28px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.longku-words-row:not(.is-head):nth-child(odd) { background: var(--lg-sunken); }
+
+.longku-words-row.is-head {
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--lg-rule);
+  border-radius: 0;
+  margin-bottom: 3px;
+}
+
+.longku-words-th {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.longku-words-th:hover { color: var(--lg-ink-soft); }
+.longku-words-th.is-sorted { color: var(--lg-accent); }
+.longku-words-th.col-recalls,
+.longku-words-th.col-misses { text-align: right; }
+.longku-words-th.col-strength { text-align: right; }
+
+.longku-words-td { font-size: 12px; color: var(--lg-ink-faint); min-width: 0; }
+
+.longku-words-td.col-word {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.longku-words-w { font-size: 18px; color: var(--lg-ink); white-space: nowrap; }
+
+.longku-words-td.col-links { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.longku-words-syl {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border: 1px solid var(--lg-rule);
+  border-radius: 3px;
+  background: none;
+  color: var(--lg-ink-faint);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.longku-words-syl:hover { border-color: var(--lg-accent); color: var(--lg-accent); }
+
+.longku-words-td.col-recalls,
+.longku-words-td.col-misses { text-align: right; color: var(--lg-ink-soft); }
+.longku-words-td.col-misses.is-miss { color: var(--lg-warn); }
+
+.longku-words-td.col-strength {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.longku-words-pct { color: var(--lg-ink-soft); }
+.longku-words-td.col-drop { text-align: right; }
+
+@media (max-width: 860px) {
+  .longku-words-row { grid-template-columns: minmax(110px, 1.4fr) 1fr 44px 96px 24px; }
+  .longku-words-th.col-misses,
+  .longku-words-th.col-added,
+  .longku-words-td.col-misses,
+  .longku-words-td.col-added { display: none; }
+}
