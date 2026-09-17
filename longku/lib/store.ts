@@ -238,6 +238,27 @@ export function bankList(state: State): BankEntry[] {
  */
 const LEARNING_RATE = 0.4;
 
+/**
+ * Hours over which a repeat observation regains its full weight.
+ *
+ * Producing a word twice in a minute is one piece of evidence recorded twice:
+ * the second attempt is answered from working memory, not from having learned
+ * anything, so crediting it in full lets a word be drilled to a high strength
+ * in a single sitting without the knowledge lasting past it.
+ *
+ * This is not the strength decaying with time — nothing erodes while you're
+ * away. It's how much a new observation is worth given how recently the last
+ * one happened: near zero immediately after, about 12% at an hour, 63% at
+ * eight, and effectively full after a day.
+ */
+const SPACING_HOURS = 8;
+
+function spacing(last: number | undefined): number {
+  if (!last) return 1;
+  const hours = Math.max(0, (Date.now() - last) / 3_600_000);
+  return 1 - Math.exp(-hours / SPACING_HOURS);
+}
+
 export interface ImportWord {
   w: string;
   fs: string;
@@ -348,9 +369,11 @@ export function playWord(word: string, recalled: boolean): State {
   const now = Date.now();
   e.lastSeen = now;
   if (recalled) {
+    // Weighed before lastRecalled moves, or the gap would always read as zero.
+    const weight = spacing(e.lastRecalled);
     e.recalls += 1;
     e.lastRecalled = now;
-    e.strength = e.strength + LEARNING_RATE * (1 - e.strength);
+    e.strength = e.strength + LEARNING_RATE * weight * (1 - e.strength);
   }
   // A prompted play records nothing: the miss was already taken when the list
   // was revealed, and crediting the click would cancel it out.
@@ -382,8 +405,10 @@ export function recordMiss(syl: string): State {
   for (const e of Object.values(_state.bank)) {
     if (e.fs !== syl || used.has(e.w)) continue;
     e.misses += 1;
+    // Damped the same way: pressing Stuck? twice on one syllable in a minute
+    // is the same gap in knowledge, not two of them.
+    e.strength = e.strength * (1 - LEARNING_RATE * spacing(e.lastSeen));
     e.lastSeen = now;
-    e.strength = e.strength * (1 - LEARNING_RATE);
     hit.push(e.w);
   }
   if (hit.length === 0) return _state;

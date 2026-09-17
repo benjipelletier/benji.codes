@@ -63,6 +63,9 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   const [peek, setPeek] = useState(false);
   /** Restart is behind a confirm — it discards the whole chain log. */
   const [confirmReset, setConfirmReset] = useState(false);
+  /** The word just played, marked briefly so the landing is visible. */
+  const [landed, setLanded] = useState<string | null>(null);
+  const logRef = useRef<HTMLDivElement>(null);
 
   // The sweep's chains live in the store so they survive a reload, and are
   // rendered as bank entries here. A word removed from the bank mid-sweep is
@@ -77,6 +80,20 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
 
   /** The chain in progress: whatever the store's last chain holds. */
   const chain = chains.length > 0 ? chains[chains.length - 1] : [];
+
+  // The log grows downward and is capped, so without this a new chain lands
+  // out of sight once there are more than a few.
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [state.sweep.length, state.chains.length]);
+
+  // Clear the landing mark once its animation has run.
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(() => setLanded(null), 900);
+    return () => clearTimeout(t);
+  }, [landed]);
 
   const remaining = useMemo(() => unused(state), [state]);
   const bankSize = Object.keys(state.bank).length;
@@ -179,6 +196,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
     }
 
     onChange(playWord(word, true));
+    setLanded(word);
     setDraft("");
     setMsg(null);
     setPeek(false);
@@ -214,6 +232,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   /** Play a word the user was shown rather than recalled. */
   function play(entry: BankEntry) {
     onChange(playWord(entry.w, false));
+    setLanded(entry.w);
     setDraft("");
     setMsg(null);
     setPeek(false);
@@ -284,7 +303,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   return (
     <section aria-label="Play">
       {chains.some((c) => c.length > 0) && (
-        <div className="longku-chain-log">
+        <div className="longku-chain-log" ref={logRef}>
           {chains.map((c, i) =>
             c.length === 0 ? null : (
               <ChainRow
@@ -294,6 +313,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
                 bank={state.bank}
                 onBank={bank}
                 live={i === chains.length - 1}
+                landed={landed}
               />
             ),
           )}
@@ -444,6 +464,7 @@ function ChainRow({
   bank,
   onBank,
   live = false,
+  landed = null,
 }: {
   chain: BankEntry[];
   index: number;
@@ -451,6 +472,8 @@ function ChainRow({
   bank: Record<string, BankEntry>;
   onBank: (s: Suggestion) => void;
   live?: boolean;
+  /** Word played a moment ago, if it's in this chain. */
+  landed?: string | null;
 }) {
   const endsOn = chain.length > 0 ? chain[chain.length - 1].ls : null;
   const [next, setNext] = useState<Suggestion | null>(null);
@@ -480,7 +503,10 @@ function ChainRow({
         {chain.map((c, i) => (
           <li key={c.w}>
             {i > 0 && <span className="longku-chain-arrow">→</span>}
-            <span className="longku-chain-word" title={`${c.fs} → ${c.ls ?? "?"}`}>
+            <span
+              className={`longku-chain-word ${landed === c.w ? "is-landed" : ""}`}
+              title={`${c.fs} → ${c.ls ?? "?"}`}
+            >
               {c.w}
             </span>
           </li>
