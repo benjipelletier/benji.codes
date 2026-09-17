@@ -145,6 +145,31 @@ function lastCharReadings(): Map<string, Array<[string, number]>> {
   return _lastCharReadings;
 }
 
+/**
+ * Readings for words outside the corpus, from CC-CEDICT.
+ *
+ * Consulted before the character tables below, because a stated reading beats
+ * an inferred one: the majority vote filed 重色轻友 under chong, since 61 corpus
+ * entries read 重 as chóng against 15 as zhòng, and this idiom is one of the 15.
+ */
+let _readings: Map<string, [string, string]> | null = null;
+
+function readings(): Map<string, [string, string]> {
+  if (_readings) return _readings;
+  const m = new Map<string, [string, string]>();
+  try {
+    const raw = readFileSync(join(dataDir(), "readings.txt"), "utf8");
+    for (const line of raw.split("\n")) {
+      const [w, fs, ls] = line.split("\t");
+      if (w && fs && ls) m.set(w, [fs, ls.trim()]);
+    }
+  } catch {
+    // Optional artifact — without it the character tables still answer.
+  }
+  _readings = m;
+  return m;
+}
+
 export interface SyllableGuess {
   /** Best-guess starting syllable. */
   fs: string;
@@ -167,8 +192,10 @@ function guessFrom(
   };
 }
 
-/** Guess which bucket an off-corpus word belongs in, from its first character. */
+/** Which bucket an off-corpus word belongs in — stated reading first, else inferred. */
 export function guessFirstSyllable(word: string): SyllableGuess | null {
+  const known = readings().get(word);
+  if (known) return { fs: known[0], ambiguous: false, alternatives: [] };
   return guessFrom(firstCharReadings(), word[0]);
 }
 
@@ -178,6 +205,8 @@ export function guessFirstSyllable(word: string): SyllableGuess | null {
  * but never continue one.
  */
 export function guessLastSyllable(word: string): SyllableGuess | null {
+  const known = readings().get(word);
+  if (known) return { fs: known[1], ambiguous: false, alternatives: [] };
   return guessFrom(lastCharReadings(), word[word.length - 1]);
 }
 

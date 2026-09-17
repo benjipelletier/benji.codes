@@ -20,6 +20,7 @@ const root = join(here, "..");
 const repoRoot = join(root, "..");
 
 const freqPath = join(root, "data", "frequency.txt");
+const cedictPath = join(root, "data", "cedict-idioms.txt");
 const dictPath = join(repoRoot, "riddleyu", "data", "idiom.json");
 
 const toneMap = {
@@ -66,17 +67,29 @@ for (const entry of dict) {
   if (entry?.word) dictMap.set(entry.word, entry);
 }
 
+// CC-CEDICT's idiom-tagged headwords, which the riddleyu dictionary misses —
+// 重色轻友 among them. Only the reading is taken, so these arrive with the
+// syllables needed to chain and no gloss. Entries already in the dictionary are
+// left alone: its pinyin is tone-marked and carries an explanation.
+const cedictSyllables = new Map();
+for (const line of readFileSync(cedictPath, "utf8").split("\n")) {
+  const [word, syls] = line.split("\t");
+  if (!word || !syls) continue;
+  if (!dictMap.has(word)) cedictSyllables.set(word, syls.trim().split(" "));
+}
+
 // Universe = union of the frequency list and the riddleyu dictionary, but keep
 // only entries with pinyin so we can compute the chain syllables.
-const universe = new Set([...freqMap.keys(), ...dictMap.keys()]);
+const universe = new Set([...freqMap.keys(), ...dictMap.keys(), ...cedictSyllables.keys()]);
 
 const entries = [];
 let droppedNonCanonicalFirst = 0;
 for (const word of universe) {
   const dictEntry = dictMap.get(word);
-  if (!dictEntry?.pinyin) continue; // need pinyin for jielong
+  const fromCedict = cedictSyllables.get(word);
+  if (!dictEntry?.pinyin && !fromCedict) continue; // need a reading for jielong
 
-  const syls = tonelessSyllables(dictEntry.pinyin);
+  const syls = fromCedict ?? tonelessSyllables(dictEntry.pinyin);
   if (syls.length < 2) continue; // not a chainable idiom
 
   const chars = [...word];
@@ -95,13 +108,13 @@ for (const word of universe) {
 
   entries.push({
     w: word,
-    p: dictEntry.pinyin,
+    p: dictEntry?.pinyin ?? syls.join(" "),
     f: freqMap.get(word) ?? 0,
     fs: syls[0],
     ls: syls[syls.length - 1],
-    e: dictEntry.explanation || "",
-    d: dictEntry.derivation || "",
-    x: dictEntry.example && dictEntry.example !== "无" ? dictEntry.example : "",
+    e: dictEntry?.explanation || "",
+    d: dictEntry?.derivation || "",
+    x: dictEntry?.example && dictEntry.example !== "无" ? dictEntry.example : "",
   });
 }
 

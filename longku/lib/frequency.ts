@@ -1,7 +1,7 @@
 // Frequency tiers and usage coverage.
 //
-// Chengyu frequency is steeply Zipfian: 359 words account for half of all
-// recorded usage, 3,500 for 90%, and the remaining 14,800 for under one percent
+// Chengyu frequency is steeply Zipfian: 374 words account for half of all
+// recorded usage, 3,700 for 90%, and the remaining 15,500 for under one percent
 // between them. Counting words against the 30,292-entry corpus is therefore a
 // bad progress measure — a serious bank still reads as 2%.
 //
@@ -33,10 +33,10 @@ export interface TierSpec {
  * constants.
  */
 export const FREQUENCY_TIERS: TierSpec[] = [
-  { id: "core", label: "core", min: 1500, blurb: "359 words — nearly half of all chengyu usage" },
+  { id: "core", label: "core", min: 1500, blurb: "374 words — nearly half of all chengyu usage" },
   { id: "common", label: "common", min: 60, blurb: "up to 90% of usage" },
   { id: "uncommon", label: "uncommon", min: 5, blurb: "up to 99% of usage" },
-  { id: "rare", label: "rare", min: 0, blurb: "the long tail — under 1% of usage across 14,800 words" },
+  { id: "rare", label: "rare", min: 0, blurb: "the long tail — under 1% of usage across 15,500 words" },
 ];
 
 /**

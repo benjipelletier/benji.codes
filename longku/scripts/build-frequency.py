@@ -37,13 +37,25 @@ except ImportError:
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPO = ROOT.parent
 DICT = REPO / "riddleyu" / "data" / "idiom.json"
+CEDICT_IDIOMS = ROOT / "data" / "cedict-idioms.txt"
 OUT = ROOT / "data" / "frequency.txt"
 
 words = []
+seen = set()
 for entry in json.loads(DICT.read_text(encoding="utf8")):
     w = entry.get("word")
-    if w:
+    if w and w not in seen:
+        seen.add(w)
         words.append(w)
+
+# The idioms CC-CEDICT contributes need frequencies too, or they would all
+# arrive at zero and read as the rarest words in the corpus.
+if CEDICT_IDIOMS.exists():
+    for line in CEDICT_IDIOMS.read_text(encoding="utf8").splitlines():
+        w = line.split("\t")[0]
+        if w and w not in seen:
+            seen.add(w)
+            words.append(w)
 
 rows = []
 for w in words:
