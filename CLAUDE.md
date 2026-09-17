@@ -48,6 +48,17 @@ on the landing page. All four current projects are enabled.
 - Lazy DB initialization pattern with `getDb()` to avoid build-time env var evaluation
 - Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*` defined in tsconfig paths
 
+## Third-party data
+
+- **longku** embeds data derived from [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict)
+  (headwords, readings and English definitions), licensed
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Anything
+  redistributing `longku/data/cedict*.txt` or the glosses folded into
+  `chengyu.json` inherits that licence. Regenerate with
+  `longku/scripts/build-cedict.py`.
+- **longku** frequencies come from [wordfreq](https://github.com/rspeer/wordfreq)
+  (MIT), via `longku/scripts/build-frequency.py`.
+
 ## Per-project CLAUDE.md
 
 Each project directory has its own CLAUDE.md with project-specific details (tech stack, aesthetic, data model, etc.).

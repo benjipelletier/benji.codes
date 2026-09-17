@@ -2,8 +2,8 @@
 """Derive two artifacts from CC-CEDICT: missing idioms, and a reading table.
 
 Source: CC-CEDICT, https://www.mdbg.net/chinese/dictionary?page=cc-cedict
-        CC BY-SA 4.0. Only headwords and their readings are taken — no English
-        definitions — so what ships is a word list and a pronunciation table.
+        CC BY-SA 4.0. Headwords, readings and English definitions are all taken,
+        so the derived data here is a share-alike work and must be attributed.
 
 Solves two problems.
 
@@ -30,7 +30,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IDIOMS_OUT = ROOT / "data" / "cedict-idioms.txt"
-READINGS_OUT = ROOT / "data" / "readings.txt"
+ENTRIES_OUT = ROOT / "data" / "cedict.txt"
 
 LINE = re.compile(r"^(\S+) (\S+) \[([^\]]*)\] /(.*)/$")
 HAN_ONLY = re.compile(r"^[一-鿿]+$")
@@ -52,6 +52,7 @@ def syllables(pinyin: str) -> list[str]:
 def main(path: str) -> None:
     idioms: dict[str, list[str]] = {}
     readings: dict[str, list[str]] = {}
+    glosses: dict[str, str] = {}
 
     for line in pathlib.Path(path).read_text(encoding="utf8").splitlines():
         if line.startswith("#"):
@@ -67,6 +68,14 @@ def main(path: str) -> None:
         if len(syls) != len(word):
             continue  # reading and characters disagree; can't chain it safely
 
+        # English definitions, for a reader who wants to know what a word means
+        # rather than parse a Chinese explanation of it. Senses are slash
+        # separated in the source; the first few carry the sense.
+        if 3 <= len(word) <= 9:
+            senses = [g.strip() for g in gloss.split("/") if g.strip()]
+            if senses:
+                glosses.setdefault(word, "; ".join(senses[:3]))
+
         # Readings for anything idiom-shaped, used when a word isn't in the
         # corpus. Bounded to the lengths the resolver treats as a plausible
         # chengyu, which keeps the shipped table to the words that can be
@@ -80,14 +89,20 @@ def main(path: str) -> None:
         "".join(f"{w}\t{' '.join(s)}\n" for w, s in sorted(idioms.items())),
         encoding="utf8",
     )
-    # Only the first and last syllable matter for chaining, so the table stores
-    # those rather than the full reading.
-    READINGS_OUT.write_text(
-        "".join(f"{w}\t{s[0]}\t{s[-1]}\n" for w, s in sorted(readings.items())),
+    # One row per word: the syllables needed to chain it, and what it means.
+    # Only the first and last syllable matter for chaining, so the full reading
+    # isn't kept. Words CC-CEDICT knows but doesn't define get an empty gloss
+    # and fall back to the Chinese explanation downstream.
+    ENTRIES_OUT.write_text(
+        "".join(
+            f"{w}\t{s[0]}\t{s[-1]}\t{glosses.get(w, '')}\n"
+            for w, s in sorted(readings.items())
+        ),
         encoding="utf8",
     )
-    print(f"  idioms   -> {IDIOMS_OUT.name}: {len(idioms):,}")
-    print(f"  readings -> {READINGS_OUT.name}: {len(readings):,}")
+    defined = sum(1 for w in readings if glosses.get(w))
+    print(f"  idioms  -> {IDIOMS_OUT.name}: {len(idioms):,}")
+    print(f"  entries -> {ENTRIES_OUT.name}: {len(readings):,} ({defined:,} defined)")
 
 
 if __name__ == "__main__":

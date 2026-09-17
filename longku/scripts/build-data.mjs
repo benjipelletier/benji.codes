@@ -21,6 +21,7 @@ const repoRoot = join(root, "..");
 
 const freqPath = join(root, "data", "frequency.txt");
 const cedictPath = join(root, "data", "cedict-idioms.txt");
+const cedictEntriesPath = join(root, "data", "cedict.txt");
 const dictPath = join(repoRoot, "riddleyu", "data", "idiom.json");
 
 const toneMap = {
@@ -65,6 +66,15 @@ const dict = JSON.parse(readFileSync(dictPath, "utf8"));
 const dictMap = new Map();
 for (const entry of dict) {
   if (entry?.word) dictMap.set(entry.word, entry);
+}
+
+// English definitions, preferred over the source dictionary's Chinese ones:
+// this is a reading aid for someone learning the language, and a gloss they can
+// read at a glance beats a Chinese paraphrase they have to parse first.
+const glossMap = new Map();
+for (const line of readFileSync(cedictEntriesPath, "utf8").split("\n")) {
+  const [word, , , gloss] = line.split("\t");
+  if (word && gloss) glossMap.set(word, gloss.trim());
 }
 
 // CC-CEDICT's idiom-tagged headwords, which the riddleyu dictionary misses —
@@ -112,7 +122,9 @@ for (const word of universe) {
     f: freqMap.get(word) ?? 0,
     fs: syls[0],
     ls: syls[syls.length - 1],
-    e: dictEntry?.explanation || "",
+    // English where CC-CEDICT has it — about 88% of core words and two thirds
+    // of all usage — and the Chinese explanation for everything else.
+    e: glossMap.get(word) || dictEntry?.explanation || "",
     d: dictEntry?.derivation || "",
     x: dictEntry?.example && dictEntry.example !== "无" ? dictEntry.example : "",
   });

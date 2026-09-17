@@ -158,10 +158,10 @@ function readings(): Map<string, [string, string]> {
   if (_readings) return _readings;
   const m = new Map<string, [string, string]>();
   try {
-    const raw = readFileSync(join(dataDir(), "readings.txt"), "utf8");
+    const raw = readFileSync(join(dataDir(), "cedict.txt"), "utf8");
     for (const line of raw.split("\n")) {
       const [w, fs, ls] = line.split("\t");
-      if (w && fs && ls) m.set(w, [fs, ls.trim()]);
+      if (w && fs && ls) m.set(w, [fs, ls]);
     }
   } catch {
     // Optional artifact — without it the character tables still answer.
