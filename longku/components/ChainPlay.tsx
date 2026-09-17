@@ -92,7 +92,11 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   useEffect(() => {
     if (!startAt.syl) return;
     onChange(startChain());
-    setNeed(startAt.syl);
+    // Through advance, not straight to setNeed: the caller's syllable may have
+    // nothing unused left behind it — a bucket whose only word was already
+    // played this sweep — and prompting for it strands the game on a syllable
+    // that can never be answered.
+    advance(startAt.syl);
     setDraft("");
     setMsg(null);
     setTeach(null);

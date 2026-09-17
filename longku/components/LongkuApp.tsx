@@ -152,15 +152,21 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   }
 
   function rerollStart() {
-    if (bankArr.length === 0) return;
-    const pick = bankArr[Math.floor(Math.random() * bankArr.length)];
+    // Prefer a word still unplayed this sweep; ChainPlay corrects an
+    // unanswerable syllable anyway, but starting on one wastes the reroll.
+    const pool = bankArr.filter((e) => !state.sweep.includes(e.w));
+    const from = pool.length > 0 ? pool : bankArr;
+    if (from.length === 0) return;
+    const pick = from[Math.floor(Math.random() * from.length)];
     setStartAt((p) => ({ syl: pick.fs, nonce: p.nonce + 1 }));
   }
 
   // Open the first chain once the bank is known.
   useEffect(() => {
     if (startAt.syl || !hydrated || bankArr.length === 0) return;
-    const pick = bankArr[Math.floor(Math.random() * bankArr.length)];
+    const pool = bankArr.filter((e) => !state.sweep.includes(e.w));
+    const from = pool.length > 0 ? pool : bankArr;
+    const pick = from[Math.floor(Math.random() * from.length)];
     setStartAt({ syl: pick.fs, nonce: 1 });
   }, [hydrated, bankArr, startAt.syl]);
 
