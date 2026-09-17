@@ -18,6 +18,7 @@ import { Rail, type View } from "./Rail";
 import { signInWithGoogle, signOut } from "@longku/lib/auth-client";
 import { StatsSheet } from "./StatsSheet";
 import { ProgressStrip } from "./ProgressStrip";
+import { LearnNext } from "./LearnNext";
 
 interface Props {
   syllables: SyllableSummary[];
@@ -199,8 +200,14 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
             onPick={(syl) => setActiveSyl(syl)}
             onStartChain={startChainFrom}
           />
-        ) : (
+        ) : view === "graph" ? (
           <ChainView state={state} />
+        ) : (
+          <LearnNext
+            state={state}
+            onChange={setState}
+            readOnly={mode === "spectator"}
+          />
         )}
       </main>
 

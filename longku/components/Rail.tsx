@@ -6,7 +6,7 @@ import { signOut } from "@longku/lib/auth-client";
 import type { State } from "@longku/lib/store";
 import type { BankStats } from "@longku/lib/chains";
 
-export type View = "wall" | "graph";
+export type View = "wall" | "graph" | "learn";
 
 interface Props {
   state: State;
@@ -82,6 +82,14 @@ export function Rail({
             onClick={() => onView("graph")}
           >
             graph
+          </button>
+          <button
+            role="tab"
+            aria-selected={view === "learn"}
+            className={view === "learn" ? "is-active" : ""}
+            onClick={() => onView("learn")}
+          >
+            learn
           </button>
         </div>
         <ThemeToggle />

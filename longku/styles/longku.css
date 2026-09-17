@@ -1472,3 +1472,73 @@
 
 .longku-dock-reopen:hover { color: var(--lg-ink); background: var(--lg-sunken); }
 .longku-dock-reopen-sub { font-size: 11px; color: var(--lg-ink-faint); flex: 1; }
+
+/* ------------------------------------------------------- learn-next view -- */
+.longku-learn-head { max-width: 640px; margin-bottom: 18px; }
+
+.longku-learn-lede {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--lg-ink-soft);
+}
+
+.longku-learn-lede strong {
+  font-weight: normal;
+  font-style: italic;
+  color: var(--lg-accent);
+  font-size: 17px;
+}
+
+.longku-learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 12px;
+}
+
+.longku-learn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 13px 15px 14px;
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-rule);
+  border-radius: 6px;
+}
+
+.longku-learn-word { font-size: 25px; letter-spacing: 0.02em; }
+.longku-learn-pinyin { font-size: 12px; font-style: italic; color: var(--lg-ink-soft); }
+
+.longku-learn-gloss {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--lg-ink-faint);
+  margin-top: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.longku-learn-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.longku-learn-join {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--lg-ink-faint);
+}
+
+.longku-learn-saves {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--lg-success);
+  white-space: nowrap;
+}
+
+.longku-learn-add { margin-top: 10px; align-self: flex-start; }
