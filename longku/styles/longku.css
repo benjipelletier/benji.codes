@@ -857,9 +857,23 @@
 }
 
 .longku-bucket-item:nth-child(odd) { background: var(--lg-sunken); }
-.longku-bucket-word { font-size: 19px; flex: 1; }
+.longku-bucket-item { flex-wrap: wrap; }
+.longku-bucket-word { font-size: 19px; }
 .longku-bucket-meta { font-size: 11px; color: var(--lg-ink-faint); letter-spacing: 0.06em; }
-.longku-bucket-recalls { font-size: 11px; color: var(--lg-accent); }
+
+.longku-bucket-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--lg-ink-faint);
+  white-space: nowrap;
+}
+
+.longku-bucket-pct { color: var(--lg-ink-soft); min-width: 2.2em; text-align: right; }
+.longku-bucket-stat b { font-weight: 600; color: var(--lg-ink-soft); }
+.longku-bucket-stat.is-miss b { color: var(--lg-warn); }
 
 .longku-bucket-drop {
   background: none;
@@ -1546,12 +1560,11 @@
 /* Word strength, shown where its history already is. */
 .longku-strength {
   display: inline-block;
-  width: 34px;
+  width: 46px;
   height: 3px;
   border-radius: 2px;
   background: var(--lg-sunken);
   overflow: hidden;
-  margin-right: 6px;
   vertical-align: middle;
 }
 

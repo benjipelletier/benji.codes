@@ -117,17 +117,39 @@ export function DrillModal({
                   <span className="longku-bucket-meta">
                     {e.fs} → {e.ls ?? "?"}
                   </span>
-                  <span
-                    className="longku-bucket-recalls"
-                    title={`${e.recalls} recall${e.recalls === 1 ? "" : "s"}, ${e.misses ?? 0} miss${(e.misses ?? 0) === 1 ? "" : "es"}`}
-                  >
-                    <span className="longku-strength" aria-hidden>
+                  <span className="longku-bucket-stats">
+                    <span className="longku-bucket-stat" title="times produced in play">
+                      <b>{e.recalls}</b> recall{e.recalls === 1 ? "" : "s"}
+                    </span>
+                    <span
+                      className={`longku-bucket-stat ${(e.misses ?? 0) > 0 ? "is-miss" : ""}`}
+                      title="times it was available under a prompt and not produced"
+                    >
+                      <b>{e.misses ?? 0}</b> miss{(e.misses ?? 0) === 1 ? "" : "es"}
+                    </span>
+                    <span
+                      className="longku-bucket-stat"
+                      title={
+                        e.lastSeen
+                          ? `last available ${new Date(e.lastSeen).toLocaleString()}`
+                          : "never come up in play"
+                      }
+                    >
+                      {since(e.lastSeen)}
+                    </span>
+                    <span className="longku-bucket-pct">
+                      {Math.round((e.strength ?? 0) * 100)}%
+                    </span>
+                    <span
+                      className="longku-strength"
+                      title={`strength ${Math.round((e.strength ?? 0) * 100)}%`}
+                      aria-hidden
+                    >
                       <span
                         className="longku-strength-fill"
                         style={{ width: `${Math.round((e.strength ?? 0) * 100)}%` }}
                       />
                     </span>
-                    {Math.round((e.strength ?? 0) * 100)}%
                   </span>
                   {!readOnly && (
                     <button
@@ -172,4 +194,25 @@ export function DrillModal({
       </div>
     </div>
   );
+}
+
+/**
+ * How long ago, in the coarsest unit that still says something.
+ *
+ * Reports when the word was last *available* under a prompt rather than when
+ * it was last recalled — a word can come up repeatedly and be missed every
+ * time, and "never" is the more useful reading of a word that has sat in the
+ * bank untouched.
+ */
+function since(ms?: number): string {
+  if (!ms) return "never seen";
+  const secs = Math.max(0, (Date.now() - ms) / 1000);
+  if (secs < 90) return "just now";
+  const mins = secs / 60;
+  if (mins < 60) return `${Math.round(mins)}m ago`;
+  const hours = mins / 60;
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  const days = hours / 24;
+  if (days < 30) return `${Math.round(days)}d ago`;
+  return `${Math.round(days / 30)}mo ago`;
 }
