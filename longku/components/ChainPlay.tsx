@@ -62,11 +62,11 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   // The sweep's chains live in the store so they survive a reload, and are
   // rendered as bank entries here. A word removed from the bank mid-sweep is
   // dropped rather than rendered as a hole.
+  // Empty chains are kept: the one being built is the last entry whether or not
+  // it has words yet, and dropping it would mark the chain just finished as
+  // live — hiding the very suggestion that explains why it ended.
   const chains = useMemo(
-    () =>
-      state.chains
-        .map((c) => c.map((w) => state.bank[w]).filter(Boolean))
-        .filter((c) => c.length > 0),
+    () => state.chains.map((c) => c.map((w) => state.bank[w]).filter(Boolean)),
     [state],
   );
 
@@ -95,14 +95,36 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startAt.syl, startAt.nonce]);
 
-  const stuck = need !== "" && !canContinue(need);
+  /**
+   * Move to `syl`, or open a new chain if nothing in the bank starts there.
+   *
+   * A dead end used to stop everything behind a button, which asked the user to
+   * confirm a decision the app had already made — there was no other move. Now
+   * the next chain starts immediately and the finished one carries the
+   * explanation in the log, where it stays visible instead of being dismissed.
+   */
+  const advance = useCallback(
+    (syl: string | null) => {
+      if (syl && available(state, syl).length > 0) {
+        setNeed(syl);
+        return;
+      }
+      const start = pickChainStart(state);
+      if (!start) {
+        setNeed("");
+        return;
+      }
+      onChange(startChain());
+      setNeed(start.fs);
+    },
+    [state, onChange],
+  );
 
-  // Chengyus from the reference corpus that start where the chain needs to go.
-  // Wanted in two situations: the chain has dead-ended, and the user has asked
-  // what else exists while still mid-chain. Learning one of these is what
-  // merges two chains into a longer one.
+  // Chengyus from the reference corpus that start where the chain needs to go,
+  // for the "Stuck?" reveal. A dead end no longer asks for these — the finished
+  // chain in the log shows its own continuation.
   useEffect(() => {
-    if ((!stuck && !peek) || !need) {
+    if (!peek || !need) {
       setTeach(null);
       return;
     }
@@ -123,7 +145,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [stuck, peek, need, state.bank]);
+  }, [peek, need, state.bank]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,13 +173,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     setDraft("");
     setMsg(null);
     setPeek(false);
-    setNeed(entry.ls ?? "");
-    if (entry.ls === null) {
-      setMsg({
-        kind: "success",
-        text: `Added. No reading for its last syllable, so the chain ends here.`,
-      });
-    }
+    advance(entry.ls);
   }
 
   function learn(s: Suggestion) {
@@ -192,7 +208,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
     setDraft("");
     setMsg(null);
     setPeek(false);
-    setNeed(entry.ls ?? "");
+    advance(entry.ls);
   }
 
   function startOver() {
@@ -217,18 +233,20 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
 
   return (
     <section aria-label="Play">
-      {chains.length > 0 && (
+      {chains.some((c) => c.length > 0) && (
         <div className="longku-chain-log">
-          {chains.map((c, i) => (
-            <ChainRow
-              key={i}
-              chain={c}
-              index={i + 1}
-              bank={state.bank}
-              onBank={bank}
-              live={i === chains.length - 1}
-            />
-          ))}
+          {chains.map((c, i) =>
+            c.length === 0 ? null : (
+              <ChainRow
+                key={i}
+                chain={c}
+                index={i + 1}
+                bank={state.bank}
+                onBank={bank}
+                live={i === chains.length - 1}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -241,39 +259,6 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
           <button className="longku-btn is-primary" onClick={startOver}>
             Start a new sweep
           </button>
-        </div>
-      ) : stuck ? (
-        <div className="longku-stuck">
-          <p className="longku-stuck-line">
-            Nothing in your bank starts with <strong>{need}</strong> — chain
-            finished{chain.length > 0 ? ` at ${chain.length}` : ""}.
-          </p>
-          <div className="longku-peek-row">
-            <span className="longku-peek-label">worth learning for {need}</span>
-            {loadingTeach && <span className="longku-hint">looking…</span>}
-            {teach && teach.length > 0 && (
-              <div className="longku-peek-words">
-                {teach.map((sg) => (
-                  <button
-                    key={sg.w}
-                    type="button"
-                    className="longku-peek-word is-new"
-                    onClick={() => learn(sg)}
-                    title={`${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank`}
-                  >
-                    {sg.w}
-                    <TierPill f={sg.f} />
-                  </button>
-                ))}
-              </div>
-            )}
-            {teach && teach.length === 0 && !loadingTeach && (
-              <span className="longku-hint">nothing new in the corpus either</span>
-            )}
-            <button className="longku-btn longku-stuck-next" onClick={newChain}>
-              New chain ({remaining.length} left)
-            </button>
-          </div>
         </div>
       ) : (
         <>
@@ -409,13 +394,9 @@ function ChainRow({
   const endsOn = chain.length > 0 ? chain[chain.length - 1].ls : null;
   const [next, setNext] = useState<Suggestion | null>(null);
 
-  // What the most frequent continuation would have been. The endpoint returns
-  // the bucket already ranked by corpus frequency, so the first word not
-  // already held is the most frequent one worth learning.
-  //
-  // Only on finished chains. Dangling a word off the chain in progress reads
-  // as the answer to the prompt you're still trying to fill, and when that
-  // chain does run out the dead-end panel makes the same offer anyway.
+  // The single most frequent word that would have carried this chain on, shown
+  // as its last link. Only for finished chains: offering a word for the chain
+  // in progress reads as the answer to the prompt you're filling.
   useEffect(() => {
     if (!endsOn || live) {
       setNext(null);

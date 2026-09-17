@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { importWords, type State } from "@longku/lib/store";
+import { importWords, removeWord, type State } from "@longku/lib/store";
 import { tierOf, tierSpec } from "@longku/lib/frequency";
 
 interface Hit {
@@ -213,14 +213,34 @@ export function AddChengyu({ state, onChange }: Props) {
       </div>
 
       {added.length > 0 && (
-        <p className="longku-add-recent">
-          added:{" "}
+        <div className="longku-add-recent">
+          <span className="longku-add-recent-label">added</span>
           {added.map((w) => (
-            <span className="longku-add-recent-word" key={w}>
+            <button
+              key={w}
+              type="button"
+              className="longku-add-recent-word"
+              onClick={() => {
+                onChange(removeWord(w));
+                setAdded((a) => a.filter((x) => x !== w));
+              }}
+              title={`Remove ${w} from your bank`}
+            >
               {w}
-            </span>
+              <span className="longku-add-recent-x" aria-hidden>
+                ✕
+              </span>
+            </button>
           ))}
-        </p>
+          <button
+            type="button"
+            className="longku-add-recent-clear"
+            onClick={() => setAdded([])}
+            title="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </section>
   );

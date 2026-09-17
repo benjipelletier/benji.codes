@@ -667,17 +667,66 @@
 .longku-add-note { font-size: 12px; color: var(--lg-warn); }
 .longku-add-note strong { font-weight: normal; font-style: italic; }
 
+/* Sits over the wall, so it needs a surface of its own — as bare text it read
+   as the page glitching rather than as a panel. */
 .longku-add-recent {
   position: absolute;
-  top: calc(100% + 6px);
-  left: 2px;
-  margin: 0;
-  font-size: 11px;
-  color: var(--lg-ink-faint);
-  white-space: nowrap;
+  z-index: 55;
+  top: calc(100% + 5px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: min(520px, 90vw);
+  padding: 6px 8px;
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 5px;
+  box-shadow: var(--lg-shadow);
 }
 
-.longku-add-recent-word { color: var(--lg-accent); margin-left: 6px; font-size: 13px; }
+.longku-add-recent-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+}
+
+.longku-add-recent-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 15px;
+  padding: 2px 7px;
+  border: 1px solid var(--lg-rule);
+  border-radius: 4px;
+  background: var(--lg-surface-2);
+  color: var(--lg-ink);
+  cursor: pointer;
+}
+
+.longku-add-recent-word:hover {
+  border-color: var(--lg-warn);
+  color: var(--lg-warn);
+}
+
+.longku-add-recent-x { font-size: 9px; color: var(--lg-ink-faint); }
+.longku-add-recent-word:hover .longku-add-recent-x { color: var(--lg-warn); }
+
+.longku-add-recent-clear {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 10px;
+  color: var(--lg-ink-faint);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.longku-add-recent-clear:hover { color: var(--lg-ink); }
 
 /* ------------------------------------------------------- shared controls -- */
 
@@ -1388,3 +1437,4 @@
 @media (prefers-reduced-motion: reduce) {
   .longku-strip-tier.tier-rare .longku-strip-fill { animation: none; background-position: 25% 50%; }
 }
+
