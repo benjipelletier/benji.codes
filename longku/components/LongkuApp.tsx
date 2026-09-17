@@ -37,8 +37,28 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   const [activeSyl, setActiveSyl] = useState<string | null>(null);
   const [view, setView] = useState<View>("wall");
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Whether the chain game is showing. Remembered, because a dock that
+  // reopened on every reload would be worse than not being able to close it.
+  const [dockOpen, setDockOpen] = useState(true);
   const [startAt, setStartAt] = useState<{ syl: string; nonce: number }>({ syl: "", nonce: 0 });
   const topRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("longku:dock") === "closed") setDockOpen(false);
+    } catch {
+      // Storage unavailable; the dock just starts open.
+    }
+  }, []);
+
+  function setDock(open: boolean) {
+    setDockOpen(open);
+    try {
+      localStorage.setItem("longku:dock", open ? "open" : "closed");
+    } catch {
+      // Persistence is a nicety; the state is already applied.
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -184,14 +204,29 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
         )}
       </main>
 
-      <div className="longku-dock">
-        {hydrated && (
-          <ChainPlay
-            state={state}
-            onChange={setState}
-            startAt={startAt}
-            onRerollStart={rerollStart}
-          />
+      <div className={`longku-dock ${dockOpen ? "" : "is-closed"}`}>
+        {!dockOpen ? (
+          <button
+            className="longku-dock-reopen"
+            onClick={() => setDock(true)}
+            title="Show the chain game"
+          >
+            <span className="longku-dock-label">接龙</span>
+            <span className="longku-dock-reopen-sub">
+              {s.total > 0 ? `${state.sweep.length} / ${s.total} worked through` : "play"}
+            </span>
+            <span aria-hidden>⌃</span>
+          </button>
+        ) : (
+          hydrated && (
+            <ChainPlay
+              state={state}
+              onChange={setState}
+              startAt={startAt}
+              onRerollStart={rerollStart}
+              onCollapse={() => setDock(false)}
+            />
+          )
         )}
       </div>
 

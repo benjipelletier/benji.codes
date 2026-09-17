@@ -1438,3 +1438,37 @@
   .longku-strip-tier.tier-rare .longku-strip-fill { animation: none; background-position: 25% 50%; }
 }
 
+
+/* ---------------------------------------------- dock: restart & collapse -- */
+.longku-dock-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.longku-dock-confirm {
+  font-size: 12px;
+  color: var(--lg-warn);
+  white-space: nowrap;
+}
+
+/* Collapsed: a thin bar that says what's waiting and reopens on click. */
+.longku-dock.is-closed { padding: 0; }
+
+.longku-dock-reopen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  font: inherit;
+  padding: 9px 20px calc(9px + env(safe-area-inset-bottom));
+  background: none;
+  border: 0;
+  color: var(--lg-ink-soft);
+  cursor: pointer;
+  text-align: left;
+}
+
+.longku-dock-reopen:hover { color: var(--lg-ink); background: var(--lg-sunken); }
+.longku-dock-reopen-sub { font-size: 11px; color: var(--lg-ink-faint); flex: 1; }

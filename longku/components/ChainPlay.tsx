@@ -48,9 +48,11 @@ interface Props {
   /** Bumped by the caller to force a new chain from a chosen syllable. */
   startAt: { syl: string; nonce: number };
   onRerollStart: () => void;
+  /** Collapse the dock, handing the wall the space back. */
+  onCollapse: () => void;
 }
 
-export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
+export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse }: Props) {
   const [need, setNeed] = useState<string>("");
   const [draft, setDraft] = useState("");
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
@@ -58,6 +60,8 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
   const [loadingTeach, setLoadingTeach] = useState(false);
   /** Revealing what the bank offers for the current syllable. */
   const [peek, setPeek] = useState(false);
+  /** Restart is behind a confirm — it discards the whole chain log. */
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // The sweep's chains live in the store so they survive a reload, and are
   // rendered as bank entries here. A word removed from the bank mid-sweep is
@@ -213,6 +217,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
 
   function startOver() {
     onChange(resetSweep());
+    setConfirmReset(false);
     setMsg(null);
     setPeek(false);
     onRerollStart();
@@ -225,11 +230,51 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
         <p className="longku-play-empty">
           Your bank is empty — add a chengyu up top and it&rsquo;ll start chaining here.
         </p>
+        <button className="longku-icon-btn" onClick={onCollapse} title="Hide the chain game">
+          ⌄
+        </button>
       </div>
     );
   }
 
   const sweepDone = remaining.length === 0;
+
+  const controls = (
+    <div className="longku-dock-controls">
+      {confirmReset ? (
+        <>
+          <span className="longku-dock-confirm">
+            discard {chains.filter((c) => c.length > 0).length} chains?
+          </span>
+          <button className="longku-btn" onClick={startOver}>
+            Restart
+          </button>
+          <button className="longku-icon-btn" onClick={() => setConfirmReset(false)} title="Keep them">
+            ✕
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            className="longku-icon-btn"
+            onClick={() => setConfirmReset(true)}
+            title="Restart the sweep — clears the chain log"
+            aria-label="Restart the sweep"
+          >
+            ↺
+          </button>
+          <button
+            className="longku-icon-btn"
+            onClick={onCollapse}
+            title="Hide the chain game"
+            aria-label="Hide the chain game"
+          >
+            ⌄
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <section aria-label="Play">
@@ -256,9 +301,14 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
             Every chengyu in your bank has been through a chain. That&rsquo;s the whole
             sweep.
           </p>
-          <button className="longku-btn is-primary" onClick={startOver}>
-            Start a new sweep
-          </button>
+          <div className="longku-dock-inner">
+            <button className="longku-btn is-primary" onClick={startOver}>
+              Start a new sweep
+            </button>
+            <button className="longku-icon-btn" onClick={onCollapse} title="Hide the chain game">
+              ⌄
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -293,6 +343,7 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart }: Props) {
                 {peek ? "Hide" : "Stuck?"}
               </button>
             </div>
+            {controls}
             <div className="longku-sweep">
               <div className="longku-sweep-bar">
                 <div
