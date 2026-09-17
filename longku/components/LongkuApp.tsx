@@ -149,8 +149,6 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           state={state}
           onChange={setState}
           stats={s}
-          coverage={cov.share}
-          tierCounts={tiers}
           view={view}
           onView={setView}
           onOpenStats={() => setSheetOpen(true)}
@@ -163,7 +161,9 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
       <main className="longku-canvas">
         {hydrated && (
           <ProgressStrip
-            coverage={cov.share}
+            playable={syllables.length > 0 ? sylCovered / syllables.length : 0}
+            syllablesCovered={sylCovered}
+            corpusSyllables={syllables.length}
             byTier={byTier}
             offCorpusCount={tiers.offcorpus}
             stats={s}

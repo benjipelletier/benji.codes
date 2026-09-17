@@ -4,7 +4,11 @@ import type { BankStats } from "@longku/lib/chains";
 import { OFF_CORPUS, type TierCoverage } from "@longku/lib/frequency";
 
 interface Props {
-  coverage: number;
+  /** Share of syllables holding at least one word, 0..1 — the headline. */
+  playable: number;
+  /** Syllables held / syllables that exist, for the note under it. */
+  syllablesCovered: number;
+  corpusSyllables: number;
   byTier: TierCoverage[];
   offCorpusCount: number;
   stats: BankStats;
@@ -19,20 +23,29 @@ interface Props {
  * per tier reading mine-over-corpus, and the sheet still holds the detail.
  */
 export function ProgressStrip({
-  coverage,
+  playable,
+  syllablesCovered,
+  corpusSyllables,
   byTier,
   offCorpusCount,
   stats,
   onOpenStats,
 }: Props) {
   if (stats.total === 0) return null;
-  const pct = coverage > 0 && coverage < 0.001 ? "<0.1" : (coverage * 100).toFixed(coverage < 0.1 ? 1 : 0);
+  const pct =
+    playable > 0 && playable < 0.001 ? "<0.1" : (playable * 100).toFixed(playable < 0.1 ? 1 : 0);
 
   return (
     <section className="longku-progress-strip" aria-label="Progress">
-      <button className="longku-strip-lead" onClick={onOpenStats} title="Full statistics">
+      <button
+        className="longku-strip-lead"
+        onClick={onOpenStats}
+        title={`${syllablesCovered} of ${corpusSyllables} syllables have at least one word — full statistics`}
+      >
         <span className="longku-strip-pct">{pct}%</span>
-        <span className="longku-strip-lead-label">of usage</span>
+        <span className="longku-strip-lead-label">
+          {syllablesCovered} / {corpusSyllables} syllables
+        </span>
       </button>
 
       <div className="longku-strip-tiers">
