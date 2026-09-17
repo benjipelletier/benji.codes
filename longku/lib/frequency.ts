@@ -1,9 +1,14 @@
 // Frequency tiers and usage coverage.
 //
-// Chengyu frequency in this corpus is steeply Zipfian: 624 words account for
-// half of all recorded usage, 2,750 for 90%, and the remaining 24,468 for one
-// percent between them. Counting words against the 30,292-entry corpus is
-// therefore a bad progress measure — a serious bank still reads as 2%.
+// Chengyu frequency is steeply Zipfian: 359 words account for half of all
+// recorded usage, 3,500 for 90%, and the remaining 14,800 for under one percent
+// between them. Counting words against the 30,292-entry corpus is therefore a
+// bad progress measure — a serious bank still reads as 2%.
+//
+// Frequencies come from wordfreq (see longku/scripts/build-frequency.py), which
+// blends subtitles, web text and news. The previous source counted newspapers
+// only and left three quarters of the corpus unmeasured, which put 不好意思 in
+// the rare tier.
 //
 // Token coverage is the honest one: of all the times a chengyu gets used, what
 // share would you recognize? It answers a real question, and it weights effort
@@ -22,14 +27,16 @@ export interface TierSpec {
 }
 
 /**
- * Cuts chosen so each tier lands on a round share of usage:
- * core ≈ the first half, common ≈ up to 90%, uncommon ≈ up to 99%.
+ * Cuts chosen so each tier lands on a round share of usage: core ≈ the first
+ * half, common ≈ up to 90%, uncommon ≈ up to 99%. Re-derive these whenever the
+ * frequency source changes — they are properties of that distribution, not
+ * constants.
  */
 export const FREQUENCY_TIERS: TierSpec[] = [
-  { id: "core", label: "core", min: 4000, blurb: "624 words — over half of all chengyu usage" },
-  { id: "common", label: "common", min: 700, blurb: "up to 90% of usage" },
-  { id: "uncommon", label: "uncommon", min: 80, blurb: "up to 99% of usage" },
-  { id: "rare", label: "rare", min: 0, blurb: "the long tail — 1% of usage between 24,000 words" },
+  { id: "core", label: "core", min: 1500, blurb: "359 words — nearly half of all chengyu usage" },
+  { id: "common", label: "common", min: 60, blurb: "up to 90% of usage" },
+  { id: "uncommon", label: "uncommon", min: 5, blurb: "up to 99% of usage" },
+  { id: "rare", label: "rare", min: 0, blurb: "the long tail — under 1% of usage across 14,800 words" },
 ];
 
 /**

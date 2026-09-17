@@ -1,9 +1,9 @@
-// Join JioNLP frequencies with the riddleyu chengyu dictionary,
+// Join wordfreq frequencies with the riddleyu chengyu dictionary,
 // derive toneless first/last syllables, and emit slim JSON files
 // the runtime can load.
 //
 // Inputs:
-//   - longku/data/raw_frequency.txt         (JioNLP: word\tfreq, one per line)
+//   - longku/data/frequency.txt             (build-frequency.py: word\tper-billion)
 //   - riddleyu/data/idiom.json                (rich dictionary: word, pinyin, explanation, derivation, example)
 // Outputs:
 //   - longku/data/chengyu.json              (array, sorted by freq desc — single source of truth)
@@ -19,7 +19,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const repoRoot = join(root, "..");
 
-const freqPath = join(root, "data", "raw_frequency.txt");
+const freqPath = join(root, "data", "frequency.txt");
 const dictPath = join(repoRoot, "riddleyu", "data", "idiom.json");
 
 const toneMap = {
@@ -66,7 +66,7 @@ for (const entry of dict) {
   if (entry?.word) dictMap.set(entry.word, entry);
 }
 
-// Universe = union of JioNLP frequency list and riddleyu dictionary, but keep
+// Universe = union of the frequency list and the riddleyu dictionary, but keep
 // only entries with pinyin so we can compute the chain syllables.
 const universe = new Set([...freqMap.keys(), ...dictMap.keys()]);
 

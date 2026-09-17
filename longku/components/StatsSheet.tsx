@@ -57,7 +57,7 @@ export function StatsSheet({
               of all chengyu usage you&rsquo;d recognize, from{" "}
               <strong>{stats.total}</strong> words against a corpus of{" "}
               {corpusWords.toLocaleString()}. Each tier is worth what it is used, not
-              what it costs to learn — core is 624 words carrying over half the
+              what it costs to learn — core is 359 words carrying nearly half the
               language.
             </p>
           </div>
