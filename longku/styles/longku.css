@@ -1542,3 +1542,22 @@
 }
 
 .longku-learn-add { margin-top: 10px; align-self: flex-start; }
+
+/* Word strength, shown where its history already is. */
+.longku-strength {
+  display: inline-block;
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--lg-sunken);
+  overflow: hidden;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.longku-strength-fill {
+  display: block;
+  height: 100%;
+  background: var(--lg-accent);
+  transition: width 0.3s ease;
+}

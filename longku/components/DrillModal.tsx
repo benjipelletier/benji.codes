@@ -41,7 +41,7 @@ export function DrillModal({
     () =>
       Object.values(state.bank)
         .filter((e) => e.fs === syllable)
-        .sort((a, b) => b.recalls - a.recalls || a.w.localeCompare(b.w)),
+        .sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0) || a.w.localeCompare(b.w)),
     [state, syllable],
   );
 
@@ -117,8 +117,17 @@ export function DrillModal({
                   <span className="longku-bucket-meta">
                     {e.fs} → {e.ls ?? "?"}
                   </span>
-                  <span className="longku-bucket-recalls">
-                    {e.recalls} recall{e.recalls === 1 ? "" : "s"}
+                  <span
+                    className="longku-bucket-recalls"
+                    title={`${e.recalls} recall${e.recalls === 1 ? "" : "s"}, ${e.misses ?? 0} miss${(e.misses ?? 0) === 1 ? "" : "es"}`}
+                  >
+                    <span className="longku-strength" aria-hidden>
+                      <span
+                        className="longku-strength-fill"
+                        style={{ width: `${Math.round((e.strength ?? 0) * 100)}%` }}
+                      />
+                    </span>
+                    {Math.round((e.strength ?? 0) * 100)}%
                   </span>
                   {!readOnly && (
                     <button

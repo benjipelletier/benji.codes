@@ -212,9 +212,11 @@ export function unused(state: State): BankEntry[] {
 /**
  * Pick where the next chain should start.
  *
- * Prefers a word whose starting syllable nothing else reaches, since those
- * can only ever open a chain — spending them first leaves the well-connected
- * words free to form longer chains later.
+ * Two preferences, in order. Words whose starting syllable nothing else
+ * reaches can only ever open a chain, so spending them first leaves the
+ * well-connected ones free to form longer chains later. Within that, the
+ * weakest words come first: a bank of any size has a tail you can't produce,
+ * and that tail is the part worth practising.
  */
 export function pickChainStart(state: State): BankEntry | null {
   const remaining = unused(state);
@@ -222,5 +224,19 @@ export function pickChainStart(state: State): BankEntry | null {
   const reachable = new Set(remaining.map((e) => e.ls).filter((s): s is string => s !== null));
   const openers = remaining.filter((e) => !reachable.has(e.fs));
   const pool = openers.length > 0 ? openers : remaining;
-  return pool[Math.floor(Math.random() * pool.length)];
+  return weakestOf(pool);
+}
+
+/**
+ * The weakest word in a pool, with ties broken at random.
+ *
+ * Strictly weakest-first would ask the same question every time until it was
+ * answered; sampling among the weakest keeps a session varied while still
+ * concentrating on what isn't known.
+ */
+export function weakestOf(pool: BankEntry[]): BankEntry | null {
+  if (pool.length === 0) return null;
+  const sorted = [...pool].sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0));
+  const window = Math.max(1, Math.ceil(sorted.length * 0.25));
+  return sorted[Math.floor(Math.random() * window)];
 }

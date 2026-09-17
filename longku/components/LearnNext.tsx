@@ -81,6 +81,8 @@ export function LearnNext({ state, onChange, readOnly = false }: Props) {
           ls: c.ls,
           f: c.f,
           recalls: 0,
+          strength: 0,
+          misses: 0,
           added: 0,
         };
         return { ...c, saves: base - minChains([...bank, probe]) };

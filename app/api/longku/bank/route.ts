@@ -29,6 +29,9 @@ interface BankRow {
   ls: string | null;
   f: number | null;
   recalls: number;
+  strength: number;
+  misses: number;
+  last_seen: string | null;
   off_corpus: boolean;
   added: string;
   last_recalled: string | null;
@@ -57,7 +60,8 @@ export async function GET() {
 
   const sql = getDb();
   const rows = (await sql`
-    select w, fs, ls, f, recalls, off_corpus, added, last_recalled, in_sweep
+    select w, fs, ls, f, recalls, strength, misses, off_corpus,
+           added, last_recalled, last_seen, in_sweep
     from longku_bank
     where owner_email = ${owner}
     order by added asc
@@ -78,7 +82,10 @@ export async function GET() {
       ls: r.ls,
       ...(r.f === null ? {} : { f: r.f }),
       recalls: r.recalls,
+      strength: r.strength ?? 0,
+      misses: r.misses ?? 0,
       added: new Date(r.added).getTime(),
+      ...(r.last_seen ? { lastSeen: new Date(r.last_seen).getTime() } : {}),
       ...(r.last_recalled ? { lastRecalled: new Date(r.last_recalled).getTime() } : {}),
       ...(r.off_corpus ? { offCorpus: true } : {}),
     })),
@@ -90,7 +97,8 @@ export async function GET() {
 type Op =
   | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
   | { op: "remove"; w: string; chains?: string[][] }
-  | { op: "play"; w: string; recalled: boolean; chains: string[][] }
+  | { op: "play"; w: string; recalled: boolean; strength: number; chains: string[][] }
+  | { op: "miss"; words: Array<{ w: string; strength: number }> }
   | { op: "chains"; chains: string[][] }
   | { op: "resetSweep" }
   | { op: "hydrate"; readings: Array<{ w: string; fs?: string; ls?: string | null; f?: number }> };
@@ -166,16 +174,36 @@ export async function POST(req: NextRequest) {
       if (body.recalled) {
         await sql`
           update longku_bank
-          set recalls = recalls + 1, last_recalled = now(), in_sweep = true
+          set recalls = recalls + 1,
+              last_recalled = now(),
+              last_seen = now(),
+              strength = ${body.strength ?? 0},
+              in_sweep = true
           where owner_email = ${owner} and w = ${body.w}
         `;
       } else {
+        // Shown rather than produced: the miss was taken when the list opened.
         await sql`
-          update longku_bank set in_sweep = true
+          update longku_bank set in_sweep = true, last_seen = now()
           where owner_email = ${owner} and w = ${body.w}
         `;
       }
       await saveChains(sql, owner, body.chains ?? []);
+      return NextResponse.json({ ok: true });
+    }
+
+    case "miss": {
+      if (!Array.isArray(body.words)) {
+        return NextResponse.json({ error: "no words given" }, { status: 400 });
+      }
+      for (const m of body.words.slice(0, 200)) {
+        if (!m?.w) continue;
+        await sql`
+          update longku_bank
+          set misses = misses + 1, last_seen = now(), strength = ${m.strength ?? 0}
+          where owner_email = ${owner} and w = ${m.w}
+        `;
+      }
       return NextResponse.json({ ok: true });
     }
 

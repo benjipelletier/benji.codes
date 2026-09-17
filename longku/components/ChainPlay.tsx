@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   importWords,
   playWord,
+  recordMiss,
   startChain,
   resetSweep,
   type BankEntry,
@@ -336,7 +337,12 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
               <button
                 type="button"
                 className="longku-btn"
-                onClick={() => setPeek((p) => !p)}
+                onClick={() => {
+                  // Opening the list is evidence: every word sitting there was
+                  // available under this prompt and none was produced.
+                  if (!peek) onChange(recordMiss(need));
+                  setPeek((p) => !p);
+                }}
                 aria-expanded={peek}
                 title="Show what your bank offers for this syllable"
               >

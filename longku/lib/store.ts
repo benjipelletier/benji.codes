@@ -28,6 +28,19 @@ export interface BankEntry {
   f?: number;
   /** Times produced in play. 0 means banked but never recalled. */
   recalls: number;
+  /**
+   * How well the word is known, 0 to 1, from evidence alone.
+   *
+   * `recalls` counts how often a word came up and went well, which favours
+   * words starting with common syllables regardless of whether they're known,
+   * and can only ever rise. Strength is a moving average over outcomes: a
+   * recall pulls it toward 1, a miss toward 0, and nothing else moves it.
+   */
+  strength: number;
+  /** Times the word was available under a prompt and not produced. */
+  misses: number;
+  /** When it was last available under a prompt — not the same as recalled. */
+  lastSeen?: number;
   added: number;
   lastRecalled?: number;
   offCorpus?: boolean;
@@ -92,10 +105,20 @@ function migrateV1(raw: unknown): State | null {
   for (const [fs, e] of Object.entries(syllables)) {
     const added = e.lastSeen ?? Date.now();
     for (const [w, n] of Object.entries(e.counts ?? {})) {
-      bank[w] = { w, fs, ls: null, recalls: n, added, lastRecalled: e.lastSeen };
+      bank[w] = {
+        w,
+        fs,
+        ls: null,
+        recalls: n,
+        // What the moving average would have reached given that many successes.
+        strength: 1 - Math.pow(1 - LEARNING_RATE, Math.min(n, 12)),
+        misses: 0,
+        added,
+        lastRecalled: e.lastSeen,
+      };
     }
     for (const w of e.taught ?? []) {
-      if (!bank[w]) bank[w] = { w, fs, ls: null, recalls: 0, added };
+      if (!bank[w]) bank[w] = { w, fs, ls: null, recalls: 0, strength: 0, misses: 0, added };
     }
   }
   return Object.keys(bank).length > 0 ? { bank, sweep: [], chains: [] } : null;
@@ -206,6 +229,15 @@ export function bankList(state: State): BankEntry[] {
 
 /* -------------------------------------------------------------- mutations -- */
 
+/**
+ * How far one outcome moves a word's strength.
+ *
+ * At 0.4 a first recall reaches 0.4 and a third about 0.78, while a miss on a
+ * well-known word drops it to roughly 0.47 — enough to resurface it without
+ * discarding everything the earlier recalls established.
+ */
+const LEARNING_RATE = 0.4;
+
 export interface ImportWord {
   w: string;
   fs: string;
@@ -260,6 +292,8 @@ export function importWords(words: ImportWord[]): {
       fs,
       ls,
       recalls: 0,
+      strength: 0,
+      misses: 0,
       added: now,
       ...(f !== undefined ? { f } : {}),
       ...(offCorpus ? { offCorpus } : {}),
@@ -311,14 +345,52 @@ export function hydrate(
 export function playWord(word: string, recalled: boolean): State {
   const e = _state.bank[word];
   if (!e) return _state;
+  const now = Date.now();
+  e.lastSeen = now;
   if (recalled) {
     e.recalls += 1;
-    e.lastRecalled = Date.now();
+    e.lastRecalled = now;
+    e.strength = e.strength + LEARNING_RATE * (1 - e.strength);
   }
+  // A prompted play records nothing: the miss was already taken when the list
+  // was revealed, and crediting the click would cancel it out.
   if (!_state.sweep.includes(word)) _state.sweep.push(word);
   if (_state.chains.length === 0) _state.chains.push([]);
   _state.chains[_state.chains.length - 1].push(word);
-  push({ op: "play", w: word, recalled, chains: _state.chains });
+  push({
+    op: "play",
+    w: word,
+    recalled,
+    strength: e.strength,
+    chains: _state.chains,
+  });
+  return commit();
+}
+
+/**
+ * Record that the bank's words for `syl` were shown rather than recalled.
+ *
+ * Asking to see the options is evidence about every word that was sitting
+ * there: each was available under the prompt and none was produced. Without
+ * this a word could be failed indefinitely and still look strong, because
+ * nothing but success was ever written down.
+ */
+export function recordMiss(syl: string): State {
+  const used = new Set(_state.sweep);
+  const now = Date.now();
+  const hit: string[] = [];
+  for (const e of Object.values(_state.bank)) {
+    if (e.fs !== syl || used.has(e.w)) continue;
+    e.misses += 1;
+    e.lastSeen = now;
+    e.strength = e.strength * (1 - LEARNING_RATE);
+    hit.push(e.w);
+  }
+  if (hit.length === 0) return _state;
+  push({
+    op: "miss",
+    words: hit.map((w) => ({ w, strength: _state.bank[w].strength })),
+  });
   return commit();
 }
 
