@@ -288,6 +288,9 @@
 .longku-icon-btn:hover { color: var(--lg-accent); border-color: var(--lg-accent); }
 
 .longku-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -604,7 +607,13 @@
 
 /* ------------------------------------------------------------ typeahead -- */
 
-.longku-add { position: relative; flex: 0 1 300px; min-width: 190px; }
+/* The rail's slot for the field. Sizing lives here rather than on .longku-add
+   so the narrow rail can fold the whole slot away behind its + button without
+   the field losing its own layout. */
+.longku-rail-add { flex: 0 1 300px; min-width: 190px; }
+.longku-rail-addbtn { display: none; }
+
+.longku-add { position: relative; width: 100%; }
 .longku-add-box { position: relative; }
 
 .longku-add-input {
@@ -1050,11 +1059,23 @@
 
 .longku-chain-wrap { display: flex; flex-direction: column; }
 
+/* The graph's four figures. These had no rule at all, so they stacked one per
+   line and pushed the graph itself off the bottom of the page. Same shape as
+   the stats sheet's figure grid, which is what they read as. */
+.longku-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 16px;
+}
+
 .longku-chain-canvas {
   border: 1px solid var(--lg-rule);
   border-radius: 6px;
   overflow: hidden;
   background: var(--lg-canvas-bg);
+  /* The graph sizes itself from this box, so the box has to have a size. */
+  height: 58dvh;
+  min-height: 320px;
 }
 
 .longku-chain-empty {
@@ -1072,20 +1093,14 @@
 }
 
 @media (max-width: 720px) {
-  .longku-rail { gap: 10px 14px; padding: 9px 14px; }
-  .longku-figures { gap: 12px; order: 3; width: 100%; margin-left: 0; }
-  .longku-add { order: 2; flex: 1 1 100%; }
-  .longku-canvas { padding: 16px 12px calc(var(--lg-dock-h) + 40px); }
+  .longku-canvas { padding: 16px 12px calc(var(--lg-dock-h) + 20px); }
   .longku-row-letter { position: static; }
   .longku-cell { min-width: 56px; }
-  .longku-dock { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
-  .longku-dock-inner { gap: 10px; }
   .longku-chain-word { font-size: 22px; }
   .longku-play-form { min-width: 0; }
   .longku-play-input-row { min-width: 0; }
   .longku-add-row { grid-template-columns: auto 1fr; }
   .longku-add-gloss, .longku-add-tail { display: none; }
-  .longku-modal { padding: 20px 18px 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1697,4 +1712,331 @@
   .longku-words-th.col-added,
   .longku-words-td.col-misses,
   .longku-words-td.col-added { display: none; }
+}
+
+/* ================================================================ phone -- */
+/*
+ * Everything above lays out for a wide rail. On a phone the same three bands
+ * left the wall a 140px window: the rail stacked into four rows (181px), the
+ * dock into a pile 287px tall, and the chain input — the one control the game
+ * is played through — came out 26px wide, wedged between "Chain it" and
+ * "Stuck?" in a flex row that had already run out of room. The rail's right
+ * group overflowed the viewport by 42px on top of that, so the whole page
+ * scrolled sideways.
+ *
+ * The fix is arrangement, not amputation: no control is dropped, and only one
+ * thing (the add field) moves behind a tap. Ordering does the work, so the
+ * markup stays one shape for both widths.
+ */
+
+/* Touch: hover is not a thing you can do, so nothing may hide behind it. */
+@media (hover: none) {
+  /* Start-a-chain, which was revealed on hover and so unreachable by finger —
+     and then, once shown, a 20px corner to aim at. A 30px box in a 62px cell
+     leaves the rest of the cell to its own tap, which opens the bucket. */
+  .longku-cell-play {
+    opacity: 0.55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 12px;
+    top: 1px;
+    right: 1px;
+  }
+  .longku-cell { padding-right: 28px; }
+  .longku-cell:active { transform: none; }
+}
+
+@media (max-width: 720px) {
+  .longku {
+    /* A mistap on a cell shouldn't flash the whole row of the wall. */
+    -webkit-tap-highlight-color: rgba(74, 93, 140, 0.16);
+  }
+
+  /* ------------------------------------------------------------- rail -- */
+
+  /* Dissolving the right-hand group makes its contents direct children of the
+     rail, so each can be ordered into one of the two rows below. */
+  .longku-rail-right { display: contents; }
+
+  .longku-rail {
+    gap: 8px 10px;
+    padding: 8px 12px;
+    row-gap: 8px;
+  }
+
+  .longku-title { order: 1; font-size: 20px; gap: 6px; }
+  .longku-title .latin { display: none; }
+
+  .longku-figures { order: 2; gap: 11px; padding: 7px 6px; margin-left: 0; }
+  .longku-figure-n { font-size: 15px; }
+  .longku-figure-label { font-size: 9px; letter-spacing: 0.1em; }
+
+  /* Row one ends with the three icon controls, pushed right. */
+  .longku-rail .longku-icon-btn { order: 4; }
+  .longku-rail .longku-rail-addbtn { display: inline-flex; order: 3; margin-left: auto; }
+  .longku-home { order: 5; }
+  .longku-home-label { display: none; }
+  .longku-home {
+    width: 38px;
+    height: 38px;
+    justify-content: center;
+    border: 1px solid var(--lg-rule-strong);
+    border-radius: 999px;
+    font-size: 15px;
+    letter-spacing: 0;
+    color: var(--lg-ink-soft);
+  }
+
+  /* Row two: the view switch, full width and evenly divided. */
+  .longku-switch { order: 6; display: flex; width: 100%; flex: 1 1 100%; }
+  .longku-switch button { flex: 1; padding: 11px 4px; font-size: 11px; }
+
+  /* Row three, and only when asked for: the add field. */
+  .longku-rail-add { order: 7; display: none; }
+  .longku-rail-add.is-open { display: block; flex: 1 1 100%; min-width: 0; }
+
+  /* ---------------------------------------------------- progress strip -- */
+
+  /* Keeps every tier on the page — just beside the headline rather than under
+     it, which is the whole 60px difference. */
+  .longku-progress-strip {
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .longku-strip-lead { padding-top: 2px; }
+  .longku-strip-pct { font-size: 21px; }
+  .longku-strip-lead-label { font-size: 9px; letter-spacing: 0.08em; }
+
+  /* minmax(0, …) rather than a bare 1fr: an auto minimum holds each column at
+     its widest number ("0 / 12,351"), which pushed the whole strip a hair past
+     the viewport on a 320px screen and scrolled the page sideways. */
+  .longku-strip-tiers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    min-width: 0;
+  }
+
+  .longku-strip-tier-head { margin-bottom: 2px; gap: 4px; min-width: 0; }
+  .longku-strip-tier-label {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .longku-strip-tier-n { font-size: 10px; }
+  .longku-strip-track { height: 3px; }
+
+  /* ------------------------------------------------------------- dock -- */
+
+  .longku-dock { padding: 9px 12px calc(9px + env(safe-area-inset-bottom)); }
+  .longku-dock-inner { gap: 7px 9px; }
+
+  /* Two deterministic rows: what's being asked, how far the sweep has got and
+     the sweep controls on the first; the input at full width on the second.
+     The input used to share one wrapping row with all of it, and lost.
+
+     接龙 stands down inside the form — it still names the collapsed dock, and
+     the room it wants is the room the sweep bar needs to sit up here rather
+     than cost the wall a third line. */
+  .longku-dock-inner > .longku-dock-label { display: none; }
+  .longku-play-prompt { order: 1; }
+  .longku-sweep { order: 2; flex: 1 1 90px; min-width: 90px; }
+  .longku-dock-controls { order: 3; margin-left: auto; flex-wrap: wrap; }
+  .longku-play-input-row { order: 4; flex: 1 1 100%; width: 100%; gap: 7px; }
+
+  .longku-play-input-row .longku-input { font-size: 19px; padding: 9px 11px; }
+  .longku-play-prompt strong { font-size: 18px; }
+
+  /* The log is the first thing to give ground: it is a record, and the game
+     is played in the row under it. */
+  .longku-chain-log { max-height: min(17vh, 112px); margin-bottom: 7px; }
+  .longku-chain-row { gap: 7px; padding: 3px 4px; }
+  .longku-chain-row:not(.is-live) .longku-chain-word { font-size: 15px; }
+
+  .longku-play-empty { font-size: 13px; }
+  .longku-play-done { gap: 8px; }
+
+  /* The reveal opens under the input and would otherwise take the rest of the
+     screen with it — a syllable can offer a dozen banked words and three more
+     worth learning. Bounded and scrolled, so the dock stays a dock. */
+  .longku-peek { max-height: 30vh; overflow-y: auto; overscroll-behavior: contain; }
+
+  /* ---------------------------------------------------- touch targets -- */
+
+  /* Everything you tap gets a finger-sized box, and every field a 16px face,
+     below which iOS zooms the page on focus and leaves it zoomed. */
+  .longku-input, .longku-add-input, .longku-words-filter { font-size: 16px; }
+  .longku-btn { padding: 10px 14px; min-height: 40px; }
+  .longku-icon-btn { width: 38px; height: 38px; font-size: 15px; }
+  .longku-peek-word { min-height: 36px; padding: 4px 10px; }
+  /* The continuation a finished chain never got — a real button, and at 21px
+     tall it was the smallest thing on the page to aim a finger at. */
+  .longku-chain-next { min-height: 30px; padding: 4px 9px; }
+  .longku-chain-row:not(.is-live) .longku-chain-next { min-height: 28px; }
+  .longku-words-syl { padding: 5px 8px; }
+  .longku-bucket-drop { padding: 6px 8px; font-size: 14px; }
+
+  /* --------------------------------------------------------- overlays -- */
+
+  /* A centred box with a 24px gutter wastes the only dimension a phone has.
+     These become sheets off the bottom edge, where a thumb already is. */
+  .longku-modal-overlay { padding: 0; align-items: flex-end; }
+
+  .longku-modal {
+    width: 100%;
+    max-width: none;
+    max-height: 88dvh;
+    border-width: 1px 0 0;
+    border-radius: 12px 12px 0 0;
+    padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    animation: longku-sheet-up 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .longku-modal-head { flex-wrap: wrap; row-gap: 8px; margin-bottom: 12px; }
+  .longku-modal-syllable { font-size: 26px; }
+  .longku-modal-close { font-size: 22px; padding: 4px 10px; margin: -4px -10px -4px 0; }
+  .longku-modal-section { margin-top: 16px; }
+
+  /* The bucket rows carry five figures each; the last-seen note is the one
+     that says least and wraps worst, and its title still holds the date. */
+  .longku-bucket-item { gap: 6px 9px; padding: 8px; }
+  .longku-bucket-stats { margin-left: 0; width: 100%; gap: 9px; }
+  .longku-bucket-stat.is-since { display: none; }
+
+  .longku-chip { padding: 8px 12px; }
+
+  /* ------------------------------------------------------ graph, learn -- */
+
+  /* The graph's figures read as one line of context here rather than four
+     blocks: the canvas underneath is the view, and on a phone the blocks were
+     taking most of what there was of it. The sub-lines' detail is in the stats
+     sheet; the label and figure are what the graph needs beside it. */
+  .longku-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: baseline;
+  }
+  .longku-stat { display: inline-flex; align-items: baseline; gap: 5px; }
+  .longku-stat-label { font-size: 9px; letter-spacing: 0.1em; }
+  .longku-stat-value { font-size: 15px; margin-top: 0; }
+  .longku-stat-sub { display: none; }
+  /* The sheet's own figure grid keeps its blocks — it has the room. */
+  .longku-sheet-fig { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .longku-sheet-fig .longku-stat-label { font-size: 9px; }
+  .longku-sheet-fig .longku-stat-value { font-size: 22px; margin-top: 2px; }
+  .longku-sheet-fig .longku-stat-sub { display: block; }
+  /* Fit the band actually left between the rail and the dock, both of which
+     publish their measured height. Collapsing the dock gives the graph the
+     room back rather than leaving it framed for a screen it no longer has. */
+  .longku-chain-canvas {
+    height: max(
+      240px,
+      calc(100dvh - var(--lg-top-h, 97px) - var(--lg-dock-h, 240px) - 150px)
+    );
+    min-height: 240px;
+  }
+  .longku-learn-grid { grid-template-columns: 1fr; gap: 10px; }
+  .longku-coverage-pct { font-size: 32px; }
+}
+
+@keyframes longku-sheet-up {
+  from { transform: translateY(14px); }
+  to { transform: none; }
+}
+
+/* ------------------------------------------------ words table on a phone -- */
+/*
+ * Seven columns don't fit in 366px, and the 860px rule's five still don't.
+ * Rows go two-line instead: identity and strength on the first, the chain
+ * links on the second. The header keeps every sort button — losing the ability
+ * to sort would cost more than the columns do.
+ */
+@media (max-width: 560px) {
+  .longku-words-head { gap: 8px; margin-bottom: 10px; }
+  .longku-words-filter { max-width: none; flex: 1 1 100%; }
+
+  .longku-words-row {
+    grid-template-columns: minmax(0, 1fr) auto 28px;
+    grid-template-areas:
+      "word strength drop"
+      "links links links";
+    gap: 5px 9px;
+    padding: 8px;
+  }
+
+  .longku-words-td.col-word { grid-area: word; }
+  .longku-words-td.col-strength { grid-area: strength; }
+  .longku-words-td.col-drop { grid-area: drop; }
+  .longku-words-td.col-links { grid-area: links; }
+
+  .longku-words-td.col-recalls,
+  .longku-words-td.col-misses,
+  .longku-words-td.col-added { display: none; }
+
+  .longku-words-row.is-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 0 2px 8px;
+  }
+
+  .longku-words-th.col-misses,
+  .longku-words-th.col-added,
+  .longku-words-th.col-links,
+  .longku-words-th.col-recalls { display: inline; }
+
+  .longku-words-w { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .longku-modal { animation: none; }
+}
+
+/* ------------------------------------------------- the narrowest phones -- */
+/*
+ * Around 320px the rail's one row runs out of width and wraps to three. The
+ * figures and the three icon controls are what have to give, and the syllable
+ * count under the headline is the one number already spelled out in the sheet
+ * the headline opens.
+ */
+@media (max-width: 360px) {
+  .longku-rail { gap: 8px 6px; padding: 8px 10px; }
+  .longku-title { font-size: 18px; }
+  .longku-figures { gap: 8px; padding: 4px; }
+  .longku-figure-n { font-size: 14px; }
+  .longku-figure-label { font-size: 8px; letter-spacing: 0.08em; }
+  .longku-rail .longku-icon-btn,
+  .longku-home { width: 34px; height: 34px; }
+  .longku-switch button { padding: 9px 2px; font-size: 10px; letter-spacing: 0.06em; }
+  .longku-strip-lead-label { display: none; }
+  .longku-canvas { padding-left: 10px; padding-right: 10px; }
+  .longku-cell { min-width: 52px; padding: 7px 7px 8px; }
+}
+
+/* ------------------------------------------------------ short viewports -- */
+/*
+ * A phone held sideways is 390px tall, and the three bands laid out for a
+ * portrait screen add up to more than that — the wall came out with nothing
+ * left at all. Height, not width, is what's scarce here, so only the vertical
+ * measures move.
+ */
+@media (max-height: 560px) {
+  .longku-chain-log { max-height: min(24vh, 86px); margin-bottom: 6px; }
+  .longku-dock { padding-top: 8px; }
+  .longku-dock-inner { gap: 6px 10px; }
+  .longku-progress-strip { margin-bottom: 10px; padding-bottom: 8px; }
+  .longku-strip-pct { font-size: 20px; }
+  .longku-peek { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
+  .longku-modal { max-height: 94dvh; }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AddChengyu } from "./AddChengyu";
 import { ThemeToggle } from "./ThemeToggle";
 import { signOut } from "@longku/lib/auth-client";
@@ -7,6 +8,13 @@ import type { State } from "@longku/lib/store";
 import type { BankStats } from "@longku/lib/chains";
 
 export type View = "wall" | "graph" | "learn" | "words";
+
+const VIEWS: Array<{ id: View; label: string }> = [
+  { id: "wall", label: "wall" },
+  { id: "graph", label: "graph" },
+  { id: "learn", label: "learn" },
+  { id: "words", label: "words" },
+];
 
 interface Props {
   state: State;
@@ -25,6 +33,12 @@ interface Props {
  * The single band that replaced the old masthead, five stat cards and pill row.
  * Figures here are a summary and a button — the full picture lives in the
  * stats sheet rather than pushing the wall down the page.
+ *
+ * On a phone the rail is the difference between a playable app and a scrolling
+ * one: four stacked rows of chrome left the wall a 140px window. So the add
+ * field is folded behind a button there (the wall and the chain game are what
+ * you open the app for; adding is occasional), and the rest is ordered by CSS
+ * into two rows. Everything stays in the DOM — only its arrangement changes.
  */
 export function Rail({
   state,
@@ -36,6 +50,10 @@ export function Rail({
   readOnly = false,
   ownerEmail = null,
 }: Props) {
+  // Only consulted on narrow screens, where the add field is collapsed. On a
+  // wide rail the toggle is hidden and the field is always shown.
+  const [addOpen, setAddOpen] = useState(false);
+
   return (
     <header className="longku-rail">
       <h1 className="longku-title">
@@ -62,43 +80,40 @@ export function Rail({
       {readOnly ? (
         <span className="longku-rail-spacer" />
       ) : (
-        <AddChengyu state={state} onChange={onChange} />
+        <>
+          <button
+            type="button"
+            className="longku-icon-btn longku-rail-addbtn"
+            onClick={() => setAddOpen((o) => !o)}
+            aria-expanded={addOpen}
+            aria-controls="longku-add-panel"
+            title={addOpen ? "Hide the add field" : "Add a chengyu"}
+            aria-label={addOpen ? "Hide the add field" : "Add a chengyu"}
+          >
+            {addOpen ? "✕" : "+"}
+          </button>
+          <div
+            id="longku-add-panel"
+            className={`longku-rail-add ${addOpen ? "is-open" : ""}`}
+          >
+            <AddChengyu state={state} onChange={onChange} autoFocus={addOpen} />
+          </div>
+        </>
       )}
 
       <div className="longku-rail-right">
         <div className="longku-switch" role="tablist" aria-label="View">
-          <button
-            role="tab"
-            aria-selected={view === "wall"}
-            className={view === "wall" ? "is-active" : ""}
-            onClick={() => onView("wall")}
-          >
-            wall
-          </button>
-          <button
-            role="tab"
-            aria-selected={view === "graph"}
-            className={view === "graph" ? "is-active" : ""}
-            onClick={() => onView("graph")}
-          >
-            graph
-          </button>
-          <button
-            role="tab"
-            aria-selected={view === "learn"}
-            className={view === "learn" ? "is-active" : ""}
-            onClick={() => onView("learn")}
-          >
-            learn
-          </button>
-          <button
-            role="tab"
-            aria-selected={view === "words"}
-            className={view === "words" ? "is-active" : ""}
-            onClick={() => onView("words")}
-          >
-            words
-          </button>
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              role="tab"
+              aria-selected={view === v.id}
+              className={view === v.id ? "is-active" : ""}
+              onClick={() => onView(v.id)}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
         <ThemeToggle />
         {ownerEmail && (
@@ -112,7 +127,10 @@ export function Rail({
             ⏻
           </button>
         )}
-        <a className="longku-home" href="/">← benji.codes</a>
+        <a className="longku-home" href="/" aria-label="Back to benji.codes">
+          <span aria-hidden>←</span>
+          <span className="longku-home-label">benji.codes</span>
+        </a>
       </div>
     </header>
   );
