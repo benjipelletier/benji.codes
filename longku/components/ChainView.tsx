@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type State } from "@longku/lib/store";
 
 interface NodeShape {
@@ -17,9 +17,22 @@ interface LinkShape {
 }
 
 // react-force-graph-2d depends on browser-only APIs; load it client-only.
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d").then((m) => m.default), {
-  ssr: false,
-});
+// next/dynamic doesn't forward refs to the component it loads, so the handle
+// we need for zoomToFit is passed as an ordinary prop instead.
+const ForceGraph2D = dynamic(
+  () =>
+    import("react-force-graph-2d").then((m) => {
+      const Inner = m.default;
+      function ForceGraphWithHandle({ fgRef, ...props }: Record<string, unknown> & {
+        fgRef?: React.Ref<unknown>;
+      }) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return <Inner ref={fgRef as any} {...(props as any)} />;
+      }
+      return ForceGraphWithHandle;
+    }),
+  { ssr: false },
+);
 
 interface Props {
   state: State;
@@ -45,6 +58,8 @@ export function ChainView({ state }: Props) {
     return m;
   }, [state]);
   const [size, setSize] = useState({ w: 800, h: 560 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(null);
 
   // The graph paints to canvas, so it can't inherit CSS custom properties the
   // way the rest of the UI does. Resolve the tokens once and re-resolve when
@@ -89,6 +104,13 @@ export function ChainView({ state }: Props) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Re-frame when the canvas changes shape — rotating a phone otherwise leaves
+  // the graph framed for the width it no longer has.
+  useEffect(() => {
+    const t = setTimeout(() => fgRef.current?.zoomToFit(300, 24), 500);
+    return () => clearTimeout(t);
+  }, [size.w, size.h]);
 
   const { graph, stats } = useMemo(() => {
     const nodes: NodeShape[] = [];
@@ -162,9 +184,15 @@ export function ChainView({ state }: Props) {
       <div className="longku-chain-canvas">
         {graph.nodes.length > 0 && (
           <ForceGraph2D
+            fgRef={fgRef}
             graphData={graph}
             width={size.w}
             height={size.h}
+            // The simulation lays the graph out in its own coordinates, which
+            // for a few dozen words is far wider than a phone's canvas — most
+            // of the bank used to settle outside the frame with no way to pan
+            // back to it. Frame the whole graph once it stops moving.
+            onEngineStop={() => fgRef.current?.zoomToFit(400, 24)}
             backgroundColor={palette.bg}
             nodeLabel={(n: any) => `${n.label} (${n.fs} → ${n.ls})`}
             linkColor={() => palette.link}

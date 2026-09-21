@@ -26,12 +26,14 @@ interface OffCorpus {
 interface Props {
   state: State;
   onChange: (s: State) => void;
+  /** Focus the field when it appears — set when the rail unfolds it on a phone. */
+  autoFocus?: boolean;
 }
 
 /** Row in the dropdown: either a corpus hit or the off-corpus fallback. */
 type Row = { kind: "hit"; hit: Hit } | { kind: "off"; off: OffCorpus };
 
-export function AddChengyu({ state, onChange }: Props) {
+export function AddChengyu({ state, onChange, autoFocus = false }: Props) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [active, setActive] = useState(0);
@@ -39,8 +41,15 @@ export function AddChengyu({ state, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<string[]>([]);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   /** Set when Enter lands before results arrive; consumed when they do. */
   const pendingEnter = useRef(false);
+
+  // The rail unfolds this field on a phone, and a field you then have to tap
+  // again is a field that cost two taps to open.
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
   // Debounced lookup. A stale-response guard keeps a slow early query from
   // overwriting the results of a later, faster one.
@@ -134,6 +143,7 @@ export function AddChengyu({ state, onChange }: Props) {
     <section className="longku-add" aria-label="Add a chengyu">
       <div className="longku-add-box" ref={boxRef}>
         <input
+          ref={inputRef}
           className="longku-input longku-add-input"
           value={q}
           onChange={(e) => setQ(e.target.value)}

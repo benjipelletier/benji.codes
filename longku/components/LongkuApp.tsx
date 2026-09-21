@@ -44,6 +44,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   const [dockOpen, setDockOpen] = useState(true);
   const [startAt, setStartAt] = useState<{ syl: string; nonce: number }>({ syl: "", nonce: 0 });
   const topRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -131,6 +132,22 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
     ro.observe(el);
     return () => ro.disconnect();
   }, [hydrated, mode]);
+
+  // Same trick for the dock, which sticks over the bottom of the canvas. Its
+  // height is anything but fixed — the chain log grows with the sweep, the
+  // reveal opens under it, and on a phone the whole thing stacks — so the
+  // padding that keeps the last wall rows reachable has to be measured. The
+  // token had a hard-coded 92px, which hid the bottom ~150px of the wall.
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--lg-dock-h", `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hydrated]);
 
   const bankArr = useMemo(() => Object.values(state.bank), [state]);
   const s = useMemo(() => bankStats(state), [state]);
@@ -225,7 +242,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
         )}
       </main>
 
-      <div className={`longku-dock ${dockOpen ? "" : "is-closed"}`}>
+      <div className={`longku-dock ${dockOpen ? "" : "is-closed"}`} ref={dockRef}>
         {!dockOpen ? (
           <button
             className="longku-dock-reopen"
