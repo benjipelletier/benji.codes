@@ -150,7 +150,9 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
                     aria-hidden
                   >
                     {arrive}
-                    <span className="longku-cell-badge-of">/{s.ending}</span>
+                    <span className="longku-cell-badge-of">
+                      <span>/{s.ending}</span>
+                    </span>
                   </span>
                   {have > 0 && (
                     <button

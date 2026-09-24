@@ -1947,7 +1947,9 @@
 .longku-cell-badge {
   position: absolute;
   top: -6px;
+  /* Pinned to the corner: the hover readout grows back over its own cell. */
   right: -6px;
+  width: max-content;
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
@@ -1967,21 +1969,33 @@
 }
 .longku-cell.is-stuck .longku-cell-badge { background: var(--lg-warn); color: var(--lg-on-accent); }
 
-/* The corpus total, hidden until the cell is hovered. It snaps in rather
-   than animating: the badge is pinned by its right edge, so a growing width
-   drags the count sideways, and a hover readout should just be there. */
-.longku-cell-badge-of { display: none; opacity: 0.8; }
+/* The corpus total, unfolding on hover. A 0fr → 1fr grid column animates
+   to exactly the text's width; max-width would race to a guess and then
+   idle. */
+.longku-cell-badge-of {
+  display: inline-grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition: grid-template-columns 120ms ease-out, opacity 120ms ease-out;
+}
+.longku-cell-badge-of > span { min-width: 0; overflow: hidden; white-space: nowrap; }
 .longku-cell:hover .longku-cell-badge-of,
-.longku-cell:focus-visible .longku-cell-badge-of { display: inline; }
+.longku-cell:focus-visible .longku-cell-badge-of { grid-template-columns: 1fr; opacity: 0.8; }
 
 /* None of yours end here: no badge, until hover asks what could. */
 .longku-cell-badge.is-zero {
   opacity: 0;
+  transform: scale(0.6);
+  transform-origin: right center;
   background: var(--lg-ink-faint);
-  transition: opacity 60ms linear;
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
 }
 .longku-cell:hover .longku-cell-badge.is-zero,
-.longku-cell:focus-visible .longku-cell-badge.is-zero { opacity: 1; }
+.longku-cell:focus-visible .longku-cell-badge.is-zero { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .longku-cell-badge-of, .longku-cell-badge.is-zero { transition: none; }
+}
 
 .longku-wall-head {
   display: flex;
