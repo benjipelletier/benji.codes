@@ -46,20 +46,43 @@ export interface BankEntry {
   offCorpus?: boolean;
 }
 
+/**
+ * A corpus word the app played to carry the chain somewhere the bank can
+ * answer. Stored whole, not by reference: it isn't in the bank, so there is
+ * nothing to look it up in after a reload.
+ */
+export interface Bridge {
+  bridge: true;
+  w: string;
+  p: string;
+  fs: string;
+  ls: string;
+  f?: number;
+  /** English gloss. */
+  e?: string;
+}
+
+/** One link in the chain: a bank word you played, or a bridge. */
+export type Link = string | Bridge;
+
+export function linkWord(l: Link): string {
+  return typeof l === "string" ? l : l.w;
+}
+
 export interface State {
   bank: Record<string, BankEntry>;
-  /** Words already used in the current sweep through the bank. */
+  /** Bank words already played in the current pass. */
   sweep: string[];
   /**
-   * The sweep's chains, oldest first, each an ordered list of words. The last
-   * entry is the chain in progress.
+   * The pass's chain, as segments, oldest first. A pass is one chain; a new
+   * segment starts only where no bridge could carry it on — after a word with
+   * no known ending, or when asked to start from a chosen syllable.
    *
    * Stored rather than derived: `sweep` records which words were used but not
-   * how they grouped, and the grouping is the part worth looking at. Keeping it
-   * here also means the log survives a reload, which it didn't when it lived in
-   * component state beside a sweep counter that did persist.
+   * the order, the bridges between them, or where the chain broke — the parts
+   * worth looking at.
    */
-  chains: string[][];
+  chains: Link[][];
 }
 
 export type Mode = "server" | "spectator" | "local";
@@ -419,7 +442,20 @@ export function recordMiss(syl: string): State {
   return commit();
 }
 
-/** Open a fresh chain. A chain left empty is reused rather than stacked. */
+/**
+ * Play a bridge onto the chain. Bridges are read, not recalled, so no bank
+ * entry moves — they only extend the chain.
+ */
+export function playBridge(path: Omit<Bridge, "bridge">[]): State {
+  if (path.length === 0) return _state;
+  if (_state.chains.length === 0) _state.chains.push([]);
+  const seg = _state.chains[_state.chains.length - 1];
+  for (const b of path) seg.push({ ...b, bridge: true });
+  push({ op: "chains", chains: _state.chains });
+  return commit();
+}
+
+/** Open a new segment. One left empty is reused rather than stacked. */
 export function startChain(): State {
   const last = _state.chains[_state.chains.length - 1];
   if (!last || last.length > 0) _state.chains.push([]);
@@ -430,7 +466,7 @@ export function startChain(): State {
 export function removeWord(word: string): State {
   delete _state.bank[word];
   _state.sweep = _state.sweep.filter((w) => w !== word);
-  _state.chains = _state.chains.map((c) => c.filter((w) => w !== word));
+  _state.chains = _state.chains.map((c) => c.filter((l) => l !== word));
   push({ op: "remove", w: word, chains: _state.chains });
   return commit();
 }

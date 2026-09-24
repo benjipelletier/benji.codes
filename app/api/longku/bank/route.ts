@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 async function saveChains(
   sql: ReturnType<typeof getDb>,
   owner: string,
-  chains: string[][],
+  chains: unknown[][],
 ): Promise<void> {
   await sql`
     insert into longku_sweep (owner_email, chains, updated)
@@ -69,7 +69,7 @@ export async function GET() {
 
   const sweepRows = (await sql`
     select chains from longku_sweep where owner_email = ${owner}
-  `) as unknown as Array<{ chains: string[][] }>;
+  `) as unknown as Array<{ chains: unknown[][] }>;
   const chains = sweepRows[0]?.chains ?? [];
 
   return NextResponse.json({
@@ -96,10 +96,10 @@ export async function GET() {
 
 type Op =
   | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
-  | { op: "remove"; w: string; chains?: string[][] }
-  | { op: "play"; w: string; recalled: boolean; strength: number; chains: string[][] }
+  | { op: "remove"; w: string; chains?: unknown[][] }
+  | { op: "play"; w: string; recalled: boolean; strength: number; chains: unknown[][] }
   | { op: "miss"; words: Array<{ w: string; strength: number }> }
-  | { op: "chains"; chains: string[][] }
+  | { op: "chains"; chains: unknown[][] }
   | { op: "resetSweep" }
   | { op: "hydrate"; readings: Array<{ w: string; fs?: string; ls?: string | null; f?: number }> };
 

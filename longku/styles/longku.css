@@ -1698,3 +1698,36 @@
   .longku-words-td.col-misses,
   .longku-words-td.col-added { display: none; }
 }
+
+/* ------------------------------------------------ one chain, with bridges -- */
+
+/* The whole pass is one strip, so only the newest word keeps display size. */
+.longku-chain-word.is-past { font-size: 19px; }
+
+/* Where the chain broke and picked up elsewhere. */
+.longku-chain-break {
+  color: var(--lg-ink-faint);
+  font-size: 15px;
+  margin: 0 10px;
+  letter-spacing: 0.1em;
+}
+
+/* A bridge: dashed like any unbanked word, and a touch smaller than yours. */
+.longku-chain-bridge { font-size: 16px; }
+.longku-chain-bridge.is-landed {
+  animation: longku-land 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.longku-chain-bridge.is-banked,
+.longku-chain-bridge.is-banked:hover {
+  border-style: solid;
+  border-color: var(--lg-rule);
+  background: none;
+  color: var(--lg-ink-soft);
+  cursor: default;
+}
+
+.longku-chain-len-b { color: var(--lg-ink-faint); }
+
+@media (max-width: 720px) {
+  .longku-chain-word.is-past { font-size: 17px; }
+}

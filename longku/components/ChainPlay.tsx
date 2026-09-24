@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getState,
   importWords,
+  linkWord,
+  playBridge,
   playWord,
   recordMiss,
   startChain,
   resetSweep,
   type BankEntry,
+  type Bridge,
+  type Link,
   type State,
 } from "@longku/lib/store";
 import { available, pickChainStart, unused } from "@longku/lib/chains";
@@ -21,134 +26,207 @@ interface Suggestion {
   f?: number;
 }
 
-/**
- * Top corpus suggestion per starting syllable, cached across rows.
- *
- * Every closed chain in the log wants the most frequent chengyu that would
- * have continued it. Several chains often end on the same syllable, and the
- * log re-renders on every keystroke, so the fetch is memoised by syllable and
- * shared rather than repeated per row.
- */
-const topCache = new Map<string, Promise<Suggestion[]>>();
-
-function topForSyllable(syl: string): Promise<Suggestion[]> {
-  let p = topCache.get(syl);
-  if (!p) {
-    p = fetch(`/api/longku/syllable/${encodeURIComponent(syl)}?limit=8`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => (d?.chengyus ?? []) as Suggestion[])
-      .catch(() => []);
-    topCache.set(syl, p);
-  }
-  return p;
-}
-
 interface Props {
   state: State;
   onChange: (s: State) => void;
-  /** Bumped by the caller to force a new chain from a chosen syllable. */
+  /** Bumped by the caller to break the chain and carry on from a chosen syllable. */
   startAt: { syl: string; nonce: number };
-  onRerollStart: () => void;
   /** Collapse the dock, handing the wall the space back. */
   onCollapse: () => void;
 }
 
-export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse }: Props) {
+/**
+ * The last jump request acted on. Module-level so it outlives the component:
+ * collapsing and reopening the dock remounts it with the same request, which
+ * must not break the chain a second time.
+ */
+let handledJump = 0;
+
+/** Where a link leaves the chain — null for a bank word with no known ending. */
+function linkEnd(l: Link, bank: Record<string, BankEntry>): string | null {
+  return typeof l === "string" ? (bank[l]?.ls ?? null) : l.ls;
+}
+
+/** The last link of the pass, if it has one. */
+function lastLink(s: State): Link | null {
+  for (let i = s.chains.length - 1; i >= 0; i--) {
+    const seg = s.chains[i];
+    if (seg.length > 0) return seg[seg.length - 1];
+  }
+  return null;
+}
+
+/**
+ * Syllables the bank can still answer, most in need of practice first.
+ *
+ * A bridge lands on whichever of these it reaches in the fewest words, so this
+ * order only decides between bridges of equal length — enough to steer the
+ * pass toward weak words without making you read further to get to them.
+ */
+function targets(s: State): string[] {
+  const weakest = new Map<string, number>();
+  for (const e of unused(s)) {
+    const had = weakest.get(e.fs);
+    if (had === undefined || (e.strength ?? 0) < had) weakest.set(e.fs, e.strength ?? 0);
+  }
+  return [...weakest.entries()].sort((a, b) => a[1] - b[1]).map(([syl]) => syl);
+}
+
+/**
+ * The 接龙 game: one chain through the whole bank.
+ *
+ * You play every bank word once, and the pass ends when there are none left.
+ * Where your bank has nothing starting on the syllable the chain needs, the app
+ * bridges with one to three corpus words to a syllable it does — so the chain
+ * keeps going instead of fragmenting into one-word stubs, and every bridge is a
+ * word that would have joined your bank to itself.
+ */
+export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
   const [need, setNeed] = useState<string>("");
+  const [bridging, setBridging] = useState(false);
   const [draft, setDraft] = useState("");
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [teach, setTeach] = useState<Suggestion[] | null>(null);
   const [loadingTeach, setLoadingTeach] = useState(false);
   /** Revealing what the bank offers for the current syllable. */
   const [peek, setPeek] = useState(false);
-  /** Restart is behind a confirm — it discards the whole chain log. */
+  /** Restart is behind a confirm — it discards the whole pass. */
   const [confirmReset, setConfirmReset] = useState(false);
-  /** The word just played, marked briefly so the landing is visible. */
-  const [landed, setLanded] = useState<string | null>(null);
+  /** Words just added to the chain, marked briefly so the landing is visible. */
+  const [landed, setLanded] = useState<Set<string>>(new Set());
+  /** Guards against a slow bridge landing after the chain has moved on. */
+  const bridgeReq = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
 
-  // The sweep's chains live in the store so they survive a reload, and are
-  // rendered as bank entries here. A word removed from the bank mid-sweep is
-  // dropped rather than rendered as a hole.
-  // Empty chains are kept: the one being built is the last entry whether or not
-  // it has words yet, and dropping it would mark the chain just finished as
-  // live — hiding the very suggestion that explains why it ended.
-  const chains = useMemo(
-    () => state.chains.map((c) => c.map((w) => state.bank[w]).filter(Boolean)),
-    [state],
-  );
+  const links = useMemo(() => state.chains.flat(), [state.chains]);
 
-  /** The chain in progress: whatever the store's last chain holds. */
-  const chain = chains.length > 0 ? chains[chains.length - 1] : [];
-
-  // The log grows downward and is capped, so without this a new chain lands
-  // out of sight once there are more than a few.
   useEffect(() => {
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [state.sweep.length, state.chains.length]);
+  }, [links.length]);
 
-  // Clear the landing mark once its animation has run.
   useEffect(() => {
-    if (!landed) return;
-    const t = setTimeout(() => setLanded(null), 900);
+    if (landed.size === 0) return;
+    const t = setTimeout(() => setLanded(new Set()), 900);
     return () => clearTimeout(t);
   }, [landed]);
 
   const remaining = useMemo(() => unused(state), [state]);
   const bankSize = Object.keys(state.bank).length;
   const doneThisSweep = state.sweep.length;
+  /**
+   * Sticky once reached: banking a bridge from the end screen adds an unplayed
+   * word, and without this the finished pass would reopen under your cursor.
+   */
+  const [finished, setFinished] = useState(false);
+  useEffect(() => {
+    if (bankSize > 0 && remaining.length === 0) setFinished(true);
+  }, [bankSize, remaining.length]);
+  const sweepDone = finished || (bankSize > 0 && remaining.length === 0);
 
-  /** Can the chain go on from `syl` using something not yet used this sweep? */
-  const canContinue = useCallback(
-    (syl: string) => available(state, syl).length > 0,
-    [state],
+  /** Break the chain and pick it up somewhere the bank can answer. */
+  const jump = useCallback(() => {
+    const start = pickChainStart(getState());
+    if (!start) {
+      setNeed("");
+      return;
+    }
+    onChange(startChain());
+    setNeed(start.fs);
+  }, [onChange]);
+
+  /**
+   * Move the chain on from `syl`.
+   *
+   * Reads the store directly rather than the `state` prop: this runs straight
+   * after a play, before React has handed the new state back down, and the old
+   * prop would still count the word just played as available.
+   */
+  const advance = useCallback(
+    (syl: string | null) => {
+      const s = getState();
+      // Supersedes any bridge still in flight, whose own cleanup is now skipped.
+      bridgeReq.current++;
+      setBridging(false);
+      if (syl && available(s, syl).length > 0) {
+        setNeed(syl);
+        return;
+      }
+      if (unused(s).length === 0) {
+        setNeed("");
+        return;
+      }
+      // Nothing to bridge from: a word with no known ending closes its segment.
+      if (!syl) {
+        jump();
+        return;
+      }
+
+      const req = bridgeReq.current;
+      setNeed("");
+      setBridging(true);
+      const exclude = [
+        ...Object.keys(s.bank),
+        ...s.chains.flat().filter((l): l is Bridge => typeof l !== "string").map((l) => l.w),
+      ];
+      fetch("/api/longku/bridge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: syl, to: targets(s), exclude }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (req !== bridgeReq.current) return;
+          const path = (d?.path ?? []) as Omit<Bridge, "bridge">[];
+          const end = path[path.length - 1];
+          if (!end) {
+            jump();
+            return;
+          }
+          onChange(playBridge(path));
+          setLanded(new Set(path.map((b) => b.w)));
+          if (available(getState(), end.ls).length > 0) setNeed(end.ls);
+          else jump();
+        })
+        .catch(() => req === bridgeReq.current && jump())
+        .finally(() => req === bridgeReq.current && setBridging(false));
+    },
+    [onChange, jump],
   );
 
-  // Open a chain whenever the caller asks for one.
+  /** Pick the pass up from wherever the chain stands. */
+  const resume = useCallback(() => {
+    const s = getState();
+    const last = lastLink(s);
+    if (!last) {
+      const start = pickChainStart(s);
+      setNeed(start?.fs ?? "");
+      return;
+    }
+    advance(linkEnd(last, s.bank));
+  }, [advance]);
+
+  // Whenever the prompt can't be answered — on first open, after a reset, or
+  // because a word under it was removed — work out where the chain goes next.
   useEffect(() => {
-    if (!startAt.syl) return;
+    if (bridging || sweepDone || remaining.length === 0) return;
+    if (need && available(state, need).length > 0) return;
+    resume();
+  }, [state, need, bridging, sweepDone, remaining.length, resume]);
+
+  // Break the chain and restart from a syllable the caller chose.
+  useEffect(() => {
+    if (!startAt.nonce || !startAt.syl || startAt.nonce === handledJump) return;
+    handledJump = startAt.nonce;
     onChange(startChain());
-    // Through advance, not straight to setNeed: the caller's syllable may have
-    // nothing unused left behind it — a bucket whose only word was already
-    // played this sweep — and prompting for it strands the game on a syllable
-    // that can never be answered.
     advance(startAt.syl);
     setDraft("");
     setMsg(null);
-    setTeach(null);
     setPeek(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startAt.syl, startAt.nonce]);
 
-  /**
-   * Move to `syl`, or open a new chain if nothing in the bank starts there.
-   *
-   * A dead end used to stop everything behind a button, which asked the user to
-   * confirm a decision the app had already made — there was no other move. Now
-   * the next chain starts immediately and the finished one carries the
-   * explanation in the log, where it stays visible instead of being dismissed.
-   */
-  const advance = useCallback(
-    (syl: string | null) => {
-      if (syl && available(state, syl).length > 0) {
-        setNeed(syl);
-        return;
-      }
-      const start = pickChainStart(state);
-      if (!start) {
-        setNeed("");
-        return;
-      }
-      onChange(startChain());
-      setNeed(start.fs);
-    },
-    [state, onChange],
-  );
-
-  // Chengyus from the reference corpus that start where the chain needs to go,
-  // for the "Stuck?" reveal. A dead end no longer asks for these — the finished
-  // chain in the log shows its own continuation.
+  // Corpus words starting where the chain needs to go, for the "Stuck?" reveal.
   useEffect(() => {
     if (!peek || !need) {
       setTeach(null);
@@ -176,13 +254,13 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const word = draft.trim();
-    if (!word) return;
+    if (!word || !need) return;
 
     const entry = state.bank[word];
     if (!entry) {
       setMsg({
         kind: "error",
-        text: `"${word}" isn't in your bank. Add it up top, then it can join a chain.`,
+        text: `"${word}" isn't in your bank. Add it up top, then it can join the chain.`,
       });
       return;
     }
@@ -191,48 +269,33 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
       return;
     }
     if (state.sweep.includes(word)) {
-      setMsg({ kind: "error", text: `Already used "${word}" this sweep.` });
+      setMsg({ kind: "error", text: `Already played "${word}" this pass.` });
       return;
     }
 
     onChange(playWord(word, true));
-    setLanded(word);
+    setLanded(new Set([word]));
     setDraft("");
     setMsg(null);
     setPeek(false);
     advance(entry.ls);
   }
 
-  function learn(s: Suggestion) {
-    const { state: next } = importWords([{ w: s.w, fs: s.fs, ls: s.ls, f: s.f }]);
-    onChange(next);
-    setMsg({ kind: "success", text: `${s.w} added to your bank — the chain can go on.` });
-    // Mid-peek the panel stays open, so the word shows up in the row above and
-    // can be played straight away. At a dead end there is nothing to return to.
-    if (!peek) setTeach(null);
-  }
-
-  function newChain() {
-    const start = pickChainStart(state);
-    if (!start) return;
-    onChange(startChain());
-    setNeed(start.fs);
-    setDraft("");
-    setMsg(null);
-    setTeach(null);
-    setPeek(false);
-  }
-
-  /** Bank a suggested word without disturbing the chain in progress. */
+  /** Bank a corpus word without disturbing the chain. */
   function bank(sg: Suggestion) {
-    const { state: added } = importWords([{ w: sg.w, fs: sg.fs, ls: sg.ls, f: sg.f }]);
-    onChange(added);
+    const { state: next } = importWords([{ w: sg.w, fs: sg.fs, ls: sg.ls, f: sg.f }]);
+    onChange(next);
+  }
+
+  function learn(s: Suggestion) {
+    bank(s);
+    setMsg({ kind: "success", text: `${s.w} added to your bank — play it to carry on.` });
   }
 
   /** Play a word the user was shown rather than recalled. */
   function play(entry: BankEntry) {
     onChange(playWord(entry.w, false));
-    setLanded(entry.w);
+    setLanded(new Set([entry.w]));
     setDraft("");
     setMsg(null);
     setPeek(false);
@@ -240,11 +303,14 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
   }
 
   function startOver() {
+    bridgeReq.current++;
+    setBridging(false);
     onChange(resetSweep());
+    setFinished(false);
+    setNeed("");
     setConfirmReset(false);
     setMsg(null);
     setPeek(false);
-    onRerollStart();
   }
 
   if (bankSize === 0) {
@@ -261,19 +327,18 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
     );
   }
 
-  const sweepDone = remaining.length === 0;
+  const bridges = links.filter((l): l is Bridge => typeof l !== "string");
+  const yours = links.length - bridges.length;
 
   const controls = (
     <div className="longku-dock-controls">
       {confirmReset ? (
         <>
-          <span className="longku-dock-confirm">
-            discard {chains.filter((c) => c.length > 0).length} chains?
-          </span>
+          <span className="longku-dock-confirm">discard this pass?</span>
           <button className="longku-btn" onClick={startOver}>
             Restart
           </button>
-          <button className="longku-icon-btn" onClick={() => setConfirmReset(false)} title="Keep them">
+          <button className="longku-icon-btn" onClick={() => setConfirmReset(false)} title="Keep it">
             ✕
           </button>
         </>
@@ -282,8 +347,8 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
           <button
             className="longku-icon-btn"
             onClick={() => setConfirmReset(true)}
-            title="Restart the sweep — clears the chain log"
-            aria-label="Restart the sweep"
+            title="Restart the pass — clears the chain"
+            aria-label="Restart the pass"
           >
             ↺
           </button>
@@ -302,45 +367,72 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
 
   return (
     <section aria-label="Play">
-      {chains.some((c) => c.length > 0) && (
+      {links.length > 0 && (
         <div className="longku-chain-log" ref={logRef}>
-          {chains.map((c, i) =>
-            c.length === 0 ? null : (
-              <ChainRow
-                key={i}
-                chain={c}
-                index={i + 1}
-                bank={state.bank}
-                onBank={bank}
-                live={i === chains.length - 1}
-                landed={landed}
-              />
-            ),
-          )}
+          <div className="longku-chain-row is-live">
+            <ol className="longku-chain-strip">
+              {state.chains.map((seg, si) =>
+                seg.map((l, i) => {
+                  const w = linkWord(l);
+                  const first = i === 0;
+                  const isLast = si === state.chains.length - 1 && i === seg.length - 1;
+                  return (
+                    <li key={`${si}-${i}-${w}`}>
+                      {first && state.chains.slice(0, si).some((p) => p.length > 0) && (
+                        <span className="longku-chain-break" title="the chain broke here">
+                          ⋯
+                        </span>
+                      )}
+                      {!first && <span className="longku-chain-arrow">→</span>}
+                      {typeof l === "string" ? (
+                        <span
+                          className={`longku-chain-word ${isLast ? "" : "is-past"} ${landed.has(w) ? "is-landed" : ""}`}
+                          title={`${state.bank[w]?.fs ?? "?"} → ${state.bank[w]?.ls ?? "?"}`}
+                        >
+                          {w}
+                        </span>
+                      ) : (
+                        <BridgeLink
+                          link={l}
+                          banked={!!state.bank[l.w]}
+                          landed={landed.has(w)}
+                          onBank={() => bank(l)}
+                        />
+                      )}
+                    </li>
+                  );
+                }),
+              )}
+            </ol>
+            <span className="longku-chain-len" title="words you played · bridges read">
+              {yours}
+              {bridges.length > 0 && <span className="longku-chain-len-b"> +{bridges.length}</span>}
+            </span>
+          </div>
         </div>
       )}
 
       {sweepDone ? (
-        <div className="longku-play-done">
-          <p className="longku-input-msg is-success">
-            Every chengyu in your bank has been through a chain. That&rsquo;s the whole
-            sweep.
-          </p>
-          <div className="longku-dock-inner">
-            <button className="longku-btn is-primary" onClick={startOver}>
-              Start a new sweep
-            </button>
-            <button className="longku-icon-btn" onClick={onCollapse} title="Hide the chain game">
-              ⌄
-            </button>
-          </div>
-        </div>
+        <PassDone
+          yours={yours}
+          bridges={bridges}
+          bank={state.bank}
+          onBank={bank}
+          onRestart={startOver}
+          onCollapse={onCollapse}
+        />
       ) : (
         <>
           <form className="longku-dock-inner" onSubmit={submit}>
             <span className="longku-dock-label">接龙</span>
             <label className="longku-play-prompt" htmlFor="longku-chain-input">
-              starting with <strong>{need}</strong>
+              {need ? (
+                <>
+                  starting with <strong>{need}</strong>
+                </>
+              ) : (
+                <span className="longku-hint">{bridging ? "bridging…" : "…"}</span>
+              )}
             </label>
             <div className="longku-play-input-row">
               <input
@@ -355,12 +447,13 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button className="longku-btn is-primary" type="submit">
+              <button className="longku-btn is-primary" type="submit" disabled={!need}>
                 Chain it
               </button>
               <button
                 type="button"
                 className="longku-btn"
+                disabled={!need}
                 onClick={() => {
                   // Opening the list is evidence: every word sitting there was
                   // available under this prompt and none was produced.
@@ -388,25 +481,21 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
               </span>
             </div>
           </form>
-          {peek && (
+          {peek && need && (
             <div className="longku-peek">
               <span className="longku-peek-label">in your bank, starting with {need}</span>
               <div className="longku-peek-words">
-                {available(state, need).length === 0 ? (
-                  <span className="longku-hint">nothing yet</span>
-                ) : (
-                  available(state, need).map((e) => (
-                    <button
-                      key={e.w}
-                      type="button"
-                      className="longku-peek-word"
-                      onClick={() => play(e)}
-                      title={`${e.fs} → ${e.ls ?? "?"} · ${e.recalls} recall${e.recalls === 1 ? "" : "s"}`}
-                    >
-                      {e.w}
-                    </button>
-                  ))
-                )}
+                {available(state, need).map((e) => (
+                  <button
+                    key={e.w}
+                    type="button"
+                    className="longku-peek-word"
+                    onClick={() => play(e)}
+                    title={`${e.fs} → ${e.ls ?? "?"} · ${e.recalls} recall${e.recalls === 1 ? "" : "s"}`}
+                  >
+                    {e.w}
+                  </button>
+                ))}
               </div>
 
               {/* What you could add. Adding is deliberately separate from
@@ -444,9 +533,11 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
               {msg.text}
             </p>
           ) : (
-            <p className="longku-play-sub" style={{ marginTop: 6 }}>
-              {available(state, need).length} in your bank start with {need}
-            </p>
+            need && (
+              <p className="longku-play-sub" style={{ marginTop: 6 }}>
+                {available(state, need).length} in your bank start with {need}
+              </p>
+            )
           )}
         </>
       )}
@@ -455,78 +546,100 @@ export function ChainPlay({ state, onChange, startAt, onRerollStart, onCollapse 
 }
 
 /**
- * One chain in the log. Closed chains stay visible so a sweep reads as a
- * record of what you got through, not just whatever you're on right now.
+ * A corpus word the app played. Dashed, like every unbanked suggestion, and a
+ * button: banking it is the one action that would have made it unnecessary.
  */
-function ChainRow({
-  chain,
-  index,
+function BridgeLink({
+  link,
+  banked,
+  landed,
+  onBank,
+}: {
+  link: Bridge;
+  banked: boolean;
+  landed: boolean;
+  onBank: () => void;
+}) {
+  const detail = `${link.p}${link.e ? ` — ${link.e}` : ""}`;
+  return (
+    <button
+      type="button"
+      className={`longku-chain-next longku-chain-bridge ${banked ? "is-banked" : ""} ${landed ? "is-landed" : ""}`}
+      onClick={banked ? undefined : onBank}
+      disabled={banked}
+      title={banked ? `${detail} · now in your bank` : `${detail} · bridge — click to bank it`}
+    >
+      {link.w}
+      {!banked && <TierPill f={link.f} />}
+    </button>
+  );
+}
+
+const WORTH_SHOWN = 12;
+
+/**
+ * The end of a pass. The bridges it needed are the best case for what to learn
+ * next: each one sat exactly where your bank had a gap.
+ */
+function PassDone({
+  yours,
+  bridges,
   bank,
   onBank,
-  live = false,
-  landed = null,
+  onRestart,
+  onCollapse,
 }: {
-  chain: BankEntry[];
-  index: number;
-  /** Words already held, so a suggestion is never something you own. */
+  yours: number;
+  bridges: Bridge[];
   bank: Record<string, BankEntry>;
   onBank: (s: Suggestion) => void;
-  live?: boolean;
-  /** Word played a moment ago, if it's in this chain. */
-  landed?: string | null;
+  onRestart: () => void;
+  onCollapse: () => void;
 }) {
-  const endsOn = chain.length > 0 ? chain[chain.length - 1].ls : null;
-  const [next, setNext] = useState<Suggestion | null>(null);
-
-  // The single most frequent word that would have carried this chain on, shown
-  // as its last link. Only for finished chains: offering a word for the chain
-  // in progress reads as the answer to the prompt you're filling.
-  useEffect(() => {
-    if (!endsOn || live) {
-      setNext(null);
-      return;
-    }
-    let cancelled = false;
-    topForSyllable(endsOn).then((list) => {
-      if (cancelled) return;
-      setNext(list.find((c) => !bank[c.w]) ?? null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [endsOn, bank, live]);
-
+  const worth = [...new Map(bridges.filter((b) => !bank[b.w]).map((b) => [b.w, b])).values()].sort(
+    (a, b) => (b.f ?? 0) - (a.f ?? 0),
+  );
+  // A small bank needs dozens of bridges; the commonest few are the case for
+  // learning, and the rest are still on the chain above.
+  const shown = worth.slice(0, WORTH_SHOWN);
   return (
-    <div className={`longku-chain-row ${live ? "is-live" : ""}`}>
-      <span className="longku-chain-n">{index}</span>
-      <ol className="longku-chain-strip">
-        {chain.map((c, i) => (
-          <li key={c.w}>
-            {i > 0 && <span className="longku-chain-arrow">→</span>}
-            <span
-              className={`longku-chain-word ${landed === c.w ? "is-landed" : ""}`}
-              title={`${c.fs} → ${c.ls ?? "?"}`}
-            >
-              {c.w}
-            </span>
-          </li>
-        ))}
-        {next && (
-          <li>
-            <span className="longku-chain-arrow">→</span>
-            <button
-              type="button"
-              className="longku-chain-next"
-              onClick={() => onBank(next)}
-              title={`${next.p} — not in your bank. Learn it and this chain goes on.`}
-            >
-              {next.w}
-              <TierPill f={next.f} />
-            </button>
-          </li>
-        )}
-      </ol>
-      <span className="longku-chain-len">{chain.length}</span>
+    <div className="longku-play-done">
+      <p className="longku-input-msg is-success">
+        Pass complete — {yours} word{yours === 1 ? "" : "s"} from your bank
+        {bridges.length > 0 &&
+          `, joined by ${bridges.length} bridge${bridges.length === 1 ? "" : "s"}`}
+        .
+      </p>
+      {worth.length > 0 && (
+        <div className="longku-peek-add">
+          <span className="longku-peek-label">bridges worth banking</span>
+          <div className="longku-peek-words">
+            {shown.map((b) => (
+              <button
+                key={b.w}
+                type="button"
+                className="longku-peek-word is-new"
+                onClick={() => onBank(b)}
+                title={`${b.p}${b.e ? ` — ${b.e}` : ""}`}
+              >
+                {b.w}
+                <TierPill f={b.f} />
+              </button>
+            ))}
+            {worth.length > shown.length && (
+              <span className="longku-hint">+{worth.length - shown.length} more on the chain</span>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="longku-dock-inner">
+        <button className="longku-btn is-primary" onClick={onRestart}>
+          Start a new pass
+        </button>
+        <button className="longku-icon-btn" onClick={onCollapse} title="Hide the chain game">
+          ⌄
+        </button>
+      </div>
     </div>
   );
 }
