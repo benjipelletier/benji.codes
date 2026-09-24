@@ -17,18 +17,21 @@ const DAY = 86_400_000;
 /**
  * Days until next due, by strength after the outcome.
  *
- * Strength climbs 0.4 → 0.64 → 0.78 → 0.87 → 0.92 → 0.95 over clean recalls a
- * day or more apart, so a word recalled every time it comes up is seen after
- * 2, 4, 8, 16, 16 and then 30 days.
+ * Deliberately short: seeing a word a day early costs a few seconds, and
+ * seeing it a week late means relearning it. Strength climbs 0.4 → 0.64 →
+ * 0.78 → 0.87 → 0.92 → 0.95 → 0.97 over clean recalls a day or more apart, so
+ * a word recalled every time it comes up is seen after 1, 2, 3, 5, 8, 13 and
+ * then 21 days — roughly half the gaps of a textbook schedule.
  */
 const LADDER: Array<[below: number, days: number]> = [
-  [0.3, 1],
-  [0.5, 2],
-  [0.7, 4],
-  [0.85, 8],
-  [0.93, 16],
+  [0.5, 1],
+  [0.7, 2],
+  [0.8, 3],
+  [0.9, 5],
+  [0.93, 8],
+  [0.96, 13],
 ];
-const MAX_DAYS = 30;
+const MAX_DAYS = 21;
 
 export function intervalDays(strength: number): number {
   for (const [below, days] of LADDER) if (strength < below) return days;
