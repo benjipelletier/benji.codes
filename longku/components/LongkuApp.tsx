@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bootstrap, hydrate, type Mode, type State } from "@longku/lib/store";
+import { bootstrap, hydrate, type BankEntry, type Mode, type State } from "@longku/lib/store";
 import { stats as bankStats, unused } from "@longku/lib/chains";
 import {
   coverageByTier,
@@ -20,6 +20,7 @@ import { StatsSheet } from "./StatsSheet";
 import { ProgressStrip } from "./ProgressStrip";
 import { LearnNext } from "./LearnNext";
 import { WordList } from "./WordList";
+import { AddedToast, measureAdd, type Added } from "./AddedToast";
 
 interface Props {
   syllables: SyllableSummary[];
@@ -154,6 +155,30 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
     return () => ro.disconnect();
   }, [hydrated]);
 
+  // Announce adds. Diffing the bank catches every way a word gets in — the
+  // rail, a syllable's view, the learn list, a bridge banked mid-chain —
+  // without each of them having to report it. The first bank seen is the
+  // load, not an add.
+  const [added, setAdded] = useState<Added | null>(null);
+  const lastBank = useRef<Record<string, BankEntry> | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const before = lastBank.current;
+    // A copy, not the object: the store adds to its current bank in place
+    // before committing a new one, so a kept reference would already hold
+    // the word by the time it's compared.
+    lastBank.current = { ...state.bank };
+    if (!before) return;
+    const fresh = Object.keys(state.bank).filter((w) => !before[w]);
+    if (fresh.length === 0) return;
+    setAdded({
+      key: Date.now(),
+      ...measureAdd(before, state.bank, fresh, syllables, syllables.length, tierMass, tierWords),
+    });
+    // Only the bank's contents matter here; the corpus props never change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.bank, hydrated]);
+
   const bankArr = useMemo(() => Object.values(state.bank), [state]);
   const dueCount = useMemo(() => unused(state).length, [state]);
   const s = useMemo(() => bankStats(state), [state]);
@@ -266,6 +291,8 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           readOnly={mode === "spectator"}
         />
       )}
+
+      {added && <AddedToast added={added} onClose={() => setAdded(null)} />}
 
       {sheetOpen && (
         <StatsSheet
