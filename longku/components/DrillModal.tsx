@@ -168,7 +168,7 @@ export function DrillModal({
                       <b>{e.misses ?? 0}</b> miss{(e.misses ?? 0) === 1 ? "" : "es"}
                     </span>
                     <span
-                      className="longku-bucket-stat"
+                      className="longku-bucket-stat is-since"
                       title={
                         e.lastSeen
                           ? `last available ${new Date(e.lastSeen).toLocaleString()}`
