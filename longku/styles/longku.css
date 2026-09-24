@@ -1967,6 +1967,22 @@
 }
 .longku-cell.is-stuck .longku-cell-badge { background: var(--lg-warn); color: var(--lg-on-accent); }
 
+/* The corpus total, hidden until the cell is hovered. It snaps in rather
+   than animating: the badge is pinned by its right edge, so a growing width
+   drags the count sideways, and a hover readout should just be there. */
+.longku-cell-badge-of { display: none; opacity: 0.8; }
+.longku-cell:hover .longku-cell-badge-of,
+.longku-cell:focus-visible .longku-cell-badge-of { display: inline; }
+
+/* None of yours end here: no badge, until hover asks what could. */
+.longku-cell-badge.is-zero {
+  opacity: 0;
+  background: var(--lg-ink-faint);
+  transition: opacity 60ms linear;
+}
+.longku-cell:hover .longku-cell-badge.is-zero,
+.longku-cell:focus-visible .longku-cell-badge.is-zero { opacity: 1; }
+
 .longku-wall-head {
   display: flex;
   align-items: flex-start;
@@ -2073,3 +2089,23 @@
   }
   .longku-top-item .longku-pill { justify-self: start; }
 }
+
+/* An add waiting on its second click: solid, accented, and saying so. */
+.longku-chain-next.is-armed,
+.longku-peek-word.is-new.is-armed {
+  border-style: solid;
+  border-color: var(--lg-accent);
+  background: var(--lg-accent-soft);
+  color: var(--lg-ink);
+}
+.longku-arm {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--lg-accent);
+  color: var(--lg-on-accent);
+  line-height: 1.2;
+}
+.longku-modal-n { font-weight: 600; color: var(--lg-accent); }

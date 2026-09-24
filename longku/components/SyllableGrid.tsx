@@ -141,12 +141,17 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
                     <span className="longku-cell-all">{s.count}</span>
                   </span>
                   {/* Yours that end here, as a badge on the corner: chains
-                      arriving. Amber when more arrive than can leave. */}
-                  {arrive > 0 && (
-                    <span className="longku-cell-badge" aria-hidden>
-                      {arrive}
-                    </span>
-                  )}
+                      arriving. Amber when more arrive than can leave. Hover
+                      widens it to show the corpus total — every way a chain
+                      could arrive — and shows it on cells with none of yours
+                      yet, where it otherwise stays hidden. */}
+                  <span
+                    className={`longku-cell-badge${arrive === 0 ? " is-zero" : ""}`}
+                    aria-hidden
+                  >
+                    {arrive}
+                    <span className="longku-cell-badge-of">/{s.ending}</span>
+                  </span>
                   {have > 0 && (
                     <button
                       type="button"

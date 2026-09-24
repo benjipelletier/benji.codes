@@ -121,8 +121,9 @@ export function DrillModal({
           <span className="longku-modal-sub">
             {corpus ? (
               <>
-                starts: {mine.length} of yours / {corpus.count} · ends: {arriving.length} of
-                yours / {corpus.ending}
+                starts <b className="longku-modal-n">{mine.length}</b>/{corpus.count}
+                {" · "}
+                ends <b className="longku-modal-n">{arriving.length}</b>/{corpus.ending}
               </>
             ) : (
               <>

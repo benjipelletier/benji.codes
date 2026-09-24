@@ -356,6 +356,41 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     advance(entry.ls);
   }
 
+  /**
+   * The suggestion waiting on a second click. Every add in the dock takes two:
+   * the first arms the button, the second commits. Suggestions sit in the
+   * chain and beside the prompt, right where fast play is clicking, and a
+   * mis-click would put a word in the bank — and on the schedule — unasked.
+   */
+  const [armed, setArmed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(null), 4000);
+    // Anything but the armed button itself stands it down.
+    const away = (e: PointerEvent) => {
+      const hit = (e.target as Element | null)?.closest?.("[data-arm]");
+      if (hit?.getAttribute("data-arm") !== armed) setArmed(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setArmed(null);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [armed]);
+
+  /** First click arms, second click runs `commit`. */
+  function confirmed(sg: Suggestion, commit: (sg: Suggestion) => void) {
+    if (armed !== sg.w) {
+      setArmed(sg.w);
+      return;
+    }
+    setArmed(null);
+    commit(sg);
+  }
+
   /** Bank a corpus word without disturbing the chain. */
   function bank(sg: Suggestion) {
     const { state: next } = importWords([{ w: sg.w, fs: sg.fs, ls: sg.ls, f: sg.f }]);
@@ -485,7 +520,8 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                           link={l}
                           banked={!!state.bank[l.w]}
                           landed={landed.has(w)}
-                          onBank={() => bank(l)}
+                          armed={armed === l.w}
+                          onBank={() => confirmed(l, bank)}
                         />
                       )}
                     </li>
@@ -508,7 +544,8 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           bank={state.bank}
           dueNow={dueNow}
           practice={practice}
-          onBank={bank}
+          armed={armed}
+          onBank={(b) => confirmed(b, bank)}
           onRestart={startOver}
           onMode={switchMode}
           onCollapse={onCollapse}
@@ -649,12 +686,17 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                       <button
                         key={sg.w}
                         type="button"
-                        className="longku-peek-word is-new"
-                        onClick={() => learn(sg)}
-                        title={`${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank`}
+                        data-arm={sg.w}
+                        className={`longku-peek-word is-new ${armed === sg.w ? "is-armed" : ""}`}
+                        onClick={() => confirmed(sg, learn)}
+                        title={
+                          armed === sg.w
+                            ? `Click again to add ${sg.w} to your bank`
+                            : `${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank — click twice to add`
+                        }
                       >
                         {sg.w}
-                        <TierPill f={sg.f} />
+                        {armed === sg.w ? <ArmLabel /> : <TierPill f={sg.f} />}
                       </button>
                     ))}
                   </div>
@@ -692,26 +734,41 @@ function BridgeLink({
   link,
   banked,
   landed,
+  armed,
   onBank,
 }: {
   link: Bridge;
   banked: boolean;
   landed: boolean;
+  /** First click landed; the next one banks it. */
+  armed: boolean;
   onBank: () => void;
 }) {
   const detail = `${link.p}${link.e ? ` — ${link.e}` : ""}`;
   return (
     <button
       type="button"
-      className={`longku-chain-next longku-chain-bridge ${banked ? "is-banked" : ""} ${landed ? "is-landed" : ""}`}
+      data-arm={link.w}
+      className={`longku-chain-next longku-chain-bridge ${banked ? "is-banked" : ""} ${landed ? "is-landed" : ""} ${armed ? "is-armed" : ""}`}
       onClick={banked ? undefined : onBank}
       disabled={banked}
-      title={banked ? `${detail} · now in your bank` : `${detail} · bridge — click to bank it`}
+      title={
+        banked
+          ? `${detail} · now in your bank`
+          : armed
+            ? `Click again to add ${link.w} to your bank`
+            : `${detail} · bridge — click twice to bank it`
+      }
     >
       {link.w}
-      {!banked && <TierPill f={link.f} />}
+      {!banked && (armed ? <ArmLabel /> : <TierPill f={link.f} />)}
     </button>
   );
+}
+
+/** Stands in for the tier on an armed suggestion: the second click adds. */
+function ArmLabel() {
+  return <span className="longku-arm">add?</span>;
 }
 
 const WORTH_SHOWN = 12;
@@ -726,6 +783,7 @@ function PassDone({
   bank,
   dueNow,
   practice,
+  armed,
   onBank,
   onRestart,
   onMode,
@@ -737,6 +795,8 @@ function PassDone({
   /** Words due since the pass ended — banked from here, or a day turning over. */
   dueNow: number;
   practice: boolean;
+  /** The suggestion one click from being banked, if any. */
+  armed: string | null;
   onBank: (s: Suggestion) => void;
   /** Start a practice pass (true) or go back to due words (false). */
   onMode: (practice: boolean) => void;
@@ -782,12 +842,17 @@ function PassDone({
               <button
                 key={b.w}
                 type="button"
-                className="longku-peek-word is-new"
+                data-arm={b.w}
+                className={`longku-peek-word is-new ${armed === b.w ? "is-armed" : ""}`}
                 onClick={() => onBank(b)}
-                title={`${b.p}${b.e ? ` — ${b.e}` : ""}`}
+                title={
+                  armed === b.w
+                    ? `Click again to add ${b.w} to your bank`
+                    : `${b.p}${b.e ? ` — ${b.e}` : ""} · click twice to add`
+                }
               >
                 {b.w}
-                <TierPill f={b.f} />
+                {armed === b.w ? <ArmLabel /> : <TierPill f={b.f} />}
               </button>
             ))}
             {worth.length > shown.length && (
