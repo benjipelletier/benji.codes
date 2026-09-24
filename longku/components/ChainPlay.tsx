@@ -13,9 +13,10 @@ import {
   type BankEntry,
   type Bridge,
   type Link,
+  type Review,
   type State,
 } from "@longku/lib/store";
-import { available, pickChainStart, unused } from "@longku/lib/chains";
+import { available, pickChainStart, unused, type Scope } from "@longku/lib/chains";
 import { TierPill } from "./AddChengyu";
 import { dayStart, dueAt, isDue } from "@longku/lib/srs";
 
@@ -37,6 +38,8 @@ interface Props {
 }
 
 const PRACTICE_KEY = "longku:practice";
+/** The words a retry round is limited to, alongside the practice flag. */
+const RETRY_KEY = "longku:retry";
 
 /**
  * The last jump request acted on. Module-level so it outlives the component:
@@ -66,9 +69,9 @@ function lastLink(s: State): Link | null {
  * order only decides between bridges of equal length — enough to steer the
  * pass toward weak words without making you read further to get to them.
  */
-function targets(s: State, practice: boolean): string[] {
+function targets(s: State, scope: Scope): string[] {
   const weakest = new Map<string, number>();
-  for (const e of unused(s, practice)) {
+  for (const e of unused(s, scope)) {
     const had = weakest.get(e.fs);
     if (had === undefined || (e.strength ?? 0) < had) weakest.set(e.fs, e.strength ?? 0);
   }
@@ -96,6 +99,12 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
    * the words that would answer it, or the words themselves.
    */
   const [help, setHelp] = useState<0 | 1 | 2>(0);
+  /**
+   * The most help this prompt has had. Hiding the reveal closes the panel but
+   * doesn't unsee it: a word typed after its meaning or the word itself was on
+   * screen is scored by what was seen, not by what's showing now.
+   */
+  const [seen, setSeen] = useState<0 | 1 | 2>(0);
   const peek = help === 2;
   const setPeek = (open: boolean) => setHelp(open ? 2 : 0);
   /** Meanings of the words under the current prompt, once asked for. */
@@ -126,6 +135,36 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       // As above.
     }
   }
+
+  /**
+   * A retry: practice limited to these words — the ones a pass got wrong,
+   * played again straight away. Unscored like any practice: the miss already
+   * brought them back tomorrow, and a replay a minute later is working memory.
+   */
+  const [retry, setRetryState] = useState<string[] | null>(() => {
+    try {
+      const raw = localStorage.getItem(RETRY_KEY);
+      const list = raw ? JSON.parse(raw) : null;
+      return Array.isArray(list) && list.length > 0 ? list : null;
+    } catch {
+      return null;
+    }
+  });
+  function setRetry(words: string[] | null) {
+    setRetryState(words);
+    try {
+      if (words) localStorage.setItem(RETRY_KEY, JSON.stringify(words));
+      else localStorage.removeItem(RETRY_KEY);
+    } catch {
+      // As above.
+    }
+  }
+
+  /** What this pass asks for — see chains.Scope. */
+  const scope: Scope = useMemo(
+    () => (practice ? (retry ? new Set(retry) : true) : false),
+    [practice, retry],
+  );
   /** Guards against a slow bridge landing after the chain has moved on. */
   const bridgeReq = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
@@ -143,7 +182,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     return () => clearTimeout(t);
   }, [landed]);
 
-  const remaining = useMemo(() => unused(state, practice), [state, practice]);
+  const remaining = useMemo(() => unused(state, scope), [state, scope]);
   /** Due words, whatever the mode — what a practice round is standing in for. */
   const dueNow = useMemo(() => (practice ? unused(state).length : remaining.length), [
     state,
@@ -154,7 +193,11 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
   // Words of yours on the chain: in a due pass, what's been reviewed so far.
   const doneThisSweep = state.chains.flat().filter((l) => typeof l === "string").length;
   /** What this pass asks for: what's been played, plus what's still due. */
-  const passSize = practice ? bankSize : doneThisSweep + remaining.length;
+  const passSize = practice
+    ? retry
+      ? retry.filter((w) => state.bank[w]).length
+      : bankSize
+    : doneThisSweep + remaining.length;
   /**
    * Sticky once reached: banking a bridge from the end screen adds an unplayed
    * word, and without this the finished pass would reopen under your cursor.
@@ -169,14 +212,14 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
 
   /** Break the chain and pick it up somewhere the bank can answer. */
   const jump = useCallback(() => {
-    const start = pickChainStart(getState(), practice);
+    const start = pickChainStart(getState(), scope);
     if (!start) {
       setNeed("");
       return;
     }
     onChange(startChain());
     setNeed(start.fs);
-  }, [onChange, practice]);
+  }, [onChange, scope]);
 
   /**
    * Move the chain on from `syl`.
@@ -191,11 +234,11 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       // Supersedes any bridge still in flight, whose own cleanup is now skipped.
       bridgeReq.current++;
       setBridging(false);
-      if (syl && available(s, syl, practice).length > 0) {
+      if (syl && available(s, syl, scope).length > 0) {
         setNeed(syl);
         return;
       }
-      if (unused(s, practice).length === 0) {
+      if (unused(s, scope).length === 0) {
         setNeed("");
         return;
       }
@@ -215,7 +258,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       fetch("/api/longku/bridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: syl, to: targets(s, practice), exclude }),
+        body: JSON.stringify({ from: syl, to: targets(s, scope), exclude }),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
@@ -228,13 +271,13 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           }
           onChange(playBridge(path));
           setLanded(new Set(path.map((b) => b.w)));
-          if (available(getState(), end.ls, practice).length > 0) setNeed(end.ls);
+          if (available(getState(), end.ls, scope).length > 0) setNeed(end.ls);
           else jump();
         })
         .catch(() => req === bridgeReq.current && jump())
         .finally(() => req === bridgeReq.current && setBridging(false));
     },
-    [onChange, jump, practice],
+    [onChange, jump, scope],
   );
 
   /** Pick the pass up from wherever the chain stands. */
@@ -242,18 +285,18 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     const s = getState();
     const last = lastLink(s);
     if (!last) {
-      const start = pickChainStart(s, practice);
+      const start = pickChainStart(s, scope);
       setNeed(start?.fs ?? "");
       return;
     }
     advance(linkEnd(last, s.bank));
-  }, [advance, practice]);
+  }, [advance, scope]);
 
   // Whenever the prompt can't be answered — on first open, after a reset, or
   // because a word under it was removed — work out where the chain goes next.
   useEffect(() => {
     if (bridging || sweepDone || remaining.length === 0) return;
-    if (need && available(state, need, practice).length > 0) return;
+    if (need && available(state, need, scope).length > 0) return;
     resume();
   }, [state, need, bridging, sweepDone, remaining.length, resume]);
 
@@ -297,6 +340,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
   // Help belongs to one prompt; a new syllable starts from none.
   useEffect(() => {
     setHelp(0);
+    setSeen(0);
     setHints(null);
   }, [need]);
 
@@ -309,7 +353,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     }
     if (hints) return;
     let cancelled = false;
-    const words = available(state, need, practice).map((e) => e.w);
+    const words = available(state, need, scope).map((e) => e.w);
     const qs = words.map((w) => `w=${encodeURIComponent(w)}`).join("&");
     fetch(`/api/longku/gloss?${qs}`)
       .then((r) => (r.ok ? r.json() : null))
@@ -347,8 +391,17 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       return;
     }
 
-    // Recalled from its meaning: still yours, but it counts for half.
-    onChange(playWord(word, true, help === 1 ? 0.5 : 1, practice));
+    // Scored by the help this word had. Revealed, it's a word you read, same as
+    // clicking it in the list; from its meaning, a recall at half weight. The
+    // help only covered the words it listed — the due ones — so a word typed
+    // from outside that list is a recall on its own.
+    const listed = available(state, need, scope).some((e) => e.w === word);
+    const helped = listed ? seen : 0;
+    onChange(
+      helped === 2
+        ? playWord(word, false, 1, practice)
+        : playWord(word, true, helped === 1 ? 0.5 : 1, practice),
+    );
     setLanded(new Set([word]));
     setDraft("");
     setMsg(null);
@@ -425,9 +478,30 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
 
   /** Switch between a due pass and practice. Either way the chain starts fresh. */
   function switchMode(toPractice: boolean) {
+    setRetry(null);
     setPractice(toPractice);
     startOver();
   }
+
+  /** Play just these words again, unscored. */
+  function startRetry(words: string[]) {
+    setRetry(words);
+    setPractice(true);
+    startOver();
+  }
+
+  // The words this pass got wrong: played after being revealed, or recalled
+  // only from their meaning. Read off each word's latest outcome in the log,
+  // which for a word on this chain is the one this pass recorded.
+  const missed = useMemo(() => {
+    if (practice) return [];
+    const last = new Map<string, Review["o"]>();
+    for (const r of state.reviews) if (r.o !== "miss") last.set(r.w, r.o);
+    const onChain = new Set(links.filter((l): l is string => typeof l === "string"));
+    return [...onChain].filter(
+      (w) => state.bank[w] && (last.get(w) === "shown" || last.get(w) === "hint"),
+    );
+  }, [practice, state, links]);
 
   if (bankSize === 0) {
     return (
@@ -443,7 +517,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     );
   }
 
-  const offered = need ? available(state, need, practice) : [];
+  const offered = need ? available(state, need, scope) : [];
   const bridges = links.filter((l): l is Bridge => typeof l !== "string");
   const yours = links.length - bridges.length;
 
@@ -544,6 +618,9 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           bank={state.bank}
           dueNow={dueNow}
           practice={practice}
+          retrying={!!retry}
+          missed={missed}
+          onRetry={() => startRetry(missed)}
           armed={armed}
           onBank={(b) => confirmed(b, bank)}
           onRestart={startOver}
@@ -560,9 +637,10 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                   type="button"
                   className="longku-practice-tag"
                   onClick={() => switchMode(false)}
-                  title="Practice — nothing here is scored. Click to end it."
+                  title={`${retry ? "Retrying what you missed" : "Practice"} — nothing here is scored. Click to end it.`}
                 >
-                  practice{dueNow > 0 ? ` · ${dueNow} due` : ""} ✕
+                  {retry ? `retry · ${passSize}` : "practice"}
+                  {dueNow > 0 ? ` · ${dueNow} due` : ""} ✕
                 </button>
               )}
               <label className="longku-play-prompt" htmlFor="longku-chain-input">
@@ -614,11 +692,16 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                     setHelp(0);
                     return;
                   }
+                  // Once the words have been revealed, reopening goes straight
+                  // back to them — the meanings step has nothing left to hide.
+                  const next = help === 0 && seen < 2 ? 1 : 2;
                   // Seeing the words is evidence: every one sitting there was
                   // available under this prompt and none was produced. Seeing
-                  // their meanings isn't — you may still produce one.
-                  if (help === 1 && !practice) onChange(recordMiss(need));
-                  setHelp(help === 0 ? 1 : 2);
+                  // their meanings isn't — you may still produce one. Taken
+                  // once per prompt, however often the list is reopened.
+                  if (next === 2 && seen < 2 && !practice) onChange(recordMiss(need));
+                  setHelp(next);
+                  setSeen((s) => (next > s ? next : s));
                 }}
                 aria-expanded={help > 0}
                 title={
@@ -629,7 +712,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                       : "Hide"
                 }
               >
-                {help === 0 ? "Stuck?" : help === 1 ? "Show words" : "Hide"}
+                {help === 2 ? "Hide" : help === 1 || seen === 2 ? "Show words" : "Stuck?"}
               </button>
             </div>
           </form>
@@ -783,6 +866,9 @@ function PassDone({
   bank,
   dueNow,
   practice,
+  retrying,
+  missed,
+  onRetry,
   armed,
   onBank,
   onRestart,
@@ -795,6 +881,11 @@ function PassDone({
   /** Words due since the pass ended — banked from here, or a day turning over. */
   dueNow: number;
   practice: boolean;
+  /** This practice round was a retry of a pass's mistakes. */
+  retrying: boolean;
+  /** Words the pass just finished got wrong — what a retry would play. */
+  missed: string[];
+  onRetry: () => void;
   /** The suggestion one click from being banked, if any. */
   armed: string | null;
   onBank: (s: Suggestion) => void;
@@ -814,7 +905,8 @@ function PassDone({
     <div className="longku-play-done">
       {practice ? (
         <p className="longku-input-msg is-success">
-          Practice complete — all {yours} word{yours === 1 ? "" : "s"}
+          {retrying ? "Retry" : "Practice"} complete — {retrying ? "" : "all "}
+          {yours} word{yours === 1 ? "" : "s"}
           {bridges.length > 0 &&
             `, joined by ${bridges.length} bridge${bridges.length === 1 ? "" : "s"}`}
           . Nothing was scored.
@@ -861,10 +953,24 @@ function PassDone({
           </div>
         </div>
       )}
+      {!practice && missed.length > 0 && (
+        <p className="longku-hint" style={{ margin: 0 }}>
+          Missed: {missed.join(" · ")}
+        </p>
+      )}
       <div className="longku-dock-inner">
-        {dueNow > 0 ? (
+        {!practice && missed.length > 0 && (
           <button
             className="longku-btn is-primary"
+            onClick={onRetry}
+            title="Play just these again, straight away. Nothing is scored — they're already due again tomorrow."
+          >
+            Retry the {missed.length} you missed
+          </button>
+        )}
+        {dueNow > 0 ? (
+          <button
+            className={`longku-btn ${!practice && missed.length > 0 ? "" : "is-primary"}`}
             onClick={practice ? () => onMode(false) : onRestart}
           >
             Start a new pass · {dueNow} due
@@ -880,7 +986,7 @@ function PassDone({
           </>
         ) : (
           <button
-            className="longku-btn is-primary"
+            className={`longku-btn ${missed.length > 0 ? "" : "is-primary"}`}
             onClick={() => onMode(true)}
             title="Every word in your bank, once each. Nothing is scored or rescheduled."
           >

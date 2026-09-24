@@ -198,9 +198,15 @@ export function stats(state: State): BankStats {
   };
 }
 
+/**
+ * What a pass asks for: `false` for what's due, `true` for the whole bank (a
+ * practice round), or a set of words (a retry of the ones a pass got wrong).
+ */
+export type Scope = boolean | ReadonlySet<string>;
+
 /** Words starting with `syl` that the pass still asks for. */
-export function available(state: State, syl: string, practice = false): BankEntry[] {
-  return unused(state, practice).filter((e) => e.fs === syl);
+export function available(state: State, syl: string, scope: Scope = false): BankEntry[] {
+  return unused(state, scope).filter((e) => e.fs === syl);
 }
 
 /**
@@ -209,14 +215,15 @@ export function available(state: State, syl: string, practice = false): BankEntr
  * A normal pass asks for what's due. Playing a word always reschedules it past
  * today, so the set shrinks by itself and needs no record of what was played.
  *
- * A practice pass asks for the whole bank, once each. Practice schedules
- * nothing, so it's the sweep that says what's been covered.
+ * A practice pass asks for the whole bank, once each, and a retry for just the
+ * words it's given. Neither schedules anything, so it's the sweep that says
+ * what's been covered.
  */
-export function unused(state: State, practice = false): BankEntry[] {
+export function unused(state: State, scope: Scope = false): BankEntry[] {
   const all = Object.values(state.bank);
-  if (practice) {
+  if (scope) {
     const used = new Set(state.sweep);
-    return all.filter((e) => !used.has(e.w));
+    return all.filter((e) => !used.has(e.w) && (scope === true || scope.has(e.w)));
   }
   const now = Date.now();
   return all.filter((e) => isDue(e, now));
@@ -231,8 +238,8 @@ export function unused(state: State, practice = false): BankEntry[] {
  * weakest words come first: a bank of any size has a tail you can't produce,
  * and that tail is the part worth practising.
  */
-export function pickChainStart(state: State, practice = false): BankEntry | null {
-  const remaining = unused(state, practice);
+export function pickChainStart(state: State, scope: Scope = false): BankEntry | null {
+  const remaining = unused(state, scope);
   if (remaining.length === 0) return null;
   const reachable = new Set(remaining.map((e) => e.ls).filter((s): s is string => s !== null));
   const openers = remaining.filter((e) => !reachable.has(e.fs));
