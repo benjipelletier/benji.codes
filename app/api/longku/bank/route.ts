@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 async function saveChains(
   sql: ReturnType<typeof getDb>,
   owner: string,
-  chains: string[][],
+  chains: unknown[][],
 ): Promise<void> {
   await sql`
     insert into longku_sweep (owner_email, chains, updated)
@@ -35,8 +35,14 @@ interface BankRow {
   off_corpus: boolean;
   added: string;
   last_recalled: string | null;
+  due: string | null;
   in_sweep: boolean;
 }
+
+/** How far back the review log is sent. The client keeps about this much. */
+const REVIEW_DAYS = 45;
+
+const OUTCOMES = new Set(["recall", "hint", "shown", "miss"]);
 
 /**
  * The owner's bank, readable by anyone.
@@ -61,7 +67,7 @@ export async function GET() {
   const sql = getDb();
   const rows = (await sql`
     select w, fs, ls, f, recalls, strength, misses, off_corpus,
-           added, last_recalled, last_seen, in_sweep
+           added, last_recalled, last_seen, due, in_sweep
     from longku_bank
     where owner_email = ${owner}
     order by added asc
@@ -69,8 +75,14 @@ export async function GET() {
 
   const sweepRows = (await sql`
     select chains from longku_sweep where owner_email = ${owner}
-  `) as unknown as Array<{ chains: string[][] }>;
+  `) as unknown as Array<{ chains: unknown[][] }>;
   const chains = sweepRows[0]?.chains ?? [];
+
+  const reviewRows = (await sql`
+    select w, at, outcome from longku_review
+    where owner_email = ${owner} and at > now() - make_interval(days => ${REVIEW_DAYS}::int)
+    order by at asc
+  `) as unknown as Array<{ w: string; at: string; outcome: string }>;
 
   return NextResponse.json({
     configured: true,
@@ -87,19 +99,30 @@ export async function GET() {
       added: new Date(r.added).getTime(),
       ...(r.last_seen ? { lastSeen: new Date(r.last_seen).getTime() } : {}),
       ...(r.last_recalled ? { lastRecalled: new Date(r.last_recalled).getTime() } : {}),
+      ...(r.due ? { due: new Date(r.due).getTime() } : {}),
       ...(r.off_corpus ? { offCorpus: true } : {}),
     })),
     sweep: rows.filter((r) => r.in_sweep).map((r) => r.w),
     chains,
+    reviews: reviewRows.map((r) => ({ w: r.w, at: new Date(r.at).getTime(), o: r.outcome })),
   });
 }
 
 type Op =
   | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
-  | { op: "remove"; w: string; chains?: string[][] }
-  | { op: "play"; w: string; recalled: boolean; strength: number; chains: string[][] }
+  | { op: "remove"; w: string; chains?: unknown[][] }
+  | {
+      op: "play";
+      w: string;
+      recalled: boolean;
+      outcome?: string;
+      strength: number;
+      due?: number;
+      chains: unknown[][];
+    }
   | { op: "miss"; words: Array<{ w: string; strength: number }> }
-  | { op: "chains"; chains: string[][] }
+  | { op: "practice"; w: string; chains: unknown[][] }
+  | { op: "chains"; chains: unknown[][] }
   | { op: "resetSweep" }
   | { op: "hydrate"; readings: Array<{ w: string; fs?: string; ls?: string | null; f?: number }> };
 
@@ -169,6 +192,7 @@ export async function POST(req: NextRequest) {
 
     case "play": {
       if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
+      const due = typeof body.due === "number" ? new Date(body.due).toISOString() : null;
       // A prompted play advances the sweep but leaves the recall count alone —
       // it records that the word came up, not that it was produced.
       if (body.recalled) {
@@ -178,16 +202,36 @@ export async function POST(req: NextRequest) {
               last_recalled = now(),
               last_seen = now(),
               strength = ${body.strength ?? 0},
+              due = coalesce(${due}::timestamptz, due),
               in_sweep = true
           where owner_email = ${owner} and w = ${body.w}
         `;
       } else {
         // Shown rather than produced: the miss was taken when the list opened.
         await sql`
-          update longku_bank set in_sweep = true, last_seen = now()
+          update longku_bank
+          set in_sweep = true, last_seen = now(), due = coalesce(${due}::timestamptz, due)
           where owner_email = ${owner} and w = ${body.w}
         `;
       }
+      const outcome = OUTCOMES.has(body.outcome ?? "")
+        ? body.outcome!
+        : body.recalled
+          ? "recall"
+          : "shown";
+      await sql`
+        insert into longku_review (owner_email, w, outcome) values (${owner}, ${body.w}, ${outcome})
+      `;
+      await saveChains(sql, owner, body.chains ?? []);
+      return NextResponse.json({ ok: true });
+    }
+
+    case "practice": {
+      // Unscored: marks the word covered for the practice pass, nothing more.
+      if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
+      await sql`
+        update longku_bank set in_sweep = true where owner_email = ${owner} and w = ${body.w}
+      `;
       await saveChains(sql, owner, body.chains ?? []);
       return NextResponse.json({ ok: true });
     }
@@ -202,6 +246,9 @@ export async function POST(req: NextRequest) {
           update longku_bank
           set misses = misses + 1, last_seen = now(), strength = ${m.strength ?? 0}
           where owner_email = ${owner} and w = ${m.w}
+        `;
+        await sql`
+          insert into longku_review (owner_email, w, outcome) values (${owner}, ${m.w}, 'miss')
         `;
       }
       return NextResponse.json({ ok: true });

@@ -15,6 +15,8 @@
 // changes simply don't outlive the tab. That's deliberate — the app is worth
 // looking at, and a read-only wall you can't play with isn't.
 
+import { daysAfter, intervalDays, isDue } from "./srs";
+
 const STORAGE_KEY = "longku:v2";
 /** Earlier keys, newest first. Read once each, then folded in. */
 const LEGACY_KEYS = ["longku:v1", "lianlong:v1"];
@@ -43,28 +45,75 @@ export interface BankEntry {
   lastSeen?: number;
   added: number;
   lastRecalled?: number;
+  /**
+   * When the word is next due, at a local midnight. Absent on words not played
+   * since the schedule arrived — see srs.dueAt for how those are placed.
+   */
+  due?: number;
   offCorpus?: boolean;
+}
+
+/**
+ * One outcome in play, for the daily history.
+ *
+ *   recall — produced from the syllable alone
+ *   hint   — produced after seeing its meaning
+ *   shown  — played after the word itself was revealed
+ *   miss   — sat under a prompt whose words were revealed, and wasn't played
+ */
+export interface Review {
+  w: string;
+  at: number;
+  o: "recall" | "hint" | "shown" | "miss";
+}
+
+/** How much history the client keeps. The heatmap looks back a week. */
+const REVIEW_DAYS = 45;
+
+/**
+ * A corpus word the app played to carry the chain somewhere the bank can
+ * answer. Stored whole, not by reference: it isn't in the bank, so there is
+ * nothing to look it up in after a reload.
+ */
+export interface Bridge {
+  bridge: true;
+  w: string;
+  p: string;
+  fs: string;
+  ls: string;
+  f?: number;
+  /** English gloss. */
+  e?: string;
+}
+
+/** One link in the chain: a bank word you played, or a bridge. */
+export type Link = string | Bridge;
+
+export function linkWord(l: Link): string {
+  return typeof l === "string" ? l : l.w;
 }
 
 export interface State {
   bank: Record<string, BankEntry>;
-  /** Words already used in the current sweep through the bank. */
+  /** Bank words already played in the current pass. */
   sweep: string[];
   /**
-   * The sweep's chains, oldest first, each an ordered list of words. The last
-   * entry is the chain in progress.
+   * The pass's chain, as segments, oldest first. A pass is one chain; a new
+   * segment starts only where no bridge could carry it on — after a word with
+   * no known ending, or when asked to start from a chosen syllable.
    *
    * Stored rather than derived: `sweep` records which words were used but not
-   * how they grouped, and the grouping is the part worth looking at. Keeping it
-   * here also means the log survives a reload, which it didn't when it lived in
-   * component state beside a sweep counter that did persist.
+   * the order, the bridges between them, or where the chain broke — the parts
+   * worth looking at.
    */
-  chains: string[][];
+  chains: Link[][];
+  /** Recent outcomes, oldest first. */
+  reviews: Review[];
 }
 
 export type Mode = "server" | "spectator" | "local";
 
-const EMPTY: State = { bank: {}, sweep: [], chains: [] };
+const EMPTY: State = { bank: {}, sweep: [], chains: [], reviews: [] };
 
 let _state: State = { ...EMPTY };
 let _mode: Mode = "local";
@@ -121,7 +170,7 @@ function migrateV1(raw: unknown): State | null {
       if (!bank[w]) bank[w] = { w, fs, ls: null, recalls: 0, strength: 0, misses: 0, added };
     }
   }
-  return Object.keys(bank).length > 0 ? { bank, sweep: [], chains: [] } : null;
+  return Object.keys(bank).length > 0 ? { bank, sweep: [], chains: [], reviews: [] } : null;
 }
 
 function readKey(key: string): unknown {
@@ -141,6 +190,7 @@ function loadLocal(): State {
       bank: current.bank ?? {},
       sweep: current.sweep ?? [],
       chains: current.chains ?? [],
+      reviews: current.reviews ?? [],
     };
   }
   // Adopt the newest legacy state we can find. Legacy keys are left in place
@@ -206,7 +256,12 @@ export async function bootstrap(): Promise<Bootstrap> {
         _mode = d.isOwner ? "server" : "spectator";
         const bank: Record<string, BankEntry> = {};
         for (const e of d.bank ?? []) bank[e.w] = e as BankEntry;
-        _state = { bank, sweep: d.sweep ?? [], chains: d.chains ?? [] };
+        _state = {
+          bank,
+          sweep: d.sweep ?? [],
+          chains: d.chains ?? [],
+          reviews: d.reviews ?? [],
+        };
         return { state: _state, mode: _mode, email: d.email ?? null };
       }
     }
@@ -273,12 +328,19 @@ export interface ImportSummary {
   buckets: string[];
 }
 
+function trimReviews(list: Review[]): Review[] {
+  const cutoff = Date.now() - REVIEW_DAYS * 86_400_000;
+  const i = list.findIndex((r) => r.at >= cutoff);
+  return i <= 0 ? [...list] : list.slice(i);
+}
+
 /** Snapshot so React sees a new object and re-renders. */
 function commit(): State {
   _state = {
     bank: { ..._state.bank },
     sweep: [..._state.sweep],
     chains: _state.chains.map((c) => [...c]),
+    reviews: trimReviews(_state.reviews),
   };
   saveLocal();
   return _state;
@@ -362,21 +424,49 @@ export function hydrate(
  * sweep and join the chain, but they don't increment the recall count, because
  * that number is the whole progress model and "times I was shown it" is not
  * the same claim as "times I produced it".
+ *
+ * `practice` plays without recording anything about the word — see below.
+ *
+ * `weight` scales how far a recall moves strength, for recalls that had help
+ * short of being shown the word — producing it from its meaning is real
+ * retrieval, but an easier one than producing it from the syllable alone.
  */
-export function playWord(word: string, recalled: boolean): State {
+export function playWord(
+  word: string,
+  recalled: boolean,
+  weight = 1,
+  practice = false,
+): State {
   const e = _state.bank[word];
   if (!e) return _state;
+  if (practice) {
+    // Practice extends the chain and nothing else: no strength, no schedule,
+    // no history. It's for playing when nothing is due, and counting it would
+    // let a free round pay down tomorrow's reviews.
+    if (!_state.sweep.includes(word)) _state.sweep.push(word);
+    if (_state.chains.length === 0) _state.chains.push([]);
+    _state.chains[_state.chains.length - 1].push(word);
+    push({ op: "practice", w: word, chains: _state.chains });
+    return commit();
+  }
   const now = Date.now();
   e.lastSeen = now;
+  let o: Review["o"] = "shown";
   if (recalled) {
     // Weighed before lastRecalled moves, or the gap would always read as zero.
-    const weight = spacing(e.lastRecalled);
+    const w = spacing(e.lastRecalled) * weight;
     e.recalls += 1;
     e.lastRecalled = now;
-    e.strength = e.strength + LEARNING_RATE * weight * (1 - e.strength);
+    e.strength = e.strength + LEARNING_RATE * w * (1 - e.strength);
+    e.due = daysAfter(now, intervalDays(e.strength));
+    o = weight < 1 ? "hint" : "recall";
+  } else {
+    // A prompted play moves no strength: the miss was already taken when the
+    // list was revealed, and crediting the click would cancel it out. It does
+    // reschedule — tomorrow, since today it was read rather than recalled.
+    e.due = daysAfter(now, 1);
   }
-  // A prompted play records nothing: the miss was already taken when the list
-  // was revealed, and crediting the click would cancel it out.
+  _state.reviews.push({ w: word, at: now, o });
   if (!_state.sweep.includes(word)) _state.sweep.push(word);
   if (_state.chains.length === 0) _state.chains.push([]);
   _state.chains[_state.chains.length - 1].push(word);
@@ -384,7 +474,9 @@ export function playWord(word: string, recalled: boolean): State {
     op: "play",
     w: word,
     recalled,
+    outcome: o,
     strength: e.strength,
+    due: e.due,
     chains: _state.chains,
   });
   return commit();
@@ -403,13 +495,17 @@ export function recordMiss(syl: string): State {
   const now = Date.now();
   const hit: string[] = [];
   for (const e of Object.values(_state.bank)) {
-    if (e.fs !== syl || used.has(e.w)) continue;
+    // Only the words the reveal listed: due, and not yet played this pass.
+    if (e.fs !== syl || used.has(e.w) || !isDue(e, now)) continue;
     e.misses += 1;
     // Damped the same way: pressing Stuck? twice on one syllable in a minute
     // is the same gap in knowledge, not two of them.
     e.strength = e.strength * (1 - LEARNING_RATE * spacing(e.lastSeen));
     e.lastSeen = now;
     hit.push(e.w);
+    // Not rescheduled: a word you failed to produce is still due, and stays
+    // in the pass until it's played.
+    _state.reviews.push({ w: e.w, at: now, o: "miss" });
   }
   if (hit.length === 0) return _state;
   push({
@@ -419,7 +515,20 @@ export function recordMiss(syl: string): State {
   return commit();
 }
 
-/** Open a fresh chain. A chain left empty is reused rather than stacked. */
+/**
+ * Play a bridge onto the chain. Bridges are read, not recalled, so no bank
+ * entry moves — they only extend the chain.
+ */
+export function playBridge(path: Omit<Bridge, "bridge">[]): State {
+  if (path.length === 0) return _state;
+  if (_state.chains.length === 0) _state.chains.push([]);
+  const seg = _state.chains[_state.chains.length - 1];
+  for (const b of path) seg.push({ ...b, bridge: true });
+  push({ op: "chains", chains: _state.chains });
+  return commit();
+}
+
+/** Open a new segment. One left empty is reused rather than stacked. */
 export function startChain(): State {
   const last = _state.chains[_state.chains.length - 1];
   if (!last || last.length > 0) _state.chains.push([]);
@@ -430,7 +539,7 @@ export function startChain(): State {
 export function removeWord(word: string): State {
   delete _state.bank[word];
   _state.sweep = _state.sweep.filter((w) => w !== word);
-  _state.chains = _state.chains.map((c) => c.filter((w) => w !== word));
+  _state.chains = _state.chains.map((c) => c.filter((l) => l !== word));
   push({ op: "remove", w: word, chains: _state.chains });
   return commit();
 }
