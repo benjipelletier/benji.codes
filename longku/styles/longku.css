@@ -55,7 +55,6 @@
   --lg-shadow-sm: 0 1px 2px rgba(31, 34, 48, 0.07);
 
   --lg-rail-h: 60px;
-  --lg-dock-h: 92px;
 }
 
 /* Dark ground. Only tokens change below this line. */
@@ -155,7 +154,9 @@
 .longku-canvas {
   flex: 1;
   min-height: 0;
-  padding: 22px 20px calc(var(--lg-dock-h) + 28px);
+  /* The dock is sticky, so it already holds its own place in the flow —
+     reserving its height here too left a dead band above it at the bottom. */
+  padding: 22px 20px 28px;
 }
 
 /* ----------------------------------------------------------------- rail -- */
@@ -350,6 +351,10 @@
 
 .longku-cell:hover,
 .longku-cell:focus-visible {
+  /* The lift makes a stacking context. Above plain cells, so its own badge
+     isn't painted under the next one — but below every badge (2), so it
+     doesn't cover the one hanging in from its left. */
+  z-index: 1;
   transform: translateY(-1px);
   box-shadow: var(--lg-shadow-sm);
   outline: none;
@@ -387,7 +392,8 @@
 
 .longku-cell-play {
   position: absolute;
-  top: 3px;
+  /* Bottom corner: the top one belongs to the arrivals badge. */
+  bottom: 4px;
   right: 4px;
   font: inherit;
   font-size: 9px;
@@ -1075,7 +1081,7 @@
   .longku-rail { gap: 10px 14px; padding: 9px 14px; }
   .longku-figures { gap: 12px; order: 3; width: 100%; margin-left: 0; }
   .longku-add { order: 2; flex: 1 1 100%; }
-  .longku-canvas { padding: 16px 12px calc(var(--lg-dock-h) + 40px); }
+  .longku-canvas { padding: 16px 12px 20px; }
   .longku-row-letter { position: static; }
   .longku-cell { min-width: 56px; }
   .longku-dock { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
@@ -1613,7 +1619,7 @@
 
 .longku-words-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1.6fr) minmax(140px, 1.1fr) 62px 62px 74px 108px 28px;
+  grid-template-columns: minmax(150px, 1.6fr) 92px minmax(140px, 1.1fr) 62px 62px 74px 108px 28px;
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
@@ -1692,11 +1698,13 @@
 .longku-words-td.col-drop { text-align: right; }
 
 @media (max-width: 860px) {
-  .longku-words-row { grid-template-columns: minmax(110px, 1.4fr) 1fr 44px 96px 24px; }
+  .longku-words-row { grid-template-columns: minmax(110px, 1.4fr) 70px 1fr 96px 24px; }
   .longku-words-th.col-misses,
   .longku-words-th.col-added,
+  .longku-words-th.col-recalls,
   .longku-words-td.col-misses,
-  .longku-words-td.col-added { display: none; }
+  .longku-words-td.col-added,
+  .longku-words-td.col-recalls { display: none; }
 }
 
 /* ------------------------------------------------ one chain, with bridges -- */
@@ -1730,4 +1738,338 @@
 
 @media (max-width: 720px) {
   .longku-chain-word.is-past { font-size: 17px; }
+}
+
+/* The first step of Stuck?: what your words mean, not what they are. */
+.longku-hint-list {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+  color: var(--lg-ink);
+}
+.longku-hint-list li::marker { color: var(--lg-ink-faint); font-size: 11px; }
+
+/* ------------------------------------------ play: status line over input -- */
+
+/* Two rows: what's asked and how far along on top, the answer box below with
+   the full width to itself. Restart and collapse sit at the end of the status
+   line, well away from the buttons you actually press mid-game. */
+.longku-play {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.longku-play-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.longku-play-head .longku-play-prompt { flex: none; }
+
+.longku-play-head .longku-sweep {
+  margin-left: auto;
+  flex: 0 1 200px;
+  min-width: 70px;
+}
+
+.longku-play-head .longku-dock-controls { gap: 2px; }
+
+/* Quiet until wanted: no ring, faint glyph, a fraction smaller. */
+.longku-play-head .longku-icon-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  border-color: transparent;
+  color: var(--lg-ink-faint);
+}
+.longku-play-head .longku-icon-btn:hover {
+  color: var(--lg-accent);
+  border-color: var(--lg-rule-strong);
+}
+
+.longku-play .longku-play-input-row { min-width: 0; flex: none; }
+.longku-play .longku-play-input-row .longku-input { min-width: 0; }
+.longku-play .longku-play-input-row .longku-btn { flex: none; }
+
+/* The log scrolls inside the dock; reaching its end shouldn't start scrolling
+   the page behind it. */
+.longku-chain-log { overscroll-behavior: contain; }
+
+@media (max-width: 720px) {
+  .longku-play-head { gap: 8px; }
+  .longku-play-head .longku-sweep { min-width: 36px; }
+  .longku-chain-bridge { font-size: 15px; padding: 2px 6px; gap: 4px; }
+  .longku-play-head .longku-dock-confirm { display: none; }
+  .longku-play .longku-play-input-row { gap: 6px; }
+  .longku-play .longku-play-input-row .longku-input { font-size: 19px; padding: 7px 10px; }
+  .longku-play .longku-play-input-row .longku-btn { padding-left: 11px; padding-right: 11px; }
+
+  /* The rail: tabs take their own full row, and the way home moves up beside
+     the title instead of pushing the page wider than the screen. */
+  .longku-rail { position: relative; }
+  .longku-rail-right { width: 100%; margin-left: 0; min-width: 0; }
+  .longku-switch { flex: 1; min-width: 0; }
+  .longku-switch button { flex: 1; min-width: 0; padding-left: 4px; padding-right: 4px; }
+  .longku-home { position: absolute; top: 16px; right: 14px; }
+}
+
+/* ------------------------------------------------------------ due / srs -- */
+
+.longku-words-td.col-due { color: var(--lg-ink-faint); white-space: nowrap; }
+.longku-words-td.col-due.is-due { color: var(--lg-accent); }
+
+.longku-words-due-toggle {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 11px;
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--lg-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.longku-words-due-toggle b { font-weight: normal; color: var(--lg-accent); }
+.longku-words-due-toggle:hover { border-color: var(--lg-accent); }
+.longku-words-due-toggle.is-on {
+  border-color: var(--lg-accent);
+  background: var(--lg-accent-soft);
+  color: var(--lg-ink);
+}
+
+/* Two weeks around today: history to the left, forecast to the right. */
+.longku-heat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 18px;
+  max-width: 560px;
+}
+
+.longku-heat-row {
+  display: grid;
+  grid-template-columns: 64px repeat(14, minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
+}
+
+.longku-heat-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+  cursor: default;
+}
+
+.longku-heat-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  padding-bottom: 2px;
+}
+.longku-heat-wd { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lg-ink-faint); }
+.longku-heat-dn { font-size: 11px; color: var(--lg-ink-soft); }
+.longku-heat-day.is-today .longku-heat-wd,
+.longku-heat-day.is-today .longku-heat-dn { color: var(--lg-accent); }
+
+.longku-heat-cell {
+  --hue: var(--lg-accent);
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  border-radius: 3px;
+  background: var(--lg-sunken);
+  color: var(--lg-ink);
+}
+.longku-heat-cell[style] {
+  background: color-mix(in srgb, var(--hue) calc(var(--heat) * 100%), var(--lg-sunken));
+  color: var(--lg-ink);
+}
+.longku-heat-cell.is-hot { color: var(--lg-on-accent); }
+.longku-heat-cell.is-na { background: none; border: 1px dashed var(--lg-rule); opacity: 0.45; }
+.longku-heat-cell.is-today { outline: 1px solid var(--lg-accent); outline-offset: 1px; }
+
+.longku-heat-row.is-added .longku-heat-cell { --hue: var(--lg-tier-core); }
+.longku-heat-row.is-recalled .longku-heat-cell { --hue: var(--lg-success); }
+
+@media (max-width: 720px) {
+  .longku-heat { max-width: none; }
+  .longku-heat-row { grid-template-columns: 46px repeat(14, minmax(0, 1fr)); gap: 2px; }
+  .longku-heat-label { font-size: 8px; letter-spacing: 0.06em; }
+  .longku-heat-cell { font-size: 8px; border-radius: 2px; }
+  .longku-heat-wd { font-size: 7px; }
+  .longku-heat-dn { font-size: 9px; }
+}
+
+/* Phones: word, when it's due, and how well it's known. Links and tier are
+   the desktop's detail — there isn't the width for them beside the word. */
+@media (max-width: 720px) {
+  .longku-words-row { grid-template-columns: minmax(0, 1fr) 76px 86px 22px; gap: 8px; }
+  .longku-words-th.col-links,
+  .longku-words-td.col-links,
+  .longku-words-td.col-word .longku-pill { display: none; }
+  .longku-words-w { font-size: 17px; overflow: hidden; text-overflow: ellipsis; }
+  .longku-words-td.col-strength .longku-strength { width: 44px; }
+}
+
+/* Unscored play: says so, and is the way out. */
+.longku-practice-tag {
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px dashed var(--lg-tier-core);
+  border-radius: 999px;
+  background: none;
+  color: var(--lg-tier-core);
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+.longku-practice-tag:hover { border-style: solid; }
+
+/* ------------------------------------------- incoming: words ending here -- */
+
+/* Yours that end on this syllable — chains that arrive — as a notification
+   badge. Neutral when there's a way on, amber when more of yours arrive than
+   start here: chains stop. */
+.longku-cell-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  background: var(--lg-ink-soft);
+  color: var(--lg-bg);
+  box-shadow: 0 0 0 2px var(--lg-bg);
+  pointer-events: none;
+  /* It hangs over the next cell, which is positioned too and comes later in
+     the row — without this, that cell paints over it. */
+  z-index: 2;
+}
+.longku-cell.is-stuck .longku-cell-badge { background: var(--lg-warn); color: var(--lg-on-accent); }
+
+.longku-wall-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.longku-suggest {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.longku-suggest-label,
+.longku-suggest-why {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+}
+.longku-suggest-why { text-transform: none; letter-spacing: 0; font-size: 11px; }
+
+.longku-suggest-chip {
+  font: inherit;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px dashed var(--lg-rule-strong);
+  border-radius: 4px;
+  background: none;
+  color: var(--lg-ink);
+  cursor: pointer;
+}
+.longku-suggest-chip:hover { border-style: solid; border-color: var(--lg-accent); }
+.longku-suggest-chip.is-top { border-color: var(--lg-warn); }
+.longku-suggest-syl { font-size: 16px; font-style: italic; }
+.longku-suggest-chip.is-top .longku-suggest-syl { color: var(--lg-warn); }
+.longku-suggest-flow { font-size: 11px; color: var(--lg-ink-faint); }
+
+.longku-arrive-note {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--lg-warn);
+  font-size: 12px;
+}
+.longku-arrive-words { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.longku-arrive-word { font-size: 18px; color: var(--lg-ink-soft); }
+
+@media (max-width: 720px) {
+  .longku-suggest-why { flex-basis: 100%; }
+}
+
+/* ------------------------------------ syllable view: the corpus's top five -- */
+.longku-top-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.longku-top-item {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr auto;
+  grid-template-areas:
+    "word tier pinyin leads add"
+    "gloss gloss gloss gloss add";
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 7px 9px;
+  border-radius: 4px;
+}
+.longku-top-item:nth-child(odd) { background: var(--lg-sunken); }
+
+.longku-top-word { grid-area: word; font-size: 20px; color: var(--lg-ink); }
+.longku-top-item .longku-pill { grid-area: tier; align-self: center; }
+.longku-top-pinyin { grid-area: pinyin; font-size: 12px; font-style: italic; color: var(--lg-ink-soft); }
+.longku-top-leads { grid-area: leads; justify-self: end; font-size: 11px; color: var(--lg-ink-faint); white-space: nowrap; }
+.longku-top-leads.is-on { color: var(--lg-success); }
+.longku-top-gloss { grid-area: gloss; font-size: 12px; color: var(--lg-ink-faint); }
+
+.longku-top-add {
+  grid-area: add;
+  align-self: center;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border: 1px dashed var(--lg-rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--lg-ink-soft);
+  cursor: pointer;
+}
+.longku-top-add:hover { border-style: solid; border-color: var(--lg-accent); color: var(--lg-accent); }
+
+@media (max-width: 720px) {
+  .longku-top-item {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "word tier add"
+      "pinyin leads add"
+      "gloss gloss gloss";
+  }
+  .longku-top-item .longku-pill { justify-self: start; }
 }

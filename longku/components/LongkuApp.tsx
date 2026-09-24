@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bootstrap, hydrate, type Mode, type State } from "@longku/lib/store";
-import { stats as bankStats } from "@longku/lib/chains";
+import { stats as bankStats, unused } from "@longku/lib/chains";
 import {
   coverageByTier,
   tierCounts,
@@ -32,7 +32,12 @@ interface Props {
 }
 
 export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props) {
-  const [state, setState] = useState<State>({ bank: {}, sweep: [], chains: [] });
+  const [state, setState] = useState<State>({
+    bank: {},
+    sweep: [],
+    chains: [],
+    reviews: [],
+  });
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<Mode>("local");
   const [email, setEmail] = useState<string | null>(null);
@@ -133,6 +138,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   }, [hydrated, mode]);
 
   const bankArr = useMemo(() => Object.values(state.bank), [state]);
+  const dueCount = useMemo(() => unused(state).length, [state]);
   const s = useMemo(() => bankStats(state), [state]);
   const cov = useMemo(() => usageCoverage(bankArr, corpusMass), [bankArr, corpusMass]);
   const byTier = useMemo(
@@ -216,7 +222,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           >
             <span className="longku-dock-label">接龙</span>
             <span className="longku-dock-reopen-sub">
-              {s.total > 0 ? `${state.sweep.length} / ${s.total} worked through` : "play"}
+              {s.total > 0 ? `${dueCount} due` : "play"}
             </span>
             <span aria-hidden>⌃</span>
           </button>
@@ -235,6 +241,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
       {activeSyl && (
         <DrillModal
           syllable={activeSyl}
+          corpus={syllables.find((x) => x.syl === activeSyl)}
           state={state}
           onClose={() => setActiveSyl(null)}
           onChange={setState}

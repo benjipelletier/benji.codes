@@ -2,10 +2,13 @@
 
 import React, { useMemo } from "react";
 import type { State } from "@longku/lib/store";
+import { suggestSyllables } from "@longku/lib/chains";
 
 export interface SyllableSummary {
   syl: string;
   count: number;
+  /** Corpus chengyus ending on this syllable — every way a chain can arrive. */
+  ending: number;
   /** Number of chengyus in this bucket with corpus frequency >= COMMON_FREQ_THRESHOLD. */
   common: number;
   top: string;
@@ -31,6 +34,22 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
     return m;
   }, [state]);
 
+  // The same, by ending syllable: your words that arrive at each one.
+  const ending = useMemo(() => {
+    const m = new Map<string, { total: number; recalled: number }>();
+    for (const e of Object.values(state.bank)) {
+      if (!e.ls) continue;
+      const cur = m.get(e.ls) ?? { total: 0, recalled: 0 };
+      cur.total += 1;
+      if (e.recalls > 0) cur.recalled += 1;
+      m.set(e.ls, cur);
+    }
+    return m;
+  }, [state]);
+
+  const bank = useMemo(() => Object.values(state.bank), [state]);
+  const suggested = useMemo(() => suggestSyllables(bank, syllables), [bank, syllables]);
+
   const grouped = useMemo(() => {
     const byInitial = new Map<string, SyllableSummary[]>();
     for (const s of syllables) {
@@ -45,7 +64,32 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
   }, [syllables]);
 
   return (
-    <div className="longku-grid" role="grid" aria-label="Bank by starting syllable">
+    <>
+    {suggested.length > 0 && (
+      <div className="longku-wall-head">
+        <div className="longku-suggest" aria-label="Syllables worth learning a word for">
+          <span className="longku-suggest-label">learn a word starting with</span>
+          {suggested.map((g, i) => (
+            <button
+              key={g.syl}
+              type="button"
+              className={`longku-suggest-chip ${i === 0 ? "is-top" : ""}`}
+              onClick={() => onPick(g.syl)}
+              title={`${g.in} of your words end on ${g.syl}, ${g.out} start with it — ${g.in - g.out} chain${g.in - g.out === 1 ? "" : "s"} stop here. ${g.common} common word${g.common === 1 ? "" : "s"} start with ${g.syl}.`}
+            >
+              <span className="longku-suggest-syl">{g.syl}</span>
+              <span className="longku-suggest-flow">
+                {g.in} in · {g.out} out
+              </span>
+            </button>
+          ))}
+          <span className="longku-suggest-why">
+            more of your words end on these than start with them
+          </span>
+        </div>
+      </div>
+    )}
+    <div className="longku-grid" role="grid" aria-label="Bank by syllable">
       {grouped.map(({ letter, rows }) => (
         <div className="longku-row" key={letter} role="row">
           <div className="longku-row-letter" aria-hidden>{letter}</div>
@@ -53,6 +97,8 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
             {rows.map((s) => {
               const held = mine.get(s.syl);
               const have = held?.total ?? 0;
+              // Yours that end here: the chains that arrive.
+              const arrive = ending.get(s.syl)?.total ?? 0;
               // Background tracks the share of this bucket you hold. Real
               // shares are tiny (a few words against a bucket of hundreds), so
               // a linear ramp would leave nearly every cell blank; the square
@@ -60,18 +106,21 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
               // visibly different from an empty one.
               const share = s.count > 0 ? Math.min(1, have / s.count) : 0;
               const fill = share > 0 ? Math.sqrt(share) : 0;
-              const status = have === 0 ? "empty" : (held!.recalled > 0 ? "active" : "fresh");
+              const status = have === 0 ? "empty" : held!.recalled > 0 ? "active" : "fresh";
               // Past roughly half fill the ground is too dark for ink type, so
               // the label flips to the light-on-accent pair instead.
               const deep = fill >= 0.55;
+              // More of yours arrive than can leave: chains stop here.
+              const stuck = arrive > have;
               const title =
-                have === 0
-                  ? `${s.syl} — none of yours yet · ${s.count} in the corpus · top: ${s.top}`
-                  : `${s.syl} — ${have} of yours (${held!.recalled} recalled) · ${s.count} in the corpus`;
+                `${s.syl} — starts: ${have} of yours / ${s.count} in the corpus` +
+                ` · ends: ${arrive} of yours / ${s.ending} in the corpus` +
+                (stuck ? ` · ${arrive - have} more of yours arrive than can leave` : "") +
+                (have === 0 && s.top ? ` · top: ${s.top}` : "");
               return (
                 <div
                   key={s.syl}
-                  className={`longku-cell status-${status}${deep ? " is-deep" : ""}`}
+                  className={`longku-cell status-${status}${deep ? " is-deep" : ""}${stuck ? " is-stuck" : ""}`}
                   style={{ "--lg-cell-share": fill.toFixed(3) } as React.CSSProperties}
                   onClick={() => onPick(s.syl)}
                   onKeyDown={(e) => {
@@ -80,10 +129,10 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
                       onPick(s.syl);
                     }
                   }}
-                  title={`${title} · ${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`}
+                  title={title}
                   role="gridcell"
                   tabIndex={0}
-                  aria-label={`${s.syl}, ${have} of yours out of ${s.count} in the corpus`}
+                  aria-label={`${s.syl}: ${have} of yours start with it out of ${s.count}; ${arrive} of yours end on it out of ${s.ending}${stuck ? "; chains stop here" : ""}`}
                 >
                   <span className="longku-cell-syl">{s.syl}</span>
                   <span className="longku-cell-count">
@@ -91,6 +140,13 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
                     <span className="longku-cell-slash">/</span>
                     <span className="longku-cell-all">{s.count}</span>
                   </span>
+                  {/* Yours that end here, as a badge on the corner: chains
+                      arriving. Amber when more arrive than can leave. */}
+                  {arrive > 0 && (
+                    <span className="longku-cell-badge" aria-hidden>
+                      {arrive}
+                    </span>
+                  )}
                   {have > 0 && (
                     <button
                       type="button"
@@ -112,5 +168,6 @@ export function SyllableGrid({ syllables, state, onPick, onStartChain }: Props) 
         </div>
       ))}
     </div>
+    </>
   );
 }

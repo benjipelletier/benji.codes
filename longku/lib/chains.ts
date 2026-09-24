@@ -14,6 +14,7 @@
 // by exactly one, merging two chains into a longer one.
 
 import type { BankEntry, State } from "./store";
+import { isDue } from "./srs";
 
 export interface BankStats {
   /** Words in the bank. */
@@ -197,16 +198,28 @@ export function stats(state: State): BankStats {
   };
 }
 
-/** Words in the bank starting with `syl` that this sweep hasn't used yet. */
-export function available(state: State, syl: string): BankEntry[] {
-  const used = new Set(state.sweep);
-  return Object.values(state.bank).filter((e) => e.fs === syl && !used.has(e.w));
+/** Words starting with `syl` that the pass still asks for. */
+export function available(state: State, syl: string, practice = false): BankEntry[] {
+  return unused(state, practice).filter((e) => e.fs === syl);
 }
 
-/** Every word this sweep hasn't used yet. */
-export function unused(state: State): BankEntry[] {
-  const used = new Set(state.sweep);
-  return Object.values(state.bank).filter((e) => !used.has(e.w));
+/**
+ * Every word the pass still asks for.
+ *
+ * A normal pass asks for what's due. Playing a word always reschedules it past
+ * today, so the set shrinks by itself and needs no record of what was played.
+ *
+ * A practice pass asks for the whole bank, once each. Practice schedules
+ * nothing, so it's the sweep that says what's been covered.
+ */
+export function unused(state: State, practice = false): BankEntry[] {
+  const all = Object.values(state.bank);
+  if (practice) {
+    const used = new Set(state.sweep);
+    return all.filter((e) => !used.has(e.w));
+  }
+  const now = Date.now();
+  return all.filter((e) => isDue(e, now));
 }
 
 /**
@@ -218,8 +231,8 @@ export function unused(state: State): BankEntry[] {
  * weakest words come first: a bank of any size has a tail you can't produce,
  * and that tail is the part worth practising.
  */
-export function pickChainStart(state: State): BankEntry | null {
-  const remaining = unused(state);
+export function pickChainStart(state: State, practice = false): BankEntry | null {
+  const remaining = unused(state, practice);
   if (remaining.length === 0) return null;
   const reachable = new Set(remaining.map((e) => e.ls).filter((s): s is string => s !== null));
   const openers = remaining.filter((e) => !reachable.has(e.fs));
@@ -239,4 +252,61 @@ export function weakestOf(pool: BankEntry[]): BankEntry | null {
   const sorted = [...pool].sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0));
   const window = Math.max(1, Math.ceil(sorted.length * 0.25));
   return sorted[Math.floor(Math.random() * window)];
+}
+
+/** How a syllable sits in the bank: words that end on it, and words that start with it. */
+export interface Flow {
+  /** Bank words ending on the syllable — chains that arrive here. */
+  in: number;
+  /** Bank words starting with it — ways a chain can leave. */
+  out: number;
+}
+
+/** In- and out-counts for every syllable the bank touches. */
+export function syllableFlow(bank: BankEntry[]): Map<string, Flow> {
+  const m = new Map<string, Flow>();
+  const at = (syl: string) => {
+    let f = m.get(syl);
+    if (!f) m.set(syl, (f = { in: 0, out: 0 }));
+    return f;
+  };
+  for (const e of bank) {
+    at(e.fs).out += 1;
+    if (e.ls) at(e.ls).in += 1;
+  }
+  return m;
+}
+
+export interface SyllableSuggestion extends Flow {
+  syl: string;
+  /** Common corpus words starting with it — how easy it is to fill. */
+  common: number;
+}
+
+/**
+ * Syllables where learning one word would carry the most chains on.
+ *
+ * A syllable more of your words end on than start with is where chains stop:
+ * every arrival past the last way out is a chain that dies there (or, in the
+ * game, a bridge). So the ranking is that shortfall, in − out, then the number
+ * of arrivals, then how many common words there are to choose from — a gap you
+ * can fill with an everyday idiom beats one that needs a rare one.
+ */
+export function suggestSyllables(
+  bank: BankEntry[],
+  corpus: Array<{ syl: string; count: number; common: number }>,
+  limit = 3,
+): SyllableSuggestion[] {
+  const flow = syllableFlow(bank);
+  const bySyl = new Map(corpus.map((c) => [c.syl, c]));
+  const out: SyllableSuggestion[] = [];
+  for (const [syl, f] of flow) {
+    const c = bySyl.get(syl);
+    // Nothing to learn if the corpus has no word starting there you don't know.
+    if (f.in <= f.out || !c || c.count <= f.out) continue;
+    out.push({ syl, ...f, common: c.common });
+  }
+  return out
+    .sort((a, b) => b.in - b.out - (a.in - a.out) || b.in - a.in || b.common - a.common)
+    .slice(0, limit);
 }

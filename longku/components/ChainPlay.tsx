@@ -17,6 +17,7 @@ import {
 } from "@longku/lib/store";
 import { available, pickChainStart, unused } from "@longku/lib/chains";
 import { TierPill } from "./AddChengyu";
+import { dayStart, dueAt, isDue } from "@longku/lib/srs";
 
 interface Suggestion {
   w: string;
@@ -34,6 +35,8 @@ interface Props {
   /** Collapse the dock, handing the wall the space back. */
   onCollapse: () => void;
 }
+
+const PRACTICE_KEY = "longku:practice";
 
 /**
  * The last jump request acted on. Module-level so it outlives the component:
@@ -63,9 +66,9 @@ function lastLink(s: State): Link | null {
  * order only decides between bridges of equal length — enough to steer the
  * pass toward weak words without making you read further to get to them.
  */
-function targets(s: State): string[] {
+function targets(s: State, practice: boolean): string[] {
   const weakest = new Map<string, number>();
-  for (const e of unused(s)) {
+  for (const e of unused(s, practice)) {
     const had = weakest.get(e.fs);
     if (had === undefined || (e.strength ?? 0) < had) weakest.set(e.fs, e.strength ?? 0);
   }
@@ -88,12 +91,41 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [teach, setTeach] = useState<Suggestion[] | null>(null);
   const [loadingTeach, setLoadingTeach] = useState(false);
-  /** Revealing what the bank offers for the current syllable. */
-  const [peek, setPeek] = useState(false);
+  /**
+   * How much help is showing for the current syllable: none, the meanings of
+   * the words that would answer it, or the words themselves.
+   */
+  const [help, setHelp] = useState<0 | 1 | 2>(0);
+  const peek = help === 2;
+  const setPeek = (open: boolean) => setHelp(open ? 2 : 0);
+  /** Meanings of the words under the current prompt, once asked for. */
+  const [hints, setHints] = useState<Record<string, string> | null>(null);
   /** Restart is behind a confirm — it discards the whole pass. */
   const [confirmReset, setConfirmReset] = useState(false);
   /** Words just added to the chain, marked briefly so the landing is visible. */
   const [landed, setLanded] = useState<Set<string>>(new Set());
+  /**
+   * Playing the whole bank unscored, for when nothing is due. Remembered per
+   * device so a reload mid-practice doesn't turn it into a scored pass.
+   */
+  // Read before the first render, not in an effect: a scored first render
+  // would try to resume the practice chain as a due pass. This component only
+  // mounts client-side, after the bank has loaded, so storage is there to read.
+  const [practice, setPracticeState] = useState(() => {
+    try {
+      return localStorage.getItem(PRACTICE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  function setPractice(on: boolean) {
+    setPracticeState(on);
+    try {
+      localStorage.setItem(PRACTICE_KEY, on ? "1" : "0");
+    } catch {
+      // As above.
+    }
+  }
   /** Guards against a slow bridge landing after the chain has moved on. */
   const bridgeReq = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
@@ -111,29 +143,40 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     return () => clearTimeout(t);
   }, [landed]);
 
-  const remaining = useMemo(() => unused(state), [state]);
+  const remaining = useMemo(() => unused(state, practice), [state, practice]);
+  /** Due words, whatever the mode — what a practice round is standing in for. */
+  const dueNow = useMemo(() => (practice ? unused(state).length : remaining.length), [
+    state,
+    practice,
+    remaining.length,
+  ]);
   const bankSize = Object.keys(state.bank).length;
-  const doneThisSweep = state.sweep.length;
+  // Words of yours on the chain: in a due pass, what's been reviewed so far.
+  const doneThisSweep = state.chains.flat().filter((l) => typeof l === "string").length;
+  /** What this pass asks for: what's been played, plus what's still due. */
+  const passSize = practice ? bankSize : doneThisSweep + remaining.length;
   /**
    * Sticky once reached: banking a bridge from the end screen adds an unplayed
    * word, and without this the finished pass would reopen under your cursor.
    */
   const [finished, setFinished] = useState(false);
   useEffect(() => {
-    if (bankSize > 0 && remaining.length === 0) setFinished(true);
-  }, [bankSize, remaining.length]);
-  const sweepDone = finished || (bankSize > 0 && remaining.length === 0);
+    // Only a pass that happened can finish; an empty one is just nothing due,
+    // and should start by itself the moment something is.
+    if (remaining.length === 0 && links.length > 0) setFinished(true);
+  }, [remaining.length, links.length]);
+  const sweepDone = finished || remaining.length === 0;
 
   /** Break the chain and pick it up somewhere the bank can answer. */
   const jump = useCallback(() => {
-    const start = pickChainStart(getState());
+    const start = pickChainStart(getState(), practice);
     if (!start) {
       setNeed("");
       return;
     }
     onChange(startChain());
     setNeed(start.fs);
-  }, [onChange]);
+  }, [onChange, practice]);
 
   /**
    * Move the chain on from `syl`.
@@ -148,11 +191,11 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       // Supersedes any bridge still in flight, whose own cleanup is now skipped.
       bridgeReq.current++;
       setBridging(false);
-      if (syl && available(s, syl).length > 0) {
+      if (syl && available(s, syl, practice).length > 0) {
         setNeed(syl);
         return;
       }
-      if (unused(s).length === 0) {
+      if (unused(s, practice).length === 0) {
         setNeed("");
         return;
       }
@@ -172,7 +215,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       fetch("/api/longku/bridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: syl, to: targets(s), exclude }),
+        body: JSON.stringify({ from: syl, to: targets(s, practice), exclude }),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
@@ -185,13 +228,13 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           }
           onChange(playBridge(path));
           setLanded(new Set(path.map((b) => b.w)));
-          if (available(getState(), end.ls).length > 0) setNeed(end.ls);
+          if (available(getState(), end.ls, practice).length > 0) setNeed(end.ls);
           else jump();
         })
         .catch(() => req === bridgeReq.current && jump())
         .finally(() => req === bridgeReq.current && setBridging(false));
     },
-    [onChange, jump],
+    [onChange, jump, practice],
   );
 
   /** Pick the pass up from wherever the chain stands. */
@@ -199,18 +242,18 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     const s = getState();
     const last = lastLink(s);
     if (!last) {
-      const start = pickChainStart(s);
+      const start = pickChainStart(s, practice);
       setNeed(start?.fs ?? "");
       return;
     }
     advance(linkEnd(last, s.bank));
-  }, [advance]);
+  }, [advance, practice]);
 
   // Whenever the prompt can't be answered — on first open, after a reset, or
   // because a word under it was removed — work out where the chain goes next.
   useEffect(() => {
     if (bridging || sweepDone || remaining.length === 0) return;
-    if (need && available(state, need).length > 0) return;
+    if (need && available(state, need, practice).length > 0) return;
     resume();
   }, [state, need, bridging, sweepDone, remaining.length, resume]);
 
@@ -251,6 +294,33 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     };
   }, [peek, need, state.bank]);
 
+  // Help belongs to one prompt; a new syllable starts from none.
+  useEffect(() => {
+    setHelp(0);
+    setHints(null);
+  }, [need]);
+
+  // Meanings for the hint: only the words that would answer this prompt, and
+  // only their definitions — the characters are what you're trying to recall.
+  useEffect(() => {
+    if (help === 0 || !need) {
+      setHints(null);
+      return;
+    }
+    if (hints) return;
+    let cancelled = false;
+    const words = available(state, need, practice).map((e) => e.w);
+    const qs = words.map((w) => `w=${encodeURIComponent(w)}`).join("&");
+    fetch(`/api/longku/gloss?${qs}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => !cancelled && setHints(d?.glosses ?? {}))
+      .catch(() => !cancelled && setHints({}));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [help, need]);
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const word = draft.trim();
@@ -268,12 +338,17 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       setMsg({ kind: "error", text: `"${word}" starts with ${entry.fs}, not ${need}.` });
       return;
     }
-    if (state.sweep.includes(word)) {
-      setMsg({ kind: "error", text: `Already played "${word}" this pass.` });
+    // Practice covers each word once. A due pass goes by the schedule: a word
+    // already on the chain can't be replayed unless it has come due again,
+    // as one played yesterday on a chain left unfinished can.
+    const repeat = practice ? state.sweep.includes(word) : links.includes(word) && !isDue(entry);
+    if (repeat) {
+      setMsg({ kind: "error", text: `"${word}" is already in this chain.` });
       return;
     }
 
-    onChange(playWord(word, true));
+    // Recalled from its meaning: still yours, but it counts for half.
+    onChange(playWord(word, true, help === 1 ? 0.5 : 1, practice));
     setLanded(new Set([word]));
     setDraft("");
     setMsg(null);
@@ -294,7 +369,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
 
   /** Play a word the user was shown rather than recalled. */
   function play(entry: BankEntry) {
-    onChange(playWord(entry.w, false));
+    onChange(playWord(entry.w, false, 1, practice));
     setLanded(new Set([entry.w]));
     setDraft("");
     setMsg(null);
@@ -313,6 +388,12 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     setPeek(false);
   }
 
+  /** Switch between a due pass and practice. Either way the chain starts fresh. */
+  function switchMode(toPractice: boolean) {
+    setPractice(toPractice);
+    startOver();
+  }
+
   if (bankSize === 0) {
     return (
       <div className="longku-dock-inner">
@@ -327,6 +408,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     );
   }
 
+  const offered = need ? available(state, need, practice) : [];
   const bridges = links.filter((l): l is Bridge => typeof l !== "string");
   const yours = links.length - bridges.length;
 
@@ -335,16 +417,22 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       {confirmReset ? (
         <>
           <span className="longku-dock-confirm">discard this pass?</span>
-          <button className="longku-btn" onClick={startOver}>
+          <button type="button" className="longku-btn" onClick={startOver}>
             Restart
           </button>
-          <button className="longku-icon-btn" onClick={() => setConfirmReset(false)} title="Keep it">
+          <button
+            type="button"
+            className="longku-icon-btn"
+            onClick={() => setConfirmReset(false)}
+            title="Keep it"
+          >
             ✕
           </button>
         </>
       ) : (
         <>
           <button
+            type="button"
             className="longku-icon-btn"
             onClick={() => setConfirmReset(true)}
             title="Restart the pass — clears the chain"
@@ -353,6 +441,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
             ↺
           </button>
           <button
+            type="button"
             className="longku-icon-btn"
             onClick={onCollapse}
             title="Hide the chain game"
@@ -417,23 +506,52 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           yours={yours}
           bridges={bridges}
           bank={state.bank}
+          dueNow={dueNow}
+          practice={practice}
           onBank={bank}
           onRestart={startOver}
+          onMode={switchMode}
           onCollapse={onCollapse}
         />
       ) : (
         <>
-          <form className="longku-dock-inner" onSubmit={submit}>
-            <span className="longku-dock-label">接龙</span>
-            <label className="longku-play-prompt" htmlFor="longku-chain-input">
-              {need ? (
-                <>
-                  starting with <strong>{need}</strong>
-                </>
-              ) : (
-                <span className="longku-hint">{bridging ? "bridging…" : "…"}</span>
+          <form className="longku-play" onSubmit={submit}>
+            <div className="longku-play-head">
+              <span className="longku-dock-label">接龙</span>
+              {practice && (
+                <button
+                  type="button"
+                  className="longku-practice-tag"
+                  onClick={() => switchMode(false)}
+                  title="Practice — nothing here is scored. Click to end it."
+                >
+                  practice{dueNow > 0 ? ` · ${dueNow} due` : ""} ✕
+                </button>
               )}
-            </label>
+              <label className="longku-play-prompt" htmlFor="longku-chain-input">
+                {need ? (
+                  <>
+                    starting with <strong>{need}</strong>
+                  </>
+                ) : (
+                  <span className="longku-hint">{bridging ? "bridging…" : "…"}</span>
+                )}
+              </label>
+              <div className="longku-sweep">
+                <div className="longku-sweep-bar">
+                  <div
+                    className="longku-sweep-fill"
+                    style={{
+                      width: `${Math.round((doneThisSweep / Math.max(1, passSize)) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <span className="longku-sweep-text">
+                  {doneThisSweep} / {passSize}
+                </span>
+              </div>
+              {controls}
+            </div>
             <div className="longku-play-input-row">
               <input
                 id="longku-chain-input"
@@ -455,37 +573,58 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                 className="longku-btn"
                 disabled={!need}
                 onClick={() => {
-                  // Opening the list is evidence: every word sitting there was
-                  // available under this prompt and none was produced.
-                  if (!peek) onChange(recordMiss(need));
-                  setPeek((p) => !p);
+                  if (help === 2) {
+                    setHelp(0);
+                    return;
+                  }
+                  // Seeing the words is evidence: every one sitting there was
+                  // available under this prompt and none was produced. Seeing
+                  // their meanings isn't — you may still produce one.
+                  if (help === 1 && !practice) onChange(recordMiss(need));
+                  setHelp(help === 0 ? 1 : 2);
                 }}
-                aria-expanded={peek}
-                title="Show what your bank offers for this syllable"
+                aria-expanded={help > 0}
+                title={
+                  help === 0
+                    ? "Show what your words for this syllable mean"
+                    : help === 1
+                      ? "Show the words themselves"
+                      : "Hide"
+                }
               >
-                {peek ? "Hide" : "Stuck?"}
+                {help === 0 ? "Stuck?" : help === 1 ? "Show words" : "Hide"}
               </button>
             </div>
-            {controls}
-            <div className="longku-sweep">
-              <div className="longku-sweep-bar">
-                <div
-                  className="longku-sweep-fill"
-                  style={{
-                    width: `${Math.round((doneThisSweep / Math.max(1, bankSize)) * 100)}%`,
-                  }}
-                />
-              </div>
-              <span className="longku-sweep-text">
-                {doneThisSweep} / {bankSize}
-              </span>
-            </div>
           </form>
+          {help === 1 && need && (
+            <div className="longku-peek">
+              <span className="longku-peek-label">
+                {offered.length === 1
+                  ? `your ${need} word means`
+                  : `your ${need} words mean`}
+              </span>
+              {!hints ? (
+                <span className="longku-hint">looking…</span>
+              ) : (
+                <ol className="longku-hint-list">
+                  {offered.map((e) => (
+                    <li key={e.w}>
+                      {hints[e.w] || (
+                        <span className="longku-hint">no definition — {e.fs} → {e.ls ?? "?"}</span>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
           {peek && need && (
             <div className="longku-peek">
-              <span className="longku-peek-label">in your bank, starting with {need}</span>
+              <span className="longku-peek-label">
+                {practice ? "in your bank" : "due in your bank"}, starting with {need}
+              </span>
               <div className="longku-peek-words">
-                {available(state, need).map((e) => (
+                {offered.map((e) => (
                   <button
                     key={e.w}
                     type="button"
@@ -535,7 +674,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           ) : (
             need && (
               <p className="longku-play-sub" style={{ marginTop: 6 }}>
-                {available(state, need).length} in your bank start with {need}
+                {offered.length} {practice ? "" : "due "}in your bank start with {need}
               </p>
             )
           )}
@@ -585,14 +724,22 @@ function PassDone({
   yours,
   bridges,
   bank,
+  dueNow,
+  practice,
   onBank,
   onRestart,
+  onMode,
   onCollapse,
 }: {
   yours: number;
   bridges: Bridge[];
   bank: Record<string, BankEntry>;
+  /** Words due since the pass ended — banked from here, or a day turning over. */
+  dueNow: number;
+  practice: boolean;
   onBank: (s: Suggestion) => void;
+  /** Start a practice pass (true) or go back to due words (false). */
+  onMode: (practice: boolean) => void;
   onRestart: () => void;
   onCollapse: () => void;
 }) {
@@ -602,14 +749,31 @@ function PassDone({
   // A small bank needs dozens of bridges; the commonest few are the case for
   // learning, and the rest are still on the chain above.
   const shown = worth.slice(0, WORTH_SHOWN);
+  const next = nextDue(bank);
   return (
     <div className="longku-play-done">
-      <p className="longku-input-msg is-success">
-        Pass complete — {yours} word{yours === 1 ? "" : "s"} from your bank
-        {bridges.length > 0 &&
-          `, joined by ${bridges.length} bridge${bridges.length === 1 ? "" : "s"}`}
-        .
-      </p>
+      {practice ? (
+        <p className="longku-input-msg is-success">
+          Practice complete — all {yours} word{yours === 1 ? "" : "s"}
+          {bridges.length > 0 &&
+            `, joined by ${bridges.length} bridge${bridges.length === 1 ? "" : "s"}`}
+          . Nothing was scored.
+        </p>
+      ) : yours + bridges.length > 0 ? (
+        <p className="longku-input-msg is-success">
+          Pass complete — {yours} due word{yours === 1 ? "" : "s"} played
+          {bridges.length > 0 &&
+            `, joined by ${bridges.length} bridge${bridges.length === 1 ? "" : "s"}`}
+          .
+        </p>
+      ) : (
+        <p className="longku-input-msg is-success">Nothing is due right now.</p>
+      )}
+      {next && dueNow === 0 && (
+        <p className="longku-hint" style={{ margin: 0 }}>
+          Next: {next.count} word{next.count === 1 ? "" : "s"} due {next.when}.
+        </p>
+      )}
       {worth.length > 0 && (
         <div className="longku-peek-add">
           <span className="longku-peek-label">bridges worth banking</span>
@@ -633,13 +797,58 @@ function PassDone({
         </div>
       )}
       <div className="longku-dock-inner">
-        <button className="longku-btn is-primary" onClick={onRestart}>
-          Start a new pass
-        </button>
+        {dueNow > 0 ? (
+          <button
+            className="longku-btn is-primary"
+            onClick={practice ? () => onMode(false) : onRestart}
+          >
+            Start a new pass · {dueNow} due
+          </button>
+        ) : practice ? (
+          <>
+            <button className="longku-btn is-primary" onClick={onRestart}>
+              Practice again
+            </button>
+            <button className="longku-btn" onClick={() => onMode(false)}>
+              Done
+            </button>
+          </>
+        ) : (
+          <button
+            className="longku-btn is-primary"
+            onClick={() => onMode(true)}
+            title="Every word in your bank, once each. Nothing is scored or rescheduled."
+          >
+            Practice the whole deck
+          </button>
+        )}
         <button className="longku-icon-btn" onClick={onCollapse} title="Hide the chain game">
           ⌄
         </button>
       </div>
     </div>
   );
+}
+
+/** The next day anything falls due, and how much does. */
+function nextDue(bank: Record<string, BankEntry>): { when: string; count: number } | null {
+  const now = Date.now();
+  let first = Infinity;
+  const byDay = new Map<number, number>();
+  for (const e of Object.values(bank)) {
+    const due = dueAt(e);
+    if (due <= now) continue;
+    const day = dayStart(due);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+    if (day < first) first = day;
+  }
+  if (!Number.isFinite(first)) return null;
+  const days = Math.round((first - dayStart(now)) / 86_400_000);
+  const when =
+    days <= 1
+      ? "tomorrow"
+      : days < 7
+        ? `on ${new Date(first).toLocaleDateString(undefined, { weekday: "long" })}`
+        : `in ${days} days`;
+  return { when, count: byDay.get(first) ?? 0 };
 }

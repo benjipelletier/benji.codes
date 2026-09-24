@@ -7,11 +7,15 @@ export default function LongkuPage() {
   const buckets = bySyllable();
   const all = entries();
   const common = commonCounts();
+  // Corpus words ending on each syllable — every way a chain could arrive.
+  const ending: Record<string, number> = {};
+  for (const e of all) if (e.ls) ending[e.ls] = (ending[e.ls] ?? 0) + 1;
   const sylSummary = sylls.map((s) => {
     const ids = buckets[s] ?? [];
     return {
       syl: s,
       count: ids.length,
+      ending: ending[s] ?? 0,
       common: common[s] ?? 0,
       top: ids[0] !== undefined ? all[ids[0]].w : "",
     };

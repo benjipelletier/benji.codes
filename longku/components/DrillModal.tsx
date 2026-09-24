@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { importWords, removeWord, type State } from "@longku/lib/store";
 import { TierPill } from "./AddChengyu";
+import { gloss } from "@longku/lib/gloss";
 
 interface CorpusWord {
   w: string;
@@ -10,10 +11,17 @@ interface CorpusWord {
   fs: string;
   ls: string;
   f: number;
+  /** CEDICT definition. */
+  e?: string;
 }
+
+/** How many unbanked corpus words get the full treatment before the chips. */
+const TOP = 5;
 
 interface Props {
   syllable: string;
+  /** Corpus words starting with and ending on the syllable, when known. */
+  corpus?: { count: number; ending: number };
   state: State;
   onClose: () => void;
   onChange: (s: State) => void;
@@ -28,6 +36,7 @@ interface Props {
  */
 export function DrillModal({
   syllable,
+  corpus,
   state,
   onClose,
   onChange,
@@ -42,6 +51,16 @@ export function DrillModal({
       Object.values(state.bank)
         .filter((e) => e.fs === syllable)
         .sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0) || a.w.localeCompare(b.w)),
+    [state, syllable],
+  );
+
+  // Yours that end here: the chains a word starting with this syllable would
+  // carry on.
+  const arriving = useMemo(
+    () =>
+      Object.values(state.bank)
+        .filter((e) => e.ls === syllable)
+        .sort((a, b) => a.w.localeCompare(b.w)),
     [state, syllable],
   );
 
@@ -64,10 +83,20 @@ export function DrillModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const suggestions = useMemo(
-    () => pool.filter((c) => !state.bank[c.w]).slice(0, 24),
-    [pool, state],
-  );
+  // The corpus comes back most frequent first, so the head of what you don't
+  // hold is what you're likeliest to meet.
+  const missing = useMemo(() => pool.filter((c) => !state.bank[c.w]), [pool, state]);
+  const top = missing.slice(0, TOP);
+  const suggestions = missing.slice(TOP, TOP + 24);
+
+  // Where each would take a chain: how many of yours start on its last
+  // syllable. A word that lands where you can carry on is worth more than one
+  // that makes a new dead end.
+  const startsAt = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of Object.values(state.bank)) m.set(e.fs, (m.get(e.fs) ?? 0) + 1);
+    return m;
+  }, [state]);
 
   function add(c: CorpusWord) {
     const { state: next } = importWords([{ w: c.w, fs: c.fs, ls: c.ls, f: c.f }]);
@@ -90,7 +119,17 @@ export function DrillModal({
         <header className="longku-modal-head">
           <h2 className="longku-modal-syllable">{syllable}</h2>
           <span className="longku-modal-sub">
-            {mine.length} of yours · {pool.length > 0 ? `${pool.length}+ in the corpus` : "—"}
+            {corpus ? (
+              <>
+                starts: {mine.length} of yours / {corpus.count} · ends: {arriving.length} of
+                yours / {corpus.ending}
+              </>
+            ) : (
+              <>
+                {mine.length} of yours start here · {arriving.length} end here ·{" "}
+                {pool.length > 0 ? `${pool.length}+ in the corpus` : "—"}
+              </>
+            )}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {mine.length > 0 && (
@@ -167,14 +206,77 @@ export function DrillModal({
           )}
         </section>
 
-        {!readOnly && (
+        {arriving.length > 0 && (
+          <section className="longku-modal-section">
+            <h3 className="longku-subhead">
+              Ending on {syllable}
+              {arriving.length > mine.length && (
+                <span className="longku-arrive-note">
+                  {" "}
+                  — {arriving.length - mine.length} more than can leave; each word you add
+                  here carries one on
+                </span>
+              )}
+            </h3>
+            <div className="longku-arrive-words">
+              {arriving.map((e) => (
+                <span key={e.w} className="longku-arrive-word" title={`${e.fs} → ${e.ls}`}>
+                  {e.w}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="longku-modal-section">
-          <h3 className="longku-subhead">Add from the corpus</h3>
+          <h3 className="longku-subhead">Most common you don&rsquo;t have</h3>
           {loading ? (
             <p className="longku-hint">Loading…</p>
-          ) : suggestions.length === 0 ? (
+          ) : top.length === 0 ? (
             <p className="longku-hint">You already hold everything common here.</p>
           ) : (
+            <ol className="longku-top-list">
+              {top.map((c) => {
+                const onward = startsAt.get(c.ls) ?? 0;
+                return (
+                  <li key={c.w} className="longku-top-item">
+                    <span className="longku-top-word">{c.w}</span>
+                    <TierPill f={c.f} />
+                    <span className="longku-top-pinyin">{c.p}</span>
+                    <span
+                      className={`longku-top-leads ${onward > 0 ? "is-on" : ""}`}
+                      title={
+                        onward > 0
+                          ? `${onward} of yours start with ${c.ls} — a chain carries on from it`
+                          : `none of yours start with ${c.ls} — a chain would stop there`
+                      }
+                    >
+                      → {c.ls}
+                      {onward > 0 && ` · ${onward}`}
+                    </span>
+                    {c.e && <span className="longku-top-gloss">{gloss(c.e, 2)}</span>}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="longku-top-add"
+                        onClick={() => add(c)}
+                        aria-label={`Add ${c.w} to your bank`}
+                        title="Add to your bank"
+                      >
+                        +
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
+
+        {!readOnly && suggestions.length > 0 && (
+        <section className="longku-modal-section">
+          <h3 className="longku-subhead">More from the corpus</h3>
+          {(
             <div className="longku-chips">
               {suggestions.map((c) => (
                 <button

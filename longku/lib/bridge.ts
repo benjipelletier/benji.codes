@@ -12,6 +12,7 @@
 // targets by how badly their words need practice.
 
 import { COMMON_FREQ_THRESHOLD, bySyllable, entries, type ChengyuEntry } from "./data";
+import { gloss } from "./gloss";
 
 export interface BridgeWord {
   w: string;
@@ -25,11 +26,6 @@ export interface BridgeWord {
 
 /** Longest bridge worth playing. Past three, the chain is mostly reading. */
 export const MAX_HOPS = 3;
-
-function gloss(e: string): string {
-  const s = e.replace(/\s*\(idiom\)\s*/g, " ").split(";")[0].trim();
-  return s.length > 90 ? `${s.slice(0, 87)}…` : s;
-}
 
 function toBridge(c: ChengyuEntry): BridgeWord {
   return { w: c.w, p: c.p, fs: c.fs, ls: c.ls, f: c.f, e: gloss(c.e ?? "") };
