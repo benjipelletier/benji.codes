@@ -9,9 +9,12 @@
 // heuristic: for each connected component holding edges, you need
 // Σ max(0, outdeg − indeg) trails, or 1 if the component is balanced.
 //
-// The number matters because it is the app's score. Adding an arbitrary word
-// tends to raise it; adding one that starts where a chain dead-ends lowers it
-// by exactly one, merging two chains into a longer one.
+// The number matters because it is the bank's score — what the learn view
+// optimises against. Adding an arbitrary word tends to raise it; adding one
+// that starts where a chain dead-ends lowers it by exactly one, merging two
+// chains into a longer one. It stopped being how long a session runs when
+// sessions became "what is due"; it still says how well the bank hangs
+// together, which is the thing it was always measuring.
 
 import type { BankEntry, State } from "./store";
 
@@ -197,46 +200,8 @@ export function stats(state: State): BankStats {
   };
 }
 
-/** Words in the bank starting with `syl` that this sweep hasn't used yet. */
+/** Words in the bank starting with `syl` this session hasn't played yet. */
 export function available(state: State, syl: string): BankEntry[] {
   const used = new Set(state.sweep);
   return Object.values(state.bank).filter((e) => e.fs === syl && !used.has(e.w));
-}
-
-/** Every word this sweep hasn't used yet. */
-export function unused(state: State): BankEntry[] {
-  const used = new Set(state.sweep);
-  return Object.values(state.bank).filter((e) => !used.has(e.w));
-}
-
-/**
- * Pick where the next chain should start.
- *
- * Two preferences, in order. Words whose starting syllable nothing else
- * reaches can only ever open a chain, so spending them first leaves the
- * well-connected ones free to form longer chains later. Within that, the
- * weakest words come first: a bank of any size has a tail you can't produce,
- * and that tail is the part worth practising.
- */
-export function pickChainStart(state: State): BankEntry | null {
-  const remaining = unused(state);
-  if (remaining.length === 0) return null;
-  const reachable = new Set(remaining.map((e) => e.ls).filter((s): s is string => s !== null));
-  const openers = remaining.filter((e) => !reachable.has(e.fs));
-  const pool = openers.length > 0 ? openers : remaining;
-  return weakestOf(pool);
-}
-
-/**
- * The weakest word in a pool, with ties broken at random.
- *
- * Strictly weakest-first would ask the same question every time until it was
- * answered; sampling among the weakest keeps a session varied while still
- * concentrating on what isn't known.
- */
-export function weakestOf(pool: BankEntry[]): BankEntry | null {
-  if (pool.length === 0) return null;
-  const sorted = [...pool].sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0));
-  const window = Math.max(1, Math.ceil(sorted.length * 0.25));
-  return sorted[Math.floor(Math.random() * window)];
 }

@@ -48,23 +48,40 @@ export interface BankEntry {
 
 export interface State {
   bank: Record<string, BankEntry>;
-  /** Words already used in the current sweep through the bank. */
+  /**
+   * Words played this session, oldest first.
+   *
+   * The order is load-bearing now: the log draws a word under every earlier
+   * word it can follow, so "earlier" has to mean when it was produced. It used
+   * to come back from the server as a set — one boolean per bank row, read in
+   * the order the words were added — which was fine while the log was a line
+   * the client kept for itself, and wrong the moment the order meant anything.
+   */
   sweep: string[];
   /**
-   * The sweep's chains, oldest first, each an ordered list of words. The last
-   * entry is the chain in progress.
+   * The words this session set out to ask for, chosen when it was planned.
    *
-   * Stored rather than derived: `sweep` records which words were used but not
-   * how they grouped, and the grouping is the part worth looking at. Keeping it
-   * here also means the log survives a reload, which it didn't when it lived in
-   * component state beside a sweep counter that did persist.
+   * Held rather than recomputed from what is due: pressing Stuck? stamps
+   * lastSeen on every unplayed word in the bucket, which pushes them past
+   * their due date, so a session derived live from due-ness would drop the
+   * rest of a bucket the moment you asked to see it — exactly when you most
+   * need to be asked again.
    */
-  chains: string[][];
+  session: string[];
+  /** When the session was planned, for the roll over to a new day. */
+  started: number | null;
 }
+
+// There is no linear chain state here any more. Drilling a bucket means
+// consecutive words share a starting syllable and don't chain to each other,
+// so there is no walk to record — the log derives what connects to what from
+// `sweep` instead. longku_sweep.chains keeps whatever the last chain-walking
+// session wrote; nothing reads or overwrites it, and the jielong game can pick
+// it up when it is built.
 
 export type Mode = "server" | "spectator" | "local";
 
-const EMPTY: State = { bank: {}, sweep: [], chains: [] };
+const EMPTY: State = { bank: {}, sweep: [], session: [], started: null };
 
 let _state: State = { ...EMPTY };
 let _mode: Mode = "local";
@@ -121,7 +138,9 @@ function migrateV1(raw: unknown): State | null {
       if (!bank[w]) bank[w] = { w, fs, ls: null, recalls: 0, strength: 0, misses: 0, added };
     }
   }
-  return Object.keys(bank).length > 0 ? { bank, sweep: [], chains: [] } : null;
+  return Object.keys(bank).length > 0
+    ? { bank, sweep: [], session: [], started: null }
+    : null;
 }
 
 function readKey(key: string): unknown {
@@ -140,7 +159,8 @@ function loadLocal(): State {
     return {
       bank: current.bank ?? {},
       sweep: current.sweep ?? [],
-      chains: current.chains ?? [],
+      session: current.session ?? [],
+      started: current.started ?? null,
     };
   }
   // Adopt the newest legacy state we can find. Legacy keys are left in place
@@ -172,6 +192,22 @@ type Op = Record<string, unknown> & { op: string };
  * correct for this session, and a reload re-reads the server, so a dropped
  * write shows up as the change not having stuck rather than as a broken UI.
  */
+/**
+ * The whole session row, which the server stores as one blob.
+ *
+ * It is small, always read and written whole, and discarded together — the
+ * same reasoning that put the chains there in the first place. Sending it with
+ * every write means the played order survives a reload, which a per-row
+ * in_sweep flag could never express.
+ */
+function envelope() {
+  return {
+    played: _state.sweep,
+    session: _state.session,
+    started: _state.started,
+  };
+}
+
 function push(op: Op): void {
   if (_mode !== "server") return;
   void fetch("/api/longku/bank", {
@@ -206,7 +242,12 @@ export async function bootstrap(): Promise<Bootstrap> {
         _mode = d.isOwner ? "server" : "spectator";
         const bank: Record<string, BankEntry> = {};
         for (const e of d.bank ?? []) bank[e.w] = e as BankEntry;
-        _state = { bank, sweep: d.sweep ?? [], chains: d.chains ?? [] };
+        _state = {
+          bank,
+          sweep: d.sweep ?? [],
+          session: d.session ?? [],
+          started: d.started ?? null,
+        };
         return { state: _state, mode: _mode, email: d.email ?? null };
       }
     }
@@ -278,7 +319,8 @@ function commit(): State {
   _state = {
     bank: { ..._state.bank },
     sweep: [..._state.sweep],
-    chains: _state.chains.map((c) => [...c]),
+    session: [..._state.session],
+    started: _state.started,
   };
   saveLocal();
   return _state;
@@ -378,14 +420,12 @@ export function playWord(word: string, recalled: boolean): State {
   // A prompted play records nothing: the miss was already taken when the list
   // was revealed, and crediting the click would cancel it out.
   if (!_state.sweep.includes(word)) _state.sweep.push(word);
-  if (_state.chains.length === 0) _state.chains.push([]);
-  _state.chains[_state.chains.length - 1].push(word);
   push({
     op: "play",
     w: word,
     recalled,
     strength: e.strength,
-    chains: _state.chains,
+    sweep: envelope(),
   });
   return commit();
 }
@@ -419,26 +459,35 @@ export function recordMiss(syl: string): State {
   return commit();
 }
 
-/** Open a fresh chain. A chain left empty is reused rather than stacked. */
-export function startChain(): State {
-  const last = _state.chains[_state.chains.length - 1];
-  if (!last || last.length > 0) _state.chains.push([]);
-  push({ op: "chains", chains: _state.chains });
-  return commit();
-}
-
 export function removeWord(word: string): State {
   delete _state.bank[word];
   _state.sweep = _state.sweep.filter((w) => w !== word);
-  _state.chains = _state.chains.map((c) => c.filter((w) => w !== word));
-  push({ op: "remove", w: word, chains: _state.chains });
+  // Dropped from the plan as well as the log: a session waiting on a word that
+  // no longer exists could never reach its end.
+  _state.session = _state.session.filter((w) => w !== word);
+  push({ op: "remove", w: word, sweep: envelope() });
   return commit();
 }
 
-/** Begin a fresh pass over the bank. */
-export function resetSweep(): State {
+/**
+ * Begin a session over `words`, discarding whatever the last one had going.
+ *
+ * The plan is stored rather than recomputed so that what the session asks for
+ * doesn't move under it — see State.session. `started` is what rolls the
+ * session over to a new day; it's stamped here and nowhere else.
+ */
+export function startSession(words: string[], now: number = Date.now()): State {
   _state.sweep = [];
-  _state.chains = [];
-  push({ op: "resetSweep" });
+  _state.session = [...words];
+  _state.started = now;
+  push({ op: "startSession", sweep: envelope() });
   return commit();
+}
+
+/** Is `started` from an earlier day than `now`, in the viewer's own timezone? */
+export function isStale(started: number | null, now: number = Date.now()): boolean {
+  if (started === null) return true;
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  return started < midnight.getTime();
 }

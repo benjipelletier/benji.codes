@@ -4,17 +4,43 @@ import { getViewer, NotOwnerError, requireOwner } from "@longku/lib/session";
 
 export const dynamic = "force-dynamic";
 
-/** The sweep is always written whole — it's small and never partially updated. */
-async function saveChains(
+/** The session row as the client keeps it. Written whole; never patched. */
+interface SweepEnvelope {
+  /** Words played this session, in the order they were produced. */
+  played?: string[];
+  /** Words this session set out to ask for. */
+  session?: string[];
+  /** When the session was planned, epoch ms, or null for none. */
+  started?: number | null;
+}
+
+/**
+ * The sweep is always written whole — it's small and never partially updated.
+ *
+ * The played order matters to the log, so it is stored here rather than
+ * inferred from longku_bank.in_sweep, which can only say whether a word was
+ * used and hands them back in the order they were added.
+ */
+async function saveSweep(
   sql: ReturnType<typeof getDb>,
   owner: string,
-  chains: string[][],
+  env: SweepEnvelope,
 ): Promise<void> {
+  const started = typeof env.started === "number" ? new Date(env.started) : null;
+  // `chains` is deliberately absent: nothing writes a linear chain any more,
+  // and naming it here would overwrite the last chain-walking session's log
+  // with an empty array on the first review.
   await sql`
-    insert into longku_sweep (owner_email, chains, updated)
-    values (${owner}, ${JSON.stringify(chains)}::jsonb, now())
+    insert into longku_sweep (owner_email, played, session, started, updated)
+    values (${owner},
+            ${JSON.stringify(env.played ?? [])}::jsonb,
+            ${JSON.stringify(env.session ?? [])}::jsonb,
+            ${started}, now())
     on conflict (owner_email) do update
-      set chains = excluded.chains, updated = now()
+      set played  = excluded.played,
+          session = excluded.session,
+          started = excluded.started,
+          updated = now()
   `;
 }
 
@@ -23,6 +49,11 @@ function ownerEmail(): string | null {
   return process.env.LONGKU_OWNER_EMAIL ?? null;
 }
 
+/**
+ * longku_bank.in_sweep is still set per word as it is played, so a row says
+ * for itself whether it has come up and one statement can clear the lot. What
+ * the client reads back is longku_sweep.played, which also knows the order.
+ */
 interface BankRow {
   w: string;
   fs: string;
@@ -68,9 +99,20 @@ export async function GET() {
   `) as unknown as BankRow[];
 
   const sweepRows = (await sql`
-    select chains from longku_sweep where owner_email = ${owner}
-  `) as unknown as Array<{ chains: string[][] }>;
-  const chains = sweepRows[0]?.chains ?? [];
+    select played, session, started
+    from longku_sweep where owner_email = ${owner}
+  `) as unknown as Array<{
+    played: string[];
+    session: string[];
+    started: string | null;
+  }>;
+  const sweepRow = sweepRows[0];
+  // Fall back to the flags for a row written before played existed, so an
+  // in-progress sweep isn't lost on the deploy that adds it.
+  const played =
+    sweepRow?.played && sweepRow.played.length > 0
+      ? sweepRow.played
+      : rows.filter((r) => r.in_sweep).map((r) => r.w);
 
   return NextResponse.json({
     configured: true,
@@ -89,18 +131,18 @@ export async function GET() {
       ...(r.last_recalled ? { lastRecalled: new Date(r.last_recalled).getTime() } : {}),
       ...(r.off_corpus ? { offCorpus: true } : {}),
     })),
-    sweep: rows.filter((r) => r.in_sweep).map((r) => r.w),
-    chains,
+    sweep: played,
+    session: sweepRow?.session ?? [],
+    started: sweepRow?.started ? new Date(sweepRow.started).getTime() : null,
   });
 }
 
 type Op =
   | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
-  | { op: "remove"; w: string; chains?: string[][] }
-  | { op: "play"; w: string; recalled: boolean; strength: number; chains: string[][] }
+  | { op: "remove"; w: string; sweep?: SweepEnvelope }
+  | { op: "play"; w: string; recalled: boolean; strength: number; sweep?: SweepEnvelope }
   | { op: "miss"; words: Array<{ w: string; strength: number }> }
-  | { op: "chains"; chains: string[][] }
-  | { op: "resetSweep" }
+  | { op: "startSession"; sweep?: SweepEnvelope }
   | { op: "hydrate"; readings: Array<{ w: string; fs?: string; ls?: string | null; f?: number }> };
 
 /**
@@ -163,7 +205,7 @@ export async function POST(req: NextRequest) {
     case "remove": {
       if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
       await sql`delete from longku_bank where owner_email = ${owner} and w = ${body.w}`;
-      if (body.chains) await saveChains(sql, owner, body.chains);
+      if (body.sweep) await saveSweep(sql, owner, body.sweep);
       return NextResponse.json({ ok: true });
     }
 
@@ -188,7 +230,7 @@ export async function POST(req: NextRequest) {
           where owner_email = ${owner} and w = ${body.w}
         `;
       }
-      await saveChains(sql, owner, body.chains ?? []);
+      if (body.sweep) await saveSweep(sql, owner, body.sweep);
       return NextResponse.json({ ok: true });
     }
 
@@ -207,14 +249,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    case "chains": {
-      await saveChains(sql, owner, body.chains ?? []);
-      return NextResponse.json({ ok: true });
-    }
-
-    case "resetSweep": {
+    case "startSession": {
+      // A new session drops every flag first: the incoming envelope carries an
+      // empty played list, so leaving the old ones set would strand words as
+      // used with nothing recording that they were.
       await sql`update longku_bank set in_sweep = false where owner_email = ${owner}`;
-      await saveChains(sql, owner, []);
+      await saveSweep(sql, owner, body.sweep ?? {});
       return NextResponse.json({ ok: true });
     }
 

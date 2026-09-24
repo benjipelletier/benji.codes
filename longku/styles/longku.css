@@ -2040,3 +2040,87 @@
   .longku-peek { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
   .longku-modal { max-height: 94dvh; }
 }
+
+/* ------------------------------------------------------------- the forest -- */
+/*
+ * The session log. A word lands at depth 1 when nothing played before it ends
+ * where it starts, and otherwise hangs under every earlier word it can follow
+ * — so one word can appear several times, once per way of reaching it.
+ *
+ * Flat rows indented by depth rather than nested lists: the log lives in a
+ * short scrolling box, and real nesting folds its own indentation into a
+ * column an inch wide as soon as a phone runs out of room.
+ */
+.longku-forest {
+  max-height: min(34vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-bottom: 10px;
+  padding-right: 4px;
+}
+
+.longku-forest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.longku-forest-node {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* A root is where a chain begins, so it carries the weight; everything hanging
+   off one is a continuation and steps back to let the roots read as the spine
+   of the session. */
+.longku-forest-node.is-root { margin-top: 5px; }
+.longku-forest-node.is-root:first-child { margin-top: 0; }
+.longku-forest-node.is-root .longku-chain-word { font-size: 21px; }
+.longku-forest-node:not(.is-root) .longku-chain-word {
+  font-size: 18px;
+  color: var(--lg-ink-soft);
+}
+
+.longku-forest-arrow {
+  color: var(--lg-ink-faint);
+  font-size: 11px;
+  flex: none;
+}
+
+/* What a limit kept off the page. The number is of continuations, not words —
+   the same handful of words keep joining up in more ways than are worth
+   drawing. */
+.longku-forest-cut {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--lg-ink-faint);
+  border: 1px dashed var(--lg-rule-strong);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.longku-forest-note {
+  margin: 6px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--lg-ink-faint);
+}
+
+.longku-done-next { color: var(--lg-ink-soft); }
+
+@media (max-width: 720px) {
+  .longku-forest { max-height: min(17vh, 112px); margin-bottom: 7px; }
+  .longku-forest-node { padding: 1px 4px; }
+  .longku-forest-node.is-root .longku-chain-word { font-size: 18px; }
+  .longku-forest-node:not(.is-root) .longku-chain-word { font-size: 16px; }
+}
+
+@media (max-height: 560px) {
+  .longku-forest { max-height: min(24vh, 86px); margin-bottom: 6px; }
+}

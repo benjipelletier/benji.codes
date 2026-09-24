@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { bootstrap, hydrate, type Mode, type State } from "@longku/lib/store";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { bootstrap, hydrate, isStale, startSession, type Mode, type State } from "@longku/lib/store";
+import { DAILY_CAP, dueWords, planSession } from "@longku/lib/review";
 import { stats as bankStats } from "@longku/lib/chains";
 import {
   coverageByTier,
@@ -32,17 +33,21 @@ interface Props {
 }
 
 export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props) {
-  const [state, setState] = useState<State>({ bank: {}, sweep: [], chains: [] });
+  const [state, setState] = useState<State>({
+    bank: {},
+    sweep: [],
+    session: [],
+    started: null,
+  });
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<Mode>("local");
   const [email, setEmail] = useState<string | null>(null);
   const [activeSyl, setActiveSyl] = useState<string | null>(null);
   const [view, setView] = useState<View>("wall");
   const [sheetOpen, setSheetOpen] = useState(false);
-  // Whether the chain game is showing. Remembered, because a dock that
+  // Whether the drill is showing. Remembered, because a dock that
   // reopened on every reload would be worse than not being able to close it.
   const [dockOpen, setDockOpen] = useState(true);
-  const [startAt, setStartAt] = useState<{ syl: string; nonce: number }>({ syl: "", nonce: 0 });
   const topRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
 
@@ -163,29 +168,46 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
     [syllables],
   );
 
-  function startChainFrom(syl: string) {
-    setStartAt((p) => ({ syl, nonce: p.nonce + 1 }));
-    setActiveSyl(null);
-  }
+  /**
+   * Plan a session and begin it.
+   *
+   * `firstSyllable` is the wall's play button and the bucket inspector's
+   * "drill from here": that syllable's whole bucket goes first, and the rest
+   * of the day's due work follows it, so the shortcut starts a real session
+   * rather than a detour out of one.
+   */
+  const planAndStart = useCallback(
+    (opts?: { force?: boolean; firstSyllable?: string }) => {
+      const now = Date.now();
+      const plan = planSession(bankArr, now, DAILY_CAP, opts?.force ?? false);
+      let words = plan.words;
+      if (opts?.firstSyllable) {
+        const bucket = bankArr
+          .filter((e) => e.fs === opts.firstSyllable)
+          .map((e) => e.w);
+        const head = new Set(bucket);
+        words = [...bucket, ...words.filter((w) => !head.has(w))];
+      }
+      setState(startSession(words, now));
+      setActiveSyl(null);
+    },
+    [bankArr],
+  );
 
-  function rerollStart() {
-    // Prefer a word still unplayed this sweep; ChainPlay corrects an
-    // unanswerable syllable anyway, but starting on one wastes the reroll.
-    const pool = bankArr.filter((e) => !state.sweep.includes(e.w));
-    const from = pool.length > 0 ? pool : bankArr;
-    if (from.length === 0) return;
-    const pick = from[Math.floor(Math.random() * from.length)];
-    setStartAt((p) => ({ syl: pick.fs, nonce: p.nonce + 1 }));
-  }
-
-  // Open the first chain once the bank is known.
+  // Roll over to a new session: on the first load of a new day, and when the
+  // stored plan is empty but the bank has work due — which is what a first
+  // visit looks like, and what adding words to an empty bank turns into.
   useEffect(() => {
-    if (startAt.syl || !hydrated || bankArr.length === 0) return;
-    const pool = bankArr.filter((e) => !state.sweep.includes(e.w));
-    const from = pool.length > 0 ? pool : bankArr;
-    const pick = from[Math.floor(Math.random() * from.length)];
-    setStartAt({ syl: pick.fs, nonce: 1 });
-  }, [hydrated, bankArr, startAt.syl]);
+    if (!hydrated || bankArr.length === 0) return;
+    const now = Date.now();
+    const stale = isStale(state.started, now);
+    const emptyButDue =
+      state.session.length === 0 && dueWords(bankArr, now).length > 0;
+    if (stale || emptyButDue) planAndStart();
+    // planAndStart changes identity with the bank, which changes on every
+    // write; depending on it here would re-plan mid-session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, state.started, state.session.length, bankArr.length]);
 
   return (
     <div className="longku">
@@ -222,7 +244,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
             syllables={syllables}
             state={state}
             onPick={(syl) => setActiveSyl(syl)}
-            onStartChain={startChainFrom}
+            onStartChain={(syl) => planAndStart({ firstSyllable: syl })}
           />
         ) : view === "graph" ? (
           <ChainView state={state} />
@@ -247,11 +269,13 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           <button
             className="longku-dock-reopen"
             onClick={() => setDock(true)}
-            title="Show the chain game"
+            title="Show today's review"
           >
-            <span className="longku-dock-label">接龙</span>
+            <span className="longku-dock-label">复习</span>
             <span className="longku-dock-reopen-sub">
-              {s.total > 0 ? `${state.sweep.length} / ${s.total} worked through` : "play"}
+              {state.session.length > 0
+                ? `${state.sweep.length} / ${state.session.length} today`
+                : "review"}
             </span>
             <span aria-hidden>⌃</span>
           </button>
@@ -260,8 +284,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
             <ChainPlay
               state={state}
               onChange={setState}
-              startAt={startAt}
-              onRerollStart={rerollStart}
+              onPlan={planAndStart}
               onCollapse={() => setDock(false)}
             />
           )
@@ -274,7 +297,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
           state={state}
           onClose={() => setActiveSyl(null)}
           onChange={setState}
-          onStartChain={startChainFrom}
+          onStartChain={(syl) => planAndStart({ firstSyllable: syl })}
           readOnly={mode === "spectator"}
         />
       )}
