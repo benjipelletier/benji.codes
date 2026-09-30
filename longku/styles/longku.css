@@ -1107,8 +1107,11 @@
   .longku-chain-word { font-size: 22px; }
   .longku-play-form { min-width: 0; }
   .longku-play-input-row { min-width: 0; }
-  .longku-add-row { grid-template-columns: auto 1fr; }
-  .longku-add-gloss, .longku-add-tail { display: none; }
+  /* No room for the gloss or the route, but the tier stays: it's the one
+     thing worth knowing about a word before you bank it. */
+  .longku-add-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .longku-add-gloss, .longku-add-route { display: none; }
+  .longku-add-pinyin { overflow: hidden; text-overflow: ellipsis; }
 }
 
 @media (prefers-reduced-motion: reduce) {
