@@ -5,14 +5,22 @@ import { OFF_CORPUS, type TierCoverage } from "@longku/lib/frequency";
 
 interface Props {
   /** Share of syllables holding at least one word, 0..1 — the headline. */
-  playable: number;
+  syllableShare: number;
   /** Syllables held / syllables that exist, for the note under it. */
   syllablesCovered: number;
   corpusSyllables: number;
+  /** Chance a chengyu someone plays ends where one of yours starts — see playabilityOf. */
+  playability: number;
   byTier: TierCoverage[];
   offCorpusCount: number;
   stats: BankStats;
   onOpenStats: () => void;
+}
+
+/** A share as a percentage: one decimal under 10%, and never a false 0. */
+function percent(share: number): string {
+  if (share > 0 && share < 0.001) return "<0.1";
+  return (share * 100).toFixed(share < 0.1 ? 1 : 0);
 }
 
 /**
@@ -23,17 +31,18 @@ interface Props {
  * per tier reading mine-over-corpus, and the sheet still holds the detail.
  */
 export function ProgressStrip({
-  playable,
+  syllableShare,
   syllablesCovered,
   corpusSyllables,
+  playability,
   byTier,
   offCorpusCount,
   stats,
   onOpenStats,
 }: Props) {
   if (stats.total === 0) return null;
-  const pct =
-    playable > 0 && playable < 0.001 ? "<0.1" : (playable * 100).toFixed(playable < 0.1 ? 1 : 0);
+  const pct = percent(syllableShare);
+  const play = percent(playability);
 
   return (
     <section className="longku-progress-strip" aria-label="Progress">
@@ -45,6 +54,12 @@ export function ProgressStrip({
         <span className="longku-strip-pct">{pct}%</span>
         <span className="longku-strip-lead-label">
           {syllablesCovered} / {corpusSyllables} syllables
+        </span>
+        <span
+          className="longku-strip-playability"
+          title={`Playability: if someone plays a chengyu — weighted by corpus frequency, so common ones come up as often as they're really used — there's a ${play}% chance it ends on a syllable you hold a word for, so you have a reply.`}
+        >
+          <span className="longku-strip-playability-n">{play}%</span> playability
         </span>
       </button>
 

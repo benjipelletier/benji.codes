@@ -6,6 +6,7 @@ import { stats as bankStats, unused } from "@longku/lib/chains";
 import { useDueClock } from "@longku/lib/clock";
 import {
   coverageByTier,
+  playabilityOf,
   tierCounts,
   usageCoverage,
   type TierCount,
@@ -27,13 +28,19 @@ interface Props {
   syllables: SyllableSummary[];
   /** Sum of every corpus frequency — the denominator for usage coverage. */
   corpusMass: number;
+  /**
+   * Corpus frequency ending on each syllable — how often a chain arrives, not
+   * how many ways. Every ending, including the few no chengyu starts with:
+   * those are plays nobody can answer, and playability has to count them.
+   */
+  endingMass: Record<string, number>;
   /** Corpus frequency mass per tier — the denominator for each tier's bar. */
   tierMass: TierMass;
   /** Corpus word count per tier — the denominator for each tier's mine/corpus. */
   tierWords: TierCount;
 }
 
-export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props) {
+export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWords }: Props) {
   const [state, setState] = useState<State>({
     bank: {},
     sweep: [],
@@ -174,7 +181,16 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
     if (fresh.length === 0) return;
     setAdded({
       key: Date.now(),
-      ...measureAdd(before, state.bank, fresh, syllables, syllables.length, tierMass, tierWords),
+      ...measureAdd(
+        before,
+        state.bank,
+        fresh,
+        syllables,
+        syllables.length,
+        endingMass,
+        tierMass,
+        tierWords,
+      ),
     });
     // Only the bank's contents matter here; the corpus props never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,6 +208,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   );
   const tiers = useMemo(() => tierCounts(bankArr), [bankArr]);
   const sylCovered = useMemo(() => new Set(bankArr.map((e) => e.fs)).size, [bankArr]);
+  const playability = useMemo(() => playabilityOf(bankArr, endingMass), [bankArr, endingMass]);
   const corpusWords = useMemo(
     () => syllables.reduce((n, x) => n + x.count, 0),
     [syllables],
@@ -222,9 +239,10 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
       <main className="longku-canvas">
         {hydrated && (
           <ProgressStrip
-            playable={syllables.length > 0 ? sylCovered / syllables.length : 0}
+            syllableShare={syllables.length > 0 ? sylCovered / syllables.length : 0}
             syllablesCovered={sylCovered}
             corpusSyllables={syllables.length}
+            playability={playability}
             byTier={byTier}
             offCorpusCount={tiers.offcorpus}
             stats={s}
