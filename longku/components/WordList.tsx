@@ -5,6 +5,7 @@ import { removeWord, type BankEntry, type State } from "@longku/lib/store";
 import { TierPill } from "./AddChengyu";
 import { DueHeatmap } from "./DueHeatmap";
 import { daysOverdue, daysUntilDue, dueAt } from "@longku/lib/srs";
+import { useDueClock } from "@longku/lib/clock";
 
 interface Props {
   state: State;
@@ -15,7 +16,9 @@ interface Props {
 
 interface Row extends BankEntry {
   dueMs: number;
-  /** Whole days until due; 0 when due now. */
+  /** Due now, or overdue. */
+  isDue: boolean;
+  /** Whole days until due; 0 when due now or later today. */
   inDays: number;
   /** Whole days past due. */
   late: number;
@@ -55,6 +58,7 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
   const [desc, setDesc] = useState(false);
   const [q, setQ] = useState("");
   const [dueOnly, setDueOnly] = useState(false);
+  const clock = useDueClock(state.bank);
 
   const rows = useMemo<Row[]>(() => {
     const bank = Object.values(state.bank);
@@ -74,17 +78,19 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
         into: Math.max(0, into),
         onward: Math.max(0, onward),
         dueMs: dueAt(e),
+        isDue: dueAt(e) <= now,
         inDays: daysUntilDue(e, now),
         late: daysOverdue(e, now),
       };
     });
-  }, [state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, clock]);
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const filtered = rows.filter(
       (r) =>
-        (!dueOnly || r.inDays === 0) &&
+        (!dueOnly || r.isDue) &&
         (!needle ||
           r.w.includes(needle) ||
           r.fs.startsWith(needle) ||
@@ -114,7 +120,7 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
   }, [rows, sort, desc, q, dueOnly]);
 
   const isolated = rows.filter((r) => r.into === 0 && r.onward === 0).length;
-  const dueNow = rows.filter((r) => r.inDays === 0).length;
+  const dueNow = rows.filter((r) => r.isDue).length;
 
   if (rows.length === 0) {
     return <p className="longku-wall-empty">Nothing banked yet.</p>;
@@ -188,14 +194,15 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
             </div>
 
             <div
-              className={`longku-words-td col-due ${r.inDays === 0 ? "is-due" : ""}`}
-              title={new Date(r.dueMs).toLocaleDateString(undefined, {
+              className={`longku-words-td col-due ${r.isDue ? "is-due" : ""}`}
+              title={new Date(r.dueMs).toLocaleString(undefined, {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
+                ...(r.inDays === 0 ? { hour: "numeric", minute: "2-digit" } : {}),
               })}
             >
-              {dueLabel(r.inDays, r.late)}
+              {dueLabel(r)}
             </div>
 
             <div className="longku-words-td col-links">
@@ -256,10 +263,15 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
   );
 }
 
-function dueLabel(inDays: number, late: number): string {
-  if (inDays === 0) return late > 0 ? `due · ${late}d late` : "due";
-  if (inDays === 1) return "tomorrow";
-  return `in ${inDays}d`;
+function dueLabel(r: Row): string {
+  if (r.isDue) return r.late > 0 ? `due · ${r.late}d late` : "due";
+  if (r.inDays === 0) {
+    // Later today: a word still being learned, back within minutes or hours.
+    const min = Math.max(1, Math.ceil((r.dueMs - Date.now()) / 60_000));
+    return min < 60 ? `in ${min}m` : `in ${Math.round(min / 60)}h`;
+  }
+  if (r.inDays === 1) return "tomorrow";
+  return `in ${r.inDays}d`;
 }
 
 /** Last time it came up, falling back to when it was banked. */

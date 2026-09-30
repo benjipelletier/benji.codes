@@ -212,8 +212,9 @@ export function available(state: State, syl: string, scope: Scope = false): Bank
 /**
  * Every word the pass still asks for.
  *
- * A normal pass asks for what's due. Playing a word always reschedules it past
- * today, so the set shrinks by itself and needs no record of what was played.
+ * A normal pass asks for what's due. Playing a word always reschedules it into
+ * the future, so the set shrinks by itself and needs no record of what was
+ * played — and a word still being learned rejoins it minutes later by itself.
  *
  * A practice pass asks for the whole bank, once each, and a retry for just the
  * words it's given. Neither schedules anything, so it's the sweep that says
