@@ -213,7 +213,13 @@ export function AddChengyu({ state, onChange, autoFocus = false }: Props) {
                   <span className="longku-add-gloss">{h.e}</span>
                   <span className="longku-add-tail">
                     <TierPill f={h.f} />
-                    {have ? "in bank" : `${h.fs} → ${h.ls}`}
+                    {have ? (
+                      "in bank"
+                    ) : (
+                      <span className="longku-add-route">
+                        {h.fs} → {h.ls}
+                      </span>
+                    )}
                   </span>
                 </li>
               );
