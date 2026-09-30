@@ -5,12 +5,12 @@ import { OFF_CORPUS, type TierCoverage } from "@longku/lib/frequency";
 
 interface Props {
   /** Share of syllables holding at least one word, 0..1 — the headline. */
-  playable: number;
+  syllableShare: number;
   /** Syllables held / syllables that exist, for the note under it. */
   syllablesCovered: number;
   corpusSyllables: number;
-  /** Chance a chengyu someone plays ends where one of yours starts — see replyOdds. */
-  replyOdds: number;
+  /** Chance a chengyu someone plays ends where one of yours starts — see playabilityOf. */
+  playability: number;
   byTier: TierCoverage[];
   offCorpusCount: number;
   stats: BankStats;
@@ -31,18 +31,18 @@ function percent(share: number): string {
  * per tier reading mine-over-corpus, and the sheet still holds the detail.
  */
 export function ProgressStrip({
-  playable,
+  syllableShare,
   syllablesCovered,
   corpusSyllables,
-  replyOdds,
+  playability,
   byTier,
   offCorpusCount,
   stats,
   onOpenStats,
 }: Props) {
   if (stats.total === 0) return null;
-  const pct = percent(playable);
-  const odds = percent(replyOdds);
+  const pct = percent(syllableShare);
+  const play = percent(playability);
 
   return (
     <section className="longku-progress-strip" aria-label="Progress">
@@ -56,10 +56,10 @@ export function ProgressStrip({
           {syllablesCovered} / {corpusSyllables} syllables
         </span>
         <span
-          className="longku-strip-odds"
-          title={`If someone plays a chengyu — the common ones as often as they're really used — there's a ${odds}% chance it ends on a syllable you hold a word for, so you have a reply.`}
+          className="longku-strip-playability"
+          title={`Playability: if someone plays a chengyu — weighted by corpus frequency, so common ones come up as often as they're really used — there's a ${play}% chance it ends on a syllable you hold a word for, so you have a reply.`}
         >
-          <span className="longku-strip-odds-n">{odds}%</span> odds of a reply
+          <span className="longku-strip-playability-n">{play}%</span> playability
         </span>
       </button>
 

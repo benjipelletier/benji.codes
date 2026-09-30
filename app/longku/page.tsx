@@ -22,7 +22,6 @@ export default function LongkuPage() {
       syl: s,
       count: ids.length,
       ending: ending[s] ?? 0,
-      endingMass: endingMass[s] ?? 0,
       common: common[s] ?? 0,
       top: ids[0] !== undefined ? all[ids[0]].w : "",
     };
@@ -42,6 +41,7 @@ export default function LongkuPage() {
     <LongkuApp
       syllables={sylSummary}
       corpusMass={corpusMass}
+      endingMass={endingMass}
       tierMass={tierMass}
       tierWords={tierWords}
     />

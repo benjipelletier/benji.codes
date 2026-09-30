@@ -5,6 +5,7 @@ import type { BankEntry } from "@longku/lib/store";
 import {
   coverageByTier,
   freqTierOf,
+  playabilityOf,
   type TierCount,
   type TierMass,
 } from "@longku/lib/frequency";
@@ -23,8 +24,10 @@ export interface Added {
   /** Distinguishes one add from the next, so a new one restarts the popup. */
   key: number;
   words: BankEntry[];
-  /** The headline: share of syllables with at least one of your words. */
-  playable: { before: number; after: number };
+  /** The headline: the chance of a reply to a chengyu someone plays — see playabilityOf. */
+  playability: { before: number; after: number };
+  /** Share of syllables with at least one of your words. */
+  syllables: { before: number; after: number };
   /** Usage coverage of each tier the added words fall in. */
   tiers: Array<{ id: string; label: string; before: number; after: number }>;
   unlocked: Unlocked[];
@@ -45,6 +48,7 @@ export function measureAdd(
   added: string[],
   corpus: Array<{ syl: string; ending: number }>,
   corpusSyllables: number,
+  endingMass: Record<string, number>,
   tierMass: TierMass,
   tierWords: TierCount,
 ): Omit<Added, "key"> {
@@ -89,23 +93,60 @@ export function measureAdd(
 
   return {
     words,
-    playable: { before: share(startsBefore.size), after: share(startsAfter.size) },
+    playability: { before: playabilityOf(prev, endingMass), after: playabilityOf(next, endingMass) },
+    syllables: { before: share(startsBefore.size), after: share(startsAfter.size) },
     tiers,
     unlocked,
     onward,
   };
 }
 
-/** A share as a percentage, with enough places that a small move still shows. */
-function pct(x: number): string {
-  const p = x * 100;
-  return `${p < 10 ? p.toFixed(2) : p.toFixed(1)}%`;
+/**
+ * Decimal places for a before → after pair: two under 10%, one above, and
+ * more if that's what it takes for the move to show — a word opening a rare
+ * ending adds hundredths of a point to playability, and "+0.0" would read as
+ * nothing.
+ */
+function places(before: number, after: number): number {
+  const d = Math.abs(after - before) * 100;
+  let n = after * 100 < 10 ? 2 : 1;
+  while (n < 3 && d > 0 && Number(d.toFixed(n)) === 0) n++;
+  return n;
 }
 
-/** The change, in points, to the same precision as the figures beside it. */
-function delta(before: number, after: number): string {
+/** A share as a percentage, to `n` places. */
+function pct(x: number, n: number): string {
+  return `${(x * 100).toFixed(n)}%`;
+}
+
+/** The change, in points, to the same places as the figures beside it. */
+function delta(before: number, after: number, n: number): string {
   const d = (after - before) * 100;
-  return `+${after * 100 < 10 ? d.toFixed(2) : d.toFixed(1)}`;
+  return Number(d.toFixed(n)) === 0 ? `+<${(10 ** -n).toFixed(n)}` : `+${d.toFixed(n)}`;
+}
+
+/** One before → after row. */
+function Stat({
+  label,
+  before,
+  after,
+  className = "",
+}: {
+  label: string;
+  before: number;
+  after: number;
+  className?: string;
+}) {
+  const n = places(before, after);
+  return (
+    <div className={`longku-toast-stat ${className}`}>
+      <span className="longku-toast-label">{label}</span>
+      <span className="longku-toast-from">{pct(before, n)}</span>
+      <span className="longku-toast-arrow">→</span>
+      <span className="longku-toast-to">{pct(after, n)}</span>
+      <span className="longku-toast-delta">{delta(before, after, n)}</span>
+    </div>
+  );
 }
 
 /**
@@ -138,7 +179,8 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
 
   const head = added.words[0];
   const more = added.words.length - 1;
-  const moved = added.playable.after > added.playable.before;
+  const { playability, syllables } = added;
+  const opened = playability.after > playability.before;
 
   return (
     <div
@@ -167,25 +209,37 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
       </div>
 
       <div className="longku-toast-stats">
-        {moved && (
+        {/* Always shown: an add that leaves playability where it was says
+            so, and why, rather than going quiet about the number that counts. */}
+        {opened ? (
+          <Stat
+            label="playability"
+            before={playability.before}
+            after={playability.after}
+            className="is-headline"
+          />
+        ) : (
           <div className="longku-toast-stat is-headline">
-            <span className="longku-toast-label">syllables</span>
-            <span className="longku-toast-from">{pct(added.playable.before)}</span>
-            <span className="longku-toast-arrow">→</span>
-            <span className="longku-toast-to">{pct(added.playable.after)}</span>
-            <span className="longku-toast-delta">
-              {delta(added.playable.before, added.playable.after)}
+            <span className="longku-toast-label">playability</span>
+            <span className="longku-toast-same">
+              {pct(playability.after, places(playability.after, playability.after))} —{" "}
+              {unlock
+                ? `nothing in the corpus ends on ${added.unlocked.map((u) => u.syl).join(", ")}`
+                : `you already start on ${more > 0 ? "these syllables" : head?.fs}`}
             </span>
           </div>
         )}
+        {syllables.after > syllables.before && (
+          <Stat label="syllables" before={syllables.before} after={syllables.after} />
+        )}
         {added.tiers.map((t) => (
-          <div key={t.id} className={`longku-toast-stat tier-${t.id}`}>
-            <span className="longku-toast-label">{t.label} usage</span>
-            <span className="longku-toast-from">{pct(t.before)}</span>
-            <span className="longku-toast-arrow">→</span>
-            <span className="longku-toast-to">{pct(t.after)}</span>
-            <span className="longku-toast-delta">{delta(t.before, t.after)}</span>
-          </div>
+          <Stat
+            key={t.id}
+            label={`${t.label} usage`}
+            before={t.before}
+            after={t.after}
+            className={`tier-${t.id}`}
+          />
         ))}
       </div>
 

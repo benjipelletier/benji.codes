@@ -86,8 +86,9 @@ export function usageCoverage(
 }
 
 /**
- * The chance you can reply when someone plays a chengyu: the share of usage
- * that ends on a syllable at least one of your words starts with.
+ * Playability: the chance you can reply when someone plays a chengyu — the
+ * share of usage that ends on a syllable at least one of your words starts
+ * with. Usage is corpus frequency, the same wordfreq figures as the tiers.
  *
  * Weighted by usage, not by word, because an opponent says 一模一样 far more
  * often than a variant nobody writes, and common chengyu end on a few
@@ -98,7 +99,7 @@ export function usageCoverage(
  * One move only. Whether your reply lands somewhere you can answer again is
  * the chain's question, not this one.
  */
-export function replyOdds(
+export function playabilityOf(
   bank: Array<{ fs: string }>,
   endingMass: Record<string, number>,
 ): number {

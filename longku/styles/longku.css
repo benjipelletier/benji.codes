@@ -1425,9 +1425,9 @@
   color: var(--lg-ink-faint);
 }
 
-/* The reply odds: under the syllable count, since it's that count weighed by
+/* Playability: under the syllable count, since it's that count weighed by
    how often a chain actually arrives at each syllable. */
-.longku-strip-odds {
+.longku-strip-playability {
   margin-top: 5px;
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -1435,7 +1435,7 @@
   color: var(--lg-ink-faint);
   white-space: nowrap;
 }
-.longku-strip-odds-n {
+.longku-strip-playability-n {
   font-size: 13px;
   letter-spacing: 0.02em;
   color: var(--lg-accent);
@@ -2236,8 +2236,8 @@
   .longku-strip-lead { padding-top: 2px; }
   .longku-strip-pct { font-size: 21px; }
   .longku-strip-lead-label { font-size: 9px; letter-spacing: 0.08em; }
-  .longku-strip-odds { margin-top: 3px; font-size: 9px; letter-spacing: 0.08em; }
-  .longku-strip-odds-n { font-size: 11px; }
+  .longku-strip-playability { margin-top: 3px; font-size: 9px; letter-spacing: 0.08em; }
+  .longku-strip-playability-n { font-size: 11px; }
 
   /* minmax(0, …) rather than a bare 1fr: an auto minimum holds each column at
      its widest number ("0 / 12,351"), which pushed the whole strip a hair past
@@ -2445,10 +2445,10 @@
   .longku-home { width: 34px; height: 34px; }
   .longku-switch button { padding: 9px 2px; font-size: 10px; letter-spacing: 0.06em; }
   .longku-strip-lead-label { display: none; }
-  /* The reply odds stay, but folded under their number to the headline's
-     width: on one line they took 66px from the tiers and cut their labels. */
-  .longku-strip-odds { white-space: normal; width: 48px; font-size: 8px; line-height: 1.25; text-align: left; }
-  .longku-strip-odds-n { display: block; }
+  /* Playability stays, but folded under its number: on one line it took the
+     width the tiers beside it need, and cut their labels. */
+  .longku-strip-playability { white-space: normal; font-size: 8px; letter-spacing: 0.04em; line-height: 1.25; text-align: left; }
+  .longku-strip-playability-n { display: block; }
   .longku-canvas { padding-left: 10px; padding-right: 10px; }
   .longku-cell { min-width: 52px; padding: 7px 7px 8px; }
 }
@@ -2552,6 +2552,8 @@
   background: color-mix(in srgb, var(--lg-success) 14%, transparent);
 }
 .longku-toast-stat.is-headline .longku-toast-to { color: var(--lg-accent); font-size: 14px; }
+/* An add that opened no new starting syllable: playability holds, and says why. */
+.longku-toast-same { grid-column: 2 / -1; font-size: 11px; color: var(--lg-ink-faint); }
 
 /* The first word on a syllable: a seal stamped on the corner. */
 .longku-toast-seal {
