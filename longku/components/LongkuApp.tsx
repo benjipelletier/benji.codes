@@ -6,6 +6,7 @@ import { stats as bankStats, unused } from "@longku/lib/chains";
 import { useDueClock } from "@longku/lib/clock";
 import {
   coverageByTier,
+  replyOdds,
   tierCounts,
   usageCoverage,
   type TierCount,
@@ -192,6 +193,11 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   );
   const tiers = useMemo(() => tierCounts(bankArr), [bankArr]);
   const sylCovered = useMemo(() => new Set(bankArr.map((e) => e.fs)).size, [bankArr]);
+  const endingMass = useMemo(
+    () => Object.fromEntries(syllables.map((x) => [x.syl, x.endingMass])),
+    [syllables],
+  );
+  const odds = useMemo(() => replyOdds(bankArr, endingMass), [bankArr, endingMass]);
   const corpusWords = useMemo(
     () => syllables.reduce((n, x) => n + x.count, 0),
     [syllables],
@@ -225,6 +231,7 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
             playable={syllables.length > 0 ? sylCovered / syllables.length : 0}
             syllablesCovered={sylCovered}
             corpusSyllables={syllables.length}
+            replyOdds={odds}
             byTier={byTier}
             offCorpusCount={tiers.offcorpus}
             stats={s}

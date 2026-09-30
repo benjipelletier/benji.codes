@@ -9,10 +9,18 @@ interface Props {
   /** Syllables held / syllables that exist, for the note under it. */
   syllablesCovered: number;
   corpusSyllables: number;
+  /** Chance a chengyu someone plays ends where one of yours starts — see replyOdds. */
+  replyOdds: number;
   byTier: TierCoverage[];
   offCorpusCount: number;
   stats: BankStats;
   onOpenStats: () => void;
+}
+
+/** A share as a percentage: one decimal under 10%, and never a false 0. */
+function percent(share: number): string {
+  if (share > 0 && share < 0.001) return "<0.1";
+  return (share * 100).toFixed(share < 0.1 ? 1 : 0);
 }
 
 /**
@@ -26,14 +34,15 @@ export function ProgressStrip({
   playable,
   syllablesCovered,
   corpusSyllables,
+  replyOdds,
   byTier,
   offCorpusCount,
   stats,
   onOpenStats,
 }: Props) {
   if (stats.total === 0) return null;
-  const pct =
-    playable > 0 && playable < 0.001 ? "<0.1" : (playable * 100).toFixed(playable < 0.1 ? 1 : 0);
+  const pct = percent(playable);
+  const odds = percent(replyOdds);
 
   return (
     <section className="longku-progress-strip" aria-label="Progress">
@@ -45,6 +54,12 @@ export function ProgressStrip({
         <span className="longku-strip-pct">{pct}%</span>
         <span className="longku-strip-lead-label">
           {syllablesCovered} / {corpusSyllables} syllables
+        </span>
+        <span
+          className="longku-strip-odds"
+          title={`If someone plays a chengyu — the common ones as often as they're really used — there's a ${odds}% chance it ends on a syllable you hold a word for, so you have a reply.`}
+        >
+          <span className="longku-strip-odds-n">{odds}%</span> odds of a reply
         </span>
       </button>
 

@@ -9,6 +9,8 @@ export interface SyllableSummary {
   count: number;
   /** Corpus chengyus ending on this syllable — every way a chain can arrive. */
   ending: number;
+  /** Their summed corpus frequency — how often a chain arrives, not how many ways. */
+  endingMass: number;
   /** Number of chengyus in this bucket with corpus frequency >= COMMON_FREQ_THRESHOLD. */
   common: number;
   top: string;

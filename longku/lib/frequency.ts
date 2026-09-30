@@ -86,6 +86,31 @@ export function usageCoverage(
 }
 
 /**
+ * The chance you can reply when someone plays a chengyu: the share of usage
+ * that ends on a syllable at least one of your words starts with.
+ *
+ * Weighted by usage, not by word, because an opponent says 一模一样 far more
+ * often than a variant nobody writes, and common chengyu end on a few
+ * syllables: yi, shi, zhi, ji and li close about a sixth of all usage between
+ * them. So this runs well ahead of the share of syllables held, and holding
+ * one word on yi is worth more than holding words on a dozen rare endings.
+ *
+ * One move only. Whether your reply lands somewhere you can answer again is
+ * the chain's question, not this one.
+ */
+export function replyOdds(
+  bank: Array<{ fs: string }>,
+  endingMass: Record<string, number>,
+): number {
+  let total = 0;
+  for (const m of Object.values(endingMass)) total += m;
+  if (total <= 0) return 0;
+  let mine = 0;
+  for (const syl of new Set(bank.map((e) => e.fs))) mine += endingMass[syl] ?? 0;
+  return Math.min(1, mine / total);
+}
+
+/**
  * A tier a corpus word can hold. Off-corpus is excluded by construction: every
  * entry in the reference dictionary has a frequency, so the corpus-side totals
  * can never include it.
