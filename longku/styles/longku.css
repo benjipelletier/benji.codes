@@ -2144,24 +2144,12 @@
 
 /* Touch: hover is not a thing you can do, so nothing may hide behind it. */
 @media (hover: none) {
-  /* Start-a-chain, which was revealed on hover and so unreachable by finger —
-     and then, once shown, a 20px corner to aim at. A 30px box in a 62px cell
-     leaves the rest of the cell to its own tap, which opens the bucket. */
-  .longku-cell-play {
-    opacity: 0.55;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    font-size: 12px;
-    /* Bottom corner: the top one holds the arrivals badge. */
-    top: auto;
-    bottom: 1px;
-    right: 1px;
-  }
-  .longku-cell { padding-right: 28px; }
+  /* Start-a-chain lived in the cell's corner, revealed on hover. Made
+     tappable, it was a 30px box in a cell barely 50px square — most of the
+     cell's right half — so a tap meant to open the bucket broke the chain
+     and restarted it there instead. On touch the whole cell opens the
+     bucket, whose header carries the same "Chain from here". */
+  .longku-cell-play { display: none; }
   .longku-cell:active { transform: none; }
 }
 

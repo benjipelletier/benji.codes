@@ -18,7 +18,8 @@ import {
 } from "@longku/lib/store";
 import { available, pickChainStart, unused, type Scope } from "@longku/lib/chains";
 import { TierPill } from "./AddChengyu";
-import { dayStart, dueAt, isDue } from "@longku/lib/srs";
+import { dayStart, dueAt, inWords, isDue, nextDueAt } from "@longku/lib/srs";
+import { useDueClock } from "@longku/lib/clock";
 
 interface Suggestion {
   w: string;
@@ -138,8 +139,8 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
 
   /**
    * A retry: practice limited to these words — the ones a pass got wrong,
-   * played again straight away. Unscored like any practice: the miss already
-   * brought them back tomorrow, and a replay a minute later is working memory.
+   * played again straight away. Unscored like any practice: the schedule
+   * already brings each back, and a replay a minute later is working memory.
    */
   const [retry, setRetryState] = useState<string[] | null>(() => {
     try {
@@ -182,13 +183,16 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     return () => clearTimeout(t);
   }, [landed]);
 
-  const remaining = useMemo(() => unused(state, scope), [state, scope]);
+  /** Moves on when a word falls due, so the pass picks it up unprompted. */
+  const clock = useDueClock(state.bank);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const remaining = useMemo(() => unused(state, scope), [state, scope, clock]);
   /** Due words, whatever the mode — what a practice round is standing in for. */
-  const dueNow = useMemo(() => (practice ? unused(state).length : remaining.length), [
-    state,
-    practice,
-    remaining.length,
-  ]);
+  const dueNow = useMemo(
+    () => (practice ? unused(state).length : remaining.length),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, practice, remaining.length, clock],
+  );
   const bankSize = Object.keys(state.bank).length;
   // Words of yours on the chain: in a due pass, what's been reviewed so far.
   const doneThisSweep = state.chains.flat().filter((l) => typeof l === "string").length;
@@ -383,8 +387,9 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       return;
     }
     // Practice covers each word once. A due pass goes by the schedule: a word
-    // already on the chain can't be replayed unless it has come due again,
-    // as one played yesterday on a chain left unfinished can.
+    // already on the chain can't be replayed unless it has come due again —
+    // one still being learned, back minutes later, or one played yesterday
+    // on a chain left unfinished.
     const repeat = practice ? state.sweep.includes(word) : links.includes(word) && !isDue(entry);
     if (repeat) {
       setMsg({ kind: "error", text: `"${word}" is already in this chain.` });
@@ -923,7 +928,7 @@ function PassDone({
       )}
       {next && dueNow === 0 && (
         <p className="longku-hint" style={{ margin: 0 }}>
-          Next: {next.count} word{next.count === 1 ? "" : "s"} due {next.when}.
+          Next: {next}.
         </p>
       )}
       {worth.length > 0 && (
@@ -963,7 +968,7 @@ function PassDone({
           <button
             className="longku-btn is-primary"
             onClick={onRetry}
-            title="Play just these again, straight away. Nothing is scored — they're already due again tomorrow."
+            title="Play just these again, straight away. Nothing is scored — the schedule already brings each back, the revealed ones within minutes."
           >
             Retry the {missed.length} you missed
           </button>
@@ -1001,25 +1006,35 @@ function PassDone({
   );
 }
 
-/** The next day anything falls due, and how much does. */
-function nextDue(bank: Record<string, BankEntry>): { when: string; count: number } | null {
+/**
+ * When anything falls due next, and how much does, as a phrase.
+ *
+ * Later today means words still being learned, each on its own time, so
+ * they're counted together and timed by the first. Past today it's by day.
+ */
+function nextDue(bank: Record<string, BankEntry>): string | null {
   const now = Date.now();
-  let first = Infinity;
-  const byDay = new Map<number, number>();
+  const first = nextDueAt(bank, now);
+  if (!Number.isFinite(first)) return null;
+  const today = dayStart(now);
+  const day = dayStart(first);
+  let count = 0;
   for (const e of Object.values(bank)) {
     const due = dueAt(e);
-    if (due <= now) continue;
-    const day = dayStart(due);
-    byDay.set(day, (byDay.get(day) ?? 0) + 1);
-    if (day < first) first = day;
+    if (due > now && dayStart(due) === day) count++;
   }
-  if (!Number.isFinite(first)) return null;
-  const days = Math.round((first - dayStart(now)) / 86_400_000);
+  const words = `${count} word${count === 1 ? "" : "s"}`;
+  if (day === today) {
+    return count === 1
+      ? `${words} due ${inWords(first - now)}`
+      : `${words} due later today, the first ${inWords(first - now)}`;
+  }
+  const days = Math.round((day - today) / 86_400_000);
   const when =
     days <= 1
       ? "tomorrow"
       : days < 7
         ? `on ${new Date(first).toLocaleDateString(undefined, { weekday: "long" })}`
         : `in ${days} days`;
-  return { when, count: byDay.get(first) ?? 0 };
+  return `${words} due ${when}`;
 }

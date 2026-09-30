@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bootstrap, hydrate, type BankEntry, type Mode, type State } from "@longku/lib/store";
 import { stats as bankStats, unused } from "@longku/lib/chains";
+import { useDueClock } from "@longku/lib/clock";
 import {
   coverageByTier,
   tierCounts,
@@ -180,7 +181,9 @@ export function LongkuApp({ syllables, corpusMass, tierMass, tierWords }: Props)
   }, [state.bank, hydrated]);
 
   const bankArr = useMemo(() => Object.values(state.bank), [state]);
-  const dueCount = useMemo(() => unused(state).length, [state]);
+  const clock = useDueClock(state.bank);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const dueCount = useMemo(() => unused(state).length, [state, clock]);
   const s = useMemo(() => bankStats(state), [state]);
   const cov = useMemo(() => usageCoverage(bankArr, corpusMass), [bankArr, corpusMass]);
   const byTier = useMemo(

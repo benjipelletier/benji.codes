@@ -15,7 +15,7 @@
 // changes simply don't outlive the tab. That's deliberate — the app is worth
 // looking at, and a read-only wall you can't play with isn't.
 
-import { daysAfter, intervalDays, isDue } from "./srs";
+import { isDue, scheduleRecall, scheduleShown } from "./srs";
 
 const STORAGE_KEY = "longku:v2";
 /** Earlier keys, newest first. Read once each, then folded in. */
@@ -299,7 +299,11 @@ const LEARNING_RATE = 0.4;
  * Producing a word twice in a minute is one piece of evidence recorded twice:
  * the second attempt is answered from working memory, not from having learned
  * anything, so crediting it in full lets a word be drilled to a high strength
- * in a single sitting without the knowledge lasting past it.
+ * in a single sitting without the knowledge lasting past it. The same goes for
+ * producing it a minute after being shown it, which is why a recall is weighed
+ * from when the word was last seen, not last recalled — words still being
+ * learned come back within minutes, and those same-day steps are for holding
+ * on to a word, not proof that it's known.
  *
  * This is not the strength decaying with time — nothing erodes while you're
  * away. It's how much a new observation is worth given how recently the last
@@ -450,21 +454,24 @@ export function playWord(
     return commit();
   }
   const now = Date.now();
+  // The last time the word was in front of you, read before this play moves
+  // it: a recall is evidence for the gap since then, whether you last recalled
+  // the word or were last shown it. Legacy entries may have only lastRecalled.
+  const seen = Math.max(e.lastSeen ?? 0, e.lastRecalled ?? 0) || undefined;
   e.lastSeen = now;
   let o: Review["o"] = "shown";
   if (recalled) {
-    // Weighed before lastRecalled moves, or the gap would always read as zero.
-    const w = spacing(e.lastRecalled) * weight;
+    const w = spacing(seen) * weight;
     e.recalls += 1;
     e.lastRecalled = now;
     e.strength = e.strength + LEARNING_RATE * w * (1 - e.strength);
-    e.due = daysAfter(now, intervalDays(e.strength));
+    e.due = scheduleRecall(now, e.strength, seen ?? e.added);
     o = weight < 1 ? "hint" : "recall";
   } else {
     // A prompted play moves no strength: the miss was already taken when the
     // list was revealed, and crediting the click would cancel it out. It does
-    // reschedule — tomorrow, since today it was read rather than recalled.
-    e.due = daysAfter(now, 1);
+    // reschedule — minutes from now, while what was read can still be found.
+    e.due = scheduleShown(now);
   }
   _state.reviews.push({ w: word, at: now, o });
   if (!_state.sweep.includes(word)) _state.sweep.push(word);
