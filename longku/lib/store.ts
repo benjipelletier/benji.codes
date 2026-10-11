@@ -432,8 +432,9 @@ export function hydrate(
  * `practice` plays without recording anything about the word — see below.
  *
  * `weight` scales how far a recall moves strength, for recalls that had help
- * short of being shown the word — producing it from its meaning is real
- * retrieval, but an easier one than producing it from the syllable alone.
+ * short of being shown the word. Anything under 1 is logged as a hint. The
+ * game passes 0 for a word produced after its meaning was shown: the meaning
+ * all but names it, so it says little about recalling it from the syllable.
  */
 export function playWord(
   word: string,
@@ -498,12 +499,13 @@ export function playWord(
  * nothing but success was ever written down.
  */
 export function recordMiss(syl: string): State {
-  const used = new Set(_state.sweep);
   const now = Date.now();
   const hit: string[] = [];
   for (const e of Object.values(_state.bank)) {
-    // Only the words the reveal listed: due, and not yet played this pass.
-    if (e.fs !== syl || used.has(e.w) || !isDue(e, now)) continue;
+    // Only the words the reveal listed, which are the ones due. Not "unplayed
+    // this pass": a word still being learned comes due again minutes after
+    // it's played, is listed again, and missing it again is a miss.
+    if (e.fs !== syl || !isDue(e, now)) continue;
     e.misses += 1;
     // Damped the same way: pressing Stuck? twice on one syllable in a minute
     // is the same gap in knowledge, not two of them.
