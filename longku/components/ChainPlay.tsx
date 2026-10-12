@@ -397,15 +397,17 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
     }
 
     // Scored by the help this word had. Revealed, it's a word you read, same as
-    // clicking it in the list; from its meaning, a recall at half weight. The
-    // help only covered the words it listed — the due ones — so a word typed
-    // from outside that list is a recall on its own.
+    // clicking it in the list. From its meaning, it was produced but not from
+    // the syllable alone, which is the thing being learned: no strength, no
+    // miss, and the pass-end screen lists it as one to retry. The help only
+    // covered the words it listed — the due ones — so a word typed from
+    // outside that list is a recall on its own.
     const listed = available(state, need, scope).some((e) => e.w === word);
     const helped = listed ? seen : 0;
     onChange(
       helped === 2
         ? playWord(word, false, 1, practice)
-        : playWord(word, true, helped === 1 ? 0.5 : 1, practice),
+        : playWord(word, true, helped === 1 ? 0 : 1, practice),
     );
     setLanded(new Set([word]));
     setDraft("");
@@ -711,9 +713,9 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                 aria-expanded={help > 0}
                 title={
                   help === 0
-                    ? "Show what your words for this syllable mean"
+                    ? "Show what your words for this syllable mean. A word typed after this earns no strength."
                     : help === 1
-                      ? "Show the words themselves"
+                      ? "Show the words themselves. Each one shown counts as a miss."
                       : "Hide"
                 }
               >
