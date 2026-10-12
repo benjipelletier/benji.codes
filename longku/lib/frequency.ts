@@ -1,14 +1,16 @@
 // Frequency tiers and usage coverage.
 //
-// Chengyu frequency is steeply Zipfian: 374 words account for half of all
-// recorded usage, 3,700 for 90%, and the remaining 15,500 for under one percent
-// between them. Counting words against the 30,292-entry corpus is therefore a
-// bad progress measure — a serious bank still reads as 2%.
+// Chengyu frequency is steeply Zipfian: 572 words account for half of all
+// recorded usage, 3,500 for 93%, and the 24,500 too rare to be measured for
+// under one percent between them. Counting words against the 31,600-entry
+// corpus is therefore a bad progress measure — a serious bank still reads as 2%.
 //
 // Frequencies come from wordfreq (see longku/scripts/build-frequency.py), which
 // blends subtitles, web text and news. The previous source counted newspapers
 // only and left three quarters of the corpus unmeasured, which put 不好意思 in
-// the rare tier.
+// the rare tier. The first wordfreq build then read idioms through its word
+// splitter, which filed 画龙点睛 as rare and 文章经济 as core; each is now looked
+// up whole.
 //
 // Token coverage is the honest one: of all the times a chengyu gets used, what
 // share would you recognize? It answers a real question, and it weights effort
@@ -27,16 +29,23 @@ export interface TierSpec {
 }
 
 /**
- * Cuts chosen so each tier lands on a round share of usage: core ≈ the first
- * half, common ≈ up to 90%, uncommon ≈ up to 99%. Re-derive these whenever the
- * frequency source changes — they are properties of that distribution, not
- * constants.
+ * Cuts at round decades of frequency per billion, each landing near a round
+ * share of usage: core is the first half, common runs to 93%, and uncommon is
+ * the rest of what wordfreq measures, to 99%. Its list stops at about 10 per
+ * billion, so rare means exactly "too rare to be measured". Re-derive these
+ * whenever the frequency source changes — they are properties of that
+ * distribution, not constants.
  */
 export const FREQUENCY_TIERS: TierSpec[] = [
-  { id: "core", label: "core", min: 1500, blurb: "374 words — nearly half of all chengyu usage" },
-  { id: "common", label: "common", min: 60, blurb: "up to 90% of usage" },
-  { id: "uncommon", label: "uncommon", min: 5, blurb: "up to 99% of usage" },
-  { id: "rare", label: "rare", min: 0, blurb: "the long tail — under 1% of usage across 15,500 words" },
+  { id: "core", label: "core", min: 1000, blurb: "572 words — about half of all chengyu usage" },
+  { id: "common", label: "common", min: 100, blurb: "up to 93% of usage" },
+  { id: "uncommon", label: "uncommon", min: 10, blurb: "up to 99% of usage — the rarest still measured" },
+  {
+    id: "rare",
+    label: "rare",
+    min: 0,
+    blurb: "the long tail — 24,500 words too rare to be measured, under 1% of usage between them",
+  },
 ];
 
 /**
@@ -170,7 +179,7 @@ export interface TierCoverage {
 /**
  * Coverage within each tier, so progress reads as "how far into the words that
  * matter" rather than one flat number. Core moves fast and is worth the most;
- * rare barely moves and is worth 1% of usage between 24,000 words.
+ * rare barely moves and is worth under 1% of usage between 24,500 words.
  */
 export function coverageByTier(
   bank: Array<{ f?: number; offCorpus?: boolean }>,

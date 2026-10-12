@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import type { State } from "@longku/lib/store";
-import { suggestSyllables } from "@longku/lib/chains";
 import { formatShare } from "@longku/lib/frequency";
 
 export interface SyllableSummary {
@@ -10,10 +9,6 @@ export interface SyllableSummary {
   count: number;
   /** Corpus chengyus ending on this syllable — every way a chain can arrive. */
   ending: number;
-  /** The commonest of them — what a game most often lands you here with. */
-  endTop: string;
-  /** Number of chengyus in this bucket with corpus frequency >= COMMON_FREQ_THRESHOLD. */
-  common: number;
   top: string;
 }
 
@@ -98,8 +93,6 @@ export function SyllableGrid({ syllables, state, comesUp, onPick, onStartChain }
     return m;
   }, [state]);
 
-  const bank = useMemo(() => Object.values(state.bank), [state]);
-  const suggested = useMemo(() => suggestSyllables(bank, syllables), [bank, syllables]);
 
   const grouped = useMemo(() => {
     const byInitial = new Map<string, SyllableSummary[]>();
@@ -136,30 +129,6 @@ export function SyllableGrid({ syllables, state, comesUp, onPick, onStartChain }
 
   return (
     <>
-    {suggested.length > 0 && (
-      <div className="longku-wall-head">
-        <div className="longku-suggest" aria-label="Syllables worth learning a word for">
-          <span className="longku-suggest-label">learn a word starting with</span>
-          {suggested.map((g, i) => (
-            <button
-              key={g.syl}
-              type="button"
-              className={`longku-suggest-chip ${i === 0 ? "is-top" : ""}`}
-              onClick={() => onPick(g.syl)}
-              title={`${g.in} of your words end on ${g.syl}, ${g.out} start with it — ${g.in - g.out} chain${g.in - g.out === 1 ? "" : "s"} stop here. ${g.common} common word${g.common === 1 ? "" : "s"} start with ${g.syl}.`}
-            >
-              <span className="longku-suggest-syl">{g.syl}</span>
-              <span className="longku-suggest-flow">
-                {g.in} in · {g.out} out
-              </span>
-            </button>
-          ))}
-          <span className="longku-suggest-why">
-            more of your words end on these than start with them
-          </span>
-        </div>
-      </div>
-    )}
     <div className="longku-wall-order" role="group" aria-label="Order the wall">
       <span className="longku-wall-order-label">order</span>
       {ORDERS.map((o) => (
@@ -233,14 +202,17 @@ function Cell({
   // Past roughly half fill the ground is too dark for ink type, so the label
   // flips to the light-on-accent pair instead.
   const deep = fill >= 0.55;
-  // More of yours arrive than can leave: chains stop here.
+  // More of yours arrive than can leave: chains stop here. A dead end is the
+  // whole of that: arrivals, and no way on at all.
   const stuck = arrive > have;
+  const deadEnd = arrive > 0 && have === 0;
   const odds = formatShare(comesUp);
 
   // The card opens rightward from the cell; near the wall's right edge it
   // opens leftward instead, rather than being cut off. Measured as it opens,
   // since where a cell sits depends on the width and the order. A data
-  // attribute, not a class, so React's next render doesn't wipe it.
+  // attribute, not a class, so React's next render doesn't wipe it. The cell's
+  // own size goes along too: the card's box grows out of exactly its outline.
   function place(e: React.SyntheticEvent<HTMLDivElement>) {
     const cell = e.currentTarget;
     const pop = cell.querySelector<HTMLElement>(".longku-cell-pop");
@@ -248,6 +220,8 @@ function Cell({
     if (!pop || !wall) return;
     const room = wall.getBoundingClientRect().right - cell.getBoundingClientRect().left;
     cell.dataset.pop = pop.offsetWidth > room ? "left" : "right";
+    cell.style.setProperty("--lg-cell-w", `${cell.offsetWidth}px`);
+    cell.style.setProperty("--lg-cell-h", `${cell.offsetHeight}px`);
   }
 
   return (
@@ -269,7 +243,11 @@ function Cell({
       aria-label={
         `${s.syl}: ${have} of yours start with it out of ${s.count}; ` +
         `${arrive} of yours end on it out of ${s.ending}; comes up ${odds} of the time` +
-        (stuck ? "; chains stop here" : "")
+        (deadEnd
+          ? "; a dead end, nothing of yours starts here"
+          : stuck
+            ? `; ${arrive - have} more of yours end here than start here`
+            : "")
       }
     >
       <span className="longku-cell-syl">{s.syl}</span>
@@ -284,8 +262,8 @@ function Cell({
           </>
         )}
       </span>
-      {/* Something of yours ends here. The counts are in the card. */}
-      {arrive > 0 && <span className="longku-cell-dot" aria-hidden />}
+      {/* A dead end: yours arrive and none leave. The counts are in the card. */}
+      {deadEnd && <span className="longku-cell-dot" aria-hidden />}
 
       <div className="longku-cell-pop">
         <div className="longku-pop-head">
@@ -320,7 +298,7 @@ function Cell({
               <b>{arrive}</b> / {s.ending.toLocaleString()}
             </span>
             <span className={`longku-pop-aside ${stuck ? "is-warn" : ""}`}>
-              {stuck ? "chains stop here" : ""}
+              {deadEnd ? "dead end" : stuck ? `${arrive - have} more in than out` : ""}
             </span>
           </div>
           <div className={order === "comesUp" ? "is-key" : ""}>
@@ -328,7 +306,7 @@ function Cell({
             <span className="longku-pop-v">
               <b>{odds}</b>
             </span>
-            <span className="longku-pop-aside">{s.endTop ? `via ${s.endTop}` : ""}</span>
+            <span className="longku-pop-aside" />
           </div>
         </div>
       </div>

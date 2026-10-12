@@ -19,6 +19,27 @@ wordfreq blends subtitles, web text, books, news and social media, so spoken
 register is represented. Values are stored per billion — an integer, keeping
 the downstream `f` field and all the usage-mass arithmetic unchanged.
 
+Each idiom is looked up whole in wordfreq's Chinese list, not passed through
+word_frequency(). That function first splits Chinese text with its own
+segmenter, whose vocabulary is far smaller than the list's. It broke 31,070
+of our ~31,600 idioms apart, estimated each from its pieces, and divided by 10
+per break, so a value depended on how an idiom happened to be split rather
+than how often it is used:
+
+  画龙点睛  282 in the list, 1 as four characters: core-worthy, filed rare
+  卧薪尝胆  794 in the list, 1 as four characters
+  文章经济  not in the list at all, 13,800 as 文章 + 经济: filed core
+
+The list stops at about 10 per billion, so an idiom missing from it is rarer
+than that, and its split estimate says more about how common its characters
+are than about the idiom. Measured idioms run at about 1,100 per doubling of
+frequency all the way down to the floor; carried on below it, the ~24,500
+unlisted ones come to about 0.7% of all usage, under 1 per billion each. So
+they keep the split estimate only as a coarse order, capped at 1 per billion:
+0 or 1 once rounded, rare by any cutoff, and together about 0.8% of usage.
+Capping at the floor instead would have credited them with 4.4%, most of it
+from idioms the segmenter happened to split into common words.
+
 Usage:
     python3 -m venv .venv && .venv/bin/pip install wordfreq jieba
     .venv/bin/python longku/scripts/build-frequency.py
@@ -30,7 +51,7 @@ import pathlib
 import sys
 
 try:
-    from wordfreq import word_frequency
+    from wordfreq import get_frequency_dict, word_frequency
 except ImportError:
     sys.exit("wordfreq is not installed — see the usage note at the top of this file.")
 
@@ -57,11 +78,25 @@ if CEDICT_IDIOMS.exists():
             seen.add(w)
             words.append(w)
 
+LISTED = get_frequency_dict("zh")
+# The rarest value the list holds. Anything rarer was left out of it.
+FLOOR = min(LISTED.values())
+# What an unlisted idiom can be worth at most — see the note at the top.
+UNLISTED_CAP = 1e-9
+
 rows = []
+listed = 0
 for w in words:
+    if w in LISTED:
+        freq = LISTED[w]
+        listed += 1
+    else:
+        # Below the floor by definition; the split estimate only orders these
+        # among themselves.
+        freq = min(word_frequency(w, "zh"), UNLISTED_CAP)
     # Per billion: wordfreq returns a proportion, and the rest of the pipeline
     # wants an integer it can sum into usage mass.
-    rows.append((w, round(word_frequency(w, "zh") * 1e9)))
+    rows.append((w, round(freq * 1e9)))
 
 rows.sort(key=lambda r: (-r[1], r[0]))
 OUT.write_text("".join(f"{w}\t{f}\n" for w, f in rows), encoding="utf8")
@@ -69,5 +104,6 @@ OUT.write_text("".join(f"{w}\t{f}\n" for w, f in rows), encoding="utf8")
 measured = sum(1 for _, f in rows if f > 0)
 print(f"wrote {OUT.relative_to(REPO)}")
 print(f"  words          : {len(rows):,}")
+print(f"  in the list    : {listed:,} ({100 * listed / len(rows):.0f}%), the rest under {FLOOR * 1e9:.1f}/billion")
 print(f"  with a value   : {measured:,} ({100 * measured / len(rows):.0f}%)")
 print(f"  top            : {', '.join(w for w, _ in rows[:6])}")

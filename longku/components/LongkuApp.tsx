@@ -93,36 +93,52 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
   }, []);
 
   // Words migrated from v1 carry no ending syllable and no frequency, which
-  // would keep them out of every chain and out of usage coverage. Resolve those
-  // once against the corpus.
+  // would keep them out of every chain and out of usage coverage. And every
+  // banked word keeps the frequency it was added with, so a rebuilt corpus —
+  // the one that stopped filing 画龙点睛 as rare — would never reach the words
+  // already banked. Resolve them all against the corpus once per load; only
+  // what differs is written back.
   useEffect(() => {
-    if (!hydrated || mode === "spectator") return;
-    const missing = Object.values(state.bank)
-      .filter((e) => e.ls === null || (e.f === undefined && !e.offCorpus))
-      .map((e) => e.w);
-    if (missing.length === 0) return;
+    if (!hydrated) return;
+    const bank = Object.values(state.bank);
+    const missing = new Set(
+      bank.filter((e) => e.ls === null || (e.f === undefined && !e.offCorpus)).map((e) => e.w),
+    );
+    // Off-corpus words are left out: the corpus has no frequency for them, and
+    // its guessed bucket mustn't overwrite one that was chosen.
+    const runs = [...new Set([...missing, ...bank.filter((e) => !e.offCorpus).map((e) => e.w)])];
+    if (runs.length === 0) return;
     let cancelled = false;
-    fetch("/api/longku/resolve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ runs: missing }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d) return;
-        const readings = [
-          ...(d.found ?? []).map((x: { w: string; fs: string; ls: string; f: number }) => ({
+    // The route takes 2,000 runs at a time.
+    const chunks: string[][] = [];
+    for (let i = 0; i < runs.length; i += 2000) chunks.push(runs.slice(i, i + 2000));
+    Promise.all(
+      chunks.map((chunk) =>
+        fetch("/api/longku/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runs: chunk }),
+        }).then((r) => (r.ok ? r.json() : null)),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const readings = results.flatMap((d) => [
+          ...(d?.found ?? []).map((x: { w: string; fs: string; ls: string; f: number }) => ({
             w: x.w,
             fs: x.fs,
             ls: x.ls,
             f: x.f,
           })),
-          ...(d.unmatched ?? []).map((u: { w: string; fs: string; ls: string | null }) => ({
-            w: u.w,
-            fs: u.fs,
-            ls: u.ls,
-          })),
-        ];
+          // Guesses, for words the corpus lacks: only where nothing was known.
+          ...(d?.unmatched ?? [])
+            .filter((u: { w: string }) => missing.has(u.w))
+            .map((u: { w: string; fs: string; ls: string | null }) => ({
+              w: u.w,
+              fs: u.fs,
+              ls: u.ls,
+            })),
+        ]);
         if (readings.length > 0) setState(hydrate(readings));
       })
       .catch(() => {});

@@ -274,7 +274,9 @@ export async function POST(req: NextRequest) {
         await sql`
           update longku_bank
           set ls = coalesce(ls, ${r.ls ?? null}),
-              f  = coalesce(f,  ${r.f ?? null}),
+              -- The corpus's frequency wins: a rebuilt list must reach words
+              -- banked before it.
+              f  = coalesce(${r.f ?? null}, f),
               fs = coalesce(${r.fs ?? null}, fs)
           where owner_email = ${owner} and w = ${r.w}
         `;
