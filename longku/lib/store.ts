@@ -393,7 +393,12 @@ export function importWords(words: ImportWord[]): {
   return { state: commit(), summary: { added, duplicate, buckets: [...buckets].sort() } };
 }
 
-/** Fill in readings for entries that lack them (words migrated from v1). */
+/**
+ * Bring entries in line with the corpus: fill in readings they lack (words
+ * migrated from v1), and take the corpus's frequency wherever it differs, so a
+ * rebuilt frequency list reaches words banked before it. Only entries that
+ * actually changed are written back.
+ */
 export function hydrate(
   readings: Array<{ w: string; fs: string; ls: string | null; f?: number }>,
 ): State {
@@ -406,7 +411,7 @@ export function hydrate(
       e.ls = r.ls;
       changed = true;
     }
-    if (e.f === undefined && r.f !== undefined) {
+    if (r.f !== undefined && e.f !== r.f) {
       e.f = r.f;
       changed = true;
     }
