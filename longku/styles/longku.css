@@ -405,50 +405,107 @@
 
 /* A cell opens out into a card over its neighbours: the three numbers that
    describe a syllable, and the start-a-chain action that used to hide in the
-   cell's corner. Grows from the cell itself, so it reads as the same thing
-   getting bigger rather than a tooltip arriving from elsewhere. */
+   cell's corner.
+
+   It grows out of the cell. The card's box is drawn by ::before, whose edges
+   start on the cell's own outline (--lg-cell-w/-h, measured on hover) and
+   slide out to the card's; the text fades in once there's room for it. The
+   box moves, not the content, so nothing is squashed mid-way, and the shadow
+   isn't clipped as it would be under a clip-path. */
 .longku-cell-pop {
+  --lg-pop-in: 7px;
   position: absolute;
-  top: -7px;
-  left: -7px;
-  min-width: calc(100% + 14px);
+  top: calc(-1 * var(--lg-pop-in));
+  left: calc(-1 * var(--lg-pop-in));
+  min-width: calc(100% + 2 * var(--lg-pop-in));
   width: max-content;
   padding: 7px 10px 9px 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--lg-surface);
-  border: 1px solid var(--lg-rule-strong);
-  border-radius: 6px;
-  box-shadow: var(--lg-shadow);
   color: var(--lg-ink);
   cursor: pointer;
-  opacity: 0;
-  transform: scale(0.94);
-  transform-origin: 16px 14px;
   pointer-events: none;
-  transition: opacity 110ms ease-out, transform 110ms ease-out;
+  visibility: hidden;
+  /* Stays visible until the box has shrunk back, then drops out. */
+  transition: visibility 0s linear 200ms;
   z-index: 3;
 }
-
-/* Hover only where hover exists: a phone fakes it on tap and would leave the
-   card stuck open behind the bucket it just opened. Keyboard focus opens it
-   anywhere. */
-/* Near the wall's right edge it opens leftward — see place() in SyllableGrid. */
-.longku-cell[data-pop="left"] .longku-cell-pop {
-  left: auto;
-  right: -7px;
-  transform-origin: calc(100% - 16px) 14px;
+.longku-cell-pop::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  /* Closed: exactly over the cell. */
+  top: var(--lg-pop-in);
+  left: var(--lg-pop-in);
+  right: calc(100% - var(--lg-pop-in) - var(--lg-cell-w, 60px));
+  bottom: calc(100% - var(--lg-pop-in) - var(--lg-cell-h, 44px));
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 4px;
+  box-shadow: var(--lg-shadow-sm);
+  opacity: 0;
+  transition:
+    top 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    right 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    bottom 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    left 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-radius 200ms ease-out,
+    box-shadow 200ms ease-out,
+    opacity 90ms ease-out;
+}
+.longku-cell-pop > * {
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 90ms ease-out, transform 90ms ease-out;
 }
 
+/* Near the wall's right edge it opens leftward — see place() in SyllableGrid —
+   so the box starts on the cell at the card's right-hand end. */
+.longku-cell[data-pop="left"] .longku-cell-pop {
+  left: auto;
+  right: calc(-1 * var(--lg-pop-in));
+}
+.longku-cell[data-pop="left"] .longku-cell-pop::before {
+  left: calc(100% - var(--lg-pop-in) - var(--lg-cell-w, 60px));
+  right: var(--lg-pop-in);
+}
+
+/* Open. Hover only where hover exists: a phone fakes it on tap and would leave
+   the card stuck open behind the bucket it just opened. Keyboard focus opens
+   it anywhere. */
 @media (hover: hover) {
-  .longku-cell:hover .longku-cell-pop { opacity: 1; transform: none; pointer-events: auto; }
+  .longku-cell:hover .longku-cell-pop { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+  .longku-cell:hover .longku-cell-pop::before {
+    inset: 0;
+    border-radius: 6px;
+    box-shadow: var(--lg-shadow);
+    opacity: 1;
+  }
+  .longku-cell:hover .longku-cell-pop > * {
+    opacity: 1;
+    transform: none;
+    transition: opacity 140ms ease-out 90ms, transform 160ms ease-out 90ms;
+  }
 }
 .longku-cell:focus-visible .longku-cell-pop,
 .longku-cell:has(.longku-pop-chain:focus-visible) .longku-cell-pop {
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+.longku-cell:focus-visible .longku-cell-pop::before,
+.longku-cell:has(.longku-pop-chain:focus-visible) .longku-cell-pop::before {
+  inset: 0;
+  border-radius: 6px;
+  box-shadow: var(--lg-shadow);
+  opacity: 1;
+}
+.longku-cell:focus-visible .longku-cell-pop > *,
+.longku-cell:has(.longku-pop-chain:focus-visible) .longku-cell-pop > * {
   opacity: 1;
   transform: none;
-  pointer-events: auto;
+  transition: opacity 140ms ease-out 90ms, transform 160ms ease-out 90ms;
 }
 
 .longku-pop-head {
@@ -2049,8 +2106,9 @@
 
 /* ------------------------------------------- incoming: words ending here -- */
 
-/* Something of yours ends on this syllable — a chain can arrive. Just a dot;
-   the counts are in the card. */
+/* A dead end: something of yours ends on this syllable and nothing of yours
+   starts on it, so a chain that arrives stops. Just a dot; the counts are in
+   the card. */
 .longku-cell-dot {
   position: absolute;
   top: -3px;
@@ -2067,7 +2125,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .longku-cell-pop { transition: none; }
+  .longku-cell-pop,
+  .longku-cell-pop::before,
+  .longku-cell-pop > *,
+  .longku-cell:hover .longku-cell-pop > * { transition: none !important; }
 }
 
 /* How the wall is ordered: a–z by initial, or one ranking. */
@@ -2103,50 +2164,6 @@
   color: var(--lg-ink);
 }
 
-.longku-wall-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px 20px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.longku-suggest {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  flex: 1 1 320px;
-  min-width: 0;
-}
-
-.longku-suggest-label,
-.longku-suggest-why {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--lg-ink-faint);
-}
-.longku-suggest-why { text-transform: none; letter-spacing: 0; font-size: 11px; }
-
-.longku-suggest-chip {
-  font: inherit;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  padding: 4px 10px;
-  border: 1px dashed var(--lg-rule-strong);
-  border-radius: 4px;
-  background: none;
-  color: var(--lg-ink);
-  cursor: pointer;
-}
-.longku-suggest-chip:hover { border-style: solid; border-color: var(--lg-accent); }
-.longku-suggest-chip.is-top { border-color: var(--lg-warn); }
-.longku-suggest-syl { font-size: 16px; font-style: italic; }
-.longku-suggest-chip.is-top .longku-suggest-syl { color: var(--lg-warn); }
-.longku-suggest-flow { font-size: 11px; color: var(--lg-ink-faint); }
-
 .longku-arrive-note {
   text-transform: none;
   letter-spacing: 0;
@@ -2156,9 +2173,6 @@
 .longku-arrive-words { display: flex; flex-wrap: wrap; gap: 6px 10px; }
 .longku-arrive-word { font-size: 18px; color: var(--lg-ink-soft); }
 
-@media (max-width: 720px) {
-  .longku-suggest-why { flex-basis: 100%; }
-}
 
 /* ------------------------------------ syllable view: the corpus's top five -- */
 .longku-top-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }

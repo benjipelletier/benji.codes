@@ -32,7 +32,10 @@ function dataDir(): string {
   return join(process.cwd(), "longku", "data");
 }
 
-/** Chengyus at or above this corpus frequency count as "common" for cell stats. */
+/**
+ * Chengyus at or above this corpus frequency are common enough to bridge with
+ * — the floor of the common tier (see FREQUENCY_TIERS).
+ */
 export const COMMON_FREQ_THRESHOLD = 100;
 
 export function entries(): ChengyuEntry[] {
@@ -74,25 +77,6 @@ export function topForSyllable(syl: string, limit = 50): ChengyuEntry[] {
   const ids = bySyllable()[syl] ?? [];
   const all = entries();
   return ids.slice(0, limit).map((i) => all[i]);
-}
-
-/** Count chengyus per syllable that meet the COMMON_FREQ_THRESHOLD. */
-let _commonCounts: Record<string, number> | null = null;
-export function commonCounts(): Record<string, number> {
-  if (_commonCounts) return _commonCounts;
-  const buckets = bySyllable();
-  const all = entries();
-  const out: Record<string, number> = {};
-  for (const [syl, ids] of Object.entries(buckets)) {
-    let c = 0;
-    for (const i of ids) {
-      if (all[i].f >= COMMON_FREQ_THRESHOLD) c++;
-      else break; // ids are sorted by freq desc — short-circuit
-    }
-    out[syl] = c;
-  }
-  _commonCounts = out;
-  return out;
 }
 
 /**
