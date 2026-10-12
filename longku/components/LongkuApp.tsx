@@ -5,6 +5,7 @@ import { bootstrap, hydrate, type BankEntry, type Mode, type State } from "@long
 import { stats as bankStats, unused } from "@longku/lib/chains";
 import { useDueClock } from "@longku/lib/clock";
 import {
+  comesUpBySyllable,
   coverageByTier,
   playabilityOf,
   tierCounts,
@@ -209,6 +210,7 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
   const tiers = useMemo(() => tierCounts(bankArr), [bankArr]);
   const sylCovered = useMemo(() => new Set(bankArr.map((e) => e.fs)).size, [bankArr]);
   const playability = useMemo(() => playabilityOf(bankArr, endingMass), [bankArr, endingMass]);
+  const comesUp = useMemo(() => comesUpBySyllable(endingMass), [endingMass]);
   const corpusWords = useMemo(
     () => syllables.reduce((n, x) => n + x.count, 0),
     [syllables],
@@ -255,6 +257,7 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
           <SyllableGrid
             syllables={syllables}
             state={state}
+            comesUp={comesUp}
             onPick={(syl) => setActiveSyl(syl)}
             onStartChain={startChainFrom}
           />
@@ -305,6 +308,7 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
         <DrillModal
           syllable={activeSyl}
           corpus={syllables.find((x) => x.syl === activeSyl)}
+          comesUp={comesUp[activeSyl] ?? 0}
           state={state}
           onClose={() => setActiveSyl(null)}
           onChange={setState}

@@ -99,6 +99,30 @@ export function usageCoverage(
  * One move only. Whether your reply lands somewhere you can answer again is
  * the chain's question, not this one.
  */
+/**
+ * How often each syllable comes up: the share of usage ending on it, so the
+ * chance that a chengyu someone plays lands you there. Playability is these
+ * summed over the syllables you start on.
+ *
+ * A sum over every chengyu ending there, not just the commonest, though in
+ * practice the commonest usually carries most of it.
+ */
+export function comesUpBySyllable(endingMass: Record<string, number>): Record<string, number> {
+  let total = 0;
+  for (const m of Object.values(endingMass)) total += m;
+  const out: Record<string, number> = {};
+  for (const [syl, m] of Object.entries(endingMass)) out[syl] = total > 0 ? m / total : 0;
+  return out;
+}
+
+/** A small share as a percentage, keeping two significant places down to 0.01%. */
+export function formatShare(share: number): string {
+  const p = share * 100;
+  if (p === 0) return "0%";
+  if (p < 0.01) return "<0.01%";
+  return `${p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p.toFixed(2)}%`;
+}
+
 export function playabilityOf(
   bank: Array<{ fs: string }>,
   endingMass: Record<string, number>,

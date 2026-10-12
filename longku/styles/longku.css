@@ -46,6 +46,8 @@
   /* status */
   --lg-warn: #b86545;
   --lg-success: #4f7a4f;
+  /* cinnabar, as on a seal: the wall's one alert colour */
+  --lg-seal: #c23b2c;
 
   /* canvas painted by ChainView; read at runtime via getComputedStyle */
   --lg-canvas-bg: #ece5d6;
@@ -90,6 +92,7 @@
 
     --lg-warn: #e08b6b;
     --lg-success: #86b286;
+    --lg-seal: #e5604f;
 
     --lg-canvas-bg: #15161c;
     --lg-canvas-link: rgba(147, 169, 219, 0.45);
@@ -130,6 +133,7 @@
 
   --lg-warn: #e08b6b;
   --lg-success: #86b286;
+  --lg-seal: #e5604f;
 
   --lg-canvas-bg: #15161c;
   --lg-canvas-link: rgba(147, 169, 219, 0.45);
@@ -308,6 +312,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* A cell's card is laid out even while invisible, and one near the right
+     edge would otherwise widen the page. clip, not hidden: it makes no
+     scroll container, so the row letters stay sticky. */
+  overflow-x: clip;
 }
 
 .longku-row {
@@ -353,11 +361,11 @@
 }
 
 .longku-cell:hover,
-.longku-cell:focus-visible {
-  /* The lift makes a stacking context. Above plain cells, so its own badge
-     isn't painted under the next one — but below every badge (2), so it
-     doesn't cover the one hanging in from its left. */
-  z-index: 1;
+.longku-cell:focus-visible,
+.longku-cell:focus-within {
+  /* The lift makes a stacking context. Above every neighbour and their dots
+     (2): its card spreads over them. */
+  z-index: 4;
   transform: translateY(-1px);
   box-shadow: var(--lg-shadow-sm);
   outline: none;
@@ -393,25 +401,102 @@
 .longku-cell.is-deep .longku-cell-all,
 .longku-cell.is-deep .longku-cell-slash { color: rgba(251, 247, 237, 0.65); }
 
-.longku-cell-play {
+/* ------------------------------------------------- the card under hover -- */
+
+/* A cell opens out into a card over its neighbours: the three numbers that
+   describe a syllable, and the start-a-chain action that used to hide in the
+   cell's corner. Grows from the cell itself, so it reads as the same thing
+   getting bigger rather than a tooltip arriving from elsewhere. */
+.longku-cell-pop {
   position: absolute;
-  /* Bottom corner: the top one belongs to the arrivals badge. */
-  bottom: 4px;
-  right: 4px;
-  font: inherit;
-  font-size: 9px;
-  line-height: 1;
-  padding: 2px 3px;
-  background: none;
-  border: 0;
-  border-radius: 3px;
-  color: var(--lg-ink-faint);
+  top: -7px;
+  left: -7px;
+  min-width: calc(100% + 14px);
+  width: max-content;
+  padding: 7px 10px 9px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--lg-surface);
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 6px;
+  box-shadow: var(--lg-shadow);
+  color: var(--lg-ink);
   cursor: pointer;
   opacity: 0;
+  transform: scale(0.94);
+  transform-origin: 16px 14px;
+  pointer-events: none;
+  transition: opacity 110ms ease-out, transform 110ms ease-out;
+  z-index: 3;
 }
 
-.longku-cell:hover .longku-cell-play,
-.longku-cell-play:focus-visible { opacity: 1; color: var(--lg-accent); }
+/* Hover only where hover exists: a phone fakes it on tap and would leave the
+   card stuck open behind the bucket it just opened. Keyboard focus opens it
+   anywhere. */
+/* Near the wall's right edge it opens leftward — see place() in SyllableGrid. */
+.longku-cell[data-pop="left"] .longku-cell-pop {
+  left: auto;
+  right: -7px;
+  transform-origin: calc(100% - 16px) 14px;
+}
+
+@media (hover: hover) {
+  .longku-cell:hover .longku-cell-pop { opacity: 1; transform: none; pointer-events: auto; }
+}
+.longku-cell:focus-visible .longku-cell-pop,
+.longku-cell:has(.longku-pop-chain:focus-visible) .longku-cell-pop {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.longku-pop-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.longku-pop-syl { font-size: 17px; letter-spacing: 0.03em; }
+
+.longku-pop-chain {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--lg-accent-mid);
+  border-radius: 999px;
+  background: none;
+  color: var(--lg-accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.longku-pop-chain:hover,
+.longku-pop-chain:focus-visible { background: var(--lg-accent-soft); outline: none; }
+
+.longku-pop-rows {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  align-items: baseline;
+  font-size: 12px;
+  white-space: nowrap;
+}
+/* Each row is three cells of the one grid, so the columns line up. */
+.longku-pop-rows > div { display: contents; }
+.longku-pop-k {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+}
+.longku-pop-v { color: var(--lg-ink-soft); font-variant-numeric: tabular-nums; }
+.longku-pop-v b { font-weight: 600; color: var(--lg-ink); }
+/* The row the wall is ordered by. */
+.longku-pop-rows > .is-key .longku-pop-k { color: var(--lg-accent); }
+.longku-pop-rows > .is-key .longku-pop-v b { color: var(--lg-accent); }
+.longku-pop-aside { grid-column: 3; font-size: 11px; color: var(--lg-ink-faint); }
+.longku-pop-aside.is-warn { color: var(--lg-warn); }
 
 .longku-wall-empty {
   max-width: 460px;
@@ -1964,60 +2049,58 @@
 
 /* ------------------------------------------- incoming: words ending here -- */
 
-/* Yours that end on this syllable — chains that arrive — as a notification
-   badge. Neutral when there's a way on, amber when more of yours arrive than
-   start here: chains stop. */
-.longku-cell-badge {
+/* Something of yours ends on this syllable — a chain can arrive. Just a dot;
+   the counts are in the card. */
+.longku-cell-dot {
   position: absolute;
-  top: -6px;
-  /* Pinned to the corner: the hover readout grows back over its own cell. */
-  right: -6px;
-  width: max-content;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  line-height: 1;
-  background: var(--lg-ink-soft);
-  color: var(--lg-bg);
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lg-seal);
   box-shadow: 0 0 0 2px var(--lg-bg);
   pointer-events: none;
   /* It hangs over the next cell, which is positioned too and comes later in
      the row — without this, that cell paints over it. */
   z-index: 2;
 }
-.longku-cell.is-stuck .longku-cell-badge { background: var(--lg-warn); color: var(--lg-on-accent); }
-
-/* The corpus total, unfolding on hover. A 0fr → 1fr grid column animates
-   to exactly the text's width; max-width would race to a guess and then
-   idle. */
-.longku-cell-badge-of {
-  display: inline-grid;
-  grid-template-columns: 0fr;
-  opacity: 0;
-  transition: grid-template-columns 120ms ease-out, opacity 120ms ease-out;
-}
-.longku-cell-badge-of > span { min-width: 0; overflow: hidden; white-space: nowrap; }
-.longku-cell:hover .longku-cell-badge-of,
-.longku-cell:focus-visible .longku-cell-badge-of { grid-template-columns: 1fr; opacity: 0.8; }
-
-/* None of yours end here: no badge, until hover asks what could. */
-.longku-cell-badge.is-zero {
-  opacity: 0;
-  transform: scale(0.6);
-  transform-origin: right center;
-  background: var(--lg-ink-faint);
-  transition: opacity 120ms ease-out, transform 120ms ease-out;
-}
-.longku-cell:hover .longku-cell-badge.is-zero,
-.longku-cell:focus-visible .longku-cell-badge.is-zero { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .longku-cell-badge-of, .longku-cell-badge.is-zero { transition: none; }
+  .longku-cell-pop { transition: none; }
+}
+
+/* How the wall is ordered: a–z by initial, or one ranking. */
+.longku-wall-order {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.longku-wall-order-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lg-ink-faint);
+  margin-right: 4px;
+}
+.longku-wall-order-btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 11px;
+  border: 1px solid var(--lg-rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--lg-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.longku-wall-order-btn:hover { border-color: var(--lg-accent); }
+.longku-wall-order-btn.is-on {
+  border-color: var(--lg-accent);
+  background: var(--lg-accent-soft);
+  color: var(--lg-ink);
 }
 
 .longku-wall-head {
@@ -2163,12 +2246,8 @@
 
 /* Touch: hover is not a thing you can do, so nothing may hide behind it. */
 @media (hover: none) {
-  /* Start-a-chain lived in the cell's corner, revealed on hover. Made
-     tappable, it was a 30px box in a cell barely 50px square — most of the
-     cell's right half — so a tap meant to open the bucket broke the chain
-     and restarted it there instead. On touch the whole cell opens the
-     bucket, whose header carries the same "Chain from here". */
-  .longku-cell-play { display: none; }
+  /* The card is hover-only, and with it the start-a-chain action: a tap opens
+     the bucket, whose header carries the same "Chain from here". */
   .longku-cell:active { transform: none; }
 }
 

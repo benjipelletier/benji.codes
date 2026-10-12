@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { importWords, removeWord, type State } from "@longku/lib/store";
 import { TierPill } from "./AddChengyu";
 import { gloss } from "@longku/lib/gloss";
+import { formatShare } from "@longku/lib/frequency";
 
 interface CorpusWord {
   w: string;
@@ -22,6 +23,8 @@ interface Props {
   syllable: string;
   /** Corpus words starting with and ending on the syllable, when known. */
   corpus?: { count: number; ending: number };
+  /** Share of usage ending on the syllable — see comesUpBySyllable. */
+  comesUp: number;
   state: State;
   onClose: () => void;
   onChange: (s: State) => void;
@@ -37,6 +40,7 @@ interface Props {
 export function DrillModal({
   syllable,
   corpus,
+  comesUp,
   state,
   onClose,
   onChange,
@@ -124,6 +128,10 @@ export function DrillModal({
                 starts <b className="longku-modal-n">{mine.length}</b>/{corpus.count}
                 {" · "}
                 ends <b className="longku-modal-n">{arriving.length}</b>/{corpus.ending}
+                {" · "}
+                <span title={`The share of chengyu usage that ends on ${syllable}: how often a game lands you here`}>
+                  comes up <b className="longku-modal-n">{formatShare(comesUp)}</b>
+                </span>
               </>
             ) : (
               <>
