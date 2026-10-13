@@ -1,0 +1,16 @@
+{
+  "name": "重复习 · chongfuxi",
+  "short_name": "重复习",
+  "description": "Review built from your Pleco decks.",
+  "start_url": "/chongfuxi",
+  "scope": "/chongfuxi",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3efe8",
+  "theme_color": "#f3efe8",
+  "icons": [
+    { "src": "/chongfuxi/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/chongfuxi/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/chongfuxi/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

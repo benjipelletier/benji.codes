@@ -80,6 +80,7 @@ export interface Corpus {
     textCards: number;
     duplicateTexts: number;
     dictionarySplit: number;
+    patterns: number;
   };
 }
 
@@ -124,6 +125,18 @@ export function wordOf(card: PlecoCard): string | null {
 
 export function isWordShaped(card: PlecoCard): boolean {
   return wordOf(card) !== null;
+}
+
+/**
+ * A grammar pattern — 只有…才…, 越  越, 百分之… — written as short pieces
+ * around ellipses or gaps. Neither a word to know nor a sentence to read, so
+ * the corpus sets these aside (they may become their own kind of card later).
+ */
+export function isPattern(card: PlecoCard): boolean {
+  const text = cleanHeadword(card.hw);
+  if (!/…|\.\.\.|～|~|\s/.test(text)) return false;
+  const pieces = text.split(/[^\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/).filter(Boolean);
+  return pieces.length > 0 && pieces.every((p) => [...p].length <= 3);
 }
 
 /**
@@ -175,11 +188,16 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
   const simpChars = new Set<string>();
   const tradPairs = new Map<string, Map<string, number>>();
   let wordCards = 0;
+  let patterns = 0;
 
   for (const card of snapshot.cards) {
     const roles = card.cats.length ? card.cats.map(roleOf) : (["list"] as CategoryRole[]);
     const strongest = roles.reduce((a, b) => (ROLE_RANK[b] > ROLE_RANK[a] ? b : a));
     if (strongest === "ignore") continue;
+    if (isPattern(card)) {
+      patterns++;
+      continue;
+    }
     const inKnown = roles.includes("known");
     const score = scoreOf.get(card.id) ?? null;
 
@@ -291,6 +309,7 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
       textCards: textCards.length,
       duplicateTexts,
       dictionarySplit,
+      patterns,
     },
   };
 }

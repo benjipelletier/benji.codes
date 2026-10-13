@@ -136,6 +136,9 @@ export function ChongfuxiApp() {
     async (record: StoredImport, settings: Settings) => {
       if (!store) return;
       await store.putImport(record);
+      // Phones clear site data under storage pressure unless asked not to.
+      // Best effort: the browser may say no, and nothing depends on it yet.
+      navigator.storage?.persist?.().catch(() => undefined);
       snapshots.current.set(record.id, record.snapshot);
       setImports((list) => [
         ...list,
@@ -189,14 +192,6 @@ export function ChongfuxiApp() {
             </button>
           </div>
         )}
-        <nav className="cf-tabs">
-          {TABS.map((t) => (
-            <button key={t.key} className={`cf-tab${tab === t.key ? " is-on" : ""}`} onClick={() => setTab(t.key)}>
-              <span className="cf-tab-zh">{t.zh}</span>
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </nav>
       </header>
 
       <main className="cf-main">
@@ -226,6 +221,24 @@ export function ChongfuxiApp() {
         {store && tab === "sentences" && viewed.corpus && <SentencesPanel api={api} />}
         {store && tab === "log" && <LogPanel api={api} log={log} viewSeq={viewSeq} onView={setViewSeq} />}
       </main>
+
+      {/* At the bottom, where a thumb reaches on a phone. */}
+      <nav className="cf-tabs">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`cf-tab${tab === t.key ? " is-on" : ""}`}
+            aria-current={tab === t.key ? "page" : undefined}
+            onClick={() => {
+              setTab(t.key);
+              window.scrollTo({ top: 0 });
+            }}
+          >
+            <span className="cf-tab-zh">{t.zh}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

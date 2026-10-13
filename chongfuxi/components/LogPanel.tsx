@@ -48,6 +48,7 @@ function StateTable({ counts, stats }: { counts: Counts; stats: Record<string, n
       ["· sentence cards", stats.textCards, "sub"],
       ["· duplicate sentences merged", stats.duplicateTexts, "sub"],
       ["· split by dictionary (pinyin didn't fit)", stats.dictionarySplit, "sub"],
+      ["· grammar patterns set aside", stats.patterns, "sub"],
     );
   }
   return (

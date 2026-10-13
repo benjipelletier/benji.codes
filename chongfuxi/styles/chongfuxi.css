@@ -96,12 +96,20 @@
   color: inherit;
 }
 
+.cfx button,
+.cfx a,
+.cfx select {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 .cf-top {
   position: sticky;
   top: 0;
   z-index: 10;
   background: var(--cf-bg);
   border-bottom: 1px solid var(--cf-rule);
+  padding-top: env(safe-area-inset-top);
 }
 
 .cf-top > * {
@@ -115,13 +123,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 14px;
+  padding-top: 10px;
 }
 
 .cf-title h1 {
   font-family: "Noto Serif SC", "Songti SC", serif;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 0.02em;
 }
 
@@ -139,7 +147,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  padding-top: 10px;
+  padding-top: 8px;
   padding-bottom: 10px;
 }
 
@@ -147,16 +155,17 @@
   background: var(--cf-surface);
   border: 1px solid var(--cf-rule);
   border-radius: 10px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
 .cf-state b {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
+  line-height: 1.3;
 }
 
 .cf-state span {
@@ -180,29 +189,42 @@
   padding-bottom: 8px;
 }
 
+/* Bottom tab bar: fixed above the gesture bar, four equal tabs with the
+   Chinese over a small English label. */
 .cf-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
   display: flex;
+  justify-content: center;
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-rule);
+  padding: 0 max(8px, env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-right));
 }
 
-/* Four equal tabs, the Chinese over a small English label, so they fit a phone. */
 .cf-tab {
   flex: 1;
+  max-width: 180px;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   background: none;
   border: 0;
-  border-bottom: 2px solid transparent;
-  padding: 6px 4px 7px;
+  border-top: 2px solid transparent;
+  padding: 6px 4px;
   cursor: pointer;
   color: var(--cf-ink-soft);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.3;
 }
 
 .cf-tab.is-on {
-  color: var(--cf-ink);
-  border-bottom-color: var(--cf-accent);
+  color: var(--cf-accent);
+  border-top-color: var(--cf-accent);
 }
 
 .cf-tab-zh {
@@ -214,7 +236,9 @@
 .cf-main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 16px 64px;
+  /* Clear the tab bar and the gesture bar under it. */
+  padding: 12px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
 }
 
 /* --------------------------------------------------------------- panels -- */
@@ -288,12 +312,13 @@
 
 .cf-row-head {
   width: 100%;
+  min-height: 52px;
   display: flex;
   align-items: baseline;
   gap: 10px;
   background: none;
   border: 0;
-  padding: 10px 12px;
+  padding: 11px 14px;
   text-align: left;
   cursor: pointer;
 }
@@ -327,6 +352,7 @@
 .cf-more {
   display: block;
   width: 100%;
+  min-height: 44px;
   margin-top: 8px;
   background: none;
   border: 1px dashed var(--cf-rule-strong);
@@ -351,6 +377,23 @@
 .cf-actions {
   padding: 4px 12px 12px;
   background: var(--cf-sunken);
+}
+
+/* Two across on a phone; with three buttons the primary takes its own row,
+   full width, nearest the thumb. */
+.cf-actions .cf-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.cf-actions .cf-buttons > :nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 560px) {
+  .cf-actions .cf-buttons {
+    display: flex;
+  }
 }
 
 .cf-actions-preview {
@@ -433,9 +476,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 9px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid var(--cf-accent);
   background: var(--cf-accent);
   color: var(--cf-on-accent) !important;
@@ -459,7 +502,7 @@
 .cf-link {
   background: none;
   border: 0;
-  padding: 0;
+  padding: 6px 0;
   color: var(--cf-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -486,10 +529,11 @@
 
 .cf-seg-btn {
   flex: 1;
+  min-height: 44px;
   border: 0;
   background: none;
   border-radius: 8px;
-  padding: 7px 4px;
+  padding: 6px 4px;
   cursor: pointer;
   font-size: 13px;
   color: var(--cf-ink-soft);
@@ -513,8 +557,11 @@
   background: var(--cf-surface);
   border: 1px solid var(--cf-rule-strong);
   border-radius: 8px;
-  padding: 6px 8px;
+  min-height: 44px;
+  padding: 8px 10px;
   max-width: 100%;
+  /* Under 16px, iOS zooms the page when a select is focused. */
+  font-size: 16px;
 }
 
 .cf-sentence {
@@ -539,13 +586,15 @@
 
 .cf-blocker {
   font-family: "Noto Serif SC", "Songti SC", serif;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
+  min-height: 36px;
+  min-width: 40px;
   border: 1px solid var(--cf-down);
   color: var(--cf-down);
   background: var(--cf-down-soft);
-  border-radius: 7px;
-  padding: 1px 8px;
+  border-radius: 8px;
+  padding: 3px 10px;
   cursor: pointer;
 }
 
@@ -692,4 +741,11 @@
   justify-content: flex-start;
   margin-top: 4px;
   font-size: 13.5px;
+  min-height: 44px;
+}
+
+.cf-role-check input {
+  width: 20px;
+  height: 20px;
+  flex: none;
 }

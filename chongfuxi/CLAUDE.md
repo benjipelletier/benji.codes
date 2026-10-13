@@ -19,6 +19,23 @@ backup, works out which sentences are now fully readable, and (from milestone
   can be recomputed — so rules can change later and history is replayed under
   them. Store more detail than is used today (the review log especially).
 
+## Mobile first
+
+The owner practises on an Android phone; the desktop is secondary. Design and
+check every screen at 360px wide first.
+
+- Navigation is a bottom tab bar (thumb reach); the header holds only the
+  title and the four state counts.
+- Tap targets at least 44px (36px for inline word chips); no horizontal
+  scrolling; inputs and selects at 16px.
+- Pad by the safe-area insets (`viewport-fit=cover` is set) so nothing sits
+  under the status bar or the gesture bar.
+- Installable: `public/chongfuxi/manifest.webmanifest` opens `/chongfuxi`
+  full screen from the home screen. Icons are generated (习 on the accent).
+- Anything heavy runs after paint with a visible "working" state; on a phone
+  an import takes several seconds and a preview a few hundred milliseconds.
+  Move corpus building to a Web Worker if that starts to hurt.
+
 ## Milestones
 
 1. **Import and unlock** — done. Read a `.pqb`, choose category roles, see what
@@ -63,6 +80,8 @@ Known quirks of the owner's sentence decks, all handled in `lib/corpus.ts` and
 - 【谚】 labels, erhua written as its own word (`@r5`), duplicate sentences
   (merged, keeping every pool they appear in), word cards filed in sentence
   decks, bracketed optional parts (点(钟)), full-width Latin (ＡＡ制).
+- Grammar-pattern cards (只有…才…, 越  越) are set aside and counted; they
+  are neither words nor sentences.
 
 ## Rules (milestone 1)
 
