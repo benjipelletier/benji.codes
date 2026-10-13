@@ -11,14 +11,14 @@ import { readPleco, type PlecoSnapshot } from "@chongfuxi/lib/pleco";
 import { defaultSettings, topLevelMap, type CategoryRole, type Settings } from "@chongfuxi/lib/corpus";
 import type { Effects } from "@chongfuxi/lib/machine";
 import { loadSqlJs } from "@chongfuxi/lib/sqljs";
-import { sha256, type StoredImport } from "@chongfuxi/lib/store";
+import { newId, sha256, type StoredImport } from "@chongfuxi/lib/store";
 import { EffectChips, type AppApi } from "./shared";
 
 export interface ImportMeta {
   id: string;
   at: number;
   fileName: string;
-  sha256: string;
+  sha256: string | null;
 }
 
 const ROLES: Array<{ value: CategoryRole; label: string }> = [
@@ -125,7 +125,7 @@ function Delta({ fx }: { fx: Effects }) {
 type Pending = {
   id: string;
   fileName: string;
-  sha256: string;
+  sha256: string | null;
   snapshot: PlecoSnapshot;
   settings: Settings;
   duplicateOf: ImportMeta | null;
@@ -166,12 +166,12 @@ export function ImportPanel({
         db.close();
       }
       setPending({
-        id: crypto.randomUUID(),
+        id: newId(),
         fileName: file.name,
         sha256: hash,
         snapshot,
         settings: carryOver(snapshot, api.state.settings),
-        duplicateOf: imports.find((i) => i.sha256 === hash) ?? null,
+        duplicateOf: (hash && imports.find((i) => i.sha256 === hash)) || null,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

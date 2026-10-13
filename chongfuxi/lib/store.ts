@@ -17,8 +17,12 @@ export interface StoredImport {
   id: string;
   at: number;
   fileName: string;
-  /** SHA-256 of the backup file, to spot the same backup imported twice. */
-  sha256: string;
+  /**
+   * SHA-256 of the backup file, to spot the same backup imported twice. Null
+   * when the page was served over plain http (a phone on the LAN hitting a
+   * dev server), where browsers withhold crypto.subtle.
+   */
+  sha256: string | null;
   snapshot: PlecoSnapshot;
 }
 
@@ -114,7 +118,13 @@ export async function openStore(): Promise<Store> {
   }
 }
 
-export async function sha256(bytes: ArrayBuffer): Promise<string> {
+export async function sha256(bytes: ArrayBuffer): Promise<string | null> {
+  if (!globalThis.crypto?.subtle) return null;
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** A fresh id. crypto.randomUUID is secure-context only too, hence the fallback. */
+export function newId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
