@@ -55,4 +55,15 @@ export const projects: ProjectConfig[] = [
     tags: ['成语', 'corpus', 'jielong'],
     enabled: true,
   },
+  {
+    name: 'chongfuxi',
+    displayName: '重复习',
+    icon: '习',
+    accent: '#8a4f7d',
+    accentRgb: '138, 79, 125',
+    tagline: 'chongfuxi',
+    description: 'Review built from your Pleco decks. Every word you add unlocks the sentences you can now read — and shows you what each next word would unlock.',
+    tags: ['pleco', 'sentences', 'srs'],
+    enabled: true,
+  },
 ]

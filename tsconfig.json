@@ -38,6 +38,9 @@
       ],
       "@longku/*": [
         "longku/*"
+      ],
+      "@chongfuxi/*": [
+        "chongfuxi/*"
       ]
     }
   },
@@ -54,6 +57,8 @@
     "jazz/components/**/*.tsx",
     "longku/lib/**/*.ts",
     "longku/components/**/*.tsx",
+    "chongfuxi/lib/**/*.ts",
+    "chongfuxi/components/**/*.tsx",
     "projects.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",

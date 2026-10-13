@@ -1,0 +1,695 @@
+/* 重复习 — review built from Pleco decks.
+ *
+ * One column, phone first. A sticky header carries the state (the four counts
+ * every action moves) and the tabs; panels scroll beneath it.
+ *
+ * Colour lives in tokens: light on bare :root, dark redefined under
+ * prefers-color-scheme and under [data-theme="dark"], so either can win.
+ */
+
+:root {
+  --cf-bg: #f3efe8;
+  --cf-surface: #fcfaf6;
+  --cf-sunken: rgba(36, 30, 40, 0.05);
+  --cf-ink: #241e28;
+  --cf-ink-soft: rgba(36, 30, 40, 0.68);
+  --cf-ink-faint: rgba(36, 30, 40, 0.42);
+  --cf-rule: rgba(36, 30, 40, 0.1);
+  --cf-rule-strong: rgba(36, 30, 40, 0.22);
+  --cf-accent: #8a4f7d;
+  --cf-accent-soft: rgba(138, 79, 125, 0.12);
+  --cf-on-accent: #fcfaf6;
+  --cf-up: #3f7a52;
+  --cf-up-soft: rgba(63, 122, 82, 0.12);
+  --cf-down: #b4533a;
+  --cf-down-soft: rgba(180, 83, 58, 0.12);
+  --cf-warn: #9a6a1c;
+  --cf-mark: rgba(138, 79, 125, 0.18);
+  --cf-shadow: 0 1px 2px rgba(36, 30, 40, 0.06), 0 8px 24px rgba(36, 30, 40, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cf-bg: #141217;
+    --cf-surface: #1d1a21;
+    --cf-sunken: rgba(240, 232, 244, 0.06);
+    --cf-ink: #ece6ef;
+    --cf-ink-soft: rgba(236, 230, 239, 0.68);
+    --cf-ink-faint: rgba(236, 230, 239, 0.4);
+    --cf-rule: rgba(236, 230, 239, 0.1);
+    --cf-rule-strong: rgba(236, 230, 239, 0.22);
+    --cf-accent: #d39cc6;
+    --cf-accent-soft: rgba(211, 156, 198, 0.14);
+    --cf-on-accent: #141217;
+    --cf-up: #7fc193;
+    --cf-up-soft: rgba(127, 193, 147, 0.14);
+    --cf-down: #e58d74;
+    --cf-down-soft: rgba(229, 141, 116, 0.14);
+    --cf-warn: #e0b35c;
+    --cf-mark: rgba(211, 156, 198, 0.24);
+    --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --cf-bg: #141217;
+  --cf-surface: #1d1a21;
+  --cf-sunken: rgba(240, 232, 244, 0.06);
+  --cf-ink: #ece6ef;
+  --cf-ink-soft: rgba(236, 230, 239, 0.68);
+  --cf-ink-faint: rgba(236, 230, 239, 0.4);
+  --cf-rule: rgba(236, 230, 239, 0.1);
+  --cf-rule-strong: rgba(236, 230, 239, 0.22);
+  --cf-accent: #d39cc6;
+  --cf-accent-soft: rgba(211, 156, 198, 0.14);
+  --cf-on-accent: #141217;
+  --cf-up: #7fc193;
+  --cf-up-soft: rgba(127, 193, 147, 0.14);
+  --cf-down: #e58d74;
+  --cf-down-soft: rgba(229, 141, 116, 0.14);
+  --cf-warn: #e0b35c;
+  --cf-mark: rgba(211, 156, 198, 0.24);
+  --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------------------------------------------------------------- shell -- */
+
+.cfx {
+  /* Above the site-wide grain overlay on body::before. */
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--cf-bg);
+  color: var(--cf-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cfx button,
+.cfx select,
+.cfx input {
+  font: inherit;
+  color: inherit;
+}
+
+.cf-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--cf-bg);
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-top > * {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.cf-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.cf-title h1 {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+}
+
+.cf-title-py {
+  font-family: inherit;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+
+/* The four counts every action moves. */
+.cf-state {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.cf-state > div {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 10px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-state b {
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-state span {
+  font-size: 11px;
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-state.is-past > div {
+  border-style: dashed;
+  border-color: var(--cf-accent);
+}
+
+.cf-past {
+  background: var(--cf-accent-soft);
+  color: var(--cf-ink);
+  font-size: 13px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.cf-tabs {
+  display: flex;
+}
+
+/* Four equal tabs, the Chinese over a small English label, so they fit a phone. */
+.cf-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 6px 4px 7px;
+  cursor: pointer;
+  color: var(--cf-ink-soft);
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+
+.cf-tab.is-on {
+  color: var(--cf-ink);
+  border-bottom-color: var(--cf-accent);
+}
+
+.cf-tab-zh {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.cf-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 16px 64px;
+}
+
+/* --------------------------------------------------------------- panels -- */
+
+.cf-section {
+  margin-top: 18px;
+}
+
+.cf-h2 {
+  font-size: 16px;
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+
+.cf-h3 {
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cf-ink-soft);
+  margin: 16px 0 6px;
+}
+
+.cf-lede {
+  color: var(--cf-ink-soft);
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}
+
+.cf-muted {
+  color: var(--cf-ink-faint);
+  font-size: 13px;
+}
+
+.cf-pad {
+  padding: 12px 0;
+}
+
+.cf-error {
+  color: var(--cf-down);
+  margin: 10px 0;
+}
+
+.cf-warn {
+  color: var(--cf-warn);
+  font-size: 13.5px;
+  margin: 8px 0;
+}
+
+.cfx code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--cf-sunken);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- lists -- */
+
+.cf-list {
+  list-style: none;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cf-list > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-row-head {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: none;
+  border: 0;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-row-open .cf-row-head {
+  background: var(--cf-sunken);
+}
+
+.cf-word {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cf-pinyin {
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-count {
+  margin-left: auto;
+  color: var(--cf-up);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-more {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: none;
+  border: 1px dashed var(--cf-rule-strong);
+  border-radius: 10px;
+  padding: 9px;
+  cursor: pointer;
+  color: var(--cf-ink-soft);
+}
+
+.cf-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cf-sunken);
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- previews -- */
+
+.cf-actions {
+  padding: 4px 12px 12px;
+  background: var(--cf-sunken);
+}
+
+.cf-actions-preview {
+  padding: 6px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cf-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cf-chip-up {
+  color: var(--cf-up);
+  background: var(--cf-up-soft);
+}
+
+.cf-chip-down {
+  color: var(--cf-down);
+  background: var(--cf-down-soft);
+}
+
+.cf-chip-none {
+  color: var(--cf-ink-faint);
+  background: var(--cf-sunken);
+}
+
+.cf-examples {
+  list-style: none;
+  margin: 4px 0 8px;
+}
+
+.cf-examples li {
+  padding: 6px 0;
+  border-top: 1px solid var(--cf-rule);
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-zh {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.cf-en {
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+}
+
+.cf-mark {
+  background: var(--cf-mark);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.cf-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--cf-accent);
+  background: var(--cf-accent);
+  color: var(--cf-on-accent) !important;
+  font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cf-btn-ghost {
+  background: transparent;
+  color: var(--cf-accent) !important;
+}
+
+.cf-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--cf-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------ sentences -- */
+
+.cf-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.cf-seg {
+  display: flex;
+  background: var(--cf-sunken);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.cf-seg-btn {
+  flex: 1;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  padding: 7px 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-seg-btn.is-on {
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  box-shadow: var(--cf-shadow);
+}
+
+.cf-seg-n {
+  display: block;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-select {
+  appearance: auto;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 8px;
+  padding: 6px 8px;
+  max-width: 100%;
+}
+
+.cf-sentence {
+  padding: 10px 12px;
+}
+
+.cf-sentence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.cf-sentence-meta:empty {
+  display: none;
+}
+
+.cf-sentence .cf-actions {
+  margin: 8px -12px -10px;
+}
+
+.cf-blocker {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 15px;
+  font-weight: 700;
+  border: 1px solid var(--cf-down);
+  color: var(--cf-down);
+  background: var(--cf-down-soft);
+  border-radius: 7px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+.cf-blocker.is-on {
+  background: var(--cf-down);
+  color: var(--cf-surface);
+}
+
+/* ------------------------------------------------------------------ log -- */
+
+.cf-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-table th,
+.cf-table td {
+  padding: 6px 12px;
+  border-top: 1px solid var(--cf-rule);
+  text-align: left;
+  font-weight: 400;
+}
+
+.cf-table tr:first-child th,
+.cf-table tr:first-child td {
+  border-top: 0;
+}
+
+.cf-table td {
+  text-align: right;
+  font-weight: 600;
+}
+
+.cf-table .cf-sub th {
+  padding-left: 24px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-table .cf-sub td {
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+.cf-delta {
+  margin-top: 8px;
+}
+
+.cf-delta td:nth-child(3) {
+  color: var(--cf-ink-faint);
+  width: 1px;
+}
+
+.cf-timeline {
+  list-style: none;
+}
+
+.cf-event {
+  position: relative;
+  padding: 10px 12px 10px 14px;
+  border-left: 2px solid var(--cf-rule-strong);
+  margin-left: 8px;
+}
+
+.cf-event.is-on {
+  border-left-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  border-radius: 0 10px 10px 0;
+}
+
+.cf-event-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.cf-event-seq {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5em;
+}
+
+.cf-event-what {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.cf-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 4px 0 2px;
+}
+
+/* --------------------------------------------------------------- import -- */
+
+.cf-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.cf-file {
+  position: relative;
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.cf-pending {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.cf-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cf-role-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-role-check {
+  justify-content: flex-start;
+  margin-top: 4px;
+  font-size: 13.5px;
+}
