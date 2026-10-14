@@ -87,6 +87,14 @@
 
 /* ---------------------------------------------------------------- shell -- */
 
+/* The site's body is at least 100vh tall, and on Android Chrome 100vh is the
+ * height with the address bar hidden: while the bar shows, the page scrolled
+ * by its height with nothing below (bug #1). Here the shell sets the height,
+ * 100dvh, the height actually visible; other projects keep the site's rule. */
+body:has(.cfx) {
+  min-height: 0;
+}
+
 .cfx {
   /* Above the site-wide grain overlay on body::before. */
   position: relative;
