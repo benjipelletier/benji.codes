@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   // Installable from the browser menu, so practice opens full screen like an app.
   manifest: "/chongfuxi/manifest.webmanifest",
   appleWebApp: { capable: true, title: "重复习", statusBarStyle: "default" },
-  // 重复习 on three flashcards fanned like a hand, on the accent blue.
+  // 重复习 on a 3D stack of three flashcards, on the accent blue.
   icons: {
     icon: [
       { url: "/chongfuxi/favicon-32.png", sizes: "32x32", type: "image/png" },
