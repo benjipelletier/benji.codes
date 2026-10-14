@@ -51,9 +51,9 @@ check every screen at 360px wide first.
   inputs and selects at 16px.
 - Pad by the safe-area insets (`viewport-fit=cover` is set).
 - Installable: `public/chongfuxi/manifest.webmanifest`. The icon is 重复习
-  on a 3D stack of three flashcards, tilted back, each card stepping up and
-  to the right with its character on the band that shows (重 at the back, 习
-  in front), in LXGW WenKai on a blue gradient (#5b7cff to #2142c4). The owner
+  on a 3D stack of three flashcards, tilted back, read left to right: 重 at
+  the back on the left, 复, then 习 in front on the right, each back card's
+  character on the strip that shows, in LXGW WenKai on a blue gradient (#5b7cff to #2142c4). The owner
   asked for every character to stand out; a fan hid the back two. The maskable one keeps the
   mark in the inner 84%.
 - Online to load, but no answer is lost to a dropped connection (the owner
