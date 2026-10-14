@@ -13,6 +13,7 @@ import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
 import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
+import { TextImport } from "./TextImport";
 import { fmt, message, type Shell } from "./shared";
 
 /** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
@@ -154,6 +155,7 @@ export function ImportPanel({ shell }: { shell: Shell }) {
     <div className="cf-panel">
       {s.viewer.configured && <SyncLog shell={shell} />}
       {shell.canWrite && <Importer shell={shell} />}
+      {shell.canWrite && <TextImport shell={shell} />}
       {s.viewer.configured && <BugList canWrite={shell.canWrite} />}
       {s.viewer.configured && (
         <section className="cf-section">

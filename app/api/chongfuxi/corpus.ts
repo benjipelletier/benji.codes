@@ -489,7 +489,15 @@ export async function ingestSentences(
   owner: string,
   sentences: LooseSentence[],
   dict: Dict,
-  options: { importId?: string; dryRun?: boolean; at?: number; log?: (line: string) => void; samples?: number } = {},
+  options: {
+    importId?: string;
+    dryRun?: boolean;
+    at?: number;
+    log?: (line: string) => void;
+    samples?: number;
+    /** Take a sample every this many new sentences (a big deck: rarely; a few lessons: often). */
+    sampleEvery?: number;
+  } = {},
 ): Promise<{ bySource: Record<string, SourceCount>; total: SourceCount; samples: Array<{ zh: string; words: string[]; split: string; blockers: string[] }> }> {
   const log = options.log ?? (() => {});
   const wordRows = (await sql`
@@ -544,7 +552,7 @@ export async function ingestSentences(
     if (!blockers.length) count.readable++;
     if (!byPinyin) count.byDictionary++;
     rows.push({ k: key, z: item.zh, e: item.en, s: byPinyin ? "pinyin" : "dictionary", o: sources, w: words });
-    if (samples.length < (options.samples ?? 0) && rows.length % 997 === 1) samples.push({ zh: item.zh, words, split: byPinyin ? "pinyin" : "dictionary", blockers });
+    if (samples.length < (options.samples ?? 0) && rows.length % (options.sampleEvery ?? 997) === 1) samples.push({ zh: item.zh, words, split: byPinyin ? "pinyin" : "dictionary", blockers });
   }
 
   const total = blank();

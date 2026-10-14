@@ -376,6 +376,23 @@ whole as an import of format `anki`.
 - Each sentence keeps its sub-deck as its source, so a source can be dropped.
   Importing is by script only: an `.apkg` with audio is hundreds of megabytes.
 
+## Texts
+
+Plain Chinese text (a textbook's 课文, an article) joins the corpus as
+sentences from the Import page's Texts section (`components/TextImport.tsx`,
+route `texts`): a .zip of .txt files (read in the browser, `lib/zip.ts`) or
+the files themselves, under one source name typed there (it is the deck name
+on each card). `lib/texts.ts` takes a file's first line as its title when it
+has no sentence-ending punctuation, cuts the rest after 。！？… keeping a
+closing quote with its sentence, cuts long speech (说："……。……。") too and
+drops a quote mark left without its partner. The sentences then go through
+`ingestSentences`, as an Anki deck's do: split by dictionary (there is no
+pinyin), sentences only, nothing added to the deck; a sentence is readable
+once its words are known. Check first shows what it would add (dry run),
+then Add. No translations: those cards have no English. The owner's
+HSK标准教程5 课文 (37 lessons, about 700 sentences) came in this way, after
+earlier leaving Pleco's HSK课文 out for having no translations.
+
 ## New words through Anki (in progress)
 
 The way new words are meant to arrive without re-importing a backup: Pleco
@@ -539,6 +556,8 @@ Pure, in `lib/`, shared by routes, screens and scripts:
 - `segment.ts`, `hanzi.ts`, `corpus.ts` — snapshot + roles → words and texts.
 - `anki.ts` — an Anki collection → sentences. `pinyin.ts` — word breaks from
   tone-marked pinyin.
+- `texts.ts` — plain text → titles and sentences. `zip.ts` — the text files
+  in a .zip, in the browser.
 - `dict.ts` — CC-CEDICT lookup, from `data/cedict.txt`. Server-only: the
   definitions are copied onto word rows at import.
 - `unlock.ts` — tokens + known words → blockers.

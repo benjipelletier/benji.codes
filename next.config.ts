@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/chongfuxi/anki/[...path]": ["./node_modules/sql.js/dist/sql-wasm.wasm", "./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/sync/[method]": ["./node_modules/sql.js/dist/sql-wasm.wasm", "./chongfuxi/data/cedict.txt"],
+    // Splitting texts into words.
+    "/api/chongfuxi/texts": ["./chongfuxi/data/cedict.txt"],
     // Definitions for the words a list adds.
     "/api/chongfuxi/lists": ["./chongfuxi/data/cedict.txt"],
     // Its headwords, for picking the sentences a word card is shown in.
