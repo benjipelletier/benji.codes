@@ -2062,7 +2062,12 @@ label.cf-kind {
   padding: 12px 16px 0;
 }
 
+/* Above the grid, room enough that the first row starts below the top third:
+ * every card is seen as a word before its answer shows. */
 .cf-fast-note {
+  min-height: calc((100dvh - 64px) / 3 - 22px);
+  display: flex;
+  align-items: flex-end;
   margin: 0 0 10px;
   font-size: 13px;
 }
@@ -2204,6 +2209,14 @@ label.cf-kind {
 /* Uncovered and not tapped: will be answered Got it. */
 .cf-fast-cell.is-seen button {
   border-color: color-mix(in srgb, var(--cf-up) 35%, var(--cf-rule));
+  animation: cf-fast-turn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* A card turning from grey: a small lift as it comes in. */
+@keyframes cf-fast-turn {
+  from {
+    transform: scale(0.94);
+  }
 }
 
 .cf-fast-cell.is-forgot button {
@@ -2211,14 +2224,59 @@ label.cf-kind {
   border-color: var(--cf-down);
 }
 
+/* The answer sits at the foot of the card, out of sight, until the card
+ * rises into the top third (or is tapped as forgotten): then the word lifts
+ * and shrinks, and the pinyin and meaning slide up under it. */
+.cf-fast-cell button {
+  position: relative;
+}
+
+.cf-fast-word {
+  transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .cf-fast-meaning {
-  max-width: 100%;
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
   display: flex;
   flex-direction: column;
   font-size: 10.5px;
   line-height: 1.25;
   color: var(--cf-ink-soft);
   text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease 0.06s, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s;
+  pointer-events: none;
+}
+
+.cf-fast-cell.is-shown .cf-fast-word,
+.cf-fast-cell.is-forgot .cf-fast-word {
+  transform: translateY(-11px) scale(0.66);
+}
+
+.cf-fast-cell.is-shown .cf-fast-meaning,
+.cf-fast-cell.is-forgot .cf-fast-meaning {
+  opacity: 1;
+  transform: none;
+}
+
+/* Shown in the top third: the pinyin in the Read colour, to check against. */
+.cf-fast-cell.is-shown:not(.is-forgot) .cf-fast-meaning span:first-child {
+  color: var(--cf-read);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-fast-word,
+  .cf-fast-meaning {
+    transition: none;
+  }
+
+  .cf-fast-cell.is-seen button {
+    animation: none;
+  }
 }
 
 /* One line each: the pinyin, and the start of the meaning (hold for all of it). */
@@ -2228,19 +2286,10 @@ label.cf-kind {
   text-overflow: ellipsis;
 }
 
-/* Forgotten: the word steps down so the pinyin and meaning fit in the same cell. */
-.cf-fast-cell.is-forgot .cf-fast-word {
-  font-size: min(17px, calc((min(100vw, 720px) - 32px) / 3 / var(--n) - 4px));
-}
 
-.cf-fast-cell.is-forgot button {
-  gap: 1px;
-  padding: 4px 6px;
-}
-
-/* Room under the last rows to lift them far enough to count. */
+/* Room under the last rows to lift them far enough to count, and on into the top third to show their answers. */
 .cf-fast-tail {
-  height: 40dvh;
+  height: 72dvh;
   padding-top: 18px;
   text-align: center;
   font-size: 13px;

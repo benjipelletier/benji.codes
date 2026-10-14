@@ -250,10 +250,15 @@ the design was silent and are still to be confirmed.
 - **Why it was forgotten**: Forgot opens a step with an optional line, "what
   tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
   words, for reading the mistakes back later.
-- **Fast review**: every Read card due, as a grid of words. A card counts
-  while its whole cell is above the line two thirds down the grid, as Got it
-  unless tapped (Forgot: same size cell, its pinyin and meaning squeezed in);
-  below the line, and again if scrolled back down, it is grey. Holding a card
+- **Fast review**: every Read card due, as a grid of words. Cards turn over
+  one at a time, left to right: a card counts once the line two thirds down
+  the grid has passed its row's foot by its share of a row (a third of a row
+  per card on a phone), as Got it unless tapped (Forgot: red); below the
+  line, and again if scrolled back down, it is grey. The same against the
+  line a third down shows its answer: the word lifts and shrinks and the
+  pinyin and meaning slide up into the card, so a guess can be checked
+  before it scrolls away (and tapped if wrong). Room above the grid starts
+  every card below that line, so each is seen as a word first. Holding a card
   (still, on the same card) shows its answer in a popup and marks it Forgot. Done shows what the answers
   would do (counts, typical wait before and after, when they come back,
   Recall cards opening) and sends them on confirm, 40 to a request, through

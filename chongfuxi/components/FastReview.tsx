@@ -54,6 +54,8 @@ export function FastReview({
   const [forgot, setForgot] = useState<Set<number>>(() => new Set(saved?.forgot ?? []));
   // How many cards, from the top, have risen far enough to count.
   const [uncovered, setUncovered] = useState(0);
+  // How many, from the top, have risen into the top third and show their answers.
+  const [shown, setShown] = useState(0);
   const [stage, setStage] = useState<"grid" | "confirm" | "sending" | "done">("grid");
   const [sent, setSent] = useState(0);
   const [outcome, setOutcome] = useState<outbox.Flushed | null>(null);
@@ -99,26 +101,38 @@ export function FastReview({
     void load();
   }, [load]);
 
-  /** Count the cards whose bottom edge has risen into the top two thirds, and fetch more when near the end. */
+  /**
+   * Where the scroll has got to, in cards. A card counts once the line two
+   * thirds down has passed its row's foot by its share of a row, so a row
+   * turns over one card at a time, left to right; and the same against the
+   * line a third down shows its answer. Fetch more when near the end.
+   */
   const measure = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
-    const line = el.scrollTop + (el.clientHeight * 2) / 3;
     const cells = el.querySelectorAll<HTMLElement>(".cf-fast-cell");
-    // What is above the line now: scrolling back up greys cards again. Cells
-    // are in order, so the counted ones are a prefix; find where it ends.
-    let lo = 0;
-    let hi = cells.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (cells[mid].offsetTop + cells[mid].offsetHeight <= line) lo = mid + 1;
-      else hi = mid;
-    }
-    const n = lo;
+    const grid = el.querySelector<HTMLElement>(".cf-fast-grid");
+    const cols = grid ? Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(" ").length) : 1;
+    const pitch = cells.length > cols ? cells[cols].offsetTop - cells[0].offsetTop : (cells[0]?.offsetHeight ?? 0) + 8;
+    const turn = (i: number) => cells[i].offsetTop + cells[i].offsetHeight + ((i % cols) * pitch) / cols;
+    // Turns rise with the order of the cards, so those passed are a prefix: find where it ends.
+    const passed = (line: number) => {
+      let lo = 0;
+      let hi = cells.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (turn(mid) <= line) lo = mid + 1;
+        else hi = mid;
+      }
+      return lo;
+    };
+    // What is above the lines now: scrolling back up greys cards again.
+    const n = passed(el.scrollTop + (el.clientHeight * 2) / 3);
     if (n !== uncoveredRef.current) {
       uncoveredRef.current = n;
       setUncovered(n);
     }
+    setShown(passed(el.scrollTop + el.clientHeight / 3));
     if (cells.length - n < AHEAD) void load();
   }, [load]);
 
@@ -357,7 +371,7 @@ export function FastReview({
         >
           <p className="cf-muted cf-fast-note">
             {canWrite
-              ? "Tap a card you've forgotten, or hold it to see the answer."
+              ? "Cards count as they rise, one at a time; near the top their answers show. Tap one you got wrong."
               : "Read-only: only Benji can answer these."}
           </p>
           <ul className="cf-fast-grid">
@@ -365,7 +379,10 @@ export function FastReview({
               const isForgot = forgot.has(c.id);
               const n = [...c.word].length;
               return (
-                <li key={c.id} className={`cf-fast-cell${isForgot ? " is-forgot" : i < uncovered ? " is-seen" : " is-ahead"}`}>
+                <li
+                  key={c.id}
+                  className={`cf-fast-cell${isForgot ? " is-forgot" : i < uncovered ? " is-seen" : " is-ahead"}${i < shown ? " is-shown" : ""}`}
+                >
                   <button
                     onClick={() => toggle(c.id)}
                     onPointerDown={(e) => startHold(c, e)}
@@ -377,12 +394,11 @@ export function FastReview({
                     <span className="cf-fast-word" style={{ "--n": Math.min(Math.max(n, 2), 5) } as React.CSSProperties}>
                       {c.word}
                     </span>
-                    {isForgot && (
-                      <span className="cf-fast-meaning">
-                        {c.pinyin && <span>{displayPinyin(c.pinyin)}</span>}
-                        {c.gloss && <span>{c.gloss}</span>}
-                      </span>
-                    )}
+                    {/* The answer: there all along, it rises into view in the top third, or once tapped. */}
+                    <span className="cf-fast-meaning" aria-hidden={!isForgot && i >= shown}>
+                      {c.pinyin && <span>{displayPinyin(c.pinyin)}</span>}
+                      {c.gloss && <span>{c.gloss}</span>}
+                    </span>
                   </button>
                 </li>
               );
