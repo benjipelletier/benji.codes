@@ -50,10 +50,11 @@ check every screen at 360px wide first.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.
 - Pad by the safe-area insets (`viewport-fit=cover` is set).
-- Installable: `public/chongfuxi/manifest.webmanifest`. The icon is 复 in
-  LXGW WenKai inside the Review tab's ring, white on a blue gradient
-  (#5b7cff to #2142c4); `favicon-32/48.png` are the character alone, which
-  reads at tab size. The maskable one keeps the mark in the inner 80%.
+- Installable: `public/chongfuxi/manifest.webmanifest`. The icon is 重复习
+  on three flashcards fanned like a hand (重 and 复 behind, 习 in front),
+  in LXGW WenKai, on a blue gradient (#5b7cff to #2142c4); the owner chose it
+  over a seal, a column and a single 复 in a ring. The maskable one keeps the
+  mark in the inner 84%.
 - Online to load, but no answer is lost to a dropped connection (the owner
   reviews on the subway). Every answer goes into the outbox
   (`lib/outbox.ts`, in localStorage) before it is sent, and leaves only once
