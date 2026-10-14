@@ -33,8 +33,10 @@ app is where they are reviewed. Route: `/chongfuxi`.
   and tokens whenever the words change.
 - **One owner, everyone else looks on.** Like 龙库 and jazz: anyone can read,
   only the owner's session can write. Signed-in is not owner.
-- **Words enter only through Pleco.** Add in Pleco, import again. In the app a
-  blocking word can only be marked a name.
+- **Words come from Pleco.** From a backup, from AnkiDroid syncs (what Pleco
+  adds while its flashcards are set to Anki), or from Pleco's own word lists
+  on the Lists side of Cards. In the app a blocking word can only be marked a
+  name.
 
 ## Mobile first
 
@@ -109,7 +111,7 @@ of today: answers given yesterday, cards whose due date fell inside today, and
 cards joining the queue tomorrow (those falling due then, plus those held back
 today by the same-word rule).
 
-Cards has two sides. Words is the deck against the HSK lists, old six-level and
+Cards has three sides; the third, Lists, is below. Words is the deck against the HSK lists, old six-level and
 3.0: the share of each level in the deck, and the missing words of a level a
 tap away, each linking to Pleco. It is counted from `chongfuxi_word.lists`,
 the Pleco list paths a word is filed under; a word listed at two levels counts
@@ -388,6 +390,20 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   too, so either works; the bare address shows instructions.
 - `scripts/check-anki.ts` drives sign-in, meta, uploads and media sync
   against a throwaway owner.
+
+## Adding from Pleco's word lists
+
+Once Pleco's flashcards are set to AnkiDroid, Pleco's own flashcard screen,
+where the owner took the HSK lists a lesson at a time, is gone. Cards › Lists
+(`components/ListsPanel.tsx`) puts it back: the lists the backup brought
+(`chongfuxi_word.lists`, full paths such as `HSK标准教程/HSK标准教程5/第24课`)
+browsed as Pleco's tree, each with how much is in the deck (a word filed
+under two lessons counts once in the book). A list with nothing under it
+shows its words, those missing ticked; "Add N words" adds the ticked ones as
+one addition (`addList`, source `list:<path>`), which opens at once with
+Keep and Undo, as a sync's do. At most 500 at once (`LIST_ADD_MAX`), so a
+whole scheme is refused and a lesson or level isn't. Routes: `lists` (GET
+the tree, or `?list=` its words; POST to add, owner).
 
 ## Pleco files
 

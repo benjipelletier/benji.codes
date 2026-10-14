@@ -14,7 +14,7 @@ import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfux
 import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
 import { newSchedule } from "@chongfuxi/lib/schedule";
 import { insertCards, recomputeUnlocks } from "./corpus";
-import { hskOf, promptSenses } from "./review";
+import { hskOf, listMissingAll, promptSenses } from "./review";
 
 /** Longest word a note may carry. Longer is a phrase or a sentence. */
 const MAX_WORD = 8;
@@ -325,6 +325,30 @@ export async function listAdditions(sql: Sql, owner: string, limit = 10, only: n
 }
 
 export class AdditionError extends Error {}
+
+/** Most words one list may add at once: a lesson or a level, not a whole scheme. */
+export const LIST_ADD_MAX = 500;
+
+/**
+ * Put a Pleco word list's missing words in the deck, as one addition, the way
+ * Pleco's own flashcards took a lesson at a time. `skip` are words of it the
+ * owner unticked. Null if there was nothing to add.
+ */
+export async function addList(
+  sql: Sql,
+  owner: string,
+  list: string,
+  skip: string[],
+  dict: Dict,
+  at = Date.now(),
+): Promise<{ id: number; added: string[]; unlocked: number } | null> {
+  const left = new Set(skip);
+  const words = (await listMissingAll(sql, owner, list)).filter((w) => !left.has(w));
+  if (words.length > LIST_ADD_MAX) {
+    throw new AdditionError(`${words.length} words is more than ${LIST_ADD_MAX} at once. Open a smaller list inside it.`);
+  }
+  return addWords(sql, owner, `list:${list}`, words, dict, at);
+}
 
 /**
  * Take a word out of the deck, from the app (deleting it in AnkiDroid does

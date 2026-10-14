@@ -390,6 +390,22 @@ export interface Coverage {
   unlisted: number;
 }
 
+/** A Pleco word list, or a category above lists ("HSK标准教程/HSK标准教程5"): its words counted once each. */
+export interface ListNode {
+  /** The path, "/" between category names. */
+  list: string;
+  total: number;
+  inDeck: number;
+}
+
+/** A word on a list, in the deck or not. */
+export interface ListWord {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  inDeck: boolean;
+}
+
 /** A word on a list that isn't in the deck yet. */
 export interface MissingWord {
   word: string;

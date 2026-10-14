@@ -13,6 +13,8 @@ import type {
   CardHistory,
   Coverage,
   FastCard,
+  ListNode,
+  ListWord,
   MissingWord,
   ReviewInput,
   ReviewResult,
@@ -1181,6 +1183,58 @@ export async function getCoverage(sql: Sql, owner: string): Promise<Coverage> {
     deck: counts[0].deck,
     unlisted: counts[0].unlisted,
   };
+}
+
+/** `like` matching a list and every list under it. */
+const underList = (list: string) => `${list.replace(/[\\%_]/g, "\\$&")}/%`;
+
+/**
+ * Every Pleco word list and every category above one, as Pleco shows them
+ * (HSK标准教程 › HSK标准教程5 › 第24课), with how many of their words are in
+ * the deck. A word filed under two lessons of a book counts once in the book.
+ */
+export async function listTree(sql: Sql, owner: string): Promise<ListNode[]> {
+  const rows = (await sql`
+    select x.p as list, count(distinct w.word)::int as total,
+           count(distinct w.word) filter (where w.status = 'deck')::int as in_deck
+    from chongfuxi_word w
+    cross join unnest(w.lists) l
+    cross join lateral (
+      select array_to_string((string_to_array(l, '/'))[1:n], '/') as p
+      from generate_series(1, cardinality(string_to_array(l, '/'))) n
+    ) x
+    where w.owner_email = ${owner}
+    group by x.p
+  `) as unknown as Array<{ list: string; total: number; in_deck: number }>;
+  return rows.map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck }));
+}
+
+/** The words of a list and of every list under it: those not in the deck first, then shortest first. */
+export async function listWords(sql: Sql, owner: string, list: string, offset: number, limit: number): Promise<ListWord[]> {
+  const rows = (await sql`
+    select word, pinyin, defs, status = 'deck' as in_deck from chongfuxi_word
+    where owner_email = ${owner}
+      and exists (select 1 from unnest(lists) l where l = ${list} or l like ${underList(list)})
+    order by status = 'deck', char_length(word), word
+    limit ${limit} offset ${offset}
+  `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; in_deck: boolean }>;
+  return rows.map((r) => ({
+    word: r.word,
+    pinyin: r.pinyin,
+    gloss: promptSenses(r.defs).slice(0, 2).join("; ") || null,
+    inDeck: r.in_deck,
+  }));
+}
+
+/** The words of a list (and the lists under it) not in the deck yet. */
+export async function listMissingAll(sql: Sql, owner: string, list: string): Promise<string[]> {
+  const rows = (await sql`
+    select word from chongfuxi_word
+    where owner_email = ${owner} and status <> 'deck'
+      and exists (select 1 from unnest(lists) l where l = ${list} or l like ${underList(list)})
+    order by char_length(word), word
+  `) as unknown as Array<{ word: string }>;
+  return rows.map((r) => r.word);
 }
 
 /** The words of one list that aren't in the deck, shortest first. */

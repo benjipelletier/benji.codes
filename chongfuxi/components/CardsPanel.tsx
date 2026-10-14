@@ -1,13 +1,15 @@
 "use client";
 
-// Everything there is a card for, or could be: the words, and the sentences.
+// Everything there is a card for, or could be: the words, the sentences, and
+// the Pleco word lists more words come from.
 
 import { useState } from "react";
+import { ListsPanel } from "./ListsPanel";
 import { SentencesPanel } from "./SentencesPanel";
 import { WordsPanel } from "./WordsPanel";
 import { fmt, type Shell } from "./shared";
 
-type Side = "words" | "sentences";
+type Side = "words" | "sentences" | "lists";
 
 export function CardsPanel({ shell }: { shell: Shell }) {
   const [side, setSide] = useState<Side>("words");
@@ -17,6 +19,7 @@ export function CardsPanel({ shell }: { shell: Shell }) {
   const sides: Array<{ key: Side; label: string; n: number | null }> = [
     { key: "words", label: "Words", n: s?.words ?? null },
     { key: "sentences", label: "Sentences", n: s?.sentences ?? null },
+    { key: "lists", label: "Lists", n: null },
   ];
   return (
     <div className="cf-panel">
@@ -43,8 +46,10 @@ export function CardsPanel({ shell }: { shell: Shell }) {
             window.scrollTo({ top: 0 });
           }}
         />
-      ) : (
+      ) : side === "sentences" ? (
         <SentencesPanel shell={shell} find={find} />
+      ) : (
+        <ListsPanel shell={shell} />
       )}
     </div>
   );
