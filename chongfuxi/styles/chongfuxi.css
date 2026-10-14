@@ -157,20 +157,7 @@
   letter-spacing: 0;
 }
 
-/* The four counts every action moves. */
-.cf-state {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  padding-top: 8px;
-  padding-bottom: 10px;
-}
 
-/* Which of the two each count is about: words or sentences. */
-.cf-state small {
-  font-size: 10.5px;
-  color: var(--cf-ink-faint);
-}
 
 /* A review session has the screen to itself. */
 .cfx.is-focus .cf-top,
@@ -201,35 +188,9 @@
   flex-shrink: 0;
 }
 
-.cf-state > div {
-  background: var(--cf-surface);
-  border: 1px solid var(--cf-rule);
-  border-radius: 10px;
-  padding: 5px 8px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
 
-.cf-state b {
-  font-size: 16px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.3;
-}
 
-.cf-state span {
-  font-size: 11px;
-  color: var(--cf-ink-soft);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-.cf-state.is-past > div {
-  border-style: dashed;
-  border-color: var(--cf-accent);
-}
 
 .cf-past {
   background: var(--cf-accent-soft);
@@ -4489,4 +4450,148 @@ button.cf-synclog-row {
 .cf-bug-acts {
   display: flex;
   gap: 18px;
+}
+
+/* ---------------------------------------------------------------- glance -- */
+
+/* The header's figures: words and characters, each by its mark, and the
+ * sentences as one bar. Numbers in ink; colour on the marks and the bar. */
+.cf-glance {
+  /* The bar's two fills: the Sentence and New colours, a step deeper on dark,
+   * where the app's own are too light for a fill (checked with the dataviz validator). */
+  --cf-glance-readable: var(--cf-sentence);
+  --cf-glance-near: var(--cf-new);
+  padding-top: 6px;
+  padding-bottom: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cf-glance {
+    --cf-glance-readable: #33a683;
+    --cf-glance-near: #c4842a;
+  }
+}
+
+:root[data-theme="dark"] .cf-glance {
+  --cf-glance-readable: #33a683;
+  --cf-glance-near: #c4842a;
+}
+
+.cf-glance-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cf-glance-stat {
+  --cf-kind: var(--cf-read);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cf-glance-stat.is-chars {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-glance-stat.is-sentences {
+  --cf-kind: var(--cf-sentence);
+}
+
+.cf-glance-stat > i {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cf-kind) 16%, var(--cf-surface));
+  color: var(--cf-kind);
+  font-family: var(--cf-zh);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.cf-glance-stat > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.cf-glance-stat b {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.cf-glance-stat small {
+  font-size: 11px;
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The sentences: readable, then one word away; the track left is what is still locked. */
+.cf-glance-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 4px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+.cf-glance-bar i {
+  flex: none;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.cf-glance-bar .is-readable,
+.cf-glance-key .is-readable {
+  background: var(--cf-glance-readable);
+}
+
+.cf-glance-bar .is-near,
+.cf-glance-key .is-near {
+  background: var(--cf-glance-near);
+}
+
+.cf-glance-key .is-locked {
+  background: var(--cf-rule-strong);
+}
+
+.cf-glance-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 5px 0 0;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-glance-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cf-glance-key i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-glance-bar i {
+    transition: none;
+  }
 }

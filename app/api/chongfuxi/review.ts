@@ -133,6 +133,8 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
      )
      select
        (select count(*) from chongfuxi_word where owner_email = $1 and status = 'deck')::int as words,
+       (select count(distinct ch) from chongfuxi_word w, regexp_split_to_table(w.word, '') ch
+          where w.owner_email = $1 and w.status = 'deck' and ch ~ '[一-鿿㐀-䶿]')::int as characters,
        (select count(*) from chongfuxi_card where owner_email = $1 and kind <> 'sentence' and not suspended)::int as word_cards,
        (select count(*) from chongfuxi_card where owner_email = $1 and kind = 'produce' and not suspended)::int as recall_cards,
        (select count(*) from chongfuxi_word where owner_email = $1 and status = 'name')::int as names,
@@ -175,6 +177,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
   const r = rows[0];
   return {
     words: r.words,
+    characters: r.characters,
     wordCards: r.word_cards,
     recallCards: r.recall_cards,
     names: r.names,

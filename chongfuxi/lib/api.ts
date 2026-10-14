@@ -15,6 +15,8 @@ export interface Summary {
   viewer: Viewer;
   /** Words in the deck: the ones with cards, which are the ones that count as known. */
   words: number;
+  /** Distinct Chinese characters across the deck's words. */
+  characters: number;
   /** Cards about words: a Read card for each, and a Recall card for those that have opened one. */
   wordCards: number;
   recallCards: number;
