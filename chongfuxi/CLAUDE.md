@@ -305,6 +305,33 @@ whole as an import of format `anki`.
 - Each sentence keeps its sub-deck as its source, so a source can be dropped.
   Importing is by script only: an `.apkg` with audio is hundreds of megabytes.
 
+## New words through Anki (in progress)
+
+The way new words are meant to arrive without re-importing a backup: Pleco
+adds the card to AnkiDroid (Pleco's flashcard system set to Anki), and
+AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
+
+- `app/api/chongfuxi/anki.ts` speaks the least of Anki's sync protocol
+  (version 11; read from `rslib/src/sync` in ankitects/anki) that this needs.
+  `sync/meta` always reports an empty server, which makes the client's next
+  step a one-way full upload of the whole collection; AnkiDroid does that
+  without asking on a sync started by hand, and skips it on background syncs.
+  `sync/upload` keeps the collection's notes in `chongfuxi_anki_note` (newest
+  version wins) and logs the sync in `chongfuxi_anki_sync`. Nothing else is
+  stored, so there is never anything to download. `msync/*` answers as an
+  empty media store and turns media uploads away.
+- Requests are zstd; replies are zstd frames of raw blocks (`zstdRaw`), with
+  `anki-original-size`. `fzstd` decodes, since Node 20 has no zstd.
+- Sign-in is `CHONGFUXI_ANKI_USER` / `CHONGFUXI_ANKI_PASSWORD`; the host key
+  is an HMAC of the user under the password. Unset, the endpoint answers 503.
+- Limits: a Vercel request tops out at 4.5 MB, so the AnkiDroid collection
+  must hold little more than what Pleco sends (no big decks, no media).
+  Pointing AnkiDroid here replaces AnkiWeb as its sync target.
+- Not done yet: turning notes into deck words. Waiting on a real upload to see
+  the fields Pleco writes.
+- `scripts/check-anki.ts` drives sign-in, meta, uploads and media sync
+  against a throwaway owner.
+
 ## Pleco files
 
 Two kinds are read, told apart by content (`lib/backup.ts`), and both come out
