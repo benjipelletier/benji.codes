@@ -20,6 +20,7 @@ import {
   setNote,
   splitMeaning,
   submitReview,
+  undoReview,
 } from "../../app/api/chongfuxi/review";
 import type { ReviewInput, SessionCard } from "../lib/api";
 import type { StudyDay } from "../lib/day";
@@ -271,6 +272,45 @@ async function main() {
   check("forgotten words are listed, tapped ones included", st.hardest.map((h) => h.word).sort().join() === "水,茶");
   check("every card is somewhere in the stages", Object.values(st.maturity).reduce((t, m) => t + m.fresh + m.young + m.mature + m.retired, 0) === (await cards()).filter((c) => !c.suspended).length);
   check("the forecast holds what is scheduled ahead", st.dueNow.words > 0 && st.forecast.length === 30);
+
+  // ------------------------------------------------------------------ undo
+  const exposuresNow = async () =>
+    JSON.stringify(await sql`select word, exposures from chongfuxi_word where owner_email = ${owner} order by word`);
+  const stateNow = async () => JSON.stringify(await cards()) + (await exposuresNow());
+  const beforeUndo = await stateNow();
+  const reviewsBeforeUndo = await reviews();
+
+  const drink = await sentenceCard("我喝水。");
+  r = await submit(drink.id, "forgot", 4, { tapped: ["喝"], comment: "  mixed up 喝 and 渴  " });
+  const said = (await sql`select comment from chongfuxi_review where owner_email = ${owner} and id = ${`r${n}`}`) as unknown as Array<{ comment: string }>;
+  check("a Forgot keeps what the owner said went wrong", said[0]?.comment === "mixed up 喝 and 渴");
+  check("and the tapped word lapsed with it", r.lapsed.join() === "喝" && (await reviews()) === reviewsBeforeUndo + 2);
+  await undoReview(sql, owner, `r${n}`);
+  check(
+    "taking it back puts every card and word as it was, and the answer and its lapse leave the log",
+    (await stateNow()) === beforeUndo && (await reviews()) === reviewsBeforeUndo,
+  );
+
+  const henRead = (await wordCard("read", "很"))!;
+  const henShown = (await queue(4)).find((c) => c.id === henRead.id);
+  r = await submit(henRead.id, "good", 4, { sentenceId: henShown?.sentence?.id ?? null });
+  const first = `r${n}`;
+  check("a first Got it opens a Recall card", r.produceOpened && Boolean(await wordCard("produce", "很")));
+  const other = (await queue(4)).find((c) => c.kind === "read" && c.word?.word !== "很")!;
+  await submit(other.id, "good", 4);
+  let refused = false;
+  try {
+    await undoReview(sql, owner, first);
+  } catch {
+    refused = true;
+  }
+  check("an answer with another after it can't be taken back", refused);
+  await undoReview(sql, owner, `r${n}`);
+  await undoReview(sql, owner, first);
+  check(
+    "taking both back, latest first, removes the Recall card it opened and leaves things as they were",
+    !(await wordCard("produce", "很")) && (await stateNow()) === beforeUndo && (await reviews()) === reviewsBeforeUndo,
+  );
 
   // ---------------------------------------------------------------- replay
   // Nothing but the log: start each card where its first review found it and

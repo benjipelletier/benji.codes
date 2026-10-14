@@ -160,8 +160,10 @@ the design was silent and are still to be confirmed.
 - **Same word never twice in a day**: a word answered today, or lapsed today,
   holds back its other cards until tomorrow.
 - **Read**: the word with one readable sentence under it, rotating each review
-  through its twelve shortest of five characters or more. Shorter ones (我哥哥。)
-  are used only when the word has nothing longer. Back: pinyin, every
+  through twelve of its sentences of five characters or more: those several
+  decks share first, then those nearest nine characters, labelled proverbs
+  (【谚】) last. Shorter ones (我哥哥。) are used only when the word has nothing
+  longer. Back: pinyin, every
   definition, the translation.
 - **Recall** (kind `produce`): appears after the first Got it on Read. The
   definition, and the sentence with the word blanked. Back lists other deck
@@ -192,6 +194,39 @@ the design was silent and are still to be confirmed.
   closes up below 940px of height; a session is exactly `100dvh` and a card
   with more on it than fits scrolls inside itself. The word on a card is always
   one line, sized to its length.
+- **Undo**: the receipt has Undo for the last answer. It puts back every card
+  the answer moved (each answer stores them as they were, in
+  `effects.prior`), removes a Recall card it opened, takes back the reading it
+  counted, and deletes the answer and its lapse rows: the one place a review
+  row is removed. Only the latest answer; older ones are refused.
+- **Why it was forgotten**: Forgot opens a step with an optional line, "what
+  tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
+  words, for reading the mistakes back later.
+- **Fast review**: every Read card due, as a grid of words. A card counts
+  while its whole cell is above the line two thirds down the grid, as Got it
+  unless tapped (Forgot: same size cell, its pinyin and meaning squeezed in);
+  below the line, and again if scrolled back down, it is grey. Holding a card
+  (still, on the same card) shows its answer in a popup and marks it Forgot. Done shows what the answers
+  would do (counts, typical wait before and after, when they come back,
+  Recall cards opening) and sends them on confirm, 40 to a request, through
+  the same answer code as a session. Split-off meanings are left out. Its
+  answers carry a `fast:` session id.
+- **Words tab**: every deck word as a tile, shaded by its Read card's stage
+  (waiting, young, mature, strong, as on the HSK bars), grouped by when due,
+  strength, HSK level (old HSK, then 3.0, each level badged in its textbook
+  colour) or trouble (Forgot here, or FSRS difficulty 7+),
+  and found by characters, toneless pinyin or meaning. A tile opens a sheet:
+  definitions, each card's due date, strength, recall odds now, difficulty and
+  history, Pleco's record, and the sentences the word is in, with a jump to
+  all of them under Sentences. HSK coverage lives on the Stats page.
+- **On the card**: a word's HSK levels (old and 3.0) or "not HSK"; a
+  sentence's decks. Chinese punctuation in sentences is set half-width, and
+  decks' ASCII ", " / "? " between Chinese is shown as "，" / "？".
+- **Order of word cards**: least likely to be remembered first, by the time
+  since the last review over stability (the FSRS recall odds fall as that
+  grows), never-answered first; ties shuffled by a hash of the card and the
+  study day. In sessions and Fast review alike. Seeded cards all fell due at
+  one instant, so this puts the weakest Pleco words first.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original

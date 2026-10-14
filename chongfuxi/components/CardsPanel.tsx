@@ -11,6 +11,8 @@ type Side = "words" | "sentences";
 
 export function CardsPanel({ shell }: { shell: Shell }) {
   const [side, setSide] = useState<Side>("words");
+  // A word to find among the sentences, when a word's sheet asks for them.
+  const [find, setFind] = useState<{ word: string; at: number } | null>(null);
   const s = shell.summary;
   const sides: Array<{ key: Side; label: string; n: number | null }> = [
     { key: "words", label: "Words", n: s?.words ?? null },
@@ -32,7 +34,18 @@ export function CardsPanel({ shell }: { shell: Shell }) {
           </button>
         ))}
       </div>
-      {side === "words" ? <WordsPanel shell={shell} /> : <SentencesPanel shell={shell} />}
+      {side === "words" ? (
+        <WordsPanel
+          shell={shell}
+          onFindSentences={(word) => {
+            setFind({ word, at: Date.now() });
+            setSide("sentences");
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      ) : (
+        <SentencesPanel shell={shell} find={find} />
+      )}
     </div>
   );
 }

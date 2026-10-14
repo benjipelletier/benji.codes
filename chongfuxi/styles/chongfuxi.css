@@ -550,6 +550,22 @@
 
 /* ------------------------------------------------------------ sentences -- */
 
+/* Finding sentences by a word, above the tabs it stands in for. */
+.cf-find {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.cf-find-within {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
 .cf-filters {
   display: flex;
   flex-direction: column;
@@ -1242,6 +1258,73 @@ label.cf-kind {
   font-weight: 400;
 }
 
+/* On the right of the header: the word's HSK levels, or the sentence's deck. */
+.cf-card-tags {
+  margin-left: auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* A level tag carries its textbook colour as a dot; the text stays ink. */
+.cf-hsk::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 5px 1px 0;
+  border-radius: 50%;
+  background: var(--cf-level, var(--cf-ink-faint));
+  vertical-align: middle;
+}
+
+.cf-hsk.is-none::before {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--cf-ink-faint);
+}
+
+/* Where a sentence on a word's card comes from. */
+.cf-source {
+  margin: -2px 0 6px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+/* After Forgot: what went wrong, in a line, before it is sent. */
+.cf-why {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+/* Taking the last answer back, at the end of its receipt. */
+.cf-undo {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  margin: -6px -6px -6px 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--cf-accent);
+  cursor: pointer;
+}
+
+.cf-undo:disabled {
+  opacity: 0.5;
+}
+
 /* How the card has gone so far: a bubble an answer, then when it was last seen. */
 .cf-history {
   display: flex;
@@ -1345,6 +1428,14 @@ label.cf-kind {
   font-size: 17px;
   color: var(--cf-ink);
   font-weight: 600;
+}
+
+/* Sentences set their punctuation half-width ("halt"), so a comma doesn't
+ * leave an em-wide gap after it. */
+.cf-card-zh,
+.cf-card-sentence,
+.cf-zh {
+  font-feature-settings: "halt";
 }
 
 /* The sentence a word is shown in: quieter than the word, the word picked out. */
@@ -1779,6 +1870,444 @@ label.cf-kind {
 .cf-answer-note {
   flex: 1;
   font-size: 13px;
+}
+
+/* ------------------------------------------------------------ fast review -- */
+
+/* On Today, beside Start: the way into Fast review, in the warm amber of new
+ * things with a bolt that flickers when pressed. */
+.cfx .cf-fast-btn {
+  flex: 0 1 auto;
+  padding: 0 18px;
+  background: color-mix(in srgb, var(--cf-new) 16%, var(--cf-surface));
+  border: 1px solid color-mix(in srgb, var(--cf-new) 45%, transparent);
+  color: var(--cf-ink);
+}
+
+.cf-fast-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-bolt {
+  color: var(--cf-new);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cf-new) 55%, transparent));
+}
+
+.cf-fast-btn:hover .cf-bolt,
+.cf-fast-btn:active .cf-bolt {
+  animation: cf-zap 0.35s ease;
+}
+
+@keyframes cf-zap {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translateY(-1px) rotate(-8deg) scale(1.2);
+  }
+  60% {
+    transform: rotate(6deg) scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-fast-btn .cf-bolt,
+  .cf-fast-peek {
+    animation: none;
+  }
+}
+
+/* One screen: a bar on top, the grid scrolling under it. */
+.cf-fast {
+  position: relative;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-top: env(safe-area-inset-top);
+}
+
+.cf-fast-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-fast-top .cf-close {
+  margin-left: -8px;
+}
+
+.cf-fast-count {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-fast-count b {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-fast-count .is-good b {
+  color: var(--cf-up);
+}
+
+.cf-fast-count .is-forgot b {
+  color: var(--cf-down);
+}
+
+.cf-fast-done-btn {
+  flex: none;
+}
+
+/* The grid, under the bar. */
+.cf-fast-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.cf-fast-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px 0;
+}
+
+.cf-fast-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.cf-fast-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* minmax(0, …): a long meaning on a forgotten card must not widen its column. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .cf-fast-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.cf-fast-cell {
+  min-width: 0;
+}
+
+.cf-fast-cell button {
+  width: 100%;
+  /* One size, forgotten or not: the content shrinks to fit instead. */
+  height: 66px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 14px;
+  border: 1px solid var(--cf-rule);
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+/* Over the grey cards, in the middle of the bottom third, clear of the row about to count. */
+.cf-fast-ahead {
+  position: absolute;
+  top: calc(100% * 5 / 6);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100% - 48px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cf-bg) 88%, transparent);
+  border: 1px solid var(--cf-rule-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Long-pressing a card is a peek, not a text selection or a context menu. */
+.cf-fast-cell button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* The answer, while a card is held: above the finger, or below it at the top. */
+.cf-fast-peek {
+  position: fixed;
+  z-index: 20;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule-strong);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--cf-ink-soft);
+  pointer-events: none;
+  animation: cf-peek 0.14s ease-out both;
+}
+
+.cf-fast-peek.is-below {
+  transform: translate(-50%, 0);
+}
+
+.cf-fast-peek b {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-fast-peek-py {
+  font-size: 15px;
+  color: var(--cf-read);
+}
+
+@keyframes cf-peek {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+/* Sized to fit the cell on one line, like the word on a card. */
+.cf-fast-word {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+  font-size: min(26px, calc((min(100vw, 720px) - 32px) / 3 / var(--n) - 4px));
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Not yet scrolled up into the top two thirds: grey, and not counted. */
+.cf-fast-cell.is-ahead button {
+  opacity: 0.38;
+  filter: grayscale(1);
+  border-style: dashed;
+}
+
+.cf-fast-cell button {
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* Uncovered and not tapped: will be answered Got it. */
+.cf-fast-cell.is-seen button {
+  border-color: color-mix(in srgb, var(--cf-up) 35%, var(--cf-rule));
+}
+
+.cf-fast-cell.is-forgot button {
+  background: var(--cf-down-soft);
+  border-color: var(--cf-down);
+}
+
+.cf-fast-meaning {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: var(--cf-ink-soft);
+  text-align: center;
+}
+
+/* One line each: the pinyin, and the start of the meaning (hold for all of it). */
+.cf-fast-meaning span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Forgotten: the word steps down so the pinyin and meaning fit in the same cell. */
+.cf-fast-cell.is-forgot .cf-fast-word {
+  font-size: min(17px, calc((min(100vw, 720px) - 32px) / 3 / var(--n) - 4px));
+}
+
+.cf-fast-cell.is-forgot button {
+  gap: 1px;
+  padding: 4px 6px;
+}
+
+/* Room under the last rows to lift them far enough to count. */
+.cf-fast-tail {
+  height: 40dvh;
+  padding-top: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+}
+
+/* Confirm: what the answers would do, before they're sent. */
+.cf-fast-confirm {
+  overflow-y: auto;
+}
+
+.cf-fast-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.cf-fast-split > div {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+}
+
+.cf-fast-split b {
+  font-size: 34px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-fast-split .is-good b {
+  color: var(--cf-up);
+}
+
+.cf-fast-split .is-forgot b {
+  color: var(--cf-down);
+}
+
+.cf-fast-split span {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-fast-facts {
+  margin: 0 0 6px;
+}
+
+.cf-fast-facts > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--cf-rule);
+  font-size: 14px;
+}
+
+.cf-fast-facts dt {
+  color: var(--cf-ink-soft);
+}
+
+.cf-fast-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-fast-facts em {
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+
+.cf-fast-h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-fast-buckets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.cf-fast-buckets li {
+  display: grid;
+  grid-template-columns: 8.5em 1fr 3.5em;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-fast-buckets i {
+  height: 10px;
+  min-width: 2px;
+  border-radius: 0 5px 5px 0;
+  background: var(--cf-read);
+}
+
+.cf-fast-buckets b {
+  text-align: right;
+  font-weight: 600;
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-fast-forgot {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.cf-fast-progress {
+  position: relative;
+  flex: 1;
+  max-width: 528px;
+  height: 58px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cf-sunken);
+  display: grid;
+  place-items: center;
+}
+
+.cf-fast-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--cf-up-soft);
+  transition: width 0.3s ease;
+}
+
+.cf-fast-progress span {
+  position: relative;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2262,22 +2791,26 @@ label.cf-kind {
 }
 
 .cf-level-bar i.is-waiting,
-.cf-level-key i.is-waiting {
+.cf-level-key i.is-waiting,
+.cf-level-split i.is-waiting {
   background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 26%, var(--cf-surface));
 }
 
 .cf-level-bar i.is-young,
-.cf-level-key i.is-young {
+.cf-level-key i.is-young,
+.cf-level-split i.is-young {
   background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 52%, var(--cf-surface));
 }
 
 .cf-level-bar i.is-mature,
-.cf-level-key i.is-mature {
+.cf-level-key i.is-mature,
+.cf-level-split i.is-mature {
   background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 78%, var(--cf-surface));
 }
 
 .cf-level-bar i.is-strong,
-.cf-level-key i.is-strong {
+.cf-level-key i.is-strong,
+.cf-level-split i.is-strong {
   background: var(--cf-level, var(--cf-ink-soft));
 }
 
@@ -2303,7 +2836,8 @@ label.cf-kind {
   border-radius: 3px;
 }
 
-.cf-level-key i.is-missing {
+.cf-level-key i.is-missing,
+.cf-level-split i.is-missing {
   background: var(--cf-sunken);
 }
 
@@ -2394,6 +2928,46 @@ label.cf-kind {
   color: var(--cf-ink-soft);
 }
 
+/* An opened level: the bar's segments as counts, in a two-column grid. */
+.cf-level-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px 16px;
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.cf-level-split > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cf-level-split dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-level-split dt i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.cf-level-split dd {
+  margin: 0;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-level-split dd b {
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
 .cf-level-body {
   padding: 2px 16px 12px;
 }
@@ -2429,4 +3003,514 @@ label.cf-kind {
   align-items: center;
   justify-content: center;
   line-height: 1.25;
+}
+
+/* ------------------------------------------------------------- word wall -- */
+
+/* Strength as one hue, deepening: waiting is an outline, strong is solid. The
+ * same four stages as the HSK bars. */
+.cf-wall {
+  --cf-tile-young: color-mix(in srgb, var(--cf-read) 22%, var(--cf-surface));
+  --cf-tile-mature: color-mix(in srgb, var(--cf-read) 55%, var(--cf-surface));
+  --cf-tile-strong: var(--cf-read);
+}
+
+.cf-wall-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--cf-sunken);
+}
+
+.cf-wall-bar i {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.cf-wall-bar .is-strong,
+.cf-tile-swatch.is-strong {
+  background: var(--cf-tile-strong);
+}
+
+.cf-wall-bar .is-mature,
+.cf-tile-swatch.is-mature {
+  background: var(--cf-tile-mature);
+}
+
+.cf-wall-bar .is-young,
+.cf-tile-swatch.is-young {
+  background: var(--cf-tile-young);
+}
+
+.cf-wall-bar .is-waiting {
+  background: var(--cf-sunken);
+}
+
+.cf-tile-swatch.is-waiting {
+  box-shadow: inset 0 0 0 1px var(--cf-ink-faint);
+}
+
+.cf-wall-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 14px;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wall-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cf-wall-key b {
+  font-weight: 600;
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-tile-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.cf-tile-swatch.is-due {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cf-new);
+}
+
+.cf-wall-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* A group is a row to open: its name, its own mix of strengths, its count. */
+.cf-wall-group {
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-wall-group.is-open {
+  padding-bottom: 12px;
+}
+
+.cf-wall-head {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-chevron {
+  flex: none;
+  color: var(--cf-ink-faint);
+  transition: transform 0.18s ease;
+}
+
+.cf-wall-group.is-open .cf-chevron {
+  transform: rotate(90deg);
+}
+
+.cf-wall-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cf-wall-mix {
+  flex: 0 0 72px;
+  display: flex;
+  gap: 1px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--cf-sunken);
+}
+
+.cf-wall-mix i {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.cf-wall-mix .is-strong {
+  background: var(--cf-tile-strong);
+}
+
+.cf-wall-mix .is-mature {
+  background: var(--cf-tile-mature);
+}
+
+.cf-wall-mix .is-young {
+  background: var(--cf-tile-young);
+}
+
+.cf-wall-mix .is-waiting {
+  background: var(--cf-rule-strong);
+}
+
+/* An HSK level's group: a badge in the textbook colour, and its bar in that colour's shades. */
+.cf-wall-pill {
+  flex: none;
+  min-width: 26px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: var(--cf-level);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The yellow of level 1 needs dark type. */
+.cf-wall-pill.is-l1 {
+  color: #2a1d00;
+}
+
+.cf-wall-mix.cf-level .is-waiting {
+  background: color-mix(in srgb, var(--cf-level) 26%, var(--cf-surface));
+}
+
+.cf-wall-mix.cf-level .is-young {
+  background: color-mix(in srgb, var(--cf-level) 52%, var(--cf-surface));
+}
+
+.cf-wall-mix.cf-level .is-mature {
+  background: color-mix(in srgb, var(--cf-level) 78%, var(--cf-surface));
+}
+
+.cf-wall-mix.cf-level .is-strong {
+  background: var(--cf-level);
+}
+
+/* Where the old list ends and HSK 3.0 begins. */
+.cf-wall-scheme {
+  margin: 20px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wall-head b small {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wall-head b {
+  flex: none;
+  min-width: 3.2em;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-wall-tools + .cf-wall-group,
+.cf-wall-tools + p + .cf-wall-group {
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-chevron {
+    transition: none;
+  }
+}
+
+.cf-tiles-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 4px;
+}
+
+.cf-tile-word {
+  position: relative;
+  width: 100%;
+  height: 44px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: min(18px, calc(56px / var(--n, 2)));
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--cf-ink);
+  cursor: pointer;
+}
+
+.cf-tile-word.is-waiting {
+  background: var(--cf-surface);
+  border-color: var(--cf-rule-strong);
+  border-style: dashed;
+  color: var(--cf-ink-soft);
+}
+
+.cf-tile-word.is-young {
+  background: var(--cf-tile-young);
+}
+
+.cf-tile-word.is-mature {
+  background: var(--cf-tile-mature);
+}
+
+.cf-tile-word.is-strong {
+  background: var(--cf-tile-strong);
+  color: var(--cf-on-accent);
+}
+
+/* Due today: a dot in the corner. */
+.cf-tile-word.is-due::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cf-new);
+  box-shadow: 0 0 0 1.5px var(--cf-surface);
+}
+
+.cf-tile-word:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
+}
+
+/* A word's sheet: up from the bottom on a phone, centred on a wide screen. */
+.cf-sheet-back {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 10, 16, 0.45);
+  animation: cf-fade 0.15s ease both;
+}
+
+@media (min-width: 700px) {
+  .cf-sheet-back {
+    align-items: center;
+  }
+}
+
+.cf-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--cf-bg);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
+  animation: cf-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (min-width: 700px) {
+  .cf-sheet {
+    border-radius: 22px;
+  }
+}
+
+@keyframes cf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cf-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+}
+
+.cf-sheet-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.cf-sheet-head h2 {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 44px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.cf-sheet-py {
+  margin: 2px 0 0;
+  font-size: 18px;
+  color: var(--cf-read);
+}
+
+.cf-sheet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.cf-sheet-tags .cf-link {
+  margin-left: auto;
+}
+
+.cf-sheet-senses {
+  margin: 12px 0 4px;
+  padding-left: 18px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.cf-sheet h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-sheet-card {
+  --cf-kind: var(--cf-read);
+  --cf-tone: var(--cf-kind);
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+}
+
+.cf-sheet-card.is-produce {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-sheet-card h3 {
+  color: var(--cf-kind);
+}
+
+.cf-sheet-card .cf-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0;
+}
+
+.cf-sheet-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px 12px;
+  margin: 12px 0 10px;
+}
+
+.cf-sheet-facts dt {
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-sheet-facts dd {
+  margin: 1px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-sheet-lapses {
+  color: var(--cf-down);
+  font-weight: 500;
+}
+
+.cf-sheet-aside {
+  margin: 10px 2px 0;
+  font-size: 12.5px;
+}
+
+.cf-sheet-pleco,
+.cf-sheet-sentences {
+  margin-top: 18px;
+}
+
+.cf-sheet-pleco p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-sheet-pleco b,
+.cf-sheet-counts b {
+  color: var(--cf-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-sheet-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-sheet-best {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.cf-sheet-best li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-sheet-best .cf-zh {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+}
+
+.cf-sheet-best .cf-mark {
+  color: var(--cf-read);
+  background: none;
+  font-weight: 600;
+  padding: 0;
+}
+
+.cf-sheet-best .cf-en {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-sheet-back,
+  .cf-sheet {
+    animation: none;
+  }
 }

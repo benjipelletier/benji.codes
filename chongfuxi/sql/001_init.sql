@@ -261,6 +261,10 @@ alter table chongfuxi_review add column if not exists utc_offset integer;
 alter table chongfuxi_review add column if not exists position integer;
 alter table chongfuxi_review add column if not exists device text;
 
+-- After a Forgot: the owner's own words on what went wrong, if any. Kept with
+-- the answer so the mistakes can be read back together later.
+alter table chongfuxi_review add column if not exists comment text;
+
 create index if not exists chongfuxi_review_day on chongfuxi_review (owner_email, day, word);
 create index if not exists chongfuxi_review_card on chongfuxi_review (owner_email, card_id, seq);
 
