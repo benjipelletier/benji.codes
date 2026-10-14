@@ -427,10 +427,12 @@ the tree, or `?list=` its words; POST to add, owner).
 ## Bug reports
 
 The owner files bugs from any screen: a slim tab on the right edge (owner
-only, above every sheet) draws the screen as it is (`modern-screenshot`, from
+only, above every sheet) opens a sheet at once to describe what went wrong
+(the words are required). Behind it the screen is drawn as it was at the
+tap, and comes along as a small screenshot unless unticked (`modern-screenshot`, from
 the page itself; Android's browser lets a page capture nothing else, and
-fixed bars can be misplaced when the page was scrolled) and asks what went
-wrong. "Use a phone screenshot instead" takes a real one from the gallery.
+fixed bars can be misplaced when the page was scrolled). "Use one from the
+phone" takes a real screenshot from the gallery instead.
 Each report keeps what the app knew (`BugContext`): the screen, what the
 screens on show noted about themselves (`note` in `lib/bugs.ts`: the card in
 a session, Fast review's progress, the open list, a word's sheet), the

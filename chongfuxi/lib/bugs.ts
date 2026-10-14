@@ -58,9 +58,13 @@ const SHOT_MAX = 1600;
  * marked `data-bug-skip` (the bug button) are left out.
  */
 export async function screenshot(): Promise<string | null> {
+  // The screen as it is at the tap: the keyboard may open meanwhile and shrink it.
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const top = window.scrollY;
   try {
     const { domToCanvas } = await import("modern-screenshot");
-    const scale = Math.min(window.devicePixelRatio || 1, 2, SHOT_MAX / Math.max(window.innerWidth, window.innerHeight));
+    const scale = Math.min(window.devicePixelRatio || 1, 2, SHOT_MAX / Math.max(width, height));
     const bg = getComputedStyle(document.querySelector(".cfx") ?? document.body).backgroundColor;
     const full = await domToCanvas(document.body, {
       scale,
@@ -70,13 +74,13 @@ export async function screenshot(): Promise<string | null> {
     });
     // The page is drawn whole; keep the part on screen.
     const out = document.createElement("canvas");
-    out.width = Math.round(window.innerWidth * scale);
-    out.height = Math.round(window.innerHeight * scale);
+    out.width = Math.round(width * scale);
+    out.height = Math.round(height * scale);
     const ctx = out.getContext("2d");
     if (!ctx) return null;
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, out.width, out.height);
-    ctx.drawImage(full, 0, -Math.round(window.scrollY * scale));
+    ctx.drawImage(full, 0, -Math.round(top * scale));
     return out.toDataURL("image/jpeg", 0.8);
   } catch {
     return null;

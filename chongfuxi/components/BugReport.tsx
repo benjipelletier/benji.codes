@@ -12,23 +12,19 @@ import type { BugContext, BugReport, BugStatus } from "@chongfuxi/lib/api";
 import { message, useBackLayer } from "./shared";
 
 export function BugButton({ screen }: { screen: string }) {
-  const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<{ shot: string | null; context: BugContext } | null>(null);
+  const [draft, setDraft] = useState<{ context: BugContext; shot: Promise<string | null> } | null>(null);
   useEffect(() => bugs.listen(), []);
 
-  const start = async () => {
-    if (busy) return;
-    setBusy(true);
-    // What was on screen, before the sheet covers it.
-    const context = bugs.context(screen);
-    const shot = await bugs.screenshot();
-    setBusy(false);
-    setDraft({ shot, context });
+  // The sheet opens at once to be typed in; the screen is drawn behind it
+  // meanwhile (the sheet is left out of the drawing).
+  const start = () => {
+    if (draft) return;
+    setDraft({ context: bugs.context(screen), shot: bugs.screenshot() });
   };
 
   return (
     <>
-      <button className={`cf-bug-tab${busy ? " is-busy" : ""}`} data-bug-skip onClick={() => void start()} aria-label="Report a bug">
+      <button className="cf-bug-tab" data-bug-skip hidden={draft !== null} onClick={start} aria-label="Report a bug">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
           <path
             d="M8 6.5a4 4 0 0 1 8 0M7 10h10v4.5a5 5 0 0 1-10 0zM12 10v9.5M3.5 9.5 7 11M20.5 9.5 17 11M3 15h4M21 15h-4M4 20l3.5-2.5M20 20l-3.5-2.5"
@@ -45,20 +41,42 @@ export function BugButton({ screen }: { screen: string }) {
   );
 }
 
-function BugSheet({ draft, onDone }: { draft: { shot: string | null; context: BugContext }; onDone: () => void }) {
+/** What went wrong, in the owner's words; a screenshot of the screen comes along unless left out. */
+function BugSheet({ draft, onDone }: { draft: { context: BugContext; shot: Promise<string | null> }; onDone: () => void }) {
   const [text, setText] = useState("");
-  const [shot, setShot] = useState(draft.shot);
+  // Undefined while the screen is still being drawn.
+  const [shot, setShot] = useState<string | null | undefined>(undefined);
+  const [include, setInclude] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filed, setFiled] = useState<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
   useBackLayer(true, onDone);
+
+  useEffect(() => {
+    let live = true;
+    // Focus (and the phone's keyboard) waits for the drawing, or a moment at
+    // most, so the keyboard doesn't squeeze the screen being drawn.
+    const later = window.setTimeout(() => box.current?.focus(), 2500);
+    void draft.shot.then((s) => {
+      if (!live) return;
+      setShot((now) => (now === undefined ? s : now));
+      window.clearTimeout(later);
+      box.current?.focus();
+    });
+    return () => {
+      live = false;
+      window.clearTimeout(later);
+    };
+  }, [draft.shot]);
 
   const file = async () => {
     setBusy(true);
     setError(null);
     try {
-      const r = await send<{ id: number }>("bugs", { text, context: draft.context, image: shot });
+      const image = include && shot ? shot : null;
+      const r = await send<{ id: number }>("bugs", { text: text.trim(), context: draft.context, image });
       setFiled(r.id);
       window.setTimeout(onDone, 1400);
     } catch (e) {
@@ -78,42 +96,44 @@ function BugSheet({ draft, onDone }: { draft: { shot: string | null; context: Bu
         ) : (
           <>
             <h2 id="cf-bug-title" className="cf-arrival-title">
-              Report a bug
+              What went wrong?
             </h2>
             <p className="cf-muted cf-bug-where">
               From {draft.context.screen}
               {draft.context.errors.length > 0 &&
                 `, with ${draft.context.errors.length} recent ${draft.context.errors.length === 1 ? "error" : "errors"}`}
+              . What the app was showing comes along by itself.
             </p>
             <textarea
+              ref={box}
               className="cf-bug-text"
-              placeholder="What went wrong? What did you expect?"
+              placeholder="What happened, and what you expected instead"
               value={text}
-              autoFocus
-              rows={3}
+              rows={4}
               onChange={(e) => setText(e.target.value)}
             />
-            {shot ? (
-              <figure className="cf-bug-shot">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+
+            {/* The screenshot: optional, small, there to drop. */}
+            <div className={`cf-bug-shot${include && shot ? "" : " is-off"}`}>
+              <label className="cf-bug-include">
+                <input type="checkbox" checked={include && shot !== null} disabled={!shot} onChange={(e) => setInclude(e.target.checked)} />
+                <i className="cf-tick" />
+                <span>
+                  {shot === undefined
+                    ? "Taking a screenshot of this screen…"
+                    : shot === null
+                      ? "No screenshot of this screen"
+                      : "Include a screenshot of this screen"}
+                  <button type="button" className="cf-link" onClick={() => picker.current?.click()}>
+                    {shot ? "Use one from the phone" : "Attach one from the phone"}
+                  </button>
+                </span>
+              </label>
+              {shot && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={shot} alt="The screen it was filed from" />
-                <figcaption>
-                  <button className="cf-link" onClick={() => picker.current?.click()}>
-                    Use a phone screenshot instead
-                  </button>
-                  <button className="cf-link" onClick={() => setShot(null)}>
-                    Leave it out
-                  </button>
-                </figcaption>
-              </figure>
-            ) : (
-              <p className="cf-muted">
-                No screenshot.{" "}
-                <button className="cf-link" onClick={() => picker.current?.click()}>
-                  Attach one
-                </button>
-              </p>
-            )}
+              )}
+            </div>
             <input
               ref={picker}
               type="file"
@@ -121,7 +141,11 @@ function BugSheet({ draft, onDone }: { draft: { shot: string | null; context: Bu
               hidden
               onChange={async (e) => {
                 const f = e.target.files?.[0];
-                if (f) setShot((await bugs.fromFile(f)) ?? shot);
+                const s = f ? await bugs.fromFile(f) : null;
+                if (s) {
+                  setShot(s);
+                  setInclude(true);
+                }
               }}
             />
             {error && <p className="cf-error">{error}</p>}
@@ -129,7 +153,7 @@ function BugSheet({ draft, onDone }: { draft: { shot: string | null; context: Bu
               <button className="cf-answer-btn cf-answer-ghost" disabled={busy} onClick={onDone}>
                 Cancel
               </button>
-              <button className="cf-answer-btn cf-answer-good" disabled={busy || (!text.trim() && !shot)} onClick={() => void file()}>
+              <button className="cf-answer-btn cf-answer-good" disabled={busy || !text.trim()} onClick={() => void file()}>
                 {busy ? "Filing…" : "File it"}
               </button>
             </div>
