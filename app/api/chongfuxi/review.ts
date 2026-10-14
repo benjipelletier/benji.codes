@@ -1188,6 +1188,9 @@ export async function getCoverage(sql: Sql, owner: string): Promise<Coverage> {
 /** `like` matching a list and every list under it. */
 const underList = (list: string) => `${list.replace(/[\\%_]/g, "\\$&")}/%`;
 
+/** Top-level lists the owner doesn't study from, left off the Lists screen: NPCR and 成语. */
+const LISTS_HIDDEN = /npcr|成语/i;
+
 /**
  * Every Pleco word list and every category above one, as Pleco shows them
  * (HSK标准教程 › HSK标准教程5 › 第24课), with how many of their words are in
@@ -1206,7 +1209,9 @@ export async function listTree(sql: Sql, owner: string): Promise<ListNode[]> {
     where w.owner_email = ${owner}
     group by x.p
   `) as unknown as Array<{ list: string; total: number; in_deck: number }>;
-  return rows.map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck }));
+  return rows
+    .filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0]))
+    .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck }));
 }
 
 /** The words of a list and of every list under it: those not in the deck first, then shortest first. */

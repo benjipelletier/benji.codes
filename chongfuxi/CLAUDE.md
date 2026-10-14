@@ -401,7 +401,8 @@ browsed as Pleco's tree, each with how much is in the deck (a word filed
 under two lessons counts once in the book). A list with nothing under it
 shows its words, those missing ticked; "Add N words" adds the ticked ones as
 one addition (`addList`, source `list:<path>`), which opens at once with
-Keep and Undo, as a sync's do. At most 500 at once (`LIST_ADD_MAX`), so a
+Keep and Undo, as a sync's do. NPCR and 成语 are left off the screen
+(`LISTS_HIDDEN`): the owner doesn't study from them. At most 500 at once (`LIST_ADD_MAX`), so a
 whole scheme is refused and a lesson or level isn't. Routes: `lists` (GET
 the tree, or `?list=` its words; POST to add, owner).
 
