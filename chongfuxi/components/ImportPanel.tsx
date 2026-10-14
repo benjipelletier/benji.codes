@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { signInWithGoogle, signOut } from "@chongfuxi/lib/auth-client";
 import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
+import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
 import { fmt, message, type Shell } from "./shared";
 
@@ -203,6 +204,7 @@ export function ImportPanel({ shell }: { shell: Shell }) {
       <Account shell={shell} />
       {s.viewer.configured && <SyncLog shell={shell} />}
       {shell.canWrite && <Importer shell={shell} />}
+      {s.viewer.configured && <BugList canWrite={shell.canWrite} />}
       {s.viewer.configured && (
         <section className="cf-section">
           <h2 className="cf-h2">About</h2>

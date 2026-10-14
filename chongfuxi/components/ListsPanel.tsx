@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as bugs from "@chongfuxi/lib/bugs";
 import { AdditionDetails } from "./NewWords";
 import { BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
@@ -66,6 +67,9 @@ export function ListsPanel({ shell }: { shell: Shell }) {
     setError(null);
     if (leaf) loadWords(0);
   }, [at, leaf, loadWords]);
+
+  // For a bug filed now: which list is open.
+  useEffect(() => bugs.note("list", at || "(all lists)"), [at]);
 
   const go = (list: string) => {
     setAt(list);

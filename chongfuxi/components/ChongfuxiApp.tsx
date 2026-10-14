@@ -11,6 +11,7 @@ import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel } from "./ImportPanel";
+import { BugButton } from "./BugReport";
 import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
@@ -162,6 +163,9 @@ export function ChongfuxiApp() {
           }}
         />
       )}
+
+      {/* The owner files a bug from wherever they are. */}
+      {canWrite && <BugButton screen={focus ? "a review session" : `the ${TABS.find((t) => t.key === tab)?.label ?? tab} tab`} />}
 
       {/* At the bottom, where a thumb reaches on a phone. */}
       <nav className="cf-tabs">

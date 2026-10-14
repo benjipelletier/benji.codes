@@ -9,3 +9,6 @@ dist/
 *.tsbuildinfo
 .vercel
 .next/
+
+# Bug reports pulled in by chongfuxi/scripts/bugs.ts
+.bugs/

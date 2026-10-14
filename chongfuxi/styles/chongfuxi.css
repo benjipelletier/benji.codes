@@ -4223,3 +4223,164 @@ button.cf-synclog-row {
   font-weight: 500;
   color: var(--cf-ink-faint);
 }
+
+/* ----------------------------------------------------------------- bugs -- */
+
+/* Filing a bug: a slim tab on the right edge, on every screen and above every
+ * sheet, quiet until pressed. Left out of its own screenshot (data-bug-skip). */
+.cf-bug-tab {
+  position: fixed;
+  right: 0;
+  top: 38%;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 46px;
+  padding: 0 0 0 2px;
+  border: 1px solid var(--cf-rule-strong);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink-faint);
+  opacity: 0.7;
+  box-shadow: var(--cf-shadow);
+  cursor: pointer;
+}
+
+.cf-bug-tab:active,
+.cf-bug-tab.is-busy {
+  opacity: 1;
+  color: var(--cf-down);
+}
+
+.cf-bug-tab.is-busy svg {
+  animation: cf-bug-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes cf-bug-pulse {
+  from {
+    transform: scale(0.85);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-bug-tab.is-busy svg {
+    animation: none;
+  }
+}
+
+.cf-bug .cf-arrival-title {
+  margin-bottom: 2px;
+}
+
+.cf-bug-where {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.cf-bug-text {
+  display: block;
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+
+.cf-bug-shot {
+  margin: 12px 0 0;
+}
+
+.cf-bug-shot img {
+  display: block;
+  max-width: 100%;
+  max-height: 38dvh;
+  margin: 0 auto;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+}
+
+.cf-bug-shot figcaption {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.cf-bug-shot .cf-link,
+.cf-bug-acts .cf-link {
+  min-height: 36px;
+}
+
+.cf-bug-filed {
+  padding: 18px 0 28px;
+  text-align: center;
+}
+
+.cf-bugs {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.cf-bugs li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.cf-bugs li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-bugs img {
+  flex: none;
+  width: 56px;
+  height: 100px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--cf-rule);
+  border-radius: 8px;
+}
+
+.cf-bugs li > div {
+  min-width: 0;
+}
+
+.cf-bugs p {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.cf-bugs li:not(.is-open) {
+  opacity: 0.6;
+}
+
+.cf-bug-head {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-bug-head .cf-tag {
+  margin-left: 6px;
+}
+
+.cf-bug-acts {
+  display: flex;
+  gap: 18px;
+}

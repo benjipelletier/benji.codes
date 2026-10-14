@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
+import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Highlighted, History, fmt, message, plecoHref, span, useBackLayer } from "./shared";
@@ -306,7 +307,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         );
       })}
 
-      <BackToWall open={open !== null} onBack={() => setOpen(null)} />
+      <BackToWall open={open !== null} word={open} onBack={() => setOpen(null)} />
       {open && (
         <WordSheet
           word={open}
@@ -557,8 +558,9 @@ function WordSheet({
   );
 }
 
-/** Back closes an open word's sheet. */
-function BackToWall({ open, onBack }: { open: boolean; onBack: () => void }) {
+/** Back closes an open word's sheet; a bug filed meanwhile says which word. */
+function BackToWall({ open, word, onBack }: { open: boolean; word: string | null; onBack: () => void }) {
   useBackLayer(open, onBack);
+  useEffect(() => (word ? bugs.note("wordSheet", word) : undefined), [word]);
   return null;
 }

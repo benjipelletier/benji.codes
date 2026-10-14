@@ -344,3 +344,23 @@ alter table chongfuxi_anki_note add column if not exists sync_id bigint;
 
 -- When the owner saw the sync's page. Every new sync opens it once.
 alter table chongfuxi_anki_sync add column if not exists seen_at timestamptz;
+
+-- A bug the owner filed from the app: what they wrote, a screenshot of the
+-- screen it was filed from (base64 JPEG), and what the app knew then (the
+-- screen, the card, recent errors). Read by Claude sessions through
+-- scripts/bugs.ts. Also created on first use (app/api/chongfuxi/bugs.ts).
+create table if not exists chongfuxi_bug (
+  id          bigint      generated always as identity primary key,
+  owner_email text        not null,
+  at          timestamptz not null default now(),
+  text        text        not null,
+  context     jsonb       not null default '{}',
+  image       text,
+  image_type  text,
+  -- 'open', 'fixed' or 'wontfix', and a line on what was done.
+  status      text        not null default 'open',
+  note        text,
+  closed_at   timestamptz
+);
+
+create index if not exists chongfuxi_bug_owner on chongfuxi_bug (owner_email, status, at desc);

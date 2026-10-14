@@ -422,3 +422,36 @@ export interface Blocker {
   pinyin: string | null;
   gloss: string | null;
 }
+
+/** What the app knew when a bug was filed. */
+export interface BugContext {
+  url: string;
+  /** The tab, and whether a review had the screen. */
+  screen: string;
+  viewport: { width: number; height: number; dpr: number };
+  userAgent: string;
+  theme: "light" | "dark";
+  /** The deployed commit, where Vercel says. */
+  build: string | null;
+  /** What the screens on show reported about themselves: the card in a session, say. */
+  state: Record<string, unknown>;
+  /** The last few errors the page saw, newest last. */
+  errors: Array<{ at: number; message: string }>;
+  /** Answers waiting in the outbox. */
+  pending: number;
+}
+
+export type BugStatus = "open" | "fixed" | "wontfix";
+
+/** A bug the owner filed from the app. */
+export interface BugReport {
+  id: number;
+  at: number;
+  text: string;
+  context: BugContext;
+  hasImage: boolean;
+  status: BugStatus;
+  /** What was done about it. */
+  note: string | null;
+  closedAt: number | null;
+}

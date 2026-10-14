@@ -424,6 +424,31 @@ Keep and Undo, as a sync's do. NPCR and 成语 are left off the screen
 whole scheme is refused and a lesson or level isn't. Routes: `lists` (GET
 the tree, or `?list=` its words; POST to add, owner).
 
+## Bug reports
+
+The owner files bugs from any screen: a slim tab on the right edge (owner
+only, above every sheet) draws the screen as it is (`modern-screenshot`, from
+the page itself; Android's browser lets a page capture nothing else, and
+fixed bars can be misplaced when the page was scrolled) and asks what went
+wrong. "Use a phone screenshot instead" takes a real one from the gallery.
+Each report keeps what the app knew (`BugContext`): the screen, what the
+screens on show noted about themselves (`note` in `lib/bugs.ts`: the card in
+a session, Fast review's progress, the open list, a word's sheet), the
+page's last errors, the viewport, the build. Stored in `chongfuxi_bug`
+(made on first use), listed on the Import page with Mark fixed / Won't fix.
+
+**To work on them from a Claude session:**
+
+    npx tsx chongfuxi/scripts/bugs.ts          # open ones → .bugs/<id>.md + .jpg
+    npx tsx chongfuxi/scripts/bugs.ts --all
+    npx tsx chongfuxi/scripts/bugs.ts --close 12 fixed "what was done"
+
+Read each `.bugs/<id>.md` and look at its `.jpg`, fix, then close it (that
+needs `CHONGFUXI_BUGS_TOKEN` in the session's environment, the same value as
+on Vercel; otherwise say which to mark fixed in the app). A cloud session
+needs `benji.codes` in its environment's allowed domains. `.bugs/` is
+ignored by git. Reports are readable by anyone, like the rest of the log.
+
 ## Pleco files
 
 Two kinds are read, told apart by content (`lib/backup.ts`), and both come out
@@ -499,7 +524,8 @@ Pure, in `lib/`, shared by routes, screens and scripts:
   Bump `SCHEDULER` whenever the same inputs would give a different result.
 - `review.ts` — sentence retirement, which words lapse, blanking, the mix.
 - `day.ts` — the study day. `api.ts` — what the routes send and take.
-- `client.ts`, `upload.ts`, `auth-client.ts`, `outbox.ts` — browser side. `session.ts` —
+- `client.ts`, `upload.ts`, `auth-client.ts`, `outbox.ts`, `back.ts`,
+  `resume.ts`, `bugs.ts` — browser side. `session.ts` —
   who the owner is.
 
 Server, in `app/api/chongfuxi/` (functions take the connection and the owner,
@@ -535,6 +561,8 @@ Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
 - `ingest-anki.ts <deck.apkg | collection.anki21> [--dry-run]` — add an Anki
   deck's sentences.
 - `check-import.ts <file>` — read and sort a Pleco file, write nothing.
+- `bugs.ts [--all] [--close <id> <status> <note>]` — pull the bugs filed from
+  the app into `.bugs/` (see Bug reports).
 - `build-dict.ts <cedict.txt>` — rebuild `data/cedict.txt`.
 
 A Pleco backup contains third-party sentence decks, and a card export contains

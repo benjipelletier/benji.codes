@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordInfo } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { blankOut } from "@chongfuxi/lib/review";
@@ -522,6 +523,20 @@ function Session({
   useEffect(() => {
     if (status === "empty" && !queue.length) resume.clear("session");
   }, [status, queue.length]);
+
+  // For a bug filed now: the card on screen.
+  useEffect(() => {
+    if (!card) return;
+    return bugs.note("card", {
+      id: card.id,
+      kind: card.kind,
+      word: card.word?.word ?? null,
+      meaning: card.meaning?.gloss ?? null,
+      sentence: card.sentence ? { id: card.sentence.id, zh: card.sentence.zh } : null,
+      revealed,
+      answeredThisSession: answered,
+    });
+  }, [card, revealed, answered]);
 
   // Back online: deal again if the hand ran low while it was away.
   useEffect(() => {

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { FastCard, ReviewInput } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { newId } from "@chongfuxi/lib/upload";
@@ -252,6 +253,12 @@ export function FastReview({
     setStage("done");
     refresh();
   };
+
+  // For a bug filed now: how far the sweep is.
+  useEffect(
+    () => bugs.note("fast", { stage, loaded: cards.length, total, uncovered, forgot: forgot.size }),
+    [stage, cards.length, total, uncovered, forgot.size],
+  );
 
   // Leaving keeps the marks (resume): Fast review on Today carries on.
   useBackLayer(stage === "confirm", () => setStage("grid"));
