@@ -279,25 +279,43 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
     [owner, day.day, o.exclude],
   )) as unknown as Array<{ n: string }>;
   const left = withSentences ? Math.min(o.limit, Math.max(0, Number(allowance[0].n))) : 0;
-  // First the ones a word just unlocked, newest first; then the ones holding a
-  // word never yet read in a sentence. Past that, a fixed shuffle: every
-  // source and length mixed, rather than the shortest scraps first.
+  // First the ones a word just unlocked, newest first. Then the ones that give
+  // a weak word context: each sentence goes by its weakest deck word (a Read
+  // card never answered here and never scored in Pleco is weakest of all, then
+  // the lowest stability, which for a card not yet answered here is Pleco's
+  // score), dealt round-robin, one sentence per word before any word gets a
+  // second, so a day's few go to as many weak words as they can. A word never
+  // yet read in a sentence breaks a tie; past that, a fixed shuffle, so
+  // sources and lengths are mixed rather than the shortest scraps first.
   const fresh = left
     ? ((await sql.query(
-        `select ${CARD_COLUMNS}
-         from chongfuxi_card c
-         join chongfuxi_sentence s on s.owner_email = c.owner_email and s.id = c.sentence_id
-         where c.owner_email = $1 and c.kind = 'sentence' and ${ACTIVE} and c.state = 0
-           and not (c.id = any($2::bigint[]))
-         order by (s.unlocked_by is not null) desc,
-                  case when s.unlocked_by is not null then s.unlocked_at end desc nulls last,
-                  exists (
-                    select 1 from chongfuxi_token t
-                    join chongfuxi_word w on w.owner_email = t.owner_email and w.word = t.word
-                    where t.owner_email = s.owner_email and t.sentence_id = s.id
-                      and w.status = 'deck' and w.exposures = 0
-                  ) desc,
-                  md5(s.key), s.id
+        `with cand as (
+           select c.id, s.id as sid, s.key, s.unlocked_by, s.unlocked_at
+           from chongfuxi_card c
+           join chongfuxi_sentence s on s.owner_email = c.owner_email and s.id = c.sentence_id
+           where c.owner_email = $1 and c.kind = 'sentence' and ${ACTIVE} and c.state = 0
+             and not (c.id = any($2::bigint[]))
+         ),
+         weakest as (
+           select distinct on (t.sentence_id) t.sentence_id as sid, w.word, w.exposures,
+                  case when r.state = 0 then 0 else r.stability end as strength
+           from chongfuxi_token t
+           join cand on cand.sid = t.sentence_id
+           join chongfuxi_word w on w.owner_email = t.owner_email and w.word = t.word and w.status = 'deck'
+           join chongfuxi_card r on r.owner_email = w.owner_email and r.word = w.word and r.kind = 'read' and r.meaning_id is null
+           where t.owner_email = $1
+           order by t.sentence_id, strength, w.exposures, w.word
+         ),
+         ranked as (
+           select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.strength, k.exposures,
+                  row_number() over (partition by coalesce(k.word, cand.key) order by md5(cand.key), cand.sid) as turn
+           from cand left join weakest k on k.sid = cand.sid
+         )
+         select ${CARD_COLUMNS}
+         from ranked x join chongfuxi_card c on c.owner_email = $1 and c.id = x.id
+         order by (x.unlocked_by is not null) desc,
+                  case when x.unlocked_by is not null then x.unlocked_at end desc nulls last,
+                  x.turn, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
          limit $3`,
         [owner, o.exclude, left],
       )) as unknown as CardRow[])

@@ -208,10 +208,15 @@ the design was silent and are still to be confirmed.
   and one other retired sentence that has it.
 - **Passing a sentence** counts an exposure for its words and moves no word's
   schedule.
-- **New sentences**: those a word just unlocked first, newest first; then
-  those with a word never yet read in a sentence; past that a fixed shuffle
-  (by hash of the sentence), so sources and lengths are mixed. Shortest first
-  put every three-character scrap at the front.
+- **New sentences**: those a word just unlocked first, newest first. Then
+  the ones that give a weak word context, at the owner's request ("I'll need
+  more context to learn" a new or low-scored word): each sentence goes by its
+  weakest deck word (a Read card new here and unscored in Pleco first, then
+  the lowest stability, Pleco's score for a card not yet answered here),
+  dealt round-robin so each weak word gets one sentence before any gets a
+  second. A word never yet read in a sentence breaks ties; past that a fixed
+  shuffle (by hash of the sentence), so sources and lengths are mixed.
+  Shortest first put every three-character scrap at the front.
 - **Receipt**: every answer comes back with what it changed, drawn under the
   next card as figures, not prose: a meter from the wait the card had to the
   one it has now (log scale, full at two years), then a row of chips: how much
