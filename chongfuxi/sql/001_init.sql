@@ -276,3 +276,33 @@ create table if not exists chongfuxi_settings (
   new_sentences integer     not null default 10,
   updated       timestamptz not null default now()
 );
+
+-- Anki: AnkiDroid syncs to /api/chongfuxi/anki/, which tells it the server is
+-- empty, so every sync uploads the whole collection. Its notes are kept here
+-- as they came (cards Pleco sent to AnkiDroid), the newest version winning,
+-- and each sync is logged.
+create table if not exists chongfuxi_anki_sync (
+  id          bigint      generated always as identity primary key,
+  owner_email text        not null,
+  at          timestamptz not null default now(),
+  client      text,
+  bytes       integer     not null,
+  notes       integer     not null default 0,
+  added       integer     not null default 0,
+  error       text
+);
+
+create table if not exists chongfuxi_anki_note (
+  owner_email text        not null,
+  -- Anki's note id: its creation time in ms.
+  note_id     bigint      not null,
+  guid        text        not null,
+  notetype    text        not null,
+  -- Field name to value, as Anki holds them (HTML and all).
+  fields      jsonb       not null,
+  tags        text        not null default '',
+  modified    timestamptz not null,
+  first_seen  timestamptz not null default now(),
+  last_seen   timestamptz not null default now(),
+  primary key (owner_email, note_id)
+);
