@@ -339,7 +339,8 @@
 }
 
 .cf-ti-zh {
-  font-family: var(--cf-zh);
+  /* Only 复卡统入 are loaded in this face (app/chongfuxi/layout.tsx). */
+  font-family: "LXGW WenKai TC", var(--cf-zh);
   font-weight: 700;
   fill: currentColor;
   text-anchor: middle;

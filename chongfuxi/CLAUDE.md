@@ -82,7 +82,9 @@ rejected as too themed. Keep it that way:
   as `var(--cf-zh)` and the `.cfx` default. No serif or brush faces, no
   schoolbook or paper motifs.
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
-  character of the tab's Chinese name set over it on a halo, and the English
+  character of the tab's Chinese name set over it on a halo, in LXGW WenKai
+  (a modern regular script, the one exception to the sans: only 复卡统入 are
+  fetched, so a new tab character must be added to the URL in the layout), and the English
   small beneath; the current tab sits on a pill.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.

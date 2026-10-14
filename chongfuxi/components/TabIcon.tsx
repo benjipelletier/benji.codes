@@ -5,10 +5,10 @@
 export type TabIconKind = "review" | "cards" | "stats" | "import";
 
 const GLYPH: Record<TabIconKind, { zh: string; x: number; y: number; size: number }> = {
-  review: { zh: "复", x: 16, y: 16.5, size: 15 },
-  cards: { zh: "卡", x: 14.5, y: 18.5, size: 14.5 },
-  stats: { zh: "统", x: 11, y: 12, size: 15 },
-  import: { zh: "入", x: 16, y: 10.5, size: 15.5 },
+  review: { zh: "复", x: 16, y: 16.5, size: 16.5 },
+  cards: { zh: "卡", x: 14.5, y: 18.5, size: 16 },
+  stats: { zh: "统", x: 11, y: 11.5, size: 16.5 },
+  import: { zh: "入", x: 16, y: 10, size: 17 },
 };
 
 function Drawing({ kind }: { kind: TabIconKind }) {
