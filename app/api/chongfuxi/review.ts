@@ -20,6 +20,7 @@ import type {
   ReviewResult,
   SentenceInfo,
   SentenceRow,
+  SourceCounts,
   SessionCard,
   Summary,
   WordInfo,
@@ -1073,6 +1074,8 @@ export interface SentenceQuery {
   word?: string;
   /** With `word`: inside longer words too (机 in 机器), not only as a word of its own. */
   within?: boolean;
+  /** Only sentences from this source (a deck, a book's lessons). */
+  source?: string;
   offset: number;
   limit: number;
 }
@@ -1080,8 +1083,8 @@ export interface SentenceQuery {
 export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): Promise<SentenceRow[]> {
   const where = q.word
     ? q.within
-      ? `strpos(s.key, $5) > 0`
-      : `exists (select 1 from chongfuxi_token t where t.owner_email = s.owner_email and t.sentence_id = s.id and t.word = $5)`
+      ? `strpos(s.key, $6) > 0`
+      : `exists (select 1 from chongfuxi_token t where t.owner_email = s.owner_email and t.sentence_id = s.id and t.word = $6)`
     : q.show === "readable"
       ? "cardinality(s.blockers) = 0"
       : q.show === "one"
@@ -1096,9 +1099,10 @@ export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): 
      from chongfuxi_sentence s
      left join chongfuxi_card c on c.owner_email = s.owner_email and c.kind = 'sentence' and c.sentence_id = s.id
      where s.owner_email = $1 and ${where} and ($2::text is null or s.blockers = array[$2::text])
+       and ($5::text is null or $5::text = any(s.sources))
      order by ${q.word ? "cardinality(s.blockers), " : ""}char_length(s.key), s.id
      limit $3 offset $4`,
-    q.word ? [owner, q.blocker ?? null, q.limit, q.offset, q.word] : [owner, q.blocker ?? null, q.limit, q.offset],
+    [owner, q.blocker ?? null, q.limit, q.offset, q.source ?? null, ...(q.word ? [q.word] : [])],
   )) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[]; sources: string[]; split: string; card: SentenceRow["card"] }>;
   return rows.map((r) => ({
     id: r.id,
@@ -1109,6 +1113,21 @@ export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): 
     dictionarySplit: r.split === "dictionary",
     card: r.card,
   }));
+}
+
+/** Every source the sentences came from (a deck, a book's lessons), with how many are readable, one word away and further off. */
+export async function listSources(sql: Sql, owner: string): Promise<SourceCounts[]> {
+  const rows = (await sql`
+    select src as source,
+           count(*) filter (where cardinality(blockers) = 0)::int as readable,
+           count(*) filter (where cardinality(blockers) = 1)::int as one_away,
+           count(*) filter (where cardinality(blockers) > 1)::int as locked
+    from chongfuxi_sentence, unnest(sources) src
+    where owner_email = ${owner}
+    group by src
+    order by count(*) desc, src
+  `) as unknown as Array<{ source: string; readable: number; one_away: number; locked: number }>;
+  return rows.map((r) => ({ source: r.source, readable: r.readable, oneAway: r.one_away, locked: r.locked }));
 }
 
 /**

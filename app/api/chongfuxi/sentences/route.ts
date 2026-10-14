@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     blocker: p.get("blocker") || undefined,
     word: p.get("word")?.trim().slice(0, 20) || undefined,
     within: p.get("within") === "1",
+    source: p.get("source")?.slice(0, 120) || undefined,
     offset: Math.max(Number(p.get("offset")) || 0, 0),
     limit: Math.min(Math.max(Number(p.get("limit")) || 40, 1), 100),
   });
