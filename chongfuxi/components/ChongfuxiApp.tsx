@@ -172,69 +172,36 @@ export function ChongfuxiApp() {
 }
 
 /**
- * The header's figures: the words in the deck and the characters across them,
- * each beside its own mark (词, 字), and the sentences as one bar: readable,
- * one word away, and still locked, with the share readable called out.
+ * The header's figures, in one quiet line: the words in the deck (词), the
+ * distinct characters across them (字), and the share of sentences readable
+ * (句), over a thin bar of that share.
  */
 function Glance({ summary: s }: { summary: Summary | null }) {
   const total = s ? s.readable + s.oneAway + s.locked : 0;
-  const share = (n: number) => (total ? (100 * n) / total : 0);
-  const pct = s ? Math.round(share(s.readable)) : null;
+  const pct = s && total ? (100 * s.readable) / total : null;
+  const detail = s
+    ? `${fmt(s.readable)} of ${fmt(total)} sentences readable; ${fmt(s.oneAway)} one word away, ${fmt(s.locked)} further off`
+    : undefined;
   return (
     <div className="cf-glance" aria-label="Where the deck stands">
-      <div className="cf-glance-row">
-        <span className="cf-glance-stat is-words" title="Words in the deck, each with a Read card">
-          <i aria-hidden="true">词</i>
-          <span>
-            <b>{s ? fmt(s.words) : "—"}</b>
-            <small>words</small>
-          </span>
+      <p className="cf-glance-line">
+        <span className="is-words" title="Words in the deck">
+          {s ? fmt(s.words) : "—"}
+          <i>词</i>
         </span>
-        <span className="cf-glance-stat is-chars" title="Different characters across those words">
-          <i aria-hidden="true">字</i>
-          <span>
-            <b>{s ? fmt(s.characters) : "—"}</b>
-            <small>characters</small>
-          </span>
+        <span className="is-chars" title="Different characters across those words">
+          {s ? fmt(s.characters) : "—"}
+          <i>字</i>
         </span>
-        <span className="cf-glance-stat is-sentences" title="Of all the sentences, those every word of which is known">
-          <i aria-hidden="true">句</i>
-          <span>
-            <b>{pct === null ? "—" : `${pct}%`}</b>
-            <small>readable</small>
-          </span>
-        </span>
-      </div>
-      <div
-        className="cf-glance-bar"
-        role="img"
-        aria-label={
-          s
-            ? `${fmt(s.readable)} of ${fmt(total)} sentences readable, ${fmt(s.oneAway)} one word away, ${fmt(s.locked)} locked`
-            : "Sentences"
-        }
-      >
-        {s && (
-          <>
-            <i className="is-readable" style={{ width: `${share(s.readable)}%` }} />
-            <i className="is-near" style={{ width: `${share(s.oneAway)}%` }} />
-          </>
-        )}
-      </div>
-      <p className="cf-glance-key">
-        <span>
-          <i className="is-readable" />
-          {s ? fmt(s.readable) : "—"} readable
-        </span>
-        <span>
-          <i className="is-near" />
-          {s ? fmt(s.oneAway) : "—"} one away
-        </span>
-        <span>
-          <i className="is-locked" />
-          {s ? fmt(s.locked) : "—"} locked
+        <span className="is-sentences" title={detail}>
+          {pct === null ? "—" : `${Math.round(pct)}%`}
+          <i>句</i>
+          <small>readable</small>
         </span>
       </p>
+      <div className="cf-glance-bar" role="img" aria-label={detail ?? "Sentences readable"} title={detail}>
+        <i style={{ width: `${pct ?? 0}%` }} />
+      </div>
     </div>
   );
 }

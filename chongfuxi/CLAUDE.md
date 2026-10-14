@@ -44,12 +44,11 @@ The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
 - Navigation is a bottom tab bar (thumb reach): Review, Cards, Stats, Import.
-  The header holds the title and a glance (`Glance` in `ChongfuxiApp.tsx`):
-  words in the deck beside a 词 mark, the distinct characters across them
-  beside 字, the share of sentences readable beside 句, then one bar of all the
-  sentences, readable (green), one word away (amber) and locked (the track),
-  with a key of the three counts. Numbers in ink, colour on the marks and the
-  bar; the bar's fills are a step deeper on dark.
+  The header holds the title and one quiet line (`Glance` in
+  `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
+  and the share of sentences readable, each with its Chinese unit (词 字 句) in
+  its kind's colour, over a thin bar of that share. The owner found boxed
+  counts, and then badges with a three-part bar and key, too busy.
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.
