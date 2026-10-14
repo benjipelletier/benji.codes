@@ -53,7 +53,7 @@ check every screen at 360px wide first.
 - Installable: `public/chongfuxi/manifest.webmanifest`. The icon is 重复习
   on a 3D stack of three flashcards, read left to right: 重 at the back on
   the left, 复, then 习 in front on the right, each character in the middle
-  of its card (the cards are spaced so the middles show). Drawn as a real 3D scene (CSS perspective, so far
+  of its card (the cards overlap a little, never over a character). Drawn as a real 3D scene (CSS perspective, so far
   cards come out smaller and edges and shadows agree; a flat skew looked
   wrong to the owner), in LXGW WenKai on a blue gradient (#5b7cff to #2142c4). The owner
   asked for every character to stand out; a fan hid the back two. The maskable one keeps the
