@@ -3914,6 +3914,39 @@ button.cf-synclog-row {
   color: var(--cf-ink-faint);
 }
 
+/* A run of syncs that brought nothing: one line, opened in place. */
+.cf-synclog-times {
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cf-ink-faint);
+}
+
+.cf-synclog-chev {
+  transition: transform 0.2s ease;
+}
+
+.cf-synclog-chev.is-open {
+  transform: rotate(90deg);
+}
+
+.cf-synclog-inner {
+  margin: 0 0 6px 14px;
+  border-top: 0;
+  border-left: 2px solid var(--cf-rule);
+  padding-left: 10px;
+}
+
+.cf-synclog-inner li:last-child {
+  border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-synclog-chev {
+    transition: none;
+  }
+}
+
 .cf-arrival-undone {
   margin-left: 8px;
 }

@@ -405,7 +405,8 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   and HSK levels, the deck's size, sentences unlocked with examples) with Keep
   or Undo. A new sync that added words opens its page by itself, once, oldest
   first (`chongfuxi_anki_sync.seen_at`); one that changed nothing stays in the
-  log on the Import page, where every sync's page opens. Undo puts each word back as it
+  log on the Import page, where every sync's page opens. Two or more such
+  syncs in a row fold into one line there ("±0 ×5"), opened with a tap. Undo puts each word back as it
   was, removes its unanswered cards and those of the sentences it unlocked,
   and re-locks them; the notes stay marked, so the next sync doesn't add them
   back. Refused once any of its words has been answered.
