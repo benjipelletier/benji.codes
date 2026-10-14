@@ -8,7 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
-import { get, today } from "@chongfuxi/lib/client";
+import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Highlighted, History, fmt, message, plecoHref, span } from "./shared";
 
@@ -311,6 +311,10 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
           word={open}
           canWrite={canWrite}
           onClose={() => setOpen(null)}
+          onRemoved={(w) => {
+            setOpen(null);
+            setWords((list) => list?.filter((x) => x.word !== w) ?? null);
+          }}
           onFindSentences={(w) => {
             setOpen(null);
             onFindSentences(w);
@@ -340,15 +344,31 @@ function WordSheet({
   word,
   canWrite,
   onClose,
+  onRemoved,
   onFindSentences,
 }: {
   word: string;
   canWrite: boolean;
   onClose: () => void;
+  onRemoved: (word: string) => void;
   onFindSentences: (word: string) => void;
 }) {
   const [d, setD] = useState<WordDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Removing it from the deck: asked once, then done.
+  const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
+
+  const remove = async () => {
+    setRemoving("busy");
+    setError(null);
+    try {
+      await send("word", { word, action: "remove" });
+      onRemoved(word);
+    } catch (e) {
+      setError(message(e));
+      setRemoving(null);
+    }
+  };
 
   useEffect(() => {
     get<WordDetail>("word", { w: word })
@@ -501,6 +521,34 @@ function WordSheet({
               )}
             </section>
             {!canWrite && <p className="cf-muted cf-sheet-aside">This is Benji&apos;s deck, shown read-only.</p>}
+            {canWrite && (
+              <section className="cf-sheet-remove">
+                {removing === "ask" && (
+                  <p>
+                    Its {d.cards.length === 1 ? "card goes" : `${d.cards.length} cards go`}
+                    {(() => {
+                      const answers = d.cards.reduce((n, c) => n + c.answered, 0);
+                      return answers ? `, with ${fmt(answers)} ${answers === 1 ? "answer" : "answers"}` : "";
+                    })()}
+                    . Sentences that need it lock again (up to {fmt(d.sentences.readable)}). This can&apos;t be undone.
+                  </p>
+                )}
+                <div className="cf-buttons">
+                  {removing === "ask" && (
+                    <button className="cf-btn cf-btn-ghost" onClick={() => setRemoving(null)}>
+                      Keep it
+                    </button>
+                  )}
+                  <button
+                    className={`cf-btn ${removing ? "cf-btn-danger" : "cf-btn-quiet"}`}
+                    disabled={removing === "busy"}
+                    onClick={() => (removing === "ask" ? void remove() : setRemoving("ask"))}
+                  >
+                    {removing === "busy" ? "Removing…" : removing === "ask" ? `Remove ${word}` : "Remove from deck"}
+                  </button>
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

@@ -326,6 +326,42 @@ export async function listAdditions(sql: Sql, owner: string, limit = 10, only: n
 
 export class AdditionError extends Error {}
 
+/**
+ * Take a word out of the deck, from the app (deleting it in AnkiDroid does
+ * nothing here). Its Read and Recall cards go, with their answers; it goes
+ * back on its list if it came from one, out of the corpus otherwise; the
+ * sentences that needed it lock again. An Anki note for it is marked
+ * removed, so the next sync doesn't bring it back.
+ */
+export async function removeWord(sql: Sql, owner: string, word: string, at = Date.now()): Promise<{ answers: number; relocked: number }> {
+  const found = (await sql`
+    select status, cardinality(lists)::int as lists, import_id is not null as imported
+    from chongfuxi_word where owner_email = ${owner} and word = ${word}
+  `) as unknown as Array<{ status: string; lists: number; imported: boolean }>;
+  const w = found[0];
+  if (!w || w.status !== "deck") throw new AdditionError(`${word} isn't in the deck.`);
+  const cards = (await sql`
+    select id::text as id from chongfuxi_card
+    where owner_email = ${owner} and word = ${word} and kind in ('read', 'produce')
+  `) as unknown as Array<{ id: string }>;
+  const ids = cards.map((c) => c.id);
+  const answers = (await sql`
+    select count(*)::int as n from chongfuxi_review where owner_email = ${owner} and card_id = any(${ids}::bigint[])
+  `) as unknown as Array<{ n: number }>;
+  await sql.transaction([
+    sql`delete from chongfuxi_review where owner_email = ${owner} and card_id = any(${ids}::bigint[])`,
+    sql`delete from chongfuxi_card where owner_email = ${owner} and id = any(${ids}::bigint[])`,
+    sql`delete from chongfuxi_meaning where owner_email = ${owner} and word = ${word}`,
+    // On a Pleco list: a candidate again. Otherwise gone.
+    w.lists > 0
+      ? sql`update chongfuxi_word set status = 'listed' where owner_email = ${owner} and word = ${word}`
+      : sql`delete from chongfuxi_word where owner_email = ${owner} and word = ${word}`,
+    sql`update chongfuxi_anki_note set outcome = 'removed' where owner_email = ${owner} and word = ${word}`,
+  ]);
+  const result = await recomputeUnlocks(sql, owner, [], at);
+  return { answers: answers[0].n, relocked: result.relocked };
+}
+
 /** The owner has seen it: it won't be shown again. */
 export async function markSeen(sql: Sql, owner: string, id: number): Promise<void> {
   await sql`

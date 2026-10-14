@@ -349,6 +349,12 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   was, removes its unanswered cards and those of the sentences it unlocked,
   and re-locks them; the notes stay marked, so the next sync doesn't add them
   back. Refused once any of its words has been answered.
+- Deleting a note in AnkiDroid does nothing here: the owner's choice. A word
+  is taken out of the deck from its sheet on the Words tab (`removeWord`):
+  its Read and Recall cards go with their answers, it goes back on its list
+  if it has one (out of the corpus otherwise), the sentences that needed it
+  lock again, and an Anki note for it is marked `removed`, so the next sync
+  doesn't bring it back. A Pleco re-import would.
 - The Sync URL needs its last slash (`…/anki/`): without it Anki's client
   joins `sync/` one level up. `/api/chongfuxi/sync/*` and `msync/*` answer
   too, so either works; the bare address shows instructions.

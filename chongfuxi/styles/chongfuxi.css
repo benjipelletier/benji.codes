@@ -3927,11 +3927,14 @@ button.cf-synclog-row {
 }
 
 .cf-diff li.is-undone .cf-diff-mark,
-.cf-diff li.is-undone .cf-diff-word {
+.cf-diff li.is-undone .cf-diff-word,
+.cf-diff li.is-removed .cf-diff-mark,
+.cf-diff li.is-removed .cf-diff-word {
   color: var(--cf-ink-faint);
 }
 
-.cf-diff li.is-undone .cf-diff-word {
+.cf-diff li.is-undone .cf-diff-word,
+.cf-diff li.is-removed .cf-diff-word {
   text-decoration: line-through;
 }
 
@@ -3950,4 +3953,28 @@ button.cf-synclog-row {
   flex: none;
   font-size: 12px;
   color: var(--cf-ink-soft);
+}
+
+/* Taking a word out of the deck: quiet until asked, red once it is. */
+.cf-sheet-remove {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-sheet-remove p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-btn-quiet {
+  background: transparent !important;
+  color: var(--cf-down) !important;
+  border: 1px solid color-mix(in srgb, var(--cf-down) 45%, transparent) !important;
+}
+
+.cf-btn-danger {
+  background: var(--cf-down) !important;
+  color: #ffffff !important;
 }

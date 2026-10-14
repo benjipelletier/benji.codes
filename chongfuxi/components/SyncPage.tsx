@@ -56,6 +56,7 @@ const LINE = {
   known: { mark: "~", label: "already in your deck" },
   unreadable: { mark: "!", label: "no word found in it" },
   undone: { mark: "−", label: "added, then undone" },
+  removed: { mark: "−", label: "added, later removed" },
 } as const;
 
 export function SyncPage({ syncId, canWrite, onDone }: { syncId: number; canWrite: boolean; onDone: () => void }) {

@@ -212,7 +212,7 @@ export interface AnkiSync {
 export interface AnkiSyncDetail {
   sync: AnkiSync;
   /** Notes this sync's processing looked at, with what became of each. */
-  notes: Array<{ word: string | null; outcome: "added" | "known" | "unreadable" | "undone"; text: string }>;
+  notes: Array<{ word: string | null; outcome: "added" | "known" | "unreadable" | "undone" | "removed"; text: string }>;
   addition: Addition | null;
 }
 

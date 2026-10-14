@@ -10,7 +10,7 @@ import { decompress } from "fzstd";
 import initSqlJs from "sql.js";
 import { getDb } from "../../app/api/chongfuxi/db";
 import { handleAnki, readCollection, zstdRaw, type AnkiContext } from "../../app/api/chongfuxi/anki";
-import { addWords, listAdditions, listAnkiSyncs, markSeen, undoAddition, wordOfNote } from "../../app/api/chongfuxi/additions";
+import { addWords, listAdditions, listAnkiSyncs, markSeen, removeWord, undoAddition, wordOfNote } from "../../app/api/chongfuxi/additions";
 import { recomputeUnlocks } from "../../app/api/chongfuxi/corpus";
 import { loadDict } from "../../app/api/chongfuxi/dictfile";
 
@@ -213,6 +213,32 @@ async function main() {
   check("an addition with an answered word is kept, with the reason", refused.includes("出示"), refused);
   check("and says so before it's tried", (await listAdditions(sql, owner)).find((a) => a.id === first2.id)!.answered.join() === "出示");
   check("adding words already in the deck makes no addition", (await addWords(sql, owner, "check", ["出示", "我"], loadDict())) === null);
+
+  // Removing a word in the app.
+  await sql`insert into chongfuxi_review (owner_email, id, at, day, card_id, kind, word, grade, cause, scheduler, before, after)
+            select ${owner}, 'check-r1', now(), current_date, id, kind, word, 'good', 'answer', 'check', '{}'::jsonb, '{}'::jsonb
+            from chongfuxi_card where owner_email = ${owner} and word = '出示' and kind = 'read'`;
+  const gone = await removeWord(sql, owner, "出示");
+  const left = (await sql`select (select count(*)::int from chongfuxi_word where owner_email = ${owner} and word = '出示') as word,
+                                 (select count(*)::int from chongfuxi_card where owner_email = ${owner} and word = '出示') as cards,
+                                 (select count(*)::int from chongfuxi_review where owner_email = ${owner} and word = '出示') as reviews,
+                                 (select outcome from chongfuxi_anki_note where owner_email = ${owner} and word = '出示') as note`) as unknown as Array<{
+    word: number; cards: number; reviews: number; note: string;
+  }>;
+  check("removing a word takes it, its cards and their answers out, and marks its Anki note removed", gone.answers === 1 && left[0].word === 0 && left[0].cards === 0 && left[0].reviews === 0 && left[0].note === "removed", { gone, left: left[0] });
+  await sql`update chongfuxi_word set lists = array['HSK 2012-2021/Level 1'] where owner_email = ${owner} and word = '我'`;
+  await sql`update chongfuxi_word set status = 'deck' where owner_email = ${owner} and word = '茶'`;
+  await recomputeUnlocks(sql, owner);
+  const wo = await removeWord(sql, owner, "我");
+  const woStatus = (await sql`select status from chongfuxi_word where owner_email = ${owner} and word = '我'`) as unknown as Array<{ status: string }>;
+  check("a word on a list goes back on it, and the sentence that needed it locks", woStatus[0]?.status === "listed" && wo.relocked === 1 && (await blockersOf()).join() === "我");
+  let notDeck = "";
+  try {
+    await removeWord(sql, owner, "我");
+  } catch (e) {
+    notDeck = e instanceof Error ? e.message : String(e);
+  }
+  check("a word not in the deck can't be removed", notDeck.includes("isn't in the deck"));
 
   r = await call("sync", "upload", key, zstdRaw(new TextEncoder().encode("not a database")));
   check("an unreadable upload gets a message back, not a crash", r.status === 200 && r.text !== "OK", r.text);
