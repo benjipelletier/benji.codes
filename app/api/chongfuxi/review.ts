@@ -7,6 +7,7 @@
 // opened, retired sentences brought back, tapped words lapsed.
 
 import type { Sql } from "./db";
+import { loadHeadwords } from "./headwords";
 import type {
   Blocker,
   CardHistory,
@@ -25,12 +26,22 @@ import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
-import { CLEAN_READS_TO_RETIRE, REVIVED_CLEAN_READS, interleave, lapseTargets, piecesOf, readSentence } from "@chongfuxi/lib/review";
+import {
+  CLEAN_READS_TO_RETIRE,
+  REVIVED_CLEAN_READS,
+  contextFit,
+  interleave,
+  lapseTargets,
+  piecesOf,
+  readSentence,
+} from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
 const DAY_MS = 86_400_000;
 /** A word card rotates through this many of its readable sentences, best first (see `dress`). */
 const CONTEXT_POOL = 12;
+/** Ranked in SQL before the ones that fit badly (contextFit) are sent to the back. */
+const CONTEXT_CANDIDATES = 40;
 /** Shorter than this is a scrap (我哥哥。), shown under a word only when the word has nothing longer. */
 export const CONTEXT_MIN_HAN = 5;
 /** The length a context sentence is best at: long enough to say something, short enough to read at a glance. */
@@ -401,7 +412,8 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
   // full sentences only, where the word has any; those several decks share
   // (the textbook examples) before those only one has; a natural length
   // (about nine characters) before a terse scrap or a long one; a labelled
-  // proverb (【谚】) last.
+  // proverb (【谚】) last. Then, below, those where the word is only part of
+  // a compound go after the rest, and for Recall those that give the blank away.
   const contexts = wordList.length
     ? ((await sql`
         select x.word, x.id, x.zh, x.en, x.sources, x.rn::int as rn, x.n::int as n
@@ -421,7 +433,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
           join chongfuxi_sentence s on s.owner_email = ${owner} and s.id = t.sentence_id
           where cardinality(s.blockers) = 0
         ) x
-        where x.rn <= ${CONTEXT_POOL} and (x.whole = 0 or x.rn <= x.whole)
+        where x.rn <= ${CONTEXT_CANDIDATES} and (x.whole = 0 or x.rn <= x.whole)
       `) as unknown as Array<{ word: string; id: number; zh: string; en: string | null; sources: string[]; rn: number; n: number }>)
     : [];
 
@@ -430,11 +442,17 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     // A split-off meaning is shown without a sentence: nothing says yet which
     // sentences use the word in that sense.
     if (!c.word || c.meaning_id !== null) continue;
-    const mine = contexts.filter((x) => x.word === c.word);
+    const recall = c.kind === "produce";
+    const headwords = loadHeadwords();
+    const mine = contexts
+      .filter((x) => x.word === c.word)
+      .map((x) => ({ ...x, fit: contextFit(x.zh, x.word, (w) => headwords.has(w)) }))
+      .map((x) => ({ ...x, worse: Number(x.fit.bound) + (recall && x.fit.repeated ? 2 : 0) }))
+      .sort((a, b) => a.worse - b.worse || a.rn - b.rn)
+      .slice(0, CONTEXT_POOL);
     if (!mine.length) continue;
     // A different sentence each time, and not the one the word's other card is on.
-    const turn = (c.answered + (c.kind === "produce" ? 1 : 0)) % mine.length;
-    const pick = mine.find((x) => x.rn === turn + 1) ?? mine[0];
+    const pick = mine[(c.answered + (recall ? 1 : 0)) % mine.length];
     chosen.set(c.id, { id: pick.id, zh: pick.zh, en: pick.en, sources: pick.sources });
   }
 

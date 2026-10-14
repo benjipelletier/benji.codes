@@ -68,6 +68,31 @@ export function lapseTargets(tapped: string[], deck: ReadonlySet<string>): strin
   return [...out];
 }
 
+/** The longest headword looked for around a word (chengyu are four). */
+const COMPOUND_MAX = 4;
+
+/**
+ * How well a sentence serves as a word's context, judged where the word first
+ * appears (the place a card highlights or blanks). `bound`: there it is part
+ * of a longer dictionary word (手 in 住手, 日 in 周日), so the sentence shows
+ * the compound, not the word. `repeated`: one of its characters is written
+ * again elsewhere (月 in 下个月是二月), which gives a blank away.
+ */
+export function contextFit(zh: string, word: string, isHeadword: (w: string) => boolean): { bound: boolean; repeated: boolean } {
+  const at = zh.indexOf(word);
+  if (at < 0 || !word) return { bound: false, repeated: false };
+  const end = at + word.length;
+  let bound = false;
+  for (let len = word.length + 1; len <= COMPOUND_MAX && !bound; len++) {
+    for (let start = Math.max(0, end - len); start <= at && !bound; start++) {
+      if (start + len > zh.length) break;
+      bound = isHeadword(zh.slice(start, start + len));
+    }
+  }
+  const rest = zh.slice(0, at) + zh.slice(end);
+  return { bound, repeated: [...word].some((ch) => rest.includes(ch)) };
+}
+
 /** A sentence with a word blanked out, or null when the word isn't written in it as such. */
 export function blankOut(zh: string, word: string): string | null {
   const at = zh.indexOf(word);

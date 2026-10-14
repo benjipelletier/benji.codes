@@ -186,10 +186,15 @@ the design was silent and are still to be confirmed.
   through twelve of its sentences of five characters or more: those several
   decks share first, then those nearest nine characters, labelled proverbs
   (【谚】) last. Shorter ones (我哥哥。) are used only when the word has nothing
-  longer. Back: pinyin, every
+  longer. After those, sentences where the word is only part of a longer
+  CC-CEDICT headword around it (手 in 住手, 日 in 周日), since they show the
+  compound, not the word (`contextFit`; the decks' word breaks often split
+  compounds, so tokens alone can't say). Back: pinyin, every
   definition, the translation.
 - **Recall** (kind `produce`): appears after the first Got it on Read. The
-  definition, and the sentence with the word blanked. Back lists other deck
+  definition, and the sentence with the word blanked; a sentence that writes
+  one of the word's characters again (月 in 下个月是二月) gives the blank away
+  and comes after all the rest. Back lists other deck
   words with the same meaning. Starts a step lower: half the stability.
 - **Meanings**: tap a meaning on the back of a Read card to give it its own
   card under the same word; merge it back later. A meaning's card is shown
