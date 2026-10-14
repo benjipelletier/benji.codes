@@ -3,7 +3,9 @@
 // Pieces every screen uses: what the shell hands down, and a few ways of
 // writing things.
 
+import { useSyncExternalStore } from "react";
 import type { CardHistory, Summary } from "@chongfuxi/lib/api";
+import * as outbox from "@chongfuxi/lib/outbox";
 
 export interface Shell {
   /** Where the deck stands; null until the server has answered. */
@@ -55,6 +57,39 @@ export function ago(at: number, now = Date.now()): string {
 }
 
 export const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** What a lost connection is called; the waiting line says it already, so it isn't repeated. */
+const OFFLINE = ["No connection.", "The connection dropped."];
+
+const NOTHING_WAITING: outbox.OutboxState = { pending: 0, sending: false, stalled: null };
+
+/** Answers kept on this device until the server has them. */
+export function useOutbox(): outbox.OutboxState {
+  return useSyncExternalStore(outbox.subscribe, outbox.getState, () => NOTHING_WAITING);
+}
+
+/** A line while answers wait on the device: how many, why, and a way to send them now. */
+export function Waiting() {
+  const { pending, sending, stalled } = useOutbox();
+  // An answer on its way in the ordinary course is in the outbox too; say nothing until a send has failed.
+  if (!pending || (!stalled && !sending)) return null;
+  const n = `${fmt(pending)} answer${pending === 1 ? "" : "s"}`;
+  return (
+    <p className="cf-warn cf-waiting" role="status">
+      {sending ? (
+        `Sending ${n}…`
+      ) : (
+        <>
+          {n} saved on this device, to send when the connection is back.
+          {stalled && !OFFLINE.includes(stalled) ? ` ${stalled}` : ""}{" "}
+          <button className="cf-link" onClick={() => void outbox.flush()}>
+            Send now
+          </button>
+        </>
+      )}
+    </p>
+  );
+}
 
 /** Bubbles shown at most: the latest answers, here first and Pleco's before them. */
 const BUBBLES = 16;

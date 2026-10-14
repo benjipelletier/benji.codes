@@ -11,16 +11,15 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FastCard, ReviewInput } from "@chongfuxi/lib/api";
-import { get, send, today } from "@chongfuxi/lib/client";
+import { get, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as outbox from "@chongfuxi/lib/outbox";
 import { newId } from "@chongfuxi/lib/upload";
 import { fmt, message, span, type Shell } from "./shared";
 
 const PAGE = 150;
 /** Fetch more when fewer than this many cards are left below what has been uncovered. */
 const AHEAD = 60;
-/** Answers sent per request. */
-const CHUNK = 40;
 
 /** Where the next waits fall, for the confirm page. */
 const BUCKETS = [
@@ -46,7 +45,7 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
   const [uncovered, setUncovered] = useState(0);
   const [stage, setStage] = useState<"grid" | "confirm" | "sending" | "done">("grid");
   const [sent, setSent] = useState(0);
-  const [outcome, setOutcome] = useState<{ done: number; refused: number; recallOpened: number; revived: number } | null>(null);
+  const [outcome, setOutcome] = useState<outbox.Flushed | null>(null);
 
   const scroller = useRef<HTMLDivElement>(null);
   const loading = useRef(false);
@@ -207,29 +206,12 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
       device: window.innerWidth < 700 ? "phone" : "desktop",
       position: i + 1,
     }));
-    const tally = { done: 0, refused: 0, recallOpened: 0, revived: 0 };
-    try {
-      for (let i = 0; i < inputs.length; i += CHUNK) {
-        const chunk = inputs.slice(i, i + CHUNK);
-        const r = await send<{ done: string[]; refused: unknown[]; recallOpened: number; revived: number }>("review/batch", {
-          reviews: chunk,
-        });
-        tally.done += r.done.length;
-        tally.refused += r.refused.length;
-        tally.recallOpened += r.recallOpened;
-        tally.revived += r.revived;
-        setSent(i + chunk.length);
-      }
-      setOutcome(tally);
-      setStage("done");
-    } catch (e) {
-      // What went in stays in; the same ids sent again record nothing twice.
-      setError(`${message(e)} ${fmt(tally.done)} answers went in before it stopped.`);
-      setOutcome(tally);
-      setStage("done");
-    } finally {
-      refresh();
-    }
+    // Kept on the device before any is sent: whatever doesn't get through now goes when the connection is back.
+    outbox.add(...inputs);
+    const r = await outbox.flush((n) => setSent(Math.min(n, inputs.length)));
+    setOutcome(r);
+    setStage("done");
+    refresh();
   };
 
   const leave = () => {
@@ -261,9 +243,24 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
         <div className="cf-done">
           <p className="cf-done-zh">快</p>
           <p>
-            <b>{fmt(outcome.done)}</b> answered
-            {outcome.refused > 0 && `, ${fmt(outcome.refused)} skipped (no longer due)`}.
+            {outcome.done > 0 || !outcome.left ? (
+              <>
+                <b>{fmt(outcome.done)}</b> answered
+                {outcome.refused > 0 && `, ${fmt(outcome.refused)} skipped (no longer due)`}.
+              </>
+            ) : (
+              <>
+                <b>{fmt(outcome.left)}</b> answers saved.
+              </>
+            )}
           </p>
+          {/* Nothing is lost: what didn't get through waits on the device. */}
+          {outcome.left > 0 && (
+            <p className="cf-warn">
+              {outcome.done > 0 && `${fmt(outcome.left)} more saved on this device. `}
+              {outcome.error} They go when the connection is back.
+            </p>
+          )}
           <p className="cf-muted">
             {outcome.recallOpened > 0 && `${fmt(outcome.recallOpened)} Recall cards opened. `}
             {outcome.revived > 0 && `${fmt(outcome.revived)} retired sentences brought back.`}

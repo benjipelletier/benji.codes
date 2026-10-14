@@ -15,11 +15,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordInfo } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as outbox from "@chongfuxi/lib/outbox";
 import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { Highlighted, History, fmt, message, plecoHref, span, type Shell } from "./shared";
+import { Highlighted, History, Waiting, fmt, message, plecoHref, span, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -410,7 +411,6 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   const [last, setLast] = useState<Receipt | null>(null);
   // Got its in a row this session.
   const streak = useRef(0);
-  const [unsent, setUnsent] = useState<ReviewInput[]>([]);
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
   const [answered, setAnswered] = useState(0);
@@ -432,12 +432,14 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
     if (loading.current || exhausted.current) return;
     loading.current = true;
     try {
+      // Answers kept on the device go first, so the server knows those cards were seen.
+      if (outbox.getState().pending) await outbox.flush();
       const held = queueRef.current.map((c) => c.id);
       const { cards } = await get<{ cards: SessionCard[] }>("session", {
         ...today(),
         limit: BATCH,
         position: dealt.current + held.length,
-        exclude: [...held, ...recentIds.current].join(","),
+        exclude: [...new Set([...held, ...recentIds.current, ...outbox.waitingCards()])].join(","),
         skip: recentWords.current.join(","),
         read: kinds.read ? undefined : 0,
         recall: kinds.recall ? undefined : 0,
@@ -451,7 +453,11 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
       setStatus(queueRef.current.length + added.length ? "ready" : "empty");
       setError(null);
     } catch (e) {
-      setError(message(e));
+      setError(
+        e instanceof TypeError
+          ? "No connection. Answer the cards in hand; more come when it is back, and your answers are kept until then."
+          : message(e),
+      );
     } finally {
       loading.current = false;
     }
@@ -460,6 +466,15 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   useEffect(() => {
     if (queue.length <= REFILL_AT) void refill();
   }, [queue.length, refill]);
+
+  // Back online: deal again if the hand ran low while it was away.
+  useEffect(() => {
+    const back = () => {
+      if (queueRef.current.length <= REFILL_AT) void refill();
+    };
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+  }, [refill]);
 
   // A new card: face down, and the clock starts.
   useEffect(() => {
@@ -474,16 +489,20 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   }, [card?.id]);
 
   const post = useCallback(
-    async (input: ReviewInput, shown: SessionCard | null, run = 0) => {
+    async (input: ReviewInput, shown: SessionCard, run: number) => {
+      // Kept on the device first: if the connection is gone it goes later, from there.
+      outbox.add(input);
+      // While earlier answers wait, this one goes behind them, in the order given (and without a receipt).
+      if (outbox.getState().stalled) return void outbox.flush();
       try {
-        const result = await send<ReviewResult>("review", input);
-        setUnsent((list) => list.filter((r) => r.id !== input.id));
-        if (shown && !result.duplicate) setLast(receiptOf(shown, input.grade, result, input.id, run));
+        const result = await send<ReviewResult>("review", { ...input, sentAt: Date.now() });
+        outbox.remove(input.id);
+        if (!result.duplicate) setLast(receiptOf(shown, input.grade, result, input.id, run));
         refresh();
       } catch (e) {
         // 409: the card had already left the queue (answered on another device). Nothing to resend.
-        if (e instanceof ApiError && e.status === 409) return setUnsent((list) => list.filter((r) => r.id !== input.id));
-        setUnsent((list) => (list.some((r) => r.id === input.id) ? list : [...list, input]));
+        if (e instanceof ApiError && e.status === 409) return outbox.remove(input.id);
+        outbox.stall(e);
       }
     },
     [refresh],
@@ -633,14 +652,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
       </div>
 
       {error && <p className="cf-error">{error}</p>}
-      {unsent.length > 0 && (
-        <p className="cf-warn">
-          {unsent.length} answer{unsent.length === 1 ? " hasn't" : "s haven't"} reached the server.{" "}
-          <button className="cf-link" onClick={() => unsent.forEach((r) => void post(r, null))}>
-            Send again
-          </button>
-        </p>
-      )}
+      <Waiting />
 
       {status === "loading" && !card && <p className="cf-muted cf-pad">Getting your cards…</p>}
       {status === "empty" && !card && (

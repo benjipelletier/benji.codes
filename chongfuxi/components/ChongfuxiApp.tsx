@@ -6,7 +6,7 @@
 // what the owner does; it holds no copy of the corpus. The owner, signed in,
 // reviews. Anyone else sees the same screens with nothing that changes them.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
@@ -15,11 +15,14 @@ import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
-import { fmt, message, type Shell } from "./shared";
+import * as outbox from "@chongfuxi/lib/outbox";
+import { Waiting, fmt, message, useOutbox, type Shell } from "./shared";
 
 type Tab = "review" | "cards" | "stats" | "import";
 
 // Each icon carries a character of the tab's Chinese name: 复习, 卡片, 统计, 导入.
+const OFFLINE = "No connection: these counts may be out of date.";
+
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "review", label: "Review" },
   { key: "cards", label: "Cards" },
@@ -42,7 +45,8 @@ export function ChongfuxiApp() {
         setSummary(s);
         setError(null);
       })
-      .catch((e) => setError(message(e)));
+      // Offline, the counts on screen stay as they were and say so.
+      .catch((e) => setError(e instanceof TypeError ? OFFLINE : message(e)));
   }, []);
 
   useEffect(() => {
@@ -50,8 +54,22 @@ export function ChongfuxiApp() {
     // The counts move with the clock too: cards fall due, the day turns over.
     const seen = () => document.visibilityState === "visible" && refresh();
     document.addEventListener("visibilitychange", seen);
-    return () => document.removeEventListener("visibilitychange", seen);
+    window.addEventListener("online", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", seen);
+      window.removeEventListener("online", refresh);
+    };
   }, [refresh]);
+
+  // Answers kept on the device while offline go when there is a way out; the
+  // counts follow once they have.
+  const { sending, pending } = useOutbox();
+  const wasSending = useRef(sending);
+  useEffect(() => {
+    if (wasSending.current && !sending) refresh();
+    wasSending.current = sending;
+  }, [sending, refresh]);
+  useEffect(() => outbox.start(), []);
 
   const canWrite = Boolean(summary?.viewer.isOwner);
 
@@ -114,7 +132,9 @@ export function ChongfuxiApp() {
       </header>
 
       <main className="cf-main">
-        {error && <p className="cf-error">{error}</p>}
+        {/* Offline with answers waiting, the waiting line says it all. */}
+        {error && !(error === OFFLINE && pending) && <p className="cf-error">{error}</p>}
+        {!focus && <Waiting />}
         {!summary && !error && <p className="cf-muted cf-pad">Loading…</p>}
         {summary && !summary.viewer.configured && tab !== "import" && (
           <p className="cf-muted cf-pad">This deployment has no database set up, so there is nothing to show.</p>

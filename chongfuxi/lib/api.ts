@@ -253,6 +253,12 @@ export interface ReviewInput {
   device?: string;
   /** How far into the session the card came, from 1. */
   position?: number;
+  /**
+   * When it was sent, by the device's clock, set as it leaves. With `at` it
+   * says how long the answer waited on the device (offline, say), whatever
+   * that clock is set to.
+   */
+  sentAt?: number;
 }
 
 /** What a session takes in. All on is everything due. */

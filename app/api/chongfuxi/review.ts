@@ -541,6 +541,25 @@ const NOTHING: ReviewResult = {
 /** Days a card had been set to wait, for the receipt; a new card has none. */
 const waitOf = (s: Schedule): number | null => (s.state === 0 ? null : Math.max(1, s.scheduledDays));
 
+/** How long an answer may wait on the device and still keep its own time. */
+const HELD_MAX_MS = 30 * DAY_MS;
+
+/**
+ * When an answer was given, by the server's clock. A device's clock can be
+ * wrong, so its own time is taken only when it is near the server's. An
+ * answer that waited on the device (sent from the outbox, after the
+ * connection came back) also carries when it was sent, by the same clock:
+ * the gap between the two is how long ago it was given, whatever that clock
+ * says.
+ */
+export function answeredAt(input: Pick<ReviewInput, "at" | "sentAt">, now: number): number {
+  if (input.sentAt !== undefined) {
+    const ago = input.sentAt - input.at;
+    if (ago >= 0 && ago <= HELD_MAX_MS) return now - ago;
+  }
+  return Math.abs(input.at - now) < DAY_MS / 2 ? input.at : now;
+}
+
 /**
  * Record an answer and everything that follows from it.
  *
@@ -561,7 +580,7 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
   const card = found[0];
   if (!card) throw new ReviewError("That card isn't in the queue.");
 
-  const at = trustClock || Math.abs(input.at - Date.now()) < DAY_MS / 2 ? input.at : Date.now();
+  const at = trustClock ? input.at : answeredAt(input, Date.now());
   const before = scheduleOf(card);
   const after = answer(before, input.grade, at);
   const good = input.grade === "good";
@@ -848,7 +867,8 @@ export function isReviewInput(r: ReviewInput | null): r is ReviewInput {
     (r.tz === undefined || (typeof r.tz === "string" && r.tz.length <= 64)) &&
     (r.utcOffset === undefined || (Number.isInteger(r.utcOffset) && Math.abs(r.utcOffset) <= 16 * 60)) &&
     (r.position === undefined || (Number.isInteger(r.position) && r.position > 0)) &&
-    (r.device === undefined || (typeof r.device === "string" && r.device.length <= 20))
+    (r.device === undefined || (typeof r.device === "string" && r.device.length <= 20)) &&
+    (r.sentAt === undefined || Number.isFinite(r.sentAt))
   );
 }
 

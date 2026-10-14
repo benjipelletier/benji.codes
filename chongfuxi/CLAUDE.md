@@ -49,8 +49,21 @@ check every screen at 360px wide first.
   inputs and selects at 16px.
 - Pad by the safe-area insets (`viewport-fit=cover` is set).
 - Installable: `public/chongfuxi/manifest.webmanifest`.
-- Online only. Answers are sent behind the next card so the session never
-  waits on the network; one that fails stays in hand to be sent again.
+- Online to load, but no answer is lost to a dropped connection (the owner
+  reviews on the subway). Every answer goes into the outbox
+  (`lib/outbox.ts`, in localStorage) before it is sent, and leaves only once
+  the server has it, so it survives a closed tab. A session answer is sent
+  behind the next card, for its receipt; once one fails, the rest queue
+  behind it in order, without receipts. Fast review puts all its answers in
+  at Done. The outbox is sent, 40 to a request, on opening, on coming back
+  online or to the front, every 30 s while it holds anything, and before a
+  session deals more cards; cards in it are never dealt again. A line under
+  the header says how many wait. The server records an id once, so sending
+  twice is harmless. Each answer carries `sentAt` as it leaves: with `at`,
+  that says how long it waited, so it is dated when given, whatever the
+  phone's clock says (`answeredAt`, up to 30 days).
+- Not yet: opening the app with no connection (there is no service worker),
+  and Fast review's grid is held in memory until Done.
 
 ## Look
 
@@ -444,7 +457,7 @@ Pure, in `lib/`, shared by routes, screens and scripts:
   Bump `SCHEDULER` whenever the same inputs would give a different result.
 - `review.ts` — sentence retirement, which words lapse, blanking, the mix.
 - `day.ts` — the study day. `api.ts` — what the routes send and take.
-- `client.ts`, `upload.ts`, `auth-client.ts` — browser side. `session.ts` —
+- `client.ts`, `upload.ts`, `auth-client.ts`, `outbox.ts` — browser side. `session.ts` —
   who the owner is.
 
 Server, in `app/api/chongfuxi/` (functions take the connection and the owner,
