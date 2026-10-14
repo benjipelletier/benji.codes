@@ -9,7 +9,7 @@
 // CC-CEDICT, as for every other word.
 
 import type { Sql } from "./db";
-import type { Addition, AnkiSync } from "@chongfuxi/lib/api";
+import type { Addition, AnkiSync, AnkiSyncDetail } from "@chongfuxi/lib/api";
 import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfuxi/lib/dict";
 import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
 import { newSchedule } from "@chongfuxi/lib/schedule";
@@ -146,7 +146,7 @@ export async function processAnkiNotes(sql: Sql, owner: string, dict: Dict, at =
   }));
   await sql`
     update chongfuxi_anki_note n
-    set word = e.value->>'w', outcome = e.value->>'o', handled_at = now(),
+    set word = e.value->>'w', outcome = e.value->>'o', handled_at = now(), sync_id = ${syncId}::bigint,
         addition_id = case when e.value->>'o' = 'added' then ${addition?.id ?? null}::bigint end
     from jsonb_array_elements(${JSON.stringify(outcomes)}::jsonb) e
     where n.owner_email = ${owner} and n.note_id = (e.value->>'i')::bigint
@@ -168,15 +168,37 @@ export async function processAnkiNotes(sql: Sql, owner: string, dict: Dict, at =
   return addition;
 }
 
-/** Every Anki sync, newest first, with what it did to the corpus. */
-export async function listAnkiSyncs(sql: Sql, owner: string, limit = 50): Promise<AnkiSync[]> {
+/** One sync's page: the sync, the notes it handled (each with its outcome), and its addition. */
+export async function ankiSyncDetail(sql: Sql, owner: string, id: number): Promise<AnkiSyncDetail | null> {
+  const sync = (await listAnkiSyncs(sql, owner, 1, id))[0];
+  if (!sync) return null;
+  const notes = (await sql`
+    select word, outcome, fields from chongfuxi_anki_note
+    where owner_email = ${owner} and sync_id = ${id}
+    order by case outcome when 'added' then 0 when 'undone' then 1 when 'known' then 2 else 3 end, note_id
+  `) as unknown as Array<{ word: string | null; outcome: AnkiSyncDetail["notes"][number]["outcome"]; fields: Record<string, string> }>;
+  const addition = sync.additionId ? ((await listAdditions(sql, owner, 1, sync.additionId))[0] ?? null) : null;
+  return {
+    sync,
+    notes: notes.map((n) => ({
+      word: n.word,
+      outcome: n.outcome,
+      // For a note with no word: the start of its first field, to recognise it by.
+      text: n.word ?? plain(Object.values(n.fields)[0] ?? "").slice(0, 40),
+    })),
+    addition,
+  };
+}
+
+/** Every Anki sync, newest first, with what it did to the corpus; or just the one asked for. */
+export async function listAnkiSyncs(sql: Sql, owner: string, limit = 50, only: number | null = null): Promise<AnkiSync[]> {
   const rows = (await sql`
     select y.id::int as id, (extract(epoch from y.at) * 1000)::double precision as at, y.client, y.bytes, y.notes, y.added,
            y.error, y.addition_id::int as addition_id, y.words_added, y.known, y.unreadable, y.unlocked,
-           a.undone_at is not null as undone
+           a.undone_at is not null as undone, y.seen_at is not null as seen
     from chongfuxi_anki_sync y
     left join chongfuxi_addition a on a.owner_email = y.owner_email and a.id = y.addition_id
-    where y.owner_email = ${owner}
+    where y.owner_email = ${owner} and (${only}::bigint is null or y.id = ${only}::bigint)
     order by y.at desc limit ${limit}
   `) as unknown as Array<{
     id: number;
@@ -192,6 +214,7 @@ export async function listAnkiSyncs(sql: Sql, owner: string, limit = 50): Promis
     unreadable: number | null;
     unlocked: number | null;
     undone: boolean;
+    seen: boolean;
   }>;
   return rows.map((r) => ({
     id: r.id,
@@ -208,7 +231,26 @@ export async function listAnkiSyncs(sql: Sql, owner: string, limit = 50): Promis
     known: r.known ?? 0,
     unreadable: r.unreadable ?? 0,
     unlocked: r.unlocked ?? 0,
+    seen: r.seen,
   }));
+}
+
+/**
+ * The owner has seen this sync's page, and kept what it added. Earlier syncs
+ * that added nothing are passed over with it; an earlier one that added words
+ * still opens, so nothing is kept without being shown.
+ */
+export async function markSyncSeen(sql: Sql, owner: string, id: number): Promise<void> {
+  await sql.transaction([
+    sql`
+      update chongfuxi_anki_sync set seen_at = coalesce(seen_at, now())
+      where owner_email = ${owner} and (id = ${id} or (id < ${id} and addition_id is null))
+    `,
+    sql`
+      update chongfuxi_addition set seen_at = coalesce(seen_at, now())
+      where owner_email = ${owner} and id = (select addition_id from chongfuxi_anki_sync where owner_email = ${owner} and id = ${id})
+    `,
+  ]);
 }
 
 /** Recent additions, newest first, with what the new-words screen shows; or just the one asked for. */

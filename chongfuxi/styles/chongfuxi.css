@@ -3763,30 +3763,6 @@ button.cf-synclog-row {
   cursor: pointer;
 }
 
-/* What the sync did, as a dot: words added, nothing new, a failure, or waiting. */
-.cf-synclog-dot {
-  flex: none;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.cf-synclog-dot.is-up {
-  background: var(--cf-new);
-}
-
-.cf-synclog-dot.is-flat {
-  background: var(--cf-rule-strong);
-}
-
-.cf-synclog-dot.is-down {
-  background: var(--cf-down);
-}
-
-.cf-synclog-dot.is-wait {
-  box-shadow: inset 0 0 0 1.5px var(--cf-ink-faint);
-}
-
 .cf-synclog-main {
   flex: 1;
   min-width: 0;
@@ -3817,4 +3793,161 @@ button.cf-synclog-row {
 
 .cf-arrival-undone {
   margin-left: 8px;
+}
+
+/* A sync's counts, as a commit's diffstat: green added, amber known, red no
+ * word, and five squares in proportion. */
+.cf-diffstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-diffstat b,
+.cf-diff-key {
+  font-weight: 700;
+}
+
+.cf-diffstat b.is-add,
+.cf-diff-key.is-add {
+  color: var(--cf-up);
+}
+
+.cf-diffstat b.is-known,
+.cf-diff-key.is-known {
+  color: var(--cf-new);
+}
+
+.cf-diffstat b.is-bad,
+.cf-diff-key.is-bad {
+  color: var(--cf-down);
+}
+
+.cf-diffstat b.is-unlock,
+.cf-diff-key.is-unlock {
+  color: var(--cf-sentence);
+}
+
+.cf-diffstat .is-none,
+.cf-diffstat .is-gone {
+  color: var(--cf-ink-faint);
+}
+
+.cf-diffstat .is-gone {
+  text-decoration: line-through;
+}
+
+.cf-diffstat-squares {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.cf-diffstat-squares i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--cf-sunken);
+}
+
+.cf-diffstat-squares i.is-add {
+  background: var(--cf-up);
+}
+
+.cf-diffstat-squares i.is-known {
+  background: var(--cf-new);
+}
+
+.cf-diffstat-squares i.is-bad {
+  background: var(--cf-down);
+}
+
+.cf-sync-stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: -6px 0 14px;
+}
+
+.cf-sync-size {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+/* The sync's notes, one line each, like the lines of a diff. */
+.cf-diff {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 4px 0;
+  border-radius: 12px;
+  border: 1px solid var(--cf-rule);
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-diff li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.cf-diff li.is-added {
+  background: color-mix(in srgb, var(--cf-up) 10%, transparent);
+}
+
+.cf-diff li.is-known {
+  background: color-mix(in srgb, var(--cf-new) 9%, transparent);
+}
+
+.cf-diff li.is-unreadable {
+  background: color-mix(in srgb, var(--cf-down) 9%, transparent);
+}
+
+.cf-diff-mark {
+  flex: none;
+  width: 1ch;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+}
+
+.cf-diff li.is-added .cf-diff-mark {
+  color: var(--cf-up);
+}
+
+.cf-diff li.is-known .cf-diff-mark {
+  color: var(--cf-new);
+}
+
+.cf-diff li.is-unreadable .cf-diff-mark {
+  color: var(--cf-down);
+}
+
+.cf-diff li.is-undone .cf-diff-mark,
+.cf-diff li.is-undone .cf-diff-word {
+  color: var(--cf-ink-faint);
+}
+
+.cf-diff li.is-undone .cf-diff-word {
+  text-decoration: line-through;
+}
+
+.cf-diff-word {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-diff-label {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
 }

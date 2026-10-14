@@ -338,3 +338,9 @@ alter table chongfuxi_anki_sync add column if not exists words_added integer;
 alter table chongfuxi_anki_sync add column if not exists known integer;
 alter table chongfuxi_anki_sync add column if not exists unreadable integer;
 alter table chongfuxi_anki_sync add column if not exists unlocked integer;
+
+-- The sync whose processing handled the note: a sync's page lists its notes.
+alter table chongfuxi_anki_note add column if not exists sync_id bigint;
+
+-- When the owner saw the sync's page. Every new sync opens it once.
+alter table chongfuxi_anki_sync add column if not exists seen_at timestamptz;

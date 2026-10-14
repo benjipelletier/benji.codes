@@ -7,11 +7,11 @@
 // reviews. Anyone else sees the same screens with nothing that changes them.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Addition, Summary } from "@chongfuxi/lib/api";
+import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel } from "./ImportPanel";
-import { NewWordsScreen } from "./NewWords";
+import { SyncPage } from "./SyncPage";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import { fmt, message, type Shell } from "./shared";
@@ -31,8 +31,8 @@ export function ChongfuxiApp() {
   const [tab, setTab] = useState<Tab>("review");
   // A review session takes the whole screen.
   const [focus, setFocus] = useState(false);
-  // Words that joined the deck since the owner last looked, shown once, oldest first.
-  const [arrivals, setArrivals] = useState<Addition[]>([]);
+  // A sync that added words and hasn't been looked at yet: its page opens by itself, oldest first.
+  const [arrival, setArrival] = useState<number | null>(null);
 
   const refresh = useCallback(() => {
     get<Summary>("summary", today())
@@ -54,8 +54,12 @@ export function ChongfuxiApp() {
   const canWrite = Boolean(summary?.viewer.isOwner);
 
   const checkArrivals = useCallback(() => {
-    get<{ additions: Addition[] }>("additions")
-      .then((r) => setArrivals(r.additions.filter((a) => !a.seen && !a.undone).reverse()))
+    get<{ syncs: AnkiSync[] }>("anki-log")
+      .then((r) => {
+        // Only a sync that changed something: one that brought nothing new stays in the log.
+        const waiting = r.syncs.filter((s) => !s.seen && s.processed && s.additionId !== null && !s.undone);
+        setArrival(waiting.length ? waiting[waiting.length - 1].id : null);
+      })
       .catch(() => {
         // Nothing to show if it can't be fetched; it will be next time.
       });
@@ -119,13 +123,15 @@ export function ChongfuxiApp() {
         {summary && tab === "import" && <ImportPanel shell={shell} />}
       </main>
 
-      {canWrite && arrivals[0] && !focus && (
-        <NewWordsScreen
-          key={arrivals[0].id}
-          addition={arrivals[0]}
+      {canWrite && arrival !== null && !focus && (
+        <SyncPage
+          key={arrival}
+          syncId={arrival}
+          canWrite
           onDone={() => {
-            setArrivals((list) => list.slice(1));
+            setArrival(null);
             refresh();
+            checkArrivals();
           }}
         />
       )}

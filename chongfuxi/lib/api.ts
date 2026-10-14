@@ -204,6 +204,16 @@ export interface AnkiSync {
   known: number;
   unreadable: number;
   unlocked: number;
+  /** The owner has seen its page; a new sync's page opens by itself once. */
+  seen: boolean;
+}
+
+/** One sync in full, for its page: the sync, each note it handled, and the addition it made. */
+export interface AnkiSyncDetail {
+  sync: AnkiSync;
+  /** Notes this sync's processing looked at, with what became of each. */
+  notes: Array<{ word: string | null; outcome: "added" | "known" | "unreadable" | "undone"; text: string }>;
+  addition: Addition | null;
 }
 
 /** A Read card as Fast review shows it: the word alone, and what each answer would do. */
