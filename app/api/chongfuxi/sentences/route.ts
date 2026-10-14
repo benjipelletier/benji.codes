@@ -4,7 +4,7 @@ import { listSentences } from "../review";
 
 export const dynamic = "force-dynamic";
 
-/** Sentences by how close they are to readable, shortest first. Readable by anyone. */
+/** Sentences by how close they are to readable, shortest first; or every one with a given word in it. Readable by anyone. */
 export async function GET(req: NextRequest) {
   const gate = ownersLog();
   if ("refused" in gate) return gate.refused;
@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
   const sentences = await listSentences(gate.sql, gate.owner, {
     show: show === "one" || show === "locked" ? show : "readable",
     blocker: p.get("blocker") || undefined,
+    word: p.get("word")?.trim().slice(0, 20) || undefined,
+    within: p.get("within") === "1",
     offset: Math.max(Number(p.get("offset")) || 0, 0),
     limit: Math.min(Math.max(Number(p.get("limit")) || 40, 1), 100),
   });

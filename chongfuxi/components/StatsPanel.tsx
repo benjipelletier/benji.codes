@@ -10,6 +10,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Maturity, Stats } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
+import { HskLevels } from "./HskLevels";
 import { fmt, message, type Shell } from "./shared";
 
 const DAY = 86_400_000;
@@ -425,6 +426,8 @@ export function StatsPanel({ shell }: { shell: Shell }) {
         </p>
         <Columns bars={stats.stability.map((b) => ({ label: b.label, tick: b.label.replace("< ", "<").replace(" months", "mo").replace(" month", "mo").replace(" week", "w").replace(" day", "d").replace(" year", "y").replace(" +", "+"), values: [b.cards] }))} series={["Cards"]} unit="cards" />
       </section>
+
+      <HskLevels shell={shell} />
 
       {stats.hours.length > 0 && (
         <section className="cf-section">

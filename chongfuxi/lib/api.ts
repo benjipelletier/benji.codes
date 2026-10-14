@@ -57,6 +57,8 @@ export interface WordInfo {
   defs: Definition[];
   /** Meanings split off to be scheduled on their own. */
   split: Array<{ id: number; gloss: string }>;
+  /** Its HSK levels, old and 3.0 ("5", "7-9"); null where it isn't in that one. */
+  hsk: { old: string | null; v3: string | null };
 }
 
 export interface SentenceInfo {
@@ -65,6 +67,8 @@ export interface SentenceInfo {
   en: string | null;
   /** Its words in order. */
   words: string[];
+  /** The decks it came from. */
+  sources: string[];
 }
 
 /** How a card has gone so far: in Pleco before it came here, then here. Oldest first. */
@@ -100,6 +104,73 @@ export interface SessionCard {
   wouldRetire?: boolean;
 }
 
+/** One deck word on the Words wall: just enough to place it, colour it and find it. */
+export interface WordTile {
+  word: string;
+  /** Numbered pinyin, "@" between syllables. */
+  pinyin: string | null;
+  /** The first sense, cut short, for finding a word by meaning. */
+  gloss: string | null;
+  /** Its Read card: FSRS stability in days, when it is due (ms), answers and Forgots here, difficulty. */
+  stability: number;
+  due: number;
+  answered: number;
+  forgotHere: number;
+  difficulty: number;
+  /** Its Recall card has opened. */
+  recall: boolean;
+  hsk: { old: string | null; v3: string | null };
+}
+
+/** Everything about one word, for its sheet on the Words page. */
+export interface WordDetail {
+  word: string;
+  pinyin: string | null;
+  defs: Definition[];
+  hsk: { old: string | null; v3: string | null };
+  /** Its cards: Read, Recall, and any split-off meanings. */
+  cards: Array<{
+    kind: CardKind;
+    meaning: string | null;
+    note: string | null;
+    isNew: boolean;
+    due: number;
+    stability: number;
+    difficulty: number;
+    /** The odds it would be remembered now, 0 to 1; null if never answered. */
+    odds: number | null;
+    /** Answers here, and how many of them were Forgot (Pleco's misses aren't counted). */
+    answered: number;
+    forgotHere: number;
+    history: CardHistory;
+  }>;
+  /** Pleco's record of the word, from before it came here. */
+  pleco: { score: number; correct: number; incorrect: number; first: number | null; last: number | null } | null;
+  /** Times it has been read in a sentence here. */
+  exposures: number;
+  sentences: {
+    readable: number;
+    oneAway: number;
+    locked: number;
+    /** The best few readable ones, as a word card would choose them. */
+    best: SentenceInfo[];
+  };
+}
+
+/** A Read card as Fast review shows it: the word alone, and what each answer would do. */
+export interface FastCard {
+  id: number;
+  word: string;
+  pinyin: string | null;
+  /** The first sense or two, to show once it is marked forgotten. */
+  gloss: string | null;
+  /** Days it would wait after each answer, and has been waiting; null for a new card. */
+  intervals: Record<Grade, number>;
+  was: number | null;
+  /** Got it would open its Recall card. */
+  opensRecall: boolean;
+}
+
 export interface ReviewInput {
   /** Made on the device; sending it twice records it once. */
   id: string;
@@ -115,6 +186,8 @@ export interface ReviewInput {
   sentenceId?: number | null;
   /** After forgetting a sentence: the words that were the trouble. */
   tapped?: string[];
+  /** After a Forgot: what went wrong, in the owner's words. */
+  comment?: string;
   /** For the stats: the device's timezone, its offset from UTC in minutes, and what kind of device. */
   tz?: string;
   utcOffset?: number;

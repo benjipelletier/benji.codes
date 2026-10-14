@@ -11,6 +11,7 @@ import type {
   Blocker,
   CardHistory,
   Coverage,
+  FastCard,
   MissingWord,
   ReviewInput,
   ReviewResult,
@@ -20,19 +21,22 @@ import type {
   Summary,
   WordInfo,
 } from "@chongfuxi/lib/api";
-import type { StudyDay } from "@chongfuxi/lib/day";
+import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
+import { zhShown } from "@chongfuxi/lib/hanzi";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import { CLEAN_READS_TO_RETIRE, REVIVED_CLEAN_READS, interleave, lapseTargets, piecesOf, readSentence } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
 const DAY_MS = 86_400_000;
-/** A word card rotates through this many of its shortest readable sentences. */
+/** A word card rotates through this many of its readable sentences, best first (see `dress`). */
 const CONTEXT_POOL = 12;
 /** Shorter than this is a scrap (我哥哥。), shown under a word only when the word has nothing longer. */
-const CONTEXT_MIN_HAN = 5;
+export const CONTEXT_MIN_HAN = 5;
+/** The length a context sentence is best at: long enough to say something, short enough to read at a glance. */
+export const CONTEXT_IDEAL_HAN = 9;
 
-interface CardRow {
+export interface CardRow {
   id: number;
   kind: CardKind;
   word: string | null;
@@ -54,7 +58,7 @@ interface CardRow {
   note: string | null;
 }
 
-const CARD_COLUMNS = `
+export const CARD_COLUMNS = `
   c.id::int as id, c.kind, c.word, c.meaning_id::int as meaning_id, c.sentence_id::int as sentence_id,
   c.state::int as state, (extract(epoch from c.due) * 1000)::double precision as due,
   c.stability, c.difficulty, c.reps, c.lapses, c.scheduled_days,
@@ -65,7 +69,22 @@ const CARD_COLUMNS = `
 /** In the queue: not retired, not flagged, not set aside. */
 const ACTIVE = `c.retired is null and c.flagged is null and not c.suspended`;
 
-const scheduleOf = (c: CardRow): Schedule => ({
+/**
+ * Word cards, least likely to be remembered first. FSRS's recall odds fall as
+ * the time since the last review grows against the card's stability, so
+ * ordering by that ratio, largest first, is ordering by the odds, lowest
+ * first; a card never answered anywhere has none and goes first. Ties (every
+ * card seeded with the same strength at the same moment) are shuffled, the
+ * same way all day so paging through them is stable. Takes the time (ms) and
+ * the study day as parameters $at and $day.
+ */
+const LEAST_LIKELY_FIRST = (at: string, day: string) => `
+  case when c.last_review is null or c.stability <= 0 then 1e9
+       else extract(epoch from (to_timestamp(${at}::double precision / 1000) - c.last_review)) / 86400.0 / c.stability
+  end desc,
+  md5(c.id::text || ${day}::text)`;
+
+export const scheduleOf = (c: CardRow): Schedule => ({
   state: c.state,
   due: Math.round(c.due),
   stability: c.stability,
@@ -196,9 +215,18 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
          select 1 from chongfuxi_review r
          where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
        )
-     order by c.due, (c.kind = 'produce'), c.id
+     order by ${LEAST_LIKELY_FIRST("$8", "$5")}
      limit $6`,
-    [owner, cutoff, o.exclude, o.skipWords, day.day, o.limit * 4, [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])]],
+    [
+      owner,
+      cutoff,
+      o.exclude,
+      o.skipWords,
+      day.day,
+      o.limit * 4,
+      [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
+      at,
+    ],
   )) as unknown as CardRow[];
   const seen = new Set<string>();
   const wordCards = words.filter((c) => !seen.has(c.word!) && seen.add(c.word!));
@@ -255,15 +283,67 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   return dress(sql, owner, picked, day, at);
 }
 
+/**
+ * Fast review: every Read card due today, the word alone, least likely to be remembered first.
+ * A word answered today waits, as in a session; split-off meanings are left
+ * out, since the word alone doesn't say which meaning is asked.
+ */
+export async function fastCards(
+  sql: Sql,
+  owner: string,
+  day: StudyDay,
+  offset: number,
+  limit: number,
+  at = Date.now(),
+): Promise<{ cards: FastCard[]; total: number | null }> {
+  const where = `c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and ${ACTIVE}
+       and c.due <= to_timestamp($2::double precision / 1000)
+       and not exists (
+         select 1 from chongfuxi_review r
+         where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word
+       )`;
+  const rows = (await sql.query(
+    `select ${CARD_COLUMNS}, w.pinyin, w.defs, jsonb_array_length(w.defs) > 0 as has_defs
+     from chongfuxi_card c
+     join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word
+     where ${where}
+     order by ${LEAST_LIKELY_FIRST("$6", "$3")}
+     limit $4 offset $5`,
+    [owner, day.cutoff, day.day, limit, offset, at],
+  )) as unknown as Array<CardRow & { pinyin: string | null; defs: Definition[]; has_defs: boolean }>;
+  const total = offset
+    ? null
+    : Number(
+        ((await sql.query(`select count(*) as n from chongfuxi_card c where ${where}`, [owner, day.cutoff, day.day])) as unknown as Array<{
+          n: string;
+        }>)[0].n,
+      );
+  return {
+    total,
+    cards: rows.map((c) => {
+      const schedule = scheduleOf(c);
+      return {
+        id: c.id,
+        word: c.word!,
+        pinyin: c.pinyin,
+        gloss: promptSenses(c.defs).slice(0, 2).join("; ") || null,
+        intervals: intervals(schedule, at),
+        was: waitOf(schedule),
+        opensRecall: c.passed === 0 && c.has_defs,
+      };
+    }),
+  };
+}
+
 /** Everything a card needs to be drawn: the word, its meanings, a sentence, its words. */
 async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, at: number): Promise<SessionCard[]> {
   const wordList = [...new Set(cards.filter((c) => c.word).map((c) => c.word!))];
 
   const wordRows = wordList.length
     ? ((await sql`
-        select word, pinyin, defs, pleco from chongfuxi_word
+        select word, pinyin, defs, pleco, lists from chongfuxi_word
         where owner_email = ${owner} and word = any(${wordList}::text[])
-      `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; pleco: PlecoSeed | null }>)
+      `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; pleco: PlecoSeed | null; lists: string[] | null }>)
     : [];
   const answers = (await sql`
     select card_id::int as card, grade, (extract(epoch from at) * 1000)::double precision as at
@@ -294,20 +374,30 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
   const infoOf = new Map<string, WordInfo>(
     wordRows.map((w) => [
       w.word,
-      { word: w.word, pinyin: w.pinyin, defs: w.defs, split: meaningRows.filter((m) => m.word === w.word).map(({ id, gloss }) => ({ id, gloss })) },
+      {
+        word: w.word,
+        pinyin: w.pinyin,
+        defs: w.defs,
+        split: meaningRows.filter((m) => m.word === w.word).map(({ id, gloss }) => ({ id, gloss })),
+        hsk: hskOf(w.lists ?? []),
+      },
     ]),
   );
 
-  // Readable sentences each word appears in, shortest first, a few per word.
-  // Full sentences only, where the word has any.
+  // Readable sentences each word appears in, a few per word, best first:
+  // full sentences only, where the word has any; those several decks share
+  // (the textbook examples) before those only one has; a natural length
+  // (about nine characters) before a terse scrap or a long one; a labelled
+  // proverb (【谚】) last.
   const contexts = wordList.length
     ? ((await sql`
-        select x.word, x.id, x.zh, x.en, x.rn::int as rn, x.n::int as n
+        select x.word, x.id, x.zh, x.en, x.sources, x.rn::int as rn, x.n::int as n
         from (
-          select t.word, s.id::int as id, s.zh, s.en,
+          select t.word, s.id::int as id, s.zh, s.en, s.sources,
                  row_number() over (
                    partition by t.word
-                   order by (char_length(s.key) < ${CONTEXT_MIN_HAN}), char_length(s.key), s.id
+                   order by (char_length(s.key) < ${CONTEXT_MIN_HAN}), (s.zh ~ '^\s*【'), cardinality(s.sources) desc,
+                            abs(char_length(s.key) - ${CONTEXT_IDEAL_HAN}), s.id
                  ) as rn,
                  count(*) over (partition by t.word) as n,
                  count(*) filter (where char_length(s.key) >= ${CONTEXT_MIN_HAN}) over (partition by t.word) as whole
@@ -319,10 +409,10 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
           where cardinality(s.blockers) = 0
         ) x
         where x.rn <= ${CONTEXT_POOL} and (x.whole = 0 or x.rn <= x.whole)
-      `) as unknown as Array<{ word: string; id: number; zh: string; en: string | null; rn: number; n: number }>)
+      `) as unknown as Array<{ word: string; id: number; zh: string; en: string | null; sources: string[]; rn: number; n: number }>)
     : [];
 
-  const chosen = new Map<number, { id: number; zh: string; en: string | null }>();
+  const chosen = new Map<number, { id: number; zh: string; en: string | null; sources: string[] }>();
   for (const c of cards) {
     // A split-off meaning is shown without a sentence: nothing says yet which
     // sentences use the word in that sense.
@@ -332,16 +422,16 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     // A different sentence each time, and not the one the word's other card is on.
     const turn = (c.answered + (c.kind === "produce" ? 1 : 0)) % mine.length;
     const pick = mine.find((x) => x.rn === turn + 1) ?? mine[0];
-    chosen.set(c.id, { id: pick.id, zh: pick.zh, en: pick.en });
+    chosen.set(c.id, { id: pick.id, zh: pick.zh, en: pick.en, sources: pick.sources });
   }
 
   const sentenceIds = [...new Set([...cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!), ...[...chosen.values()].map((s) => s.id)])];
   const own = cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!);
   const ownRows = own.length
     ? ((await sql`
-        select id::int as id, zh, en, pleco from chongfuxi_sentence
+        select id::int as id, zh, en, pleco, sources from chongfuxi_sentence
         where owner_email = ${owner} and id = any(${own}::bigint[])
-      `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null }>)
+      `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null; sources: string[] }>)
     : [];
   const tokenRows = sentenceIds.length
     ? ((await sql`
@@ -352,8 +442,8 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       `) as unknown as Array<{ id: number; words: string[] }>)
     : [];
   const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
-  const sentenceOf = (s: { id: number; zh: string; en: string | null } | undefined): SentenceInfo | null =>
-    s ? { id: s.id, zh: s.zh, en: s.en, words: wordsOf.get(s.id) ?? [] } : null;
+  const sentenceOf = (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null =>
+    s ? { id: s.id, zh: zhShown(s.zh), en: s.en, words: wordsOf.get(s.id) ?? [], sources: s.sources } : null;
 
   const out: SessionCard[] = [];
   for (const c of cards) {
@@ -394,6 +484,15 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     out.push(card);
   }
   return out;
+}
+
+/** A word's levels in the two HSK schemes, from the Pleco lists it is in. */
+export function hskOf(lists: string[]): WordInfo["hsk"] {
+  const level = (top: string) => {
+    const l = lists.find((x) => x.startsWith(`${top}/`));
+    return l ? (l.slice(top.length + 1).match(/\d+(-\d+)?/)?.[0] ?? null) : null;
+  };
+  return { old: level("HSK 2012-2021"), v3: level("HSK 3.0") };
 }
 
 /** The senses a Produce card asks with: the first few of the word's main definition. */
@@ -455,7 +554,15 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
   const good = input.grade === "good";
   const shown = card.kind === "sentence" ? card.sentence_id : (input.sentenceId ?? null);
 
-  const effects: { produce?: boolean; revived?: number[]; lapsed?: string[]; cutoff?: number } = {};
+  const effects: {
+    produce?: boolean;
+    revived?: number[];
+    lapsed?: string[];
+    cutoff?: number;
+    /** What taking the answer back needs: every card it moved, as it was, and the words it counted as read. */
+    prior?: unknown;
+    exposed?: string[];
+  } = {};
   const statements = [];
   let snapshotBefore: Snapshot = before;
   let snapshotAfter: Snapshot = after;
@@ -587,6 +694,17 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
     `);
   }
   if (lapses.length) effects.lapsed = lapses.map((l) => l.word);
+  if (exposed.length) effects.exposed = exposed;
+  // Every card this answer moves, as it stands now, so the answer can be taken back.
+  const touched = [card.id, ...lapses.map((l) => l.card.id), ...revive];
+  effects.prior = ((await sql`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', id, 'state', state, 'due', due, 'stability', stability, 'difficulty', difficulty, 'reps', reps,
+      'lapses', lapses, 'scheduled_days', scheduled_days, 'last_review', last_review, 'answered', answered,
+      'passed', passed, 'clean_reads', clean_reads, 'last_clean_day', last_clean_day, 'retired', retired
+    )), '[]'::jsonb) as prior
+    from chongfuxi_card where owner_email = ${owner} and id = any(${touched}::bigint[])
+  `) as unknown as Array<{ prior: unknown }>)[0].prior;
 
   const row = (r: {
     id: string;
@@ -600,15 +718,17 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
     effects: object;
     ms: number | null;
     revealMs: number | null;
+    comment?: string | null;
   }) => sql`
     insert into chongfuxi_review
       (owner_email, id, at, day, session, card_id, kind, word, meaning_id, sentence_id, grade, ms, reveal_ms,
-       tapped, cause, parent, scheduler, before, after, effects, tz, utc_offset, position, device)
+       tapped, cause, parent, scheduler, before, after, effects, tz, utc_offset, position, device, comment)
     values (${owner}, ${r.id}, ${ts(at)}::timestamptz, ${input.day}::date, ${input.session}, ${r.card.id}, ${r.card.kind},
             ${r.card.word}, ${r.card.meaning_id}, ${shown}, ${r.grade}, ${r.ms}, ${r.revealMs},
             ${r.tapped}::text[], ${r.cause}, ${r.parent}, ${SCHEDULER},
             ${JSON.stringify(r.before)}::jsonb, ${JSON.stringify(r.after)}::jsonb, ${JSON.stringify(r.effects)}::jsonb,
-            ${input.tz ?? null}, ${input.utcOffset ?? null}, ${input.position ?? null}, ${input.device ?? null})
+            ${input.tz ?? null}, ${input.utcOffset ?? null}, ${input.position ?? null}, ${input.device ?? null},
+            ${r.comment ?? null})
   `;
 
   // The answer first, so a repeat of the same id fails before anything moves.
@@ -625,6 +745,7 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
       effects,
       ms: input.ms ?? null,
       revealMs: input.revealMs ?? null,
+      comment: good ? null : input.comment?.trim() || null,
     }),
   );
   for (const l of lapses) {
@@ -696,7 +817,90 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
   };
 }
 
+/** Whether a request body is an answer as the page sends it. */
+export function isReviewInput(r: ReviewInput | null): r is ReviewInput {
+  return (
+    !!r &&
+    typeof r.id === "string" &&
+    r.id.length > 0 &&
+    r.id.length <= 64 &&
+    !r.id.includes(":") &&
+    Number.isInteger(r.cardId) &&
+    (r.grade === "good" || r.grade === "forgot") &&
+    typeof r.at === "number" &&
+    typeof r.session === "string" &&
+    isStudyDay(r) &&
+    (r.tapped === undefined || (Array.isArray(r.tapped) && r.tapped.length <= 60 && r.tapped.every((w) => typeof w === "string"))) &&
+    (r.comment === undefined || (typeof r.comment === "string" && r.comment.length <= 1000)) &&
+    (r.tz === undefined || (typeof r.tz === "string" && r.tz.length <= 64)) &&
+    (r.utcOffset === undefined || (Number.isInteger(r.utcOffset) && Math.abs(r.utcOffset) <= 16 * 60)) &&
+    (r.position === undefined || (Number.isInteger(r.position) && r.position > 0)) &&
+    (r.device === undefined || (typeof r.device === "string" && r.device.length <= 20))
+  );
+}
+
 export class ReviewError extends Error {}
+
+/**
+ * Take back the last answer, as if it had never been given: every card it
+ * moved goes back to how it was, a Recall card it opened goes, its words lose
+ * the reading it counted, and the answer leaves the log. Only the latest
+ * answer, so nothing after it can depend on it.
+ */
+export async function undoReview(sql: Sql, owner: string, id: string): Promise<{ cardId: number }> {
+  const found = (await sql`
+    select r.card_id::int as card_id, r.kind, r.word, r.meaning_id, r.effects,
+           exists (
+             select 1 from chongfuxi_review l
+             where l.owner_email = r.owner_email and l.cause = 'answer' and l.seq > r.seq
+           ) as superseded
+    from chongfuxi_review r
+    where r.owner_email = ${owner} and r.id = ${id} and r.cause = 'answer'
+  `) as unknown as Array<{
+    card_id: number;
+    kind: CardKind;
+    word: string | null;
+    meaning_id: number | null;
+    effects: { produce?: boolean; prior?: unknown; exposed?: string[] };
+    superseded: boolean;
+  }>;
+  const r = found[0];
+  if (!r) throw new ReviewError("That answer isn't in the log.");
+  if (r.superseded) throw new ReviewError("Only the last answer can be taken back.");
+  if (!r.effects.prior) throw new ReviewError("That answer was given before answers could be taken back.");
+
+  const statements = [
+    sql`
+      update chongfuxi_card c
+      set state = p.state, due = p.due, stability = p.stability, difficulty = p.difficulty, reps = p.reps,
+          lapses = p.lapses, scheduled_days = p.scheduled_days, last_review = p.last_review,
+          answered = p.answered, passed = p.passed, clean_reads = p.clean_reads,
+          last_clean_day = p.last_clean_day, retired = p.retired
+      from jsonb_to_recordset(${JSON.stringify(r.effects.prior)}::jsonb) as p(
+        id bigint, state smallint, due timestamptz, stability double precision, difficulty double precision,
+        reps integer, lapses integer, scheduled_days integer, last_review timestamptz, answered integer,
+        passed integer, clean_reads integer, last_clean_day date, retired timestamptz
+      )
+      where c.owner_email = ${owner} and c.id = p.id
+    `,
+  ];
+  if (r.effects.produce && r.kind === "read") {
+    statements.push(sql`
+      delete from chongfuxi_card
+      where owner_email = ${owner} and kind = 'produce' and word = ${r.word}
+        and meaning_id is not distinct from ${r.meaning_id}::bigint and answered = 0
+    `);
+  }
+  if (r.effects.exposed?.length) {
+    statements.push(sql`
+      update chongfuxi_word set exposures = greatest(0, exposures - 1)
+      where owner_email = ${owner} and word = any(${r.effects.exposed}::text[])
+    `);
+  }
+  statements.push(sql`delete from chongfuxi_review where owner_email = ${owner} and (id = ${id} or parent = ${id})`);
+  await sql.transaction(statements);
+  return { cardId: r.card_id };
+}
 
 /** A retired sentence that has this word, other than the one given: the one read longest ago. */
 async function retiredWith(sql: Sql, owner: string, word: string, notSentence: number, notCards: number[]): Promise<number | null> {
@@ -791,13 +995,24 @@ export interface SentenceQuery {
   show: "readable" | "one" | "locked";
   /** Only sentences this word alone is blocking. */
   blocker?: string;
+  /** Only sentences with this word in them, readable or not. */
+  word?: string;
+  /** With `word`: inside longer words too (机 in 机器), not only as a word of its own. */
+  within?: boolean;
   offset: number;
   limit: number;
 }
 
 export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): Promise<SentenceRow[]> {
-  const where =
-    q.show === "readable" ? "cardinality(s.blockers) = 0" : q.show === "one" ? "cardinality(s.blockers) = 1" : "cardinality(s.blockers) > 1";
+  const where = q.word
+    ? q.within
+      ? `strpos(s.key, $5) > 0`
+      : `exists (select 1 from chongfuxi_token t where t.owner_email = s.owner_email and t.sentence_id = s.id and t.word = $5)`
+    : q.show === "readable"
+      ? "cardinality(s.blockers) = 0"
+      : q.show === "one"
+        ? "cardinality(s.blockers) = 1"
+        : "cardinality(s.blockers) > 1";
   const rows = (await sql.query(
     `select s.id::int as id, s.zh, s.en, s.blockers, s.sources, s.split,
             case when c.id is null then null
@@ -807,13 +1022,13 @@ export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): 
      from chongfuxi_sentence s
      left join chongfuxi_card c on c.owner_email = s.owner_email and c.kind = 'sentence' and c.sentence_id = s.id
      where s.owner_email = $1 and ${where} and ($2::text is null or s.blockers = array[$2::text])
-     order by char_length(s.key), s.id
+     order by ${q.word ? "cardinality(s.blockers), " : ""}char_length(s.key), s.id
      limit $3 offset $4`,
-    [owner, q.blocker ?? null, q.limit, q.offset],
+    q.word ? [owner, q.blocker ?? null, q.limit, q.offset, q.word] : [owner, q.blocker ?? null, q.limit, q.offset],
   )) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[]; sources: string[]; split: string; card: SentenceRow["card"] }>;
   return rows.map((r) => ({
     id: r.id,
-    zh: r.zh,
+    zh: zhShown(r.zh),
     en: r.en,
     blockers: r.blockers,
     sources: r.sources,

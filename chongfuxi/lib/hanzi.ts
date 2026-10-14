@@ -85,6 +85,29 @@ function markSyllable(syl: string): string {
 }
 
 /** Pleco's numbered pinyin, readable: "lü3@guan3" → "lǚguǎn", words kept apart. */
+/**
+ * Chinese text with its punctuation made Chinese: some decks write "知识, 很多"
+ * or "吗? B" with ASCII marks and a space, which reads as a gap mid-sentence.
+ * Digits keep theirs (3,000).
+ */
+export function zhPunct(text: string): string {
+  const FULL: Record<string, string> = { ",": "，", "?": "？", "!": "！", ";": "；", ":": "：" };
+  return text
+    .replace(/(?<=[\p{Script=Han}\p{Script=Latin}）」』”])\s*([,?!;:])(?!\d)\s*/gu, (_, p: string) => FULL[p])
+    .replace(/(?<=\p{Script=Han})\.(?=\s|$|[”」』])/gu, "。");
+}
+
+/**
+ * A sentence as it should read: without a dictionary's leading label
+ * (【谚】 "proverb"), without the spaces some decks put between words
+ * (这 个 课本), and with Chinese punctuation.
+ */
+export function zhShown(text: string): string {
+  const unlabelled = text.replace(/^\s*【[^】]{1,6}】\s*/u, "");
+  const joined = unlabelled.replace(/(?<=[\p{Script=Han}，。？！、；：])\s+(?=[\p{Script=Han}，。？！、；：])/gu, "");
+  return zhPunct(joined);
+}
+
 export function displayPinyin(pron: string): string {
   return pron
     .split(" ")

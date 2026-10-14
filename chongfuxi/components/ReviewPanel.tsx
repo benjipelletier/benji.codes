@@ -12,13 +12,14 @@
 // while one is running. A visitor can page through the cards but not answer.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CardHistory, ReviewInput, ReviewResult, SessionCard, SessionKinds } from "@chongfuxi/lib/api";
+import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordInfo } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
-import { Highlighted, ago, fmt, message, plecoHref, span, type Shell } from "./shared";
+import { FastReview } from "./FastReview";
+import { Highlighted, History, fmt, message, plecoHref, span, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -29,39 +30,6 @@ const IN_FLIGHT = 20;
 const LEAVE_MS = 220;
 
 const KIND_NAME = { read: "Read", produce: "Recall", sentence: "Sentence" } as const;
-
-/** Bubbles shown at most: the latest answers, here first and Pleco's before them. */
-const BUBBLES = 16;
-
-/**
- * How the card has gone: a bubble per answer, oldest first — filled for got
- * it, a ring for forgot — Pleco's smaller and before a gap, then the ones
- * given here. And when it was last seen.
- */
-function History({ h }: { h: CardHistory }) {
-  const here = h.here.slice(-BUBBLES);
-  const pleco = h.pleco.slice(-Math.max(0, BUBBLES - here.length));
-  const count = (list: string[]) => `${list.filter((g) => g === "good").length} right, ${list.filter((g) => g === "forgot").length} wrong`;
-  const label = [h.pleco.length ? `In Pleco: ${count(h.pleco)}` : "", h.here.length ? `Here: ${count(h.here)}` : ""].filter(Boolean).join(". ");
-  return (
-    <div className="cf-history">
-      {(pleco.length > 0 || here.length > 0) && (
-        <span className="cf-bubbles" role="img" aria-label={label}>
-          {pleco.map((g, i) => (
-            <i key={`p${i}`} className={`cf-bubble is-pleco is-${g}`} />
-          ))}
-          {pleco.length > 0 && here.length > 0 && <i className="cf-bubble-gap" />}
-          {here.map((g, i) => (
-            <i key={`h${i}`} className={`cf-bubble is-${g}`} />
-          ))}
-        </span>
-      )}
-      <span className="cf-history-when">
-        {h.lastAt === null ? "First time" : `Last seen ${ago(h.lastAt)}${h.lastIn === "pleco" ? " in Pleco" : ""}`}
-      </span>
-    </div>
-  );
-}
 
 /** The senses a Produce card asks with: the first few of the word's main definition. */
 function promptOf(card: SessionCard): string[] {
@@ -117,6 +85,23 @@ function receiptOf(card: SessionCard, grade: Grade, r: ReviewResult, id: string,
   return { id, title: card.word ? card.word.word : "Sentence", grade, was: r.was, days: r.retired ? null : r.days, chips };
 }
 
+/** A word's HSK levels, old and 3.0, or that it is in neither. */
+function HskTags({ hsk }: { hsk: WordInfo["hsk"] }) {
+  if (!hsk.old && !hsk.v3) return <span className="cf-tag cf-hsk is-none">not HSK</span>;
+  return (
+    <>
+      {hsk.old && <span className={`cf-tag cf-hsk cf-level is-l${hsk.old}`}>HSK {hsk.old}</span>}
+      {hsk.v3 && <span className={`cf-tag cf-hsk cf-level is-l${hsk.v3.split("-")[0]}`}>HSK 3.0: {hsk.v3.replace("-", "–")}</span>}
+    </>
+  );
+}
+
+/** Which deck a sentence comes from. */
+function SourceOf({ sentence }: { sentence: SentenceInfo | null }) {
+  if (!sentence?.sources.length) return null;
+  return <p className="cf-source">{sentence.sources.join(", ")}</p>;
+}
+
 /** The word, large, on one line: its length sets its size. */
 function Word({ word }: { word: string }) {
   const n = [...word].length;
@@ -130,7 +115,7 @@ function Word({ word }: { word: string }) {
 /** Where a wait of so many days sits on the meter: a log scale, full at two years. */
 const onMeter = (days: number | null) => (days === null ? 0 : Math.min(1, Math.log1p(days) / Math.log1p(730)));
 
-function ReceiptStrip({ r }: { r: Receipt }) {
+function ReceiptStrip({ r, onUndo, undoing }: { r: Receipt; onUndo?: () => void; undoing: boolean }) {
   const from = onMeter(r.was);
   const to = r.days === null ? 1 : onMeter(r.days);
   return (
@@ -151,6 +136,14 @@ function ReceiptStrip({ r }: { r: Receipt }) {
         <span className="cf-receipt-span">
           {r.was === null ? "new" : span(r.was)} <em>→</em> <b>{r.days === null ? "retired" : span(r.days)}</b>
         </span>
+        {onUndo && (
+          <button className="cf-undo" disabled={undoing} onClick={onUndo} aria-label={`Undo: answer ${r.title} again`}>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M6 3 2.5 6.5 6 10M3 6.5h6.5a4 4 0 0 1 0 8H7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Undo
+          </button>
+        )}
       </div>
       {r.chips.length > 0 && (
         <ul className="cf-facts">
@@ -185,7 +178,7 @@ function rememberedKinds(): SessionKinds {
 
 export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () => void }) {
   const [kinds, setKinds] = useState<SessionKinds>(EVERYTHING);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState<"session" | "fast" | null>(null);
   useEffect(() => setKinds(rememberedKinds()), []);
 
   const choose = (next: SessionKinds) => {
@@ -198,20 +191,23 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   };
 
   const { setFocus, refresh } = shell;
-  const begin = () => {
+  const begin = (how: "session" | "fast") => {
     setFocus(true);
-    setStarted(true);
+    setStarted(how);
   };
   const end = useCallback(() => {
     setFocus(false);
-    setStarted(false);
+    setStarted(null);
     refresh();
   }, [setFocus, refresh]);
   // Leaving the tab mid-session must give the header and tabs back.
   useEffect(() => () => setFocus(false), [setFocus]);
 
+  if (started === "fast") return <FastReview shell={shell} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} />;
-  return <Today shell={shell} kinds={kinds} onChoose={choose} onStart={begin} onImport={onImport} />;
+  return (
+    <Today shell={shell} kinds={kinds} onChoose={choose} onStart={() => begin("session")} onFast={() => begin("fast")} onImport={onImport} />
+  );
 }
 
 /** Before a session: what is due, what to include, and how many new sentences a day. */
@@ -220,12 +216,14 @@ function Today({
   kinds,
   onChoose,
   onStart,
+  onFast,
   onImport,
 }: {
   shell: Shell;
   kinds: SessionKinds;
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
+  onFast: () => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite, refresh } = shell;
@@ -366,6 +364,18 @@ function Today({
       </ul>
 
       <div className="cf-answer">
+        {/* Every Read card due, as a grid to sweep through: for a pile of easy ones. */}
+        {kinds.read && s.dueRead > 0 && (
+          <button className="cf-answer-btn cf-fast-btn" onClick={onFast}>
+            <span className="cf-fast-btn-label">
+              <svg className="cf-bolt" viewBox="0 0 16 20" width="14" height="18" aria-hidden="true">
+                <path d="M9.6 0.8 1.8 11.4h5.3L5.9 19.2l8.3-11.1H8.8z" fill="currentColor" />
+              </svg>
+              Fast review
+            </span>
+            <small>{fmt(s.dueRead)} to read</small>
+          </button>
+        )}
         <button className="cf-answer-btn cf-answer-show" disabled={total === 0} onClick={onStart}>
           {!kinds.read && !kinds.recall && !kinds.sentences
             ? "Nothing chosen"
@@ -388,6 +398,12 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   const [revealed, setRevealed] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
+  // After Forgot, before it is sent: what went wrong, in the owner's words. Null when not forgetting.
+  const [why, setWhy] = useState<string | null>(null);
+  const whyBox = useRef<HTMLDivElement>(null);
+  // The last answer given, to take back; and the streak as it stood before it.
+  const latest = useRef<{ id: string; card: SessionCard; streak: number } | null>(null);
+  const [undoing, setUndoing] = useState(false);
   // The note being written, while its box is open.
   const [noting, setNoting] = useState<string | null>(null);
   const [splitting, setSplitting] = useState<string | null>(null);
@@ -449,6 +465,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   useEffect(() => {
     setRevealed(false);
     setTapped(null);
+    setWhy(null);
     setNoting(null);
     setSplitting(null);
     setLeaving(null);
@@ -484,7 +501,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
     window.setTimeout(drop, LEAVE_MS);
   };
 
-  const answer = (grade: Grade, words: string[] = []) => {
+  const answer = (grade: Grade, words: string[] = [], comment?: string) => {
     if (!card || leaving) return;
     const now = performance.now();
     const input: ReviewInput = {
@@ -498,6 +515,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
       revealMs: revealedAt.current === null ? undefined : Math.round(revealedAt.current - shownAt.current),
       sentenceId: card.sentence?.id ?? null,
       tapped: words,
+      comment: comment?.trim() || undefined,
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       utcOffset: -new Date().getTimezoneOffset(),
       device: window.innerWidth < 700 ? "phone" : "desktop",
@@ -505,10 +523,54 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
     };
     recentIds.current = [...recentIds.current, card.id].slice(-IN_FLIGHT);
     if (card.word) recentWords.current = [...recentWords.current, card.word.word].slice(-IN_FLIGHT);
+    latest.current = { id: input.id, card, streak: streak.current };
     streak.current = grade === "good" ? streak.current + 1 : 0;
     void post(input, card, streak.current);
     setAnswered((n) => n + 1);
     next(grade);
+  };
+
+  /** Take the last answer back: the card returns to the top, face down, to be answered again. */
+  const undo = async () => {
+    const back = latest.current;
+    if (!back || undoing) return;
+    setUndoing(true);
+    try {
+      await send("review/undo", { id: back.id });
+      latest.current = null;
+      recentIds.current = recentIds.current.filter((id) => id !== back.card.id);
+      if (back.card.word) {
+        const at = recentWords.current.lastIndexOf(back.card.word.word);
+        if (at >= 0) recentWords.current = recentWords.current.filter((_, i) => i !== at);
+      }
+      streak.current = back.streak;
+      dealt.current = Math.max(0, dealt.current - 1);
+      setAnswered((n) => Math.max(0, n - 1));
+      setQueue((q) => [back.card, ...q.filter((c) => c.id !== back.card.id)]);
+      setStatus("ready");
+      setLast(null);
+      refresh();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setUndoing(false);
+    }
+  };
+
+  // The box for what went wrong comes into view when it opens.
+  useEffect(() => {
+    if (why !== null) whyBox.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [why !== null]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const forget = () => {
+    if (!card) return;
+    if (card.kind === "sentence") setTapped(new Set());
+    setWhy("");
+  };
+  const sendForgot = () => answer("forgot", tapped ? [...tapped] : [], why ?? undefined);
+  const backFromForgot = () => {
+    setTapped(null);
+    setWhy(null);
   };
 
   const saveNote = async () => {
@@ -601,6 +663,12 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
             {KIND_NAME[card.kind]}
             {card.isNew && <span className="cf-tag">new</span>}
             {card.kind === "sentence" && !card.isNew && <span className="cf-tag">{card.cleanReads} of 2 clean reads</span>}
+            <span className="cf-card-tags">
+              {card.word && <HskTags hsk={card.word.hsk} />}
+              {card.kind === "sentence" && card.sentence?.sources.map((s) => (
+                <span key={s} className="cf-tag">{s}</span>
+              ))}
+            </span>
           </div>
           <History h={card.history} />
           {card.note && noting === null && <p className="cf-note">{card.note}</p>}
@@ -610,9 +678,12 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
               <Word word={card.word.word} />
               {card.meaning && !revealed && <p className="cf-card-hint">One of its other meanings, one you split off.</p>}
               {card.sentence && (
-                <p className="cf-card-zh">
-                  <Highlighted text={card.sentence.zh} word={card.word.word} />
-                </p>
+                <>
+                  <p className="cf-card-zh">
+                    <Highlighted text={card.sentence.zh} word={card.word.word} />
+                  </p>
+                  <SourceOf sentence={card.sentence} />
+                </>
               )}
               {revealed && (
                 <div className="cf-back">
@@ -655,6 +726,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
                         <Highlighted text={card.sentence.zh} word={card.word.word} />
                       </p>
                       {card.sentence.en && <p className="cf-en">{card.sentence.en}</p>}
+                      <SourceOf sentence={card.sentence} />
                     </>
                   )}
                 </div>
@@ -693,6 +765,22 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
                 </div>
               )}
             </>
+          )}
+
+          {why !== null && (
+            <div className="cf-why" ref={whyBox}>
+              <label htmlFor="cf-why">What tripped you up?</label>
+              <input
+                id="cf-why"
+                className="cf-input"
+                maxLength={1000}
+                enterKeyHint="done"
+                placeholder="Optional: mixed it up with…, didn't know the tone…"
+                value={why}
+                onChange={(e) => setWhy(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendForgot()}
+              />
+            </div>
           )}
 
           {revealed && (
@@ -734,7 +822,9 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
       )}
 
       {/* What the last answer changed. */}
-      {last && <ReceiptStrip r={last} />}
+      {last && (
+        <ReceiptStrip r={last} undoing={undoing} onUndo={canWrite && latest.current?.id === last.id ? undo : undefined} />
+      )}
 
       {/* The answer, at the foot of the screen, under the thumb. */}
       {card && (
@@ -750,21 +840,27 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
                 Next card
               </button>
             </>
-          ) : tapped ? (
+          ) : why !== null ? (
             <>
-              <button className="cf-answer-btn cf-answer-ghost" onClick={() => setTapped(null)}>
+              <button className="cf-answer-btn cf-answer-ghost" onClick={backFromForgot}>
                 Back
               </button>
-              <button className="cf-answer-btn cf-answer-forgot" onClick={() => answer("forgot", [...tapped])}>
+              <button className="cf-answer-btn cf-answer-forgot" onClick={sendForgot}>
                 Done
-                <small>{tapped.size ? `${tapped.size} word${tapped.size === 1 ? "" : "s"} lapse` : "none in particular"}</small>
+                <small>
+                  {tapped
+                    ? tapped.size
+                      ? `${tapped.size} word${tapped.size === 1 ? "" : "s"} lapse`
+                      : "none in particular"
+                    : span(card.intervals.forgot)}
+                </small>
               </button>
             </>
           ) : (
             <>
               <button
                 className="cf-answer-btn cf-answer-forgot"
-                onClick={() => (card.kind === "sentence" ? setTapped(new Set()) : answer("forgot"))}
+                onClick={forget}
               >
                 Forgot
                 <small>{span(card.intervals.forgot)}</small>
