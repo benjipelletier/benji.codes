@@ -47,8 +47,12 @@ check every screen at 360px wide first.
   The header holds the title and one quiet line (`Glance` in
   `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
   and the share of sentences readable, each with its Chinese unit (词 字 句) in
-  its kind's colour, over a thin bar of that share. The owner found boxed
-  counts, and then badges with a three-part bar and key, too busy.
+  its kind's colour. Figures only: the owner doesn't want progress bars there,
+  and found boxed counts and then badges with a bar and key too busy. (Words
+  is one per deck word; the old boxes counted word cards, Read plus Recall,
+  which is why the figure went from about 4k to 3k.) Signing in sits at the
+  right of the title (`components/Account.tsx`): the owner's initial opens a
+  menu with the address and Sign out; anyone else gets Sign in.
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.

@@ -11,6 +11,7 @@ import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel } from "./ImportPanel";
+import { Account } from "./Account";
 import { BugButton } from "./BugReport";
 import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
@@ -111,11 +112,8 @@ export function ChongfuxiApp() {
           <h1>
             重复习 <span className="cf-title-py">chóngfùxí</span>
           </h1>
-          {summary && summary.viewer.configured && !canWrite && (
-            <button className="cf-tag-btn" title="You're looking at Benji's deck; only he can review it" onClick={() => go("import")}>
-              <span className="cf-tag">read-only</span>
-            </button>
-          )}
+          {/* Who is here, and signing in or out. */}
+          {summary && <Account viewer={summary.viewer} />}
         </div>
         {/* At a glance: words and characters known, and how much of the corpus they read. */}
         <Glance summary={summary} />
@@ -174,7 +172,7 @@ export function ChongfuxiApp() {
 /**
  * The header's figures, in one quiet line: the words in the deck (词), the
  * distinct characters across them (字), and the share of sentences readable
- * (句), over a thin bar of that share.
+ * (句). Figures only: no bars.
  */
 function Glance({ summary: s }: { summary: Summary | null }) {
   const total = s ? s.readable + s.oneAway + s.locked : 0;
@@ -193,15 +191,12 @@ function Glance({ summary: s }: { summary: Summary | null }) {
           {s ? fmt(s.characters) : "—"}
           <i>字</i>
         </span>
-        <span className="is-sentences" title={detail}>
+        <span className="is-sentences" title={detail} aria-label={detail}>
           {pct === null ? "—" : `${Math.round(pct)}%`}
           <i>句</i>
           <small>readable</small>
         </span>
       </p>
-      <div className="cf-glance-bar" role="img" aria-label={detail ?? "Sentences readable"} title={detail}>
-        <i style={{ width: `${pct ?? 0}%` }} />
-      </div>
     </div>
   );
 }

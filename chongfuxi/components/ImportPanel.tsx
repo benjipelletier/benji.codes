@@ -1,6 +1,7 @@
 "use client";
 
-// Signing in, and bringing a newer Pleco backup in.
+// Bringing a newer Pleco backup in, the Anki syncs, and bug reports.
+// (Signing in is in the header: components/Account.tsx.)
 //
 // Words come from Pleco and nowhere else: the owner adds them there, exports a
 // backup, and imports it here. The file goes to the server, which turns it
@@ -8,7 +9,6 @@
 // add, so it can be looked at first. Importing only ever adds.
 
 import { useEffect, useState } from "react";
-import { signInWithGoogle, signOut } from "@chongfuxi/lib/auth-client";
 import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
 import { BugList } from "./BugReport";
@@ -21,55 +21,6 @@ interface Outcome {
   cards: number;
   words: { total: number; added: number; sample: string[] };
   sentences: { total: number; added: number; readable: number; oneAway: number; unlocked: number };
-}
-
-function Account({ shell }: { shell: Shell }) {
-  const viewer = shell.summary!.viewer;
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const go = async (action: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-    } catch (e) {
-      setError(message(e));
-      setBusy(false);
-    }
-  };
-  return (
-    <section className="cf-section">
-      <h2 className="cf-h2">{viewer.isOwner ? "Your deck" : "Benji's deck"}</h2>
-      {!viewer.configured ? (
-        <p className="cf-lede">This deployment has no database set up.</p>
-      ) : viewer.isOwner ? (
-        <p className="cf-lede">
-          Signed in as <b>{viewer.email}</b>. Everyone else sees this read-only.
-        </p>
-      ) : viewer.email ? (
-        <p className="cf-lede">
-          Signed in as <b>{viewer.email}</b>. This is one person&apos;s deck — only Benji can review it — so you&apos;re
-          looking at it read-only.
-        </p>
-      ) : (
-        <p className="cf-lede">You&apos;re looking at Benji&apos;s deck, read-only. Only Benji can sign in to review it.</p>
-      )}
-      {error && <p className="cf-error">{error}</p>}
-      {viewer.configured && (
-        <div className="cf-buttons">
-          {viewer.email ? (
-            <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={() => go(signOut)}>
-              Sign out
-            </button>
-          ) : (
-            <button className="cf-btn" disabled={busy} onClick={() => go(signInWithGoogle)}>
-              {busy ? "Opening Google…" : "Sign in with Google"}
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  );
 }
 
 function Importer({ shell }: { shell: Shell }) {
@@ -201,7 +152,6 @@ export function ImportPanel({ shell }: { shell: Shell }) {
   const s = shell.summary!;
   return (
     <div className="cf-panel">
-      <Account shell={shell} />
       {s.viewer.configured && <SyncLog shell={shell} />}
       {shell.canWrite && <Importer shell={shell} />}
       {s.viewer.configured && <BugList canWrite={shell.canWrite} />}
