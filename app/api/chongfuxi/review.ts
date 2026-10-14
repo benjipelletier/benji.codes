@@ -1,0 +1,929 @@
+// The review session against the database: what to show next, and what an
+// answer does.
+//
+// The scheduler (chongfuxi/lib/schedule.ts) and the rules (lib/review.ts) are
+// pure; this is where they meet the rows. An answer is one transaction: the
+// review row, the card it moved, and whatever else it moved — a Produce card
+// opened, retired sentences brought back, tapped words lapsed.
+
+import type { Sql } from "./db";
+import type {
+  Blocker,
+  CardHistory,
+  Coverage,
+  MissingWord,
+  ReviewInput,
+  ReviewResult,
+  SentenceInfo,
+  SentenceRow,
+  SessionCard,
+  Summary,
+  WordInfo,
+} from "@chongfuxi/lib/api";
+import type { StudyDay } from "@chongfuxi/lib/day";
+import type { Definition } from "@chongfuxi/lib/dict";
+import type { PlecoSeed } from "@chongfuxi/lib/pleco";
+import { CLEAN_READS_TO_RETIRE, REVIVED_CLEAN_READS, interleave, lapseTargets, piecesOf, readSentence } from "@chongfuxi/lib/review";
+import { SCHEDULER, answer, intervals, newSchedule, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
+
+const DAY_MS = 86_400_000;
+/** A word card rotates through this many of its shortest readable sentences. */
+const CONTEXT_POOL = 12;
+/** Shorter than this is a scrap (我哥哥。), shown under a word only when the word has nothing longer. */
+const CONTEXT_MIN_HAN = 5;
+
+interface CardRow {
+  id: number;
+  kind: CardKind;
+  word: string | null;
+  meaning_id: number | null;
+  sentence_id: number | null;
+  state: number;
+  due: number;
+  stability: number;
+  difficulty: number;
+  reps: number;
+  lapses: number;
+  scheduled_days: number;
+  last_review: number | null;
+  answered: number;
+  passed: number;
+  clean_reads: number;
+  last_clean_day: string | null;
+  retired: number | null;
+  note: string | null;
+}
+
+const CARD_COLUMNS = `
+  c.id::int as id, c.kind, c.word, c.meaning_id::int as meaning_id, c.sentence_id::int as sentence_id,
+  c.state::int as state, (extract(epoch from c.due) * 1000)::double precision as due,
+  c.stability, c.difficulty, c.reps, c.lapses, c.scheduled_days,
+  (extract(epoch from c.last_review) * 1000)::double precision as last_review,
+  c.answered, c.passed, c.clean_reads, to_char(c.last_clean_day, 'YYYY-MM-DD') as last_clean_day,
+  (extract(epoch from c.retired) * 1000)::double precision as retired, c.note`;
+
+/** In the queue: not retired, not flagged, not set aside. */
+const ACTIVE = `c.retired is null and c.flagged is null and not c.suspended`;
+
+const scheduleOf = (c: CardRow): Schedule => ({
+  state: c.state,
+  due: Math.round(c.due),
+  stability: c.stability,
+  difficulty: c.difficulty,
+  reps: c.reps,
+  lapses: c.lapses,
+  scheduledDays: c.scheduled_days,
+  lastReview: c.last_review === null ? null : Math.round(c.last_review),
+});
+
+const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+
+// ------------------------------------------------------------------ counts --
+
+export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promise<Omit<Summary, "viewer">> {
+  const rows = (await sql.query(
+    `with active as (
+       select c.* from chongfuxi_card c where c.owner_email = $1 and ${ACTIVE}
+     ), today as (
+       select * from chongfuxi_review where owner_email = $1 and day = $2::date
+     )
+     select
+       (select count(*) from chongfuxi_word where owner_email = $1 and status = 'deck')::int as words,
+       (select count(*) from chongfuxi_card where owner_email = $1 and kind <> 'sentence' and not suspended)::int as word_cards,
+       (select count(*) from chongfuxi_card where owner_email = $1 and kind = 'produce' and not suspended)::int as recall_cards,
+       (select count(*) from chongfuxi_word where owner_email = $1 and status = 'name')::int as names,
+       (select count(*) from chongfuxi_sentence where owner_email = $1)::int as sentences,
+       (select count(*) from chongfuxi_sentence where owner_email = $1 and cardinality(blockers) = 0)::int as readable,
+       (select count(*) from chongfuxi_sentence where owner_email = $1 and cardinality(blockers) = 1)::int as one_away,
+       (select count(*) from chongfuxi_sentence where owner_email = $1 and cardinality(blockers) > 1)::int as locked,
+       (select count(distinct a.word) from active a
+          where a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word))::int as due_words,
+       (select count(*) from active a
+          where a.kind = 'read' and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word))::int as due_read,
+       (select count(*) from active a
+          where a.kind = 'produce' and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word))::int as due_recall,
+       (select count(*) from active a
+          where a.kind = 'sentence' and a.state <> 0 and a.due <= to_timestamp($3::double precision / 1000))::int as due_sentences,
+       (select count(*) from active a where a.kind = 'sentence' and a.state = 0)::int as new_sentences,
+       (select count(*) from today t
+          where t.kind = 'sentence' and t.cause = 'answer' and (t.before->>'state')::int = 0)::int as introduced,
+       (select count(*) from chongfuxi_card where owner_email = $1 and retired is not null)::int as retired,
+       (select count(*) from chongfuxi_card where owner_email = $1 and flagged is not null)::int as flagged,
+       (select count(*) from today t where t.cause = 'answer')::int as answered_today,
+       (select count(*) from chongfuxi_review
+          where owner_email = $1 and day = $2::date - 1 and cause = 'answer')::int as answered_yesterday,
+       (select count(*) from active a
+          where not (a.kind = 'sentence' and a.state = 0)
+            and a.due > to_timestamp($3::double precision / 1000) - interval '1 day'
+            and a.due <= to_timestamp($3::double precision / 1000))::int as came_due_today,
+       (select count(*) from active a
+          where not (a.kind = 'sentence' and a.state = 0)
+            and ((a.due > to_timestamp($3::double precision / 1000)
+                  and a.due <= to_timestamp($3::double precision / 1000) + interval '1 day')
+              or (a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
+                  and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
+       coalesce((select new_sentences from chongfuxi_settings where owner_email = $1), 10)::int as new_per_day`,
+    [owner, day.day, day.cutoff],
+  )) as unknown as Array<Record<string, number>>;
+  const r = rows[0];
+  return {
+    words: r.words,
+    wordCards: r.word_cards,
+    recallCards: r.recall_cards,
+    names: r.names,
+    sentences: r.sentences,
+    readable: r.readable,
+    oneAway: r.one_away,
+    locked: r.locked,
+    dueWords: r.due_words,
+    dueRead: r.due_read,
+    dueRecall: r.due_recall,
+    dueSentences: r.due_sentences,
+    newSentences: r.new_sentences,
+    newLeftToday: Math.max(0, Math.min(r.new_sentences, r.new_per_day - r.introduced)),
+    newPerDay: r.new_per_day,
+    retired: r.retired,
+    flagged: r.flagged,
+    answeredToday: r.answered_today,
+    answeredYesterday: r.answered_yesterday,
+    cameDueToday: r.came_due_today,
+    dueTomorrow: r.due_tomorrow,
+  };
+}
+
+// ------------------------------------------------------------------- queue --
+
+export interface QueueOptions {
+  limit: number;
+  /** Cards the session has dealt so far, so the mix carries on. */
+  position: number;
+  /** Cards the device already holds or has just answered. */
+  exclude: number[];
+  /** Words answered this session whose answer may not have landed yet. */
+  skipWords: string[];
+  /** Leave Read cards out. */
+  read?: boolean;
+  /** Leave Recall cards out: recognition only. */
+  recall?: boolean;
+  /** Leave sentence cards out, new ones included. */
+  sentences?: boolean;
+  at?: number;
+}
+
+/**
+ * The next cards, with everything needed to draw them.
+ *
+ * One queue of everything due before the study day ends: word cards, sentence
+ * cards, and new sentences up to the day's allowance. Cards of a word already
+ * seen today are held back — the same word never twice in a day — and so is
+ * the second card of a word within one batch.
+ */
+export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: QueueOptions): Promise<SessionCard[]> {
+  const at = o.at ?? Date.now();
+  const cutoff = day.cutoff;
+
+  const words = (await sql.query(
+    `select ${CARD_COLUMNS}
+     from chongfuxi_card c
+     where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE}
+       and c.due <= to_timestamp($2::double precision / 1000)
+       and not (c.id = any($3::bigint[]))
+       and not (c.word = any($4::text[]))
+       and not exists (
+         select 1 from chongfuxi_review r
+         where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
+       )
+     order by c.due, (c.kind = 'produce'), c.id
+     limit $6`,
+    [owner, cutoff, o.exclude, o.skipWords, day.day, o.limit * 4, [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])]],
+  )) as unknown as CardRow[];
+  const seen = new Set<string>();
+  const wordCards = words.filter((c) => !seen.has(c.word!) && seen.add(c.word!));
+
+  const withSentences = o.sentences !== false;
+  const dueSentences = !withSentences ? [] : (await sql.query(
+    `select ${CARD_COLUMNS}
+     from chongfuxi_card c
+     where c.owner_email = $1 and c.kind = 'sentence' and ${ACTIVE} and c.state <> 0
+       and c.due <= to_timestamp($2::double precision / 1000)
+       and not (c.id = any($3::bigint[]))
+     order by c.due, c.id
+     limit $4`,
+    [owner, cutoff, o.exclude, o.limit],
+  )) as unknown as CardRow[];
+
+  // New sentences: what the day still allows, less the new ones the device is holding.
+  const allowance = (await sql.query(
+    `select coalesce((select new_sentences from chongfuxi_settings where owner_email = $1), 10)
+          - (select count(*) from chongfuxi_review
+             where owner_email = $1 and day = $2::date and kind = 'sentence' and cause = 'answer'
+               and (before->>'state')::int = 0)
+          - (select count(*) from chongfuxi_card
+             where owner_email = $1 and kind = 'sentence' and state = 0 and id = any($3::bigint[])) as n`,
+    [owner, day.day, o.exclude],
+  )) as unknown as Array<{ n: string }>;
+  const left = withSentences ? Math.min(o.limit, Math.max(0, Number(allowance[0].n))) : 0;
+  // First the ones a word just unlocked, newest first; then the ones holding a
+  // word never yet read in a sentence. Past that, a fixed shuffle: every
+  // source and length mixed, rather than the shortest scraps first.
+  const fresh = left
+    ? ((await sql.query(
+        `select ${CARD_COLUMNS}
+         from chongfuxi_card c
+         join chongfuxi_sentence s on s.owner_email = c.owner_email and s.id = c.sentence_id
+         where c.owner_email = $1 and c.kind = 'sentence' and ${ACTIVE} and c.state = 0
+           and not (c.id = any($2::bigint[]))
+         order by (s.unlocked_by is not null) desc,
+                  case when s.unlocked_by is not null then s.unlocked_at end desc nulls last,
+                  exists (
+                    select 1 from chongfuxi_token t
+                    join chongfuxi_word w on w.owner_email = t.owner_email and w.word = t.word
+                    where t.owner_email = s.owner_email and t.sentence_id = s.id
+                      and w.status = 'deck' and w.exposures = 0
+                  ) desc,
+                  md5(s.key), s.id
+         limit $3`,
+        [owner, o.exclude, left],
+      )) as unknown as CardRow[])
+    : [];
+
+  const picked = interleave({ word: wordCards, sentence: dueSentences, new: fresh }, o.position, o.limit);
+  if (!picked.length) return [];
+  return dress(sql, owner, picked, day, at);
+}
+
+/** Everything a card needs to be drawn: the word, its meanings, a sentence, its words. */
+async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, at: number): Promise<SessionCard[]> {
+  const wordList = [...new Set(cards.filter((c) => c.word).map((c) => c.word!))];
+
+  const wordRows = wordList.length
+    ? ((await sql`
+        select word, pinyin, defs, pleco from chongfuxi_word
+        where owner_email = ${owner} and word = any(${wordList}::text[])
+      `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; pleco: PlecoSeed | null }>)
+    : [];
+  const answers = (await sql`
+    select card_id::int as card, grade, (extract(epoch from at) * 1000)::double precision as at
+    from chongfuxi_review
+    where owner_email = ${owner} and card_id = any(${cards.map((c) => c.id)}::bigint[])
+    order by seq
+  `) as unknown as Array<{ card: number; grade: Grade; at: number }>;
+  /** The card's own answers here, after whatever Pleco recorded for the same thing. */
+  const historyOf = (c: CardRow, pleco: PlecoSeed | null): CardHistory => {
+    const here = answers.filter((a) => a.card === c.id);
+    // Pleco writes a digit per answer, oldest first: 6 for right, 2 for wrong.
+    const before = [...(pleco?.history ?? "")].map((d): Grade => (d >= "4" ? "good" : "forgot"));
+    const last = here[here.length - 1];
+    return {
+      pleco: before,
+      here: here.map((a) => a.grade),
+      lastAt: last ? Math.round(last.at) : pleco?.last ? pleco.last * 1000 : null,
+      lastIn: last ? "here" : pleco?.last ? "pleco" : null,
+    };
+  };
+  const meaningRows = wordList.length
+    ? ((await sql`
+        select id::int as id, word, gloss from chongfuxi_meaning
+        where owner_email = ${owner} and merged is null and word = any(${wordList}::text[])
+        order by id
+      `) as unknown as Array<{ id: number; word: string; gloss: string }>)
+    : [];
+  const infoOf = new Map<string, WordInfo>(
+    wordRows.map((w) => [
+      w.word,
+      { word: w.word, pinyin: w.pinyin, defs: w.defs, split: meaningRows.filter((m) => m.word === w.word).map(({ id, gloss }) => ({ id, gloss })) },
+    ]),
+  );
+
+  // Readable sentences each word appears in, shortest first, a few per word.
+  // Full sentences only, where the word has any.
+  const contexts = wordList.length
+    ? ((await sql`
+        select x.word, x.id, x.zh, x.en, x.rn::int as rn, x.n::int as n
+        from (
+          select t.word, s.id::int as id, s.zh, s.en,
+                 row_number() over (
+                   partition by t.word
+                   order by (char_length(s.key) < ${CONTEXT_MIN_HAN}), char_length(s.key), s.id
+                 ) as rn,
+                 count(*) over (partition by t.word) as n,
+                 count(*) filter (where char_length(s.key) >= ${CONTEXT_MIN_HAN}) over (partition by t.word) as whole
+          from (
+            select distinct word, sentence_id from chongfuxi_token
+            where owner_email = ${owner} and word = any(${wordList}::text[])
+          ) t
+          join chongfuxi_sentence s on s.owner_email = ${owner} and s.id = t.sentence_id
+          where cardinality(s.blockers) = 0
+        ) x
+        where x.rn <= ${CONTEXT_POOL} and (x.whole = 0 or x.rn <= x.whole)
+      `) as unknown as Array<{ word: string; id: number; zh: string; en: string | null; rn: number; n: number }>)
+    : [];
+
+  const chosen = new Map<number, { id: number; zh: string; en: string | null }>();
+  for (const c of cards) {
+    // A split-off meaning is shown without a sentence: nothing says yet which
+    // sentences use the word in that sense.
+    if (!c.word || c.meaning_id !== null) continue;
+    const mine = contexts.filter((x) => x.word === c.word);
+    if (!mine.length) continue;
+    // A different sentence each time, and not the one the word's other card is on.
+    const turn = (c.answered + (c.kind === "produce" ? 1 : 0)) % mine.length;
+    const pick = mine.find((x) => x.rn === turn + 1) ?? mine[0];
+    chosen.set(c.id, { id: pick.id, zh: pick.zh, en: pick.en });
+  }
+
+  const sentenceIds = [...new Set([...cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!), ...[...chosen.values()].map((s) => s.id)])];
+  const own = cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!);
+  const ownRows = own.length
+    ? ((await sql`
+        select id::int as id, zh, en, pleco from chongfuxi_sentence
+        where owner_email = ${owner} and id = any(${own}::bigint[])
+      `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null }>)
+    : [];
+  const tokenRows = sentenceIds.length
+    ? ((await sql`
+        select sentence_id::int as id, array_agg(word order by pos) as words
+        from chongfuxi_token
+        where owner_email = ${owner} and sentence_id = any(${sentenceIds}::bigint[])
+        group by sentence_id
+      `) as unknown as Array<{ id: number; words: string[] }>)
+    : [];
+  const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
+  const sentenceOf = (s: { id: number; zh: string; en: string | null } | undefined): SentenceInfo | null =>
+    s ? { id: s.id, zh: s.zh, en: s.en, words: wordsOf.get(s.id) ?? [] } : null;
+
+  const out: SessionCard[] = [];
+  for (const c of cards) {
+    const schedule = scheduleOf(c);
+    const base = { id: c.id, kind: c.kind, note: c.note, intervals: intervals(schedule, at), isNew: c.state === 0 };
+    if (c.kind === "sentence") {
+      const progress = { cleanReads: c.clean_reads, lastCleanDay: c.last_clean_day, retired: false };
+      const row = ownRows.find((s) => s.id === c.sentence_id);
+      out.push({
+        ...base,
+        history: historyOf(c, row?.pleco ?? null),
+        sentence: sentenceOf(row),
+        cleanReads: c.clean_reads,
+        wouldRetire: readSentence(progress, "good", day.day).retired,
+      });
+      continue;
+    }
+    const word = infoOf.get(c.word!);
+    if (!word) continue;
+    const meaning = c.meaning_id === null ? null : (word.split.find((m) => m.id === c.meaning_id) ?? null);
+    // Pleco tested recognition of the word as a whole, so its record belongs to that card only.
+    const plecoRecord = c.kind === "read" && c.meaning_id === null ? (wordRows.find((w) => w.word === c.word)?.pleco ?? null) : null;
+    const card: SessionCard = { ...base, history: historyOf(c, plecoRecord), word, meaning, sentence: sentenceOf(chosen.get(c.id)) };
+    if (c.kind === "produce") {
+      // Other deck words with the same meaning, so "I said 快乐" can be judged against 高兴.
+      const senses = meaning ? [meaning.gloss.toLowerCase()] : promptSenses(word.defs).map((s) => s.toLowerCase());
+      const others = senses.length
+        ? ((await sql`
+            select word from chongfuxi_word
+            where owner_email = ${owner} and status = 'deck' and word <> ${word.word}
+              and glosses && ${senses}::text[]
+            order by char_length(word), word
+            limit 6
+          `) as unknown as Array<{ word: string }>)
+        : [];
+      card.alternatives = others.map((o) => o.word);
+    }
+    out.push(card);
+  }
+  return out;
+}
+
+/** The senses a Produce card asks with: the first few of the word's main definition. */
+export function promptSenses(defs: Definition[]): string[] {
+  return (defs.find((d) => !d.own) ?? defs[0])?.senses.slice(0, 3) ?? [];
+}
+
+// ------------------------------------------------------------------ answer --
+
+interface Snapshot extends Schedule {
+  cleanReads?: number;
+  retired?: boolean;
+}
+
+const NOTHING: ReviewResult = {
+  duplicate: false,
+  days: null,
+  retired: false,
+  produceOpened: false,
+  lapsed: [],
+  revived: 0,
+  was: null,
+  cleanReads: null,
+  exposed: [],
+  firstSeen: [],
+  lapses: [],
+  revivedSentences: [],
+  recallIn: null,
+};
+
+/** Days a card had been set to wait, for the receipt; a new card has none. */
+const waitOf = (s: Schedule): number | null => (s.state === 0 ? null : Math.max(1, s.scheduledDays));
+
+/**
+ * Record an answer and everything that follows from it.
+ *
+ * @param trustClock  take the answer's own time as given. Routes don't — a
+ *                    device with a wrong clock would schedule into the past —
+ *                    but the check script answers on days it makes up.
+ */
+export async function submitReview(sql: Sql, owner: string, input: ReviewInput, trustClock = false): Promise<ReviewResult> {
+  const already = (await sql`
+    select 1 from chongfuxi_review where owner_email = ${owner} and id = ${input.id}
+  `) as unknown as unknown[];
+  if (already.length) return { ...NOTHING, duplicate: true };
+
+  const found = (await sql.query(
+    `select ${CARD_COLUMNS} from chongfuxi_card c where c.owner_email = $1 and c.id = $2 and ${ACTIVE}`,
+    [owner, input.cardId],
+  )) as unknown as CardRow[];
+  const card = found[0];
+  if (!card) throw new ReviewError("That card isn't in the queue.");
+
+  const at = trustClock || Math.abs(input.at - Date.now()) < DAY_MS / 2 ? input.at : Date.now();
+  const before = scheduleOf(card);
+  const after = answer(before, input.grade, at);
+  const good = input.grade === "good";
+  const shown = card.kind === "sentence" ? card.sentence_id : (input.sentenceId ?? null);
+
+  const effects: { produce?: boolean; revived?: number[]; lapsed?: string[]; cutoff?: number } = {};
+  const statements = [];
+  let snapshotBefore: Snapshot = before;
+  let snapshotAfter: Snapshot = after;
+  let retired = false;
+  const revive = new Set<number>();
+  const lapses: Array<{ word: string; card: CardRow; after: Schedule }> = [];
+  // For the receipt.
+  let cleanReads: ReviewResult["cleanReads"] = null;
+  let recallIn: number | null = null;
+  let exposed: string[] = [];
+
+  if (card.kind === "sentence") {
+    const progress = readSentence(
+      { cleanReads: card.clean_reads, lastCleanDay: card.last_clean_day, retired: false },
+      input.grade,
+      input.day,
+    );
+    retired = progress.retired;
+    cleanReads = { before: card.clean_reads, now: progress.cleanReads, need: CLEAN_READS_TO_RETIRE };
+    snapshotBefore = { ...before, cleanReads: card.clean_reads, retired: false };
+    snapshotAfter = { ...after, cleanReads: progress.cleanReads, retired };
+
+    const tokens = (await sql`
+      select word from chongfuxi_token
+      where owner_email = ${owner} and sentence_id = ${card.sentence_id} order by pos
+    `) as unknown as Array<{ word: string }>;
+    const inSentence = new Set(tokens.map((t) => t.word));
+    const tapped = good ? [] : [...new Set(input.tapped ?? [])].filter((w) => inSentence.has(w));
+
+    if (tapped.length) {
+      // The words that lapse: the tapped ones that are in the deck, or the
+      // deck words a tapped compound is made of.
+      const deck = (await sql`
+        select word from chongfuxi_word
+        where owner_email = ${owner} and status = 'deck' and word = any(${piecesOf(tapped)}::text[])
+      `) as unknown as Array<{ word: string }>;
+      const targets = lapseTargets(tapped, new Set(deck.map((d) => d.word)));
+      const cards = targets.length
+        ? ((await sql.query(
+            `select ${CARD_COLUMNS} from chongfuxi_card c
+             where c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and c.word = any($2::text[])`,
+            [owner, targets],
+          )) as unknown as CardRow[])
+        : [];
+      for (const c of cards) lapses.push({ word: c.word!, card: c, after: answer(scheduleOf(c), "forgot", at) });
+      for (const l of lapses) {
+        const other = await retiredWith(sql, owner, l.word, card.sentence_id!, [...revive]);
+        if (other !== null) revive.add(other);
+      }
+    }
+
+    // Reading a sentence is seeing its words in context — except the ones that tripped.
+    const read = tokens.map((t) => t.word).filter((w) => !tapped.includes(w));
+    if (read.length) {
+      exposed = [...new Set(read)];
+      statements.push(sql`
+        update chongfuxi_word set exposures = exposures + 1
+        where owner_email = ${owner} and word = any(${exposed}::text[])
+      `);
+    }
+    statements.push(sql`
+      update chongfuxi_card
+      set state = ${after.state}, due = ${ts(after.due)}::timestamptz, stability = ${after.stability},
+          difficulty = ${after.difficulty}, reps = ${after.reps}, lapses = ${after.lapses},
+          scheduled_days = ${after.scheduledDays}, last_review = ${ts(after.lastReview)}::timestamptz,
+          answered = answered + 1, passed = passed + ${good ? 1 : 0},
+          clean_reads = ${progress.cleanReads}, last_clean_day = ${progress.lastCleanDay}::date,
+          retired = ${retired ? ts(at) : null}::timestamptz
+      where owner_email = ${owner} and id = ${card.id}
+    `);
+  } else {
+    statements.push(sql`
+      update chongfuxi_card
+      set state = ${after.state}, due = ${ts(after.due)}::timestamptz, stability = ${after.stability},
+          difficulty = ${after.difficulty}, reps = ${after.reps}, lapses = ${after.lapses},
+          scheduled_days = ${after.scheduledDays}, last_review = ${ts(after.lastReview)}::timestamptz,
+          answered = answered + 1, passed = passed + ${good ? 1 : 0}
+      where owner_email = ${owner} and id = ${card.id}
+    `);
+
+    if (good) {
+      if (shown !== null) {
+        exposed = [card.word!];
+        statements.push(sql`
+          update chongfuxi_word set exposures = exposures + 1
+          where owner_email = ${owner} and word = ${card.word}
+        `);
+      }
+      // Recognising it once opens the harder card: recalling it from its meaning.
+      if (card.kind === "read" && card.passed === 0) {
+        const produce = await produceSeed(sql, owner, card, at);
+        if (produce) {
+          effects.produce = true;
+          recallIn = Math.max(0, Math.round((produce.due - at) / DAY_MS));
+          statements.push(sql`
+            insert into chongfuxi_card
+              (owner_email, kind, word, meaning_id, state, due, stability, difficulty, reps, lapses, scheduled_days, last_review)
+            values (${owner}, 'produce', ${card.word}, ${card.meaning_id}, ${produce.state}, ${ts(produce.due)}::timestamptz,
+                    ${produce.stability}, ${produce.difficulty}, ${produce.reps}, ${produce.lapses},
+                    ${produce.scheduledDays}, ${ts(produce.lastReview)}::timestamptz)
+            on conflict do nothing
+          `);
+        }
+      }
+    } else {
+      // Forgetting a word brings back the sentence it was shown in, if that had
+      // retired, and one other retired sentence that has the word.
+      if (shown !== null) {
+        const same = (await sql`
+          select id::int as id from chongfuxi_card
+          where owner_email = ${owner} and kind = 'sentence' and sentence_id = ${shown}
+            and retired is not null and not suspended
+        `) as unknown as Array<{ id: number }>;
+        if (same[0]) revive.add(same[0].id);
+      }
+      const other = await retiredWith(sql, owner, card.word!, shown ?? 0, [...revive]);
+      if (other !== null) revive.add(other);
+    }
+  }
+
+  if (revive.size) {
+    effects.revived = [...revive];
+    effects.cutoff = input.cutoff;
+    // Back in the queue from tomorrow, one clean read from retiring again.
+    statements.push(sql`
+      update chongfuxi_card
+      set retired = null, clean_reads = ${REVIVED_CLEAN_READS}, due = ${ts(input.cutoff)}::timestamptz
+      where owner_email = ${owner} and id = any(${[...revive]}::bigint[])
+    `);
+  }
+  if (lapses.length) effects.lapsed = lapses.map((l) => l.word);
+
+  const row = (r: {
+    id: string;
+    card: CardRow;
+    cause: "answer" | "tapped";
+    parent: string | null;
+    grade: string;
+    before: Snapshot;
+    after: Snapshot;
+    tapped: string[];
+    effects: object;
+    ms: number | null;
+    revealMs: number | null;
+  }) => sql`
+    insert into chongfuxi_review
+      (owner_email, id, at, day, session, card_id, kind, word, meaning_id, sentence_id, grade, ms, reveal_ms,
+       tapped, cause, parent, scheduler, before, after, effects, tz, utc_offset, position, device)
+    values (${owner}, ${r.id}, ${ts(at)}::timestamptz, ${input.day}::date, ${input.session}, ${r.card.id}, ${r.card.kind},
+            ${r.card.word}, ${r.card.meaning_id}, ${shown}, ${r.grade}, ${r.ms}, ${r.revealMs},
+            ${r.tapped}::text[], ${r.cause}, ${r.parent}, ${SCHEDULER},
+            ${JSON.stringify(r.before)}::jsonb, ${JSON.stringify(r.after)}::jsonb, ${JSON.stringify(r.effects)}::jsonb,
+            ${input.tz ?? null}, ${input.utcOffset ?? null}, ${input.position ?? null}, ${input.device ?? null})
+  `;
+
+  // The answer first, so a repeat of the same id fails before anything moves.
+  statements.unshift(
+    row({
+      id: input.id,
+      card,
+      cause: "answer",
+      parent: null,
+      grade: input.grade,
+      before: snapshotBefore,
+      after: snapshotAfter,
+      tapped: card.kind === "sentence" && !good ? [...new Set(input.tapped ?? [])] : [],
+      effects,
+      ms: input.ms ?? null,
+      revealMs: input.revealMs ?? null,
+    }),
+  );
+  for (const l of lapses) {
+    statements.push(
+      row({
+        id: `${input.id}:${l.word}`,
+        card: l.card,
+        cause: "tapped",
+        parent: input.id,
+        grade: "forgot",
+        before: scheduleOf(l.card),
+        after: l.after,
+        tapped: [],
+        effects: {},
+        ms: null,
+        revealMs: null,
+      }),
+    );
+    statements.push(sql`
+      update chongfuxi_card
+      set state = ${l.after.state}, due = ${ts(l.after.due)}::timestamptz, stability = ${l.after.stability},
+          difficulty = ${l.after.difficulty}, reps = ${l.after.reps}, lapses = ${l.after.lapses},
+          scheduled_days = ${l.after.scheduledDays}, last_review = ${ts(l.after.lastReview)}::timestamptz,
+          answered = answered + 1
+      where owner_email = ${owner} and id = ${l.card.id}
+    `);
+  }
+
+  // Read before anything moves: which of the words read are the deck's, and
+  // which had never been met in a sentence; and the sentences coming back.
+  const met = exposed.length
+    ? ((await sql`
+        select word, exposures from chongfuxi_word
+        where owner_email = ${owner} and status = 'deck' and word = any(${exposed}::text[])
+      `) as unknown as Array<{ word: string; exposures: number }>)
+    : [];
+  const inOrder = (words: string[]) => exposed.filter((w) => words.includes(w));
+  const back = revive.size
+    ? ((await sql`
+        select s.zh from chongfuxi_card c
+        join chongfuxi_sentence s on s.owner_email = c.owner_email and s.id = c.sentence_id
+        where c.owner_email = ${owner} and c.id = any(${[...revive]}::bigint[])
+        order by c.id
+      `) as unknown as Array<{ zh: string }>)
+    : [];
+
+  await sql.transaction(statements);
+
+  return {
+    duplicate: false,
+    days: retired ? null : Math.max(1, Math.round((after.due - at) / DAY_MS)),
+    retired,
+    produceOpened: Boolean(effects.produce),
+    lapsed: effects.lapsed ?? [],
+    revived: revive.size,
+    was: waitOf(before),
+    cleanReads,
+    exposed: inOrder(met.map((m) => m.word)),
+    firstSeen: inOrder(met.filter((m) => m.exposures === 0).map((m) => m.word)),
+    lapses: lapses.map((l) => ({
+      word: l.word,
+      was: waitOf(scheduleOf(l.card)),
+      days: Math.max(1, Math.round((l.after.due - at) / DAY_MS)),
+    })),
+    revivedSentences: back.map((b) => b.zh),
+    recallIn,
+  };
+}
+
+export class ReviewError extends Error {}
+
+/** A retired sentence that has this word, other than the one given: the one read longest ago. */
+async function retiredWith(sql: Sql, owner: string, word: string, notSentence: number, notCards: number[]): Promise<number | null> {
+  const rows = (await sql`
+    select c.id::int as id
+    from chongfuxi_card c
+    where c.owner_email = ${owner} and c.kind = 'sentence' and c.retired is not null and not c.suspended
+      and c.sentence_id <> ${notSentence}
+      and not (c.id = any(${notCards}::bigint[]))
+      and exists (
+        select 1 from chongfuxi_token t
+        where t.owner_email = c.owner_email and t.sentence_id = c.sentence_id and t.word = ${word}
+      )
+    order by c.last_review asc nulls first, c.id
+    limit 1
+  `) as unknown as Array<{ id: number }>;
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * Where a word's Produce card starts, or null if there is nothing to ask it
+ * with. A word's own starts from Pleco, a step lower than recognition; a
+ * split-off meaning's starts new.
+ */
+async function produceSeed(sql: Sql, owner: string, read: CardRow, at: number): Promise<Schedule | null> {
+  if (read.meaning_id !== null) return newSchedule(at);
+  const rows = (await sql`
+    select pleco, jsonb_array_length(defs) as n from chongfuxi_word
+    where owner_email = ${owner} and word = ${read.word}
+  `) as unknown as Array<{ pleco: PlecoSeed | null; n: number }>;
+  if (!rows[0] || !rows[0].n) return null;
+  return seedSchedule(rows[0].pleco, "produce", at);
+}
+
+// ---------------------------------------------------------------- meanings --
+
+/** Give one meaning of a word its own schedule. Its first card is due at once. */
+export async function splitMeaning(sql: Sql, owner: string, word: string, gloss: string, at = Date.now()): Promise<number> {
+  const known = (await sql`
+    select 1 from chongfuxi_word where owner_email = ${owner} and word = ${word} and status = 'deck'
+  `) as unknown as unknown[];
+  if (!known.length) throw new ReviewError("That word isn't in the deck.");
+  const rows = (await sql`
+    insert into chongfuxi_meaning (owner_email, word, gloss)
+    values (${owner}, ${word}, ${gloss})
+    on conflict (owner_email, word, gloss) do update set merged = null
+    returning id::int as id
+  `) as unknown as Array<{ id: number }>;
+  const id = rows[0].id;
+  const fresh = newSchedule(at);
+  await sql`
+    insert into chongfuxi_card (owner_email, kind, word, meaning_id, state, due)
+    values (${owner}, 'read', ${word}, ${id}, ${fresh.state}, ${ts(fresh.due)}::timestamptz)
+    on conflict do nothing
+  `;
+  await sql`update chongfuxi_card set suspended = false where owner_email = ${owner} and meaning_id = ${id}`;
+  return id;
+}
+
+/** Fold a split-off meaning back into its word: its cards leave the queue. */
+export async function mergeMeaning(sql: Sql, owner: string, id: number): Promise<void> {
+  await sql.transaction([
+    sql`update chongfuxi_meaning set merged = now() where owner_email = ${owner} and id = ${id}`,
+    sql`update chongfuxi_card set suspended = true where owner_email = ${owner} and meaning_id = ${id}`,
+  ]);
+}
+
+// ----------------------------------------------------------- notes, pacing --
+
+/**
+ * The owner's note on a card: a line that tells it apart next time, shown on
+ * the card's front. An empty note takes it away. The card stays in the queue;
+ * a note changes nothing about its schedule.
+ */
+export async function setNote(sql: Sql, owner: string, cardId: number, note: string): Promise<void> {
+  await sql`
+    update chongfuxi_card set note = ${note.trim() || null}
+    where owner_email = ${owner} and id = ${cardId}
+  `;
+}
+
+export async function setNewPerDay(sql: Sql, owner: string, n: number): Promise<void> {
+  await sql`
+    insert into chongfuxi_settings (owner_email, new_sentences) values (${owner}, ${n})
+    on conflict (owner_email) do update set new_sentences = excluded.new_sentences, updated = now()
+  `;
+}
+
+// ----------------------------------------------------------------- browsing --
+
+export interface SentenceQuery {
+  show: "readable" | "one" | "locked";
+  /** Only sentences this word alone is blocking. */
+  blocker?: string;
+  offset: number;
+  limit: number;
+}
+
+export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): Promise<SentenceRow[]> {
+  const where =
+    q.show === "readable" ? "cardinality(s.blockers) = 0" : q.show === "one" ? "cardinality(s.blockers) = 1" : "cardinality(s.blockers) > 1";
+  const rows = (await sql.query(
+    `select s.id::int as id, s.zh, s.en, s.blockers, s.sources, s.split,
+            case when c.id is null then null
+                 when c.retired is not null then 'retired'
+                 when c.state = 0 then 'new'
+                 else 'reading' end as card
+     from chongfuxi_sentence s
+     left join chongfuxi_card c on c.owner_email = s.owner_email and c.kind = 'sentence' and c.sentence_id = s.id
+     where s.owner_email = $1 and ${where} and ($2::text is null or s.blockers = array[$2::text])
+     order by char_length(s.key), s.id
+     limit $3 offset $4`,
+    [owner, q.blocker ?? null, q.limit, q.offset],
+  )) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[]; sources: string[]; split: string; card: SentenceRow["card"] }>;
+  return rows.map((r) => ({
+    id: r.id,
+    zh: r.zh,
+    en: r.en,
+    blockers: r.blockers,
+    sources: r.sources,
+    dictionarySplit: r.split === "dictionary",
+    card: r.card,
+  }));
+}
+
+/**
+ * The words each standing alone between the owner and some sentences, by how
+ * many. One from a Pleco list is something to learn next; the rest are mostly
+ * names and rarities.
+ */
+export async function listBlockers(sql: Sql, owner: string, limit: number): Promise<{ learnNext: Blocker[]; others: Blocker[]; names: string[] }> {
+  const rows = (await sql`
+    select b.word, b.n, w.status, w.pinyin, w.defs
+    from (
+      select blockers[1] as word, count(*)::int as n
+      from chongfuxi_sentence
+      where owner_email = ${owner} and cardinality(blockers) = 1
+      group by 1
+    ) b
+    left join chongfuxi_word w on w.owner_email = ${owner} and w.word = b.word
+    order by b.n desc, b.word
+  `) as unknown as Array<{ word: string; n: number; status: string | null; pinyin: string | null; defs: Definition[] | null }>;
+  const names = (await sql`
+    select word from chongfuxi_word where owner_email = ${owner} and status = 'name' order by added desc
+  `) as unknown as Array<{ word: string }>;
+  const toBlocker = (r: (typeof rows)[number]): Blocker => ({
+    word: r.word,
+    unlocks: r.n,
+    listed: r.status === "listed",
+    pinyin: r.pinyin,
+    gloss: r.defs?.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? null,
+  });
+  return {
+    learnNext: rows.filter((r) => r.status === "listed").slice(0, limit).map(toBlocker),
+    others: rows.filter((r) => r.status !== "listed").slice(0, limit).map(toBlocker),
+    names: names.map((n) => n.word),
+  };
+}
+
+// ---------------------------------------------------------------- coverage --
+
+/** A card remembered for under three weeks is young; for six months or more, strong. */
+const YOUNG_DAYS = 21;
+const STRONG_DAYS = 180;
+
+/** The HSK schemes shown, by the name of the Pleco category each lives under. */
+const SCHEMES = [
+  { top: "HSK 2012-2021", label: "HSK (old)", note: "The six-level HSK of 2012 to 2021." },
+  { top: "HSK 3.0", label: "HSK 3.0", note: "The nine-level HSK that replaced it." },
+];
+
+/** How much of each HSK level is in the deck. A word listed at two levels counts at both. */
+export async function getCoverage(sql: Sql, owner: string): Promise<Coverage> {
+  const rows = (await sql`
+    select l as list, count(*)::int as total,
+           count(*) filter (where w.status = 'deck')::int as in_deck,
+           count(*) filter (where c.answered = 0)::int as waiting,
+           count(*) filter (where c.answered > 0 and c.stability < ${YOUNG_DAYS})::int as young,
+           count(*) filter (where c.answered > 0 and c.stability >= ${YOUNG_DAYS} and c.stability < ${STRONG_DAYS})::int as mature,
+           count(*) filter (where c.answered > 0 and c.stability >= ${STRONG_DAYS})::int as strong
+    from chongfuxi_word w
+    cross join unnest(w.lists) l
+    left join chongfuxi_card c
+      on c.owner_email = w.owner_email and c.word = w.word and c.kind = 'read' and c.meaning_id is null
+     and w.status = 'deck'
+    where w.owner_email = ${owner}
+    group by 1
+  `) as unknown as Array<{ list: string; total: number; in_deck: number; waiting: number; young: number; mature: number; strong: number }>;
+  const tops = SCHEMES.map((s) => `${s.top}/%`);
+  const counts = (await sql`
+    select count(*) filter (where status = 'deck')::int as deck,
+           count(*) filter (
+             where status = 'deck' and not exists (select 1 from unnest(lists) l where l like any(${tops}::text[]))
+           )::int as unlisted
+    from chongfuxi_word where owner_email = ${owner}
+  `) as unknown as Array<{ deck: number; unlisted: number }>;
+  const order = (name: string) => Number(name.match(/\d+/)?.[0] ?? 99);
+  return {
+    groups: SCHEMES.map((s) => ({
+      label: s.label,
+      note: s.note,
+      levels: rows
+        .filter((r) => r.list.startsWith(`${s.top}/`))
+        .map((r) => ({
+          list: r.list,
+          name: r.list.slice(s.top.length + 1),
+          total: r.total,
+          inDeck: r.in_deck,
+          waiting: r.waiting,
+          young: r.young,
+          mature: r.mature,
+          strong: r.strong,
+        }))
+        .sort((a, b) => order(a.name) - order(b.name)),
+    })).filter((g) => g.levels.length),
+    deck: counts[0].deck,
+    unlisted: counts[0].unlisted,
+  };
+}
+
+/** The words of one list that aren't in the deck, shortest first. */
+export async function listMissing(sql: Sql, owner: string, list: string, offset: number, limit: number): Promise<MissingWord[]> {
+  const rows = (await sql`
+    select word, pinyin, defs from chongfuxi_word
+    where owner_email = ${owner} and status <> 'deck' and lists @> array[${list}]::text[]
+    order by char_length(word), word
+    limit ${limit} offset ${offset}
+  `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>;
+  return rows.map((r) => ({
+    word: r.word,
+    pinyin: r.pinyin,
+    gloss: r.defs.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? r.defs[0]?.senses[0] ?? null,
+  }));
+}

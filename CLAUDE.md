@@ -17,15 +17,18 @@ benji.codes/
 │   ├── gecijielong/        # /gecijielong route
 │   ├── jazz/               # /jazz route
 │   ├── longku/             # /longku route
+│   ├── chongfuxi/          # /chongfuxi route
 │   └── api/                # API routes namespaced per project
 │       ├── riddleyu/
 │       ├── gecijielong/
-│       └── longku/
+│       ├── longku/
+│       └── chongfuxi/
 ├── projects.config.ts      # Enable/disable projects, metadata
 ├── riddleyu/               # Source code (components, lib, styles)
 ├── gecijielong/            # Source code
 ├── jazz/                   # Source code
-└── longku/                 # Source code
+├── longku/                 # Source code
+└── chongfuxi/              # Source code
 ```
 
 ## Running locally
@@ -38,7 +41,7 @@ npm run dev   # localhost:3000
 ## Enabling/disabling projects
 
 Set `enabled: true/false` in `projects.config.ts`. Disabled projects don't appear
-on the landing page. All four current projects are enabled.
+on the landing page. All five current projects are enabled.
 
 ## Key conventions
 
@@ -46,7 +49,7 @@ on the landing page. All four current projects are enabled.
 - Env vars namespaced: `<PROJECT>_DATABASE_URL` (e.g., `GECIJIELONG_DATABASE_URL`)
 - Vite projects use `dynamic(() => import(...), { ssr: false })` page wrappers
 - Lazy DB initialization pattern with `getDb()` to avoid build-time env var evaluation
-- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*` defined in tsconfig paths
+- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*`, `@chongfuxi/*` defined in tsconfig paths
 
 ## Third-party data
 
@@ -58,6 +61,14 @@ on the landing page. All four current projects are enabled.
   `longku/scripts/build-cedict.py`.
 - **longku** frequencies come from [wordfreq](https://github.com/rspeer/wordfreq)
   (MIT), via `longku/scripts/build-frequency.py`.
+- **chongfuxi** embeds [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict)
+  (CC BY-SA 4.0) as `chongfuxi/data/cedict.txt`, rebuilt with
+  `chongfuxi/scripts/build-dict.ts`, and copies its definitions onto the word
+  rows it serves; the app credits it. It reads Pleco backups on the server
+  with [sql.js](https://github.com/sql-js/sql.js) (MIT). The repo ships no
+  sentence data: sentences come from the owner's Pleco backup, live in the
+  `CHONGFUXI_DATABASE_URL` store and are served read-only. That backup
+  includes third-party sentence decks.
 
 ## Per-project CLAUDE.md
 

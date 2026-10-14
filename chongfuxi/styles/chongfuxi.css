@@ -1,0 +1,2270 @@
+/* 重复习 — review built from Pleco decks.
+ *
+ * One column, phone first. A sticky header carries the state (the four counts
+ * every action moves) and the tabs; panels scroll beneath it.
+ *
+ * Colour lives in tokens: light on bare :root, dark redefined under
+ * prefers-color-scheme and under [data-theme="dark"], so either can win.
+ */
+
+:root {
+  --cf-bg: #f3f5fa;
+  --cf-surface: #ffffff;
+  --cf-sunken: rgba(20, 24, 34, 0.05);
+  --cf-ink: #14171d;
+  --cf-ink-soft: #5b6472;
+  --cf-ink-faint: #8a92a0;
+  --cf-rule: rgba(20, 24, 34, 0.09);
+  --cf-rule-strong: rgba(20, 24, 34, 0.18);
+  --cf-accent: #2f5bea;
+  --cf-accent-soft: rgba(47, 91, 234, 0.1);
+  --cf-on-accent: #ffffff;
+  --cf-up: #0f9d76;
+  --cf-up-soft: rgba(15, 157, 118, 0.12);
+  --cf-down: #d14a2e;
+  --cf-down-soft: rgba(209, 74, 46, 0.1);
+  --cf-warn: #a66a12;
+  --cf-mark: rgba(47, 91, 234, 0.14);
+  --cf-shadow: 0 1px 2px rgba(20, 24, 34, 0.04), 0 10px 30px rgba(20, 24, 34, 0.06);
+  /* One colour per kind of card, used wherever that kind is named or counted. */
+  --cf-read: #2f5bea;
+  --cf-recall: #7c4ddb;
+  --cf-sentence: #0f9d76;
+  --cf-new: #e08a00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cf-bg: #0e1014;
+    --cf-surface: #181b21;
+    --cf-sunken: rgba(242, 243, 245, 0.07);
+    --cf-ink: #f2f3f5;
+    --cf-ink-soft: #a3aab5;
+    --cf-ink-faint: #737b88;
+    --cf-rule: rgba(242, 243, 245, 0.1);
+    --cf-rule-strong: rgba(242, 243, 245, 0.2);
+    --cf-accent: #6f8fff;
+    --cf-accent-soft: rgba(111, 143, 255, 0.16);
+    --cf-on-accent: #0b1020;
+    --cf-up: #4cc9a4;
+    --cf-up-soft: rgba(76, 201, 164, 0.14);
+    --cf-down: #f0876c;
+    --cf-down-soft: rgba(240, 135, 108, 0.14);
+    --cf-warn: #e0b35c;
+    --cf-mark: rgba(111, 143, 255, 0.24);
+    --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+    --cf-read: #6f8fff;
+    --cf-recall: #a98bf0;
+    --cf-sentence: #4cc9a4;
+    --cf-new: #f0b24a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --cf-bg: #0e1014;
+  --cf-surface: #181b21;
+  --cf-sunken: rgba(242, 243, 245, 0.07);
+  --cf-ink: #f2f3f5;
+  --cf-ink-soft: #a3aab5;
+  --cf-ink-faint: #737b88;
+  --cf-rule: rgba(242, 243, 245, 0.1);
+  --cf-rule-strong: rgba(242, 243, 245, 0.2);
+  --cf-accent: #6f8fff;
+  --cf-accent-soft: rgba(111, 143, 255, 0.16);
+  --cf-on-accent: #0b1020;
+  --cf-up: #4cc9a4;
+  --cf-up-soft: rgba(76, 201, 164, 0.14);
+  --cf-down: #f0876c;
+  --cf-down-soft: rgba(240, 135, 108, 0.14);
+  --cf-warn: #e0b35c;
+  --cf-mark: rgba(111, 143, 255, 0.24);
+  --cf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --cf-read: #6f8fff;
+  --cf-recall: #a98bf0;
+  --cf-sentence: #4cc9a4;
+  --cf-new: #f0b24a;
+}
+
+/* ---------------------------------------------------------------- shell -- */
+
+.cfx {
+  /* Above the site-wide grain overlay on body::before. */
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--cf-bg);
+  color: var(--cf-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cfx button,
+.cfx select,
+.cfx input {
+  font: inherit;
+  color: inherit;
+}
+
+.cfx button,
+.cfx a,
+.cfx select {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.cf-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--cf-bg);
+  border-bottom: 1px solid var(--cf-rule);
+  padding-top: env(safe-area-inset-top);
+}
+
+.cf-top > * {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.cf-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.cf-title h1 {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.cf-title-py {
+  font-family: inherit;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+
+/* The four counts every action moves. */
+.cf-state {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+
+/* Which of the two each count is about: words or sentences. */
+.cf-state small {
+  font-size: 10.5px;
+  color: var(--cf-ink-faint);
+}
+
+/* A review session has the screen to itself. */
+.cfx.is-focus .cf-top,
+.cfx.is-focus .cf-tabs {
+  display: none;
+}
+
+.cfx.is-focus .cf-main {
+  max-width: none;
+  padding: 0;
+}
+
+.cf-state > div {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 10px;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-state b {
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.cf-state span {
+  font-size: 11px;
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-state.is-past > div {
+  border-style: dashed;
+  border-color: var(--cf-accent);
+}
+
+.cf-past {
+  background: var(--cf-accent-soft);
+  color: var(--cf-ink);
+  font-size: 13px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Bottom tab bar: fixed above the gesture bar, four equal tabs with the
+   Chinese over a small English label. */
+.cf-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-rule);
+  padding: 0 max(8px, env(safe-area-inset-left)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-right));
+}
+
+.cf-tab {
+  /* Five tabs share a 360px screen: equal widths, and none may push the bar wider. */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 180px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  border-top: 2px solid transparent;
+  padding: 6px 2px;
+  cursor: pointer;
+  color: var(--cf-ink-soft);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.cf-tab.is-on {
+  color: var(--cf-accent);
+  border-top-color: var(--cf-accent);
+}
+
+.cf-tab-zh {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.cf-main {
+  max-width: 720px;
+  margin: 0 auto;
+  /* Clear the tab bar and the gesture bar under it. */
+  padding: 12px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+
+/* --------------------------------------------------------------- panels -- */
+
+.cf-section {
+  margin-top: 18px;
+}
+
+.cf-h2 {
+  font-size: 16px;
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+
+.cf-h3 {
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cf-ink-soft);
+  margin: 16px 0 6px;
+}
+
+.cf-lede {
+  color: var(--cf-ink-soft);
+  font-size: 13.5px;
+  margin-bottom: 10px;
+}
+
+.cf-muted {
+  color: var(--cf-ink-faint);
+  font-size: 13px;
+}
+
+.cf-pad {
+  padding: 12px 0;
+}
+
+.cf-error {
+  color: var(--cf-down);
+  margin: 10px 0;
+}
+
+.cf-warn {
+  color: var(--cf-warn);
+  font-size: 13.5px;
+  margin: 8px 0;
+}
+
+.cfx code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--cf-sunken);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- lists -- */
+
+.cf-list {
+  list-style: none;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cf-list > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-row-head {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: none;
+  border: 0;
+  padding: 11px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-row-open .cf-row-head {
+  background: var(--cf-sunken);
+}
+
+.cf-word {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cf-pinyin {
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-count {
+  margin-left: auto;
+  color: var(--cf-up);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-more {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  background: none;
+  border: 1px dashed var(--cf-rule-strong);
+  border-radius: 10px;
+  padding: 9px;
+  cursor: pointer;
+  color: var(--cf-ink-soft);
+}
+
+.cf-tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cf-sunken);
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+}
+
+/* Said in place of the buttons a visitor doesn't get. */
+.cf-readonly {
+  font-size: 13px;
+  align-self: center;
+}
+
+/* The storage tag beside the title is also the way to the Storage section. The
+ * pill stays small; the padding around it is what the thumb lands on. */
+.cf-tag-btn {
+  margin: -12px -10px -12px auto;
+  padding: 12px 10px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------- previews -- */
+
+.cf-actions {
+  padding: 4px 12px 12px;
+  background: var(--cf-sunken);
+}
+
+/* Two across on a phone; with three buttons the primary takes its own row,
+   full width, nearest the thumb. */
+.cf-actions .cf-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.cf-actions .cf-buttons > :nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 560px) {
+  .cf-actions .cf-buttons {
+    display: flex;
+  }
+}
+
+.cf-actions-preview {
+  padding: 6px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cf-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cf-chip-up {
+  color: var(--cf-up);
+  background: var(--cf-up-soft);
+}
+
+.cf-chip-down {
+  color: var(--cf-down);
+  background: var(--cf-down-soft);
+}
+
+.cf-chip-none {
+  color: var(--cf-ink-faint);
+  background: var(--cf-sunken);
+}
+
+.cf-examples {
+  list-style: none;
+  margin: 4px 0 8px;
+}
+
+.cf-examples li {
+  padding: 6px 0;
+  border-top: 1px solid var(--cf-rule);
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-zh {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.cf-en {
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+}
+
+.cf-mark {
+  background: var(--cf-mark);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.cf-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--cf-accent);
+  background: var(--cf-accent);
+  color: var(--cf-on-accent) !important;
+  font-weight: 600;
+  font-size: 14.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.cf-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cf-btn-ghost {
+  background: transparent;
+  color: var(--cf-accent) !important;
+}
+
+.cf-link {
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  color: var(--cf-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------ sentences -- */
+
+.cf-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.cf-seg {
+  display: flex;
+  background: var(--cf-sunken);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.cf-seg-btn {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-seg-btn.is-on {
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  box-shadow: var(--cf-shadow);
+}
+
+.cf-seg-n {
+  display: block;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-select {
+  appearance: auto;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  max-width: 100%;
+  /* Under 16px, iOS zooms the page when a select is focused. */
+  font-size: 16px;
+}
+
+.cf-sentence {
+  padding: 10px 12px;
+}
+
+.cf-sentence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.cf-sentence-meta:empty {
+  display: none;
+}
+
+.cf-sentence .cf-actions {
+  margin: 8px -12px -10px;
+}
+
+.cf-blocker {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 36px;
+  min-width: 40px;
+  border: 1px solid var(--cf-down);
+  color: var(--cf-down);
+  background: var(--cf-down-soft);
+  border-radius: 8px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.cf-blocker.is-on {
+  background: var(--cf-down);
+  color: var(--cf-surface);
+}
+
+/* ------------------------------------------------------------------ log -- */
+
+.cf-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-table th,
+.cf-table td {
+  padding: 6px 12px;
+  border-top: 1px solid var(--cf-rule);
+  text-align: left;
+  font-weight: 400;
+}
+
+.cf-table tr:first-child th,
+.cf-table tr:first-child td {
+  border-top: 0;
+}
+
+.cf-table td {
+  text-align: right;
+  font-weight: 600;
+}
+
+.cf-table .cf-sub th {
+  padding-left: 24px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-table .cf-sub td {
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+.cf-delta {
+  margin-top: 8px;
+}
+
+.cf-delta td:nth-child(3) {
+  color: var(--cf-ink-faint);
+  width: 1px;
+}
+
+.cf-timeline {
+  list-style: none;
+}
+
+.cf-event {
+  position: relative;
+  padding: 10px 12px 10px 14px;
+  border-left: 2px solid var(--cf-rule-strong);
+  margin-left: 8px;
+}
+
+.cf-event.is-on {
+  border-left-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  border-radius: 0 10px 10px 0;
+}
+
+.cf-event-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.cf-event-seq {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5em;
+}
+
+.cf-event-what {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.cf-event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 4px 0 2px;
+}
+
+/* --------------------------------------------------------------- import -- */
+
+.cf-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.cf-file {
+  position: relative;
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.cf-pending {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.cf-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cf-role-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-role-check {
+  justify-content: flex-start;
+  margin-top: 4px;
+  font-size: 13.5px;
+  min-height: 44px;
+}
+
+.cf-role-check input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- today -- */
+
+/* What is due, said once and large, then the list that makes it up. */
+.cf-today {
+  max-width: 560px;
+  margin: 0 auto;
+  /* The shell already keeps clear of the screen edges and the tab bar. */
+  padding: 8px 4px 76px;
+}
+
+.cf-today-date {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  margin: 0;
+}
+
+.cf-today-title {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 2px 0 20px;
+}
+
+.cf-today-n {
+  font-size: 52px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.cf-today-sub {
+  font-size: 15px;
+  color: var(--cf-ink-soft);
+  margin: 6px 0 14px;
+}
+
+.cf-today-done {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+  margin: 6px 0 0;
+}
+
+/* Either side of today, in three plain figures. */
+.cf-days {
+  display: flex;
+  margin: 16px 0 0;
+  border-top: 1px solid var(--cf-rule);
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-days > div {
+  flex: 1;
+  padding: 10px 0;
+}
+
+.cf-days > div + div {
+  border-left: 1px solid var(--cf-rule);
+  padding-left: 14px;
+}
+
+.cf-days dt {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-days dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-days b {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The day as one bar: done, then what is left in each kind's colour. */
+.cf-daybar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--cf-sunken);
+}
+
+.cf-daybar i {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.cf-daybar .is-done {
+  background: var(--cf-ink-faint);
+}
+
+.cf-daybar .is-read {
+  background: var(--cf-read);
+}
+
+.cf-daybar .is-sentence {
+  background: var(--cf-sentence);
+}
+
+.cf-daybar .is-new {
+  background: var(--cf-new);
+}
+
+/* A row per kind of card: its colour, what it is, how many. Two of them can
+ * be left out of the session, and the row itself is the control. */
+.cf-kinds {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.cf-kinds > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-kind {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 16px;
+  font-size: 15.5px;
+}
+
+label.cf-kind {
+  cursor: pointer;
+}
+
+.cf-kind > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-kind small {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-kind > b {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-kind.is-read {
+  --cf-kind: var(--cf-read);
+}
+
+.cf-kind.is-produce {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-kind.is-sentence {
+  --cf-kind: var(--cf-sentence);
+}
+
+.cf-kind.is-new {
+  --cf-kind: var(--cf-new);
+}
+
+/* Left out: still listed, visibly set aside. */
+.cf-kind.is-off > span,
+.cf-kind.is-off > b {
+  color: var(--cf-ink-faint);
+}
+
+.cf-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin: 0 6px;
+  border-radius: 50%;
+  background: var(--cf-kind, var(--cf-accent));
+}
+
+/* The control for a kind that can be left out: a box that fills with the
+ * kind's colour. The real checkbox sits underneath for the keyboard. */
+.cf-kind input {
+  position: absolute;
+  opacity: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+
+.cf-tick {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid var(--cf-rule-strong);
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cf-tick::after {
+  content: "";
+  width: 10px;
+  height: 5px;
+  border-left: 2.2px solid var(--cf-surface);
+  border-bottom: 2.2px solid var(--cf-surface);
+  transform: translateY(-1px) rotate(-45deg);
+  opacity: 0;
+}
+
+.cf-kind input:checked + .cf-tick {
+  background: var(--cf-kind);
+  border-color: var(--cf-kind);
+}
+
+.cf-kind input:checked + .cf-tick::after {
+  opacity: 1;
+}
+
+.cf-kind input:focus-visible + .cf-tick {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
+}
+
+.cf-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cf-stepper b {
+  font-size: 16px;
+  min-width: 2.2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-stepper button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--cf-sunken);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cf-stepper button:disabled {
+  opacity: 0.4;
+}
+
+/* --------------------------------------------------------------- review -- */
+
+/* One card at a time. The card scrolls; the answer stays at the foot. */
+.cf-review {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: calc(14px + env(safe-area-inset-top)) 16px calc(104px + env(safe-area-inset-bottom));
+}
+
+/* Out, how far through, how many left. */
+.cf-session-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cf-close {
+  width: 40px;
+  height: 40px;
+  margin-left: -8px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--cf-ink-soft);
+  cursor: pointer;
+}
+
+.cf-progress {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+.cf-progress i {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: 4px;
+  background: var(--cf-accent);
+  transition: width 0.3s ease;
+}
+
+.cf-left {
+  min-width: 44px;
+  text-align: right;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-card {
+  --cf-kind: var(--cf-read);
+  flex: 1;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 24px;
+  box-shadow: var(--cf-shadow);
+  padding: 18px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  animation: cf-arrive 0.26s ease both;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.cf-card.is-produce {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-card.is-sentence {
+  --cf-kind: var(--cf-sentence);
+}
+
+/* An answered card leaves the way it was answered: right for got it, left for forgot. */
+.cf-card.is-leaving-good {
+  transform: translateX(56px);
+  opacity: 0;
+}
+
+.cf-card.is-leaving-forgot {
+  transform: translateX(-56px);
+  opacity: 0;
+}
+
+.cf-card.is-leaving-skip {
+  transform: translateY(-16px);
+  opacity: 0;
+}
+
+@keyframes cf-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+@keyframes cf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.cf-card-kind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--cf-kind);
+  margin-bottom: 8px;
+}
+
+.cf-card-kind .cf-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0;
+}
+
+.cf-card-kind .cf-tag {
+  font-weight: 400;
+}
+
+/* How the card has gone so far: a bubble an answer, then when it was last seen. */
+.cf-history {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-bubbles {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cf-bubble {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cf-up);
+}
+
+/* Forgot is a ring, so the two differ in shape as well as colour. */
+.cf-bubble.is-forgot {
+  background: none;
+  border: 2px solid var(--cf-down);
+}
+
+/* Pleco's are smaller: the same record, from before the card came here. */
+.cf-bubble.is-pleco {
+  width: 6px;
+  height: 6px;
+}
+
+.cf-bubble.is-pleco.is-forgot {
+  border-width: 1.5px;
+}
+
+.cf-bubble-gap {
+  flex: none;
+  width: 1px;
+  height: 10px;
+  margin: 0 3px;
+  background: var(--cf-rule-strong);
+}
+
+.cf-history-when {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* The owner's note: on the front, where it can tell the card apart before it is answered. */
+.cf-note {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--cf-accent-soft);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.cf-card-word {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-weight: 600;
+  font-size: clamp(64px, 24vw, 96px);
+  line-height: 1.15;
+  text-align: center;
+  margin: 26px 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.cf-card-pinyin {
+  text-align: center;
+  font-size: 22px;
+  color: var(--cf-kind);
+  margin-bottom: 12px;
+}
+
+.cf-card-hint,
+.cf-card-meaning {
+  text-align: center;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+  margin: 0 0 10px;
+}
+
+.cf-card-meaning {
+  font-size: 17px;
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+
+/* The sentence a word is shown in: quieter than the word, the word picked out. */
+.cf-card-zh {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--cf-ink-soft);
+  margin: 6px 0;
+}
+
+.cf-card .cf-mark {
+  background: none;
+  color: var(--cf-kind);
+  font-weight: 600;
+  padding: 0;
+}
+
+.cf-card-sentence {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 30px;
+  font-weight: 550;
+  line-height: 1.6;
+  margin: 26px 0 12px;
+}
+
+.cf-card-en {
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.cf-back {
+  border-top: 1px solid var(--cf-rule);
+  margin-top: 16px;
+  padding-top: 16px;
+  animation: cf-rise 0.26s ease both;
+}
+
+.cf-back .cf-en,
+.cf-also {
+  display: block;
+  text-align: center;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+/* What a recall card asks with. */
+.cf-prompt {
+  list-style: none;
+  margin: 30px 0 16px;
+  padding: 0;
+  text-align: center;
+}
+
+.cf-prompt li {
+  font-size: 23px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.cf-prompt li + li {
+  margin-top: 6px;
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--cf-ink-soft);
+}
+
+/* Definitions: a reading, then its senses. On a word's own card each sense is
+ * a button, so the one you didn't know can be split off. */
+.cf-defs {
+  margin: 4px 0 6px;
+}
+
+.cf-def + .cf-def {
+  margin-top: 10px;
+}
+
+.cf-def-p {
+  font-size: 13px;
+  color: var(--cf-kind);
+}
+
+.cf-def ul {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+}
+
+.cf-def li {
+  font-size: 15.5px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-def li:last-child {
+  border-bottom: 0;
+}
+
+.cf-def li.is-target {
+  background: var(--cf-accent-soft);
+  border-radius: 8px;
+}
+
+.cf-sense,
+.cf-sense-text {
+  display: inline-block;
+  text-align: left;
+  padding: 10px 4px;
+  min-height: 36px;
+}
+
+.cf-sense {
+  width: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.cf-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 2px 4px 10px;
+  font-size: 13px;
+}
+
+.cf-defs-hint {
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+/* The words of a forgotten sentence, to tap. */
+.cf-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cf-token {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  min-height: 46px;
+  min-width: 46px;
+  padding: 4px 13px;
+  border-radius: 13px;
+  border: 0;
+  background: var(--cf-sunken);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.cf-token.is-on {
+  background: var(--cf-down);
+  color: #fff;
+}
+
+.cf-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 13px;
+}
+
+.cf-fix {
+  margin-top: 10px;
+}
+
+.cf-input {
+  width: 100%;
+  min-height: 46px;
+  font-size: 16px;
+  padding: 8px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--cf-rule-strong);
+  background: var(--cf-bg);
+  margin-bottom: 8px;
+}
+
+/* The receipt: what the last answer changed, itemised under the card. */
+.cf-receipt {
+  margin: 10px 4px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cf-ink-soft);
+}
+
+.cf-receipt-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-receipt-head b {
+  flex: none;
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-receipt-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-receipt-head small {
+  flex: none;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-receipt ul {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0 0 0 16px;
+}
+
+.cf-receipt li {
+  overflow-wrap: anywhere;
+}
+
+.cf-done {
+  text-align: center;
+  margin: auto 0;
+  padding: 10vh 0;
+}
+
+.cf-done-zh {
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 80px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--cf-accent);
+  margin: 0 0 14px;
+}
+
+.cf-done .cf-btn {
+  margin-top: 12px;
+}
+
+/* The answer: fixed at the foot. Above the tabs on Today; on the floor in a
+ * session, where there are no tabs. */
+.cf-answer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px max(16px, env(safe-area-inset-left)) 12px max(16px, env(safe-area-inset-right));
+  background: var(--cf-bg);
+}
+
+.cf-answer.is-floor {
+  bottom: 0;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}
+
+.cf-answer-btn {
+  flex: 1;
+  max-width: 264px;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  border: 0;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.12s ease;
+}
+
+.cf-answer-btn:active {
+  transform: scale(0.97);
+}
+
+.cf-answer-btn:disabled {
+  opacity: 0.45;
+}
+
+.cf-answer-btn small {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.82;
+}
+
+.cfx .cf-answer-show,
+.cfx .cf-answer-good {
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
+
+.cfx .cf-answer-show {
+  max-width: 528px;
+}
+
+.cfx .cf-answer-forgot,
+.cfx .cf-answer-ghost {
+  background: var(--cf-sunken);
+  color: var(--cf-ink);
+}
+
+.cfx .cf-answer-ghost {
+  flex: 0 0 auto;
+  padding: 0 22px;
+}
+
+.cf-answer-note {
+  flex: 1;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-card,
+  .cf-back {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------- tiles -- */
+
+/* A handful of headline numbers, side by side. */
+.cf-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.cf-tile {
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  padding: 9px 9px 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-tile b {
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cf-tile span {
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--cf-ink-soft);
+}
+
+/* ---------------------------------------------------------------- stats -- */
+
+/* Series colours for the charts, checked for colour-blind separation and for
+ * contrast against each surface. Text never takes these: values and labels
+ * stay in ink, with the coloured mark beside them. */
+.cf-stats {
+  --cf-s1: #2a78d6;
+  --cf-s2: #eb6834;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cf-stats {
+    --cf-s1: #3987e5;
+    --cf-s2: #d95926;
+  }
+}
+
+:root[data-theme="dark"] .cf-stats {
+  --cf-s1: #3987e5;
+  --cf-s2: #d95926;
+}
+
+.cf-chart,
+.cf-heat,
+.cf-stages {
+  position: relative;
+}
+
+.cf-chart {
+  margin-top: 6px;
+}
+
+/* The scale: one figure for the tallest column. */
+.cf-chart-max {
+  font-size: 10.5px;
+  color: var(--cf-ink-faint);
+  border-bottom: 1px dashed var(--cf-rule);
+  padding-bottom: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-cols {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  border-bottom: 1px solid var(--cf-rule-strong);
+}
+
+.cf-col {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  cursor: default;
+}
+
+/* Segments stack up from the baseline with a sliver of surface between them. */
+.cf-col-stack {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+}
+
+.cf-barseg {
+  display: block;
+  flex: none;
+  min-height: 2px;
+  background: var(--cf-s1);
+}
+
+.cf-barseg.is-s2 {
+  background: var(--cf-s2);
+}
+
+/* A chart of one thing takes the app's own colour, not a series colour. */
+.cf-cols.is-single .cf-barseg {
+  background: var(--cf-accent);
+}
+
+.cf-col-stack .cf-barseg:last-child {
+  border-radius: 4px 4px 0 0;
+}
+
+.cf-col:hover .cf-barseg {
+  filter: brightness(1.12);
+}
+
+.cf-ticks {
+  display: flex;
+  gap: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.cf-ticks span {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  color: var(--cf-ink-faint);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.cf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-legend i {
+  width: 10px;
+  height: 10px;
+  min-height: 0;
+  border-radius: 2px;
+}
+
+/* One tooltip per chart: the value first, then what it is. */
+.cf-tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - 6px));
+  background: var(--cf-ink);
+  color: var(--cf-bg);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-tip b {
+  font-size: 13px;
+}
+
+/* A year of days: a column a week, Monday at the top. One hue, deeper for more. */
+.cf-heat {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cf-heat-days {
+  display: grid;
+  grid-template-rows: 14px repeat(7, 12px);
+  row-gap: 2px;
+  font-size: 9px;
+  color: var(--cf-ink-faint);
+  width: 10px;
+}
+
+.cf-heat-days span:nth-child(1) {
+  grid-row: 2;
+}
+
+.cf-heat-days span:nth-child(2) {
+  grid-row: 4;
+}
+
+.cf-heat-days span:nth-child(3) {
+  grid-row: 6;
+}
+
+.cf-heat-grid {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.cf-heat-col {
+  display: grid;
+  grid-template-rows: 14px repeat(7, 12px);
+  row-gap: 2px;
+  width: 12px;
+}
+
+.cf-heat-month {
+  font-size: 9px;
+  color: var(--cf-ink-faint);
+  white-space: nowrap;
+}
+
+.cf-heat-cell {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--cf-sunken);
+}
+
+.cf-heat-cell.is-future {
+  background: none;
+}
+
+.cf-heat-cell.is-1 {
+  background: color-mix(in srgb, var(--cf-accent) 30%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-2 {
+  background: color-mix(in srgb, var(--cf-accent) 55%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-3 {
+  background: color-mix(in srgb, var(--cf-accent) 78%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-4 {
+  background: var(--cf-accent);
+}
+
+/* Days known only from Pleco: grey, so they never read as reviews done here. */
+.cf-heat-cell.is-p1 {
+  background: color-mix(in srgb, var(--cf-ink-soft) 22%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-p2 {
+  background: color-mix(in srgb, var(--cf-ink-soft) 40%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-p3 {
+  background: color-mix(in srgb, var(--cf-ink-soft) 60%, var(--cf-surface));
+}
+
+.cf-heat-cell.is-p4 {
+  background: color-mix(in srgb, var(--cf-ink-soft) 82%, var(--cf-surface));
+}
+
+.cf-heat-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-heat-nav button {
+  min-height: 36px;
+}
+
+.cf-heat-nav button:disabled {
+  opacity: 0.35;
+  text-decoration: none;
+}
+
+.cf-heat-key-gap {
+  margin-left: 10px;
+}
+
+.cf-heat-note {
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.cf-heat-key {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--cf-ink-faint);
+}
+
+/* Where the cards of one kind stand: one bar, split by stage, lighter to deeper. */
+.cf-stages {
+  margin-top: 10px;
+}
+
+.cf-stages-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.cf-stages-head b {
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-stages-bar {
+  display: flex;
+  gap: 2px;
+  height: 16px;
+}
+
+.cf-stage {
+  display: block;
+  min-width: 3px;
+  border-radius: 3px;
+  background: var(--cf-sunken);
+}
+
+.cf-stage.is-1 {
+  background: color-mix(in srgb, var(--cf-accent) 34%, var(--cf-surface));
+}
+
+.cf-stage.is-2 {
+  background: color-mix(in srgb, var(--cf-accent) 52%, var(--cf-surface));
+}
+
+.cf-stage.is-3 {
+  background: color-mix(in srgb, var(--cf-accent) 76%, var(--cf-surface));
+}
+
+.cf-stage.is-4 {
+  background: var(--cf-accent);
+}
+
+.cf-stats thead td {
+  font-size: 11px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-count-plain {
+  color: var(--cf-ink-soft);
+}
+
+/* ---------------------------------------------------------------- cards -- */
+
+/* Words or sentences: the two sides of the Cards screen. */
+.cf-sides {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.cf-side {
+  flex: 1;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cf-rule);
+  border-radius: 16px;
+  background: var(--cf-surface);
+  color: var(--cf-ink-soft);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cf-side small {
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-side.is-on {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  color: var(--cf-ink);
+}
+
+/* A level of a word list: its name, how much of it is in the deck, the figures. */
+.cf-levels {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.cf-level + .cf-level {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-level-head {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Nothing missing, nothing to open. */
+.cf-level-head:disabled {
+  cursor: default;
+  color: inherit;
+}
+
+.cf-level-name {
+  flex: none;
+  width: 72px;
+  font-size: 15px;
+}
+
+.cf-level-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+/* The bar is the level: its coloured part is the words in the deck, split by
+ * where each word's card stands, in deepening shades of the level's colour.
+ * What is left grey is the words not in the deck. */
+.cf-level-bar {
+  display: flex;
+  gap: 1px;
+}
+
+.cf-level-bar i {
+  display: block;
+  flex: none;
+  height: 100%;
+  background: var(--cf-level, var(--cf-read));
+}
+
+.cf-level-bar i.is-waiting,
+.cf-level-key i.is-waiting {
+  background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 26%, var(--cf-surface));
+}
+
+.cf-level-bar i.is-young,
+.cf-level-key i.is-young {
+  background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 52%, var(--cf-surface));
+}
+
+.cf-level-bar i.is-mature,
+.cf-level-key i.is-mature {
+  background: color-mix(in srgb, var(--cf-level, var(--cf-ink-soft)) 78%, var(--cf-surface));
+}
+
+.cf-level-bar i.is-strong,
+.cf-level-key i.is-strong {
+  background: var(--cf-level, var(--cf-ink-soft));
+}
+
+/* What the shades mean, once per list, in a neutral so it reads for every level. */
+.cf-level-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-level-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cf-level-key i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.cf-level-key i.is-missing {
+  background: var(--cf-sunken);
+}
+
+/* Each level in the colour of its HSK Standard Course textbook cover, sampled
+ * from the covers: 1 yellow, 2 teal, 3 orange, 4 red, 5 navy, 6 purple. HSK 3.0
+ * reuses them for its first six levels; its 7-9 band takes the dark green the
+ * owner picked for it (matched by eye from a swatch, so adjust if it is off). */
+.cf-level.is-l1 {
+  --cf-level: #f1af1e;
+}
+
+.cf-level.is-l2 {
+  --cf-level: #207b92;
+}
+
+.cf-level.is-l3 {
+  --cf-level: #e66a08;
+}
+
+.cf-level.is-l4 {
+  --cf-level: #b51018;
+}
+
+.cf-level.is-l5 {
+  --cf-level: #193d72;
+}
+
+.cf-level.is-l6 {
+  --cf-level: #673467;
+}
+
+.cf-level.is-l7 {
+  --cf-level: #1d6e60;
+}
+
+/* On the dark surface the three darkest covers would vanish into the track,
+ * so they are lifted there: the same hues, lighter. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cf-level.is-l4 {
+    --cf-level: #d93a40;
+  }
+
+  :root:not([data-theme="light"]) .cf-level.is-l5 {
+    --cf-level: #4a78c4;
+  }
+
+  :root:not([data-theme="light"]) .cf-level.is-l6 {
+    --cf-level: #a45fa4;
+  }
+
+  :root:not([data-theme="light"]) .cf-level.is-l7 {
+    --cf-level: #2f9482;
+  }
+}
+
+:root[data-theme="dark"] .cf-level.is-l4 {
+  --cf-level: #d93a40;
+}
+
+:root[data-theme="dark"] .cf-level.is-l5 {
+  --cf-level: #4a78c4;
+}
+
+:root[data-theme="dark"] .cf-level.is-l6 {
+  --cf-level: #a45fa4;
+}
+
+:root[data-theme="dark"] .cf-level.is-l7 {
+  --cf-level: #2f9482;
+}
+
+.cf-level-n {
+  flex: none;
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-level-n b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cf-level-n small {
+  font-size: 11.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-level-body {
+  padding: 2px 16px 12px;
+}
+
+.cf-missing {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.cf-missing li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-missing a {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cf-missing .cf-pinyin {
+  flex: 1;
+}
+
+/* A filter of four: the count goes under the name so they still fit a phone. */
+.cf-seg-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.25;
+}

@@ -1,0 +1,102 @@
+// The rules of a review that aren't the scheduler's: how a sentence retires,
+// which words lapse when a sentence is forgotten, how the queue is mixed.
+// Pure, so the server applies them and the check script can hold them to account.
+
+import type { Grade } from "./schedule";
+
+/** A sentence is done with after this many clean reads, each on a different day. */
+export const CLEAN_READS_TO_RETIRE = 2;
+/** One brought back by a forgotten word has this many already: one more clean read retires it again. */
+export const REVIVED_CLEAN_READS = 1;
+
+export interface SentenceProgress {
+  cleanReads: number;
+  /** The study day of the last clean read. */
+  lastCleanDay: string | null;
+  retired: boolean;
+}
+
+/**
+ * A sentence after being read. A clean read counts once per day, so two in one
+ * sitting are one. Forgetting it starts the count again.
+ */
+export function readSentence(p: SentenceProgress, grade: Grade, day: string): SentenceProgress {
+  if (grade === "forgot") return { cleanReads: 0, lastCleanDay: null, retired: false };
+  if (p.lastCleanDay === day) return p;
+  const cleanReads = p.cleanReads + 1;
+  return { cleanReads, lastCleanDay: day, retired: cleanReads >= CLEAN_READS_TO_RETIRE };
+}
+
+/** Every run of two or more characters inside the given words, and the words themselves. */
+export function piecesOf(words: string[]): string[] {
+  const out = new Set<string>();
+  for (const w of words) {
+    const chars = [...w];
+    for (let i = 0; i < chars.length; i++) {
+      for (let j = i + 1; j <= chars.length; j++) out.add(chars.slice(i, j).join(""));
+    }
+  }
+  return [...out];
+}
+
+/**
+ * The deck words that lapse when these words are tapped in a forgotten
+ * sentence. A tapped word that is in the deck lapses itself. One that isn't —
+ * 孩子们 is read from 孩子 and 们 — passes the lapse to the deck words it is
+ * made of, longest first from the left.
+ */
+export function lapseTargets(tapped: string[], deck: ReadonlySet<string>): string[] {
+  const out = new Set<string>();
+  for (const word of tapped) {
+    if (deck.has(word)) {
+      out.add(word);
+      continue;
+    }
+    const chars = [...word];
+    let i = 0;
+    while (i < chars.length) {
+      let len = chars.length - i;
+      for (; len > 0; len--) {
+        if (deck.has(chars.slice(i, i + len).join(""))) break;
+      }
+      if (len > 0) {
+        out.add(chars.slice(i, i + len).join(""));
+        i += len;
+      } else i++;
+    }
+  }
+  return [...out];
+}
+
+/** A sentence with a word blanked out, or null when the word isn't written in it as such. */
+export function blankOut(zh: string, word: string): string | null {
+  const at = zh.indexOf(word);
+  if (at < 0) return null;
+  return `${zh.slice(0, at)}${"＿".repeat(Math.max(2, [...word].length))}${zh.slice(at + word.length)}`;
+}
+
+/** The mix of a session: two words for every sentence due, and a new sentence every fourth card. */
+const CYCLE = ["word", "sentence", "word", "new"] as const;
+
+/**
+ * One queue out of three, each already in its own order. `position` is how
+ * many cards the session has dealt so far, so the mix carries on from batch to
+ * batch instead of starting over.
+ */
+export function interleave<T>(lists: { word: T[]; sentence: T[]; new: T[] }, position: number, limit: number): T[] {
+  const at = { word: 0, sentence: 0, new: 0 };
+  const out: T[] = [];
+  for (let step = position; out.length < limit; step++) {
+    let dealt = false;
+    // The kind whose turn it is, or the next one that still has cards.
+    for (let k = 0; k < CYCLE.length && !dealt; k++) {
+      const kind = CYCLE[(step + k) % CYCLE.length];
+      if (at[kind] < lists[kind].length) {
+        out.push(lists[kind][at[kind]++]);
+        dealt = true;
+      }
+    }
+    if (!dealt) break;
+  }
+  return out;
+}
