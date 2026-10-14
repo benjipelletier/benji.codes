@@ -53,7 +53,8 @@ export function Account({ viewer }: { viewer: Viewer }) {
     );
   }
 
-  const initial = viewer.email[0]?.toUpperCase() ?? "?";
+  // The owner goes by 笨鸡 (Benji); anyone else by their initial.
+  const badge = viewer.isOwner ? "笨鸡" : (viewer.email[0]?.toUpperCase() ?? "?");
   return (
     <div className="cf-acct" ref={box}>
       {!viewer.isOwner && <span className="cf-tag">read-only</span>}
@@ -64,7 +65,7 @@ export function Account({ viewer }: { viewer: Viewer }) {
         aria-label={`Signed in as ${viewer.email}`}
         onClick={() => setOpen(!open)}
       >
-        {initial}
+        {badge}
       </button>
       {open && (
         <div className="cf-acct-menu" role="menu">

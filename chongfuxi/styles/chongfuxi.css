@@ -4535,9 +4535,16 @@ button.cf-synclog-row {
   cursor: pointer;
 }
 
+/* The owner's: 笨鸡, a pill rather than a circle. */
 .cf-acct-me.is-owner {
+  width: auto;
+  padding: 0 12px;
+  border-radius: 999px;
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
+  font-family: var(--cf-zh);
+  font-size: 14px;
+  letter-spacing: 0.04em;
 }
 
 .cf-acct-me[aria-expanded="true"] {
