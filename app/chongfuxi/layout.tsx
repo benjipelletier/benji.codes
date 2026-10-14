@@ -20,7 +20,15 @@ export const metadata: Metadata = {
   // Installable from the browser menu, so practice opens full screen like an app.
   manifest: "/chongfuxi/manifest.webmanifest",
   appleWebApp: { capable: true, title: "重复习", statusBarStyle: "default" },
-  icons: { icon: "/chongfuxi/icon-192.png", apple: "/chongfuxi/apple-touch-icon.png" },
+  // 复 inside the Review tab's ring on the accent blue; the tab-sized ones are the character alone, which reads at 32px.
+  icons: {
+    icon: [
+      { url: "/chongfuxi/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/chongfuxi/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/chongfuxi/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/chongfuxi/apple-touch-icon.png",
+  },
 };
 
 // Phone first: draw under the system bars (the CSS pads by the safe-area
