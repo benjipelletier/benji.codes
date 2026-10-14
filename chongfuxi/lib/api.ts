@@ -195,6 +195,10 @@ export interface ReviewResult {
   /** The rest is the receipt: the same changes, in enough detail to read back. */
   /** Days the card had been set to wait before this answer; null for a new card. */
   was: number | null;
+  /** The odds it would be remembered, 0 to 1, at the moment it was answered; null for a new card. */
+  odds: number | null;
+  /** FSRS difficulty, 1 easy to 10 hard, before (null for a new card) and after. */
+  difficulty: { before: number | null; after: number };
   /** A sentence card's clean reads before and after, and how many retire it. */
   cleanReads: { before: number; now: number; need: number } | null;
   /** Deck words counted as read in a sentence once more, and those for which it was the first time. */

@@ -180,12 +180,18 @@ the design was silent and are still to be confirmed.
   those with a word never yet read in a sentence; past that a fixed shuffle
   (by hash of the sentence), so sources and lengths are mixed. Shortest first
   put every three-character scrap at the front.
-- **Receipt**: every answer comes back with what it changed, itemised under
-  the next card: where the card went and what it had been set to, a Recall
-  card opened, a sentence's clean reads, each lapsed word and where it went,
-  the deck words counted as read in context (first-timers apart), and the
-  retired sentences brought back, by name. It folds to one line; the choice is
-  kept on the device. `submitReview` returns it; nothing reads it back later.
+- **Receipt**: every answer comes back with what it changed, drawn under the
+  next card as figures, not prose: a meter from the wait the card had to the
+  one it has now (log scale, full at two years), then a row of chips: how much
+  longer or shorter, the odds it was remembered when answered, FSRS difficulty
+  and which way it moved, a Recall card opened, clean reads as pips, lapsed
+  words, words read in context, sentences brought back, Got its in a row. Two
+  fixed rows; more chips than fit scroll sideways. `submitReview` returns the
+  detail; nothing reads it back later.
+- **One screen**: Today and a session never scroll the page on a phone. Today
+  closes up below 940px of height; a session is exactly `100dvh` and a card
+  with more on it than fits scrolls inside itself. The word on a card is always
+  one line, sized to its length.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original
