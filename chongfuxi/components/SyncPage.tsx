@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import type { AnkiSync, AnkiSyncDetail } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { AdditionDetails } from "./NewWords";
-import { ago, fmt, message } from "./shared";
+import { ago, fmt, message, useBackLayer } from "./shared";
 
 /** "26.05,e64c6b1a,android" → "AnkiDroid 26.05". */
 export function clientName(client: string | null): string {
@@ -87,6 +87,8 @@ export function SyncPage({ syncId, canWrite, onDone }: { syncId: number; canWrit
       setBusy(null);
     }
   };
+  // Back closes it as Close does, keeping what it added.
+  useBackLayer(true, () => void close());
   const undo = async () => {
     if (!a) return;
     setBusy("undo");

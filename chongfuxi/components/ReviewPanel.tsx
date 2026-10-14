@@ -16,11 +16,12 @@ import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard,
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as outbox from "@chongfuxi/lib/outbox";
+import * as resume from "@chongfuxi/lib/resume";
 import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { Highlighted, History, Waiting, fmt, message, plecoHref, span, type Shell } from "./shared";
+import { Highlighted, History, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -180,7 +181,16 @@ function rememberedKinds(): SessionKinds {
 export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () => void }) {
   const [kinds, setKinds] = useState<SessionKinds>(EVERYTHING);
   const [started, setStarted] = useState<"session" | "fast" | null>(null);
-  useEffect(() => setKinds(rememberedKinds()), []);
+  const { setFocus, refresh } = shell;
+  useEffect(() => {
+    setKinds(rememberedKinds());
+    // Left mid-review (the site closed, the phone locked): straight back into it.
+    const was = resume.wasOpen();
+    if (was) {
+      setFocus(true);
+      setStarted(was);
+    }
+  }, [setFocus]);
 
   const choose = (next: SessionKinds) => {
     setKinds(next);
@@ -191,21 +201,25 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     }
   };
 
-  const { setFocus, refresh } = shell;
   const begin = (how: "session" | "fast") => {
     setFocus(true);
     setStarted(how);
   };
+  // Left by the close button or back: kept, to carry on from Today.
   const end = useCallback(() => {
+    setStarted((was) => {
+      if (was) resume.close(was);
+      return null;
+    });
     setFocus(false);
-    setStarted(null);
     refresh();
   }, [setFocus, refresh]);
+  useBackLayer(started !== null, end);
   // Leaving the tab mid-session must give the header and tabs back.
   useEffect(() => () => setFocus(false), [setFocus]);
 
-  if (started === "fast") return <FastReview shell={shell} onEnd={end} />;
-  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} />;
+  if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load("fast")} />;
+  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} saved={resume.load("session")} />;
   return (
     <Today shell={shell} kinds={kinds} onChoose={choose} onStart={() => begin("session")} onFast={() => begin("fast")} onImport={onImport} />
   );
@@ -230,6 +244,10 @@ function Today({
   const { summary: s, canWrite, refresh } = shell;
   const [busy, setBusy] = useState(false);
   if (!s) return null;
+  // A review left part way through today, to carry on.
+  const keptSession = resume.load("session");
+  const keptFast = resume.load("fast")?.marked ? resume.load("fast") : null;
+  const carryOn = keptSession !== null && keptSession.answered > 0;
 
   const pace = async (n: number) => {
     setBusy(true);
@@ -366,7 +384,7 @@ function Today({
 
       <div className="cf-answer">
         {/* Every Read card due, as a grid to sweep through: for a pile of easy ones. */}
-        {kinds.read && s.dueRead > 0 && (
+        {((kinds.read && s.dueRead > 0) || keptFast) && (
           <button className="cf-answer-btn cf-fast-btn" onClick={onFast}>
             <span className="cf-fast-btn-label">
               <svg className="cf-bolt" viewBox="0 0 16 20" width="14" height="18" aria-hidden="true">
@@ -374,11 +392,13 @@ function Today({
               </svg>
               Fast review
             </span>
-            <small>{fmt(s.dueRead)} to read</small>
+            <small>{keptFast ? `${fmt(keptFast.marked)} marked, carry on` : `${fmt(s.dueRead)} to read`}</small>
           </button>
         )}
-        <button className="cf-answer-btn cf-answer-show" disabled={total === 0} onClick={onStart}>
-          {!kinds.read && !kinds.recall && !kinds.sentences
+        <button className="cf-answer-btn cf-answer-show" disabled={total === 0 && !carryOn} onClick={onStart}>
+          {carryOn
+            ? `Carry on · ${fmt(keptSession.answered)} done`
+            : !kinds.read && !kinds.recall && !kinds.sentences
             ? "Nothing chosen"
             : total === 0
               ? "Nothing due"
@@ -391,10 +411,26 @@ function Today({
   );
 }
 
-function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; onEnd: () => void }) {
+function Session({
+  shell,
+  kinds,
+  onEnd,
+  saved,
+}: {
+  shell: Shell;
+  kinds: SessionKinds;
+  onEnd: () => void;
+  /** Where this session was left today, to carry on from. */
+  saved: resume.SessionResume | null;
+}) {
   const { summary, canWrite, refresh } = shell;
-  const [queue, setQueue] = useState<SessionCard[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "empty">("loading");
+  // Carried on: the cards that were in hand, less any kind left out since.
+  const [queue, setQueue] = useState<SessionCard[]>(() =>
+    (saved?.queue ?? []).filter((c) =>
+      c.kind === "sentence" ? kinds.sentences : c.kind === "produce" ? kinds.recall : kinds.read,
+    ),
+  );
+  const [status, setStatus] = useState<"loading" | "ready" | "empty">(() => (queue.length ? "ready" : "loading"));
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
@@ -410,15 +446,15 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   const [splitting, setSplitting] = useState<string | null>(null);
   const [last, setLast] = useState<Receipt | null>(null);
   // Got its in a row this session.
-  const streak = useRef(0);
+  const streak = useRef(saved?.streak ?? 0);
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
-  const [answered, setAnswered] = useState(0);
+  const [answered, setAnswered] = useState(saved?.answered ?? 0);
 
-  const session = useRef(newId());
-  const dealt = useRef(0);
-  const recentIds = useRef<number[]>([]);
-  const recentWords = useRef<string[]>([]);
+  const session = useRef(saved?.session ?? newId());
+  const dealt = useRef(saved?.dealt ?? 0);
+  const recentIds = useRef<number[]>(saved?.recentIds ?? []);
+  const recentWords = useRef<string[]>(saved?.recentWords ?? []);
   const loading = useRef(false);
   const exhausted = useRef(false);
   const queueRef = useRef(queue);
@@ -466,6 +502,26 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   useEffect(() => {
     if (queue.length <= REFILL_AT) void refill();
   }, [queue.length, refill]);
+
+  // Kept on the device as it goes, so leaving or closing the site loses
+  // nothing: the cards in hand (less one answered and on its way out), how far in.
+  useEffect(() => {
+    resume.save("session", {
+      open: true,
+      session: session.current,
+      kinds,
+      queue: queue.filter((c) => !recentIds.current.includes(c.id)),
+      dealt: dealt.current,
+      answered,
+      streak: streak.current,
+      recentIds: recentIds.current,
+      recentWords: recentWords.current,
+    });
+  }, [queue, answered, kinds]);
+  // Finished: nothing to carry on.
+  useEffect(() => {
+    if (status === "empty" && !queue.length) resume.clear("session");
+  }, [status, queue.length]);
 
   // Back online: deal again if the hand ran low while it was away.
   useEffect(() => {
@@ -591,6 +647,10 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
     setTapped(null);
     setWhy(null);
   };
+  // Back steps out of what is open on the card before it leaves the session.
+  useBackLayer(why !== null, backFromForgot);
+  useBackLayer(noting !== null, () => setNoting(null));
+  useBackLayer(splitting !== null, () => setSplitting(null));
 
   const saveNote = async () => {
     if (!card || noting === null) return;

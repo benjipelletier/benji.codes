@@ -64,8 +64,21 @@ check every screen at 360px wide first.
   twice is harmless. Each answer carries `sentAt` as it leaves: with `at`,
   that says how long it waited, so it is dated when given, whatever the
   phone's clock says (`answeredAt`, up to 30 days).
-- Not yet: opening the app with no connection (there is no service worker),
-  and Fast review's grid is held in memory until Done.
+- The phone's back button moves through the app (`lib/back.ts`,
+  `useBackLayer` in `components/shared.tsx`): every layer that opens over
+  another (a tab other than Review, Sentences or Lists in Cards, each level of
+  the list tree, a word's sheet, a sync's page, a review session, the step
+  after Forgot, the note box) puts one history entry on, and back closes the
+  top one. A layer closed from the page takes its entry back off quietly.
+  From Review with nothing open, back leaves the site.
+- A review is never lost to leaving it (`lib/resume.ts`, localStorage, one
+  study day). A session keeps its cards in hand, how far in and its streak;
+  Fast review keeps its loaded cards, the ones marked forgotten and the
+  scroll. Closed by back or the close button, Today offers to carry on
+  ("Carry on · 12 done", "Fast review · 27 marked, carry on"); left with the
+  site closed, opening it again goes straight back in. A finished session,
+  or a sweep sent at Done, is cleared.
+- Not yet: opening the app with no connection (there is no service worker).
 
 ## Look
 

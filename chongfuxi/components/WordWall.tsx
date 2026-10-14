@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, History, fmt, message, plecoHref, span } from "./shared";
+import { Highlighted, History, fmt, message, plecoHref, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -306,6 +306,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         );
       })}
 
+      <BackToWall open={open !== null} onBack={() => setOpen(null)} />
       {open && (
         <WordSheet
           word={open}
@@ -554,4 +555,10 @@ function WordSheet({
       </div>
     </div>
   );
+}
+
+/** Back closes an open word's sheet. */
+function BackToWall({ open, onBack }: { open: boolean; onBack: () => void }) {
+  useBackLayer(open, onBack);
+  return null;
 }

@@ -14,8 +14,9 @@ import type { FastCard, ReviewInput } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as outbox from "@chongfuxi/lib/outbox";
+import * as resume from "@chongfuxi/lib/resume";
 import { newId } from "@chongfuxi/lib/upload";
-import { fmt, message, span, type Shell } from "./shared";
+import { fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 150;
 /** Fetch more when fewer than this many cards are left below what has been uncovered. */
@@ -35,12 +36,21 @@ const median = (xs: number[]) => {
   return s[Math.floor(s.length / 2)];
 };
 
-export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
+export function FastReview({
+  shell,
+  onEnd,
+  saved,
+}: {
+  shell: Shell;
+  onEnd: () => void;
+  /** Where this sweep was left today: the cards loaded, the ones marked forgotten, how far down. */
+  saved: resume.FastResume | null;
+}) {
   const { canWrite, refresh } = shell;
-  const [cards, setCards] = useState<FastCard[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
+  const [cards, setCards] = useState<FastCard[]>(saved?.cards ?? []);
+  const [total, setTotal] = useState<number | null>(saved?.total ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [forgot, setForgot] = useState<Set<number>>(new Set());
+  const [forgot, setForgot] = useState<Set<number>>(() => new Set(saved?.forgot ?? []));
   // How many cards, from the top, have risen far enough to count.
   const [uncovered, setUncovered] = useState(0);
   const [stage, setStage] = useState<"grid" | "confirm" | "sending" | "done">("grid");
@@ -53,7 +63,7 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
   const uncoveredRef = useRef(0);
-  const session = useRef(`fast:${newId()}`);
+  const session = useRef(saved?.session ?? `fast:${newId()}`);
   // Holding a card: its answer in a small popup, and the card marked forgotten.
   const [peek, setPeek] = useState<{ card: FastCard; x: number; y: number; below: boolean } | null>(null);
   const holdTimer = useRef<number | null>(null);
@@ -72,7 +82,11 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
       });
       if (r.total !== null) setTotal(r.total);
       if (r.cards.length < PAGE) exhausted.current = true;
-      setCards((c) => [...c, ...r.cards]);
+      // The due list may have moved since a sweep was carried on: no card twice.
+      setCards((c) => {
+        const have = new Set(c.map((x) => x.id));
+        return [...c, ...r.cards.filter((x) => !have.has(x.id))];
+      });
     } catch (e) {
       setError(message(e));
     } finally {
@@ -107,7 +121,30 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
     if (cells.length - n < AHEAD) void load();
   }, [load]);
 
+  // Carried on: back to where the grid was scrolled, before it is measured.
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    if (restored.current || !saved || !scroller.current || !cards.length) return;
+    restored.current = true;
+    scroller.current.scrollTop = saved.scrollTop;
+  }, [cards, saved]);
   useLayoutEffect(measure, [cards, measure]);
+
+  // Kept on the device as it goes: marks are not answers until Done, and
+  // leaving or closing the site must not lose them.
+  useEffect(() => {
+    if (stage !== "grid") return;
+    resume.save("fast", {
+      open: true,
+      session: session.current,
+      cards,
+      total,
+      forgot: [...forgot],
+      // Read when it runs, after the render that declares it.
+      marked: answers.length,
+      scrollTop: scroller.current?.scrollTop ?? 0,
+    });
+  }, [cards, total, forgot, uncovered, stage]);
 
   /** Half the popup's width: 260px, or the screen less its margins if narrower. Matches the stylesheet. */
   const PEEK_HALF = () => Math.min(260, window.innerWidth - 32) / 2;
@@ -208,21 +245,16 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
     }));
     // Kept on the device before any is sent: whatever doesn't get through now goes when the connection is back.
     outbox.add(...inputs);
+    // They are answers now, kept in the outbox; the sweep is done with.
+    resume.clear("fast");
     const r = await outbox.flush((n) => setSent(Math.min(n, inputs.length)));
     setOutcome(r);
     setStage("done");
     refresh();
   };
 
-  const leave = () => {
-    if (
-      stage === "grid" &&
-      answers.length > 0 &&
-      !window.confirm(`Leave without answering? ${fmt(answers.length)} answers will be lost.`)
-    )
-      return;
-    onEnd();
-  };
+  // Leaving keeps the marks (resume): Fast review on Today carries on.
+  useBackLayer(stage === "confirm", () => setStage("grid"));
 
   if (stage === "confirm" || stage === "sending") {
     return (
@@ -278,7 +310,7 @@ export function FastReview({ shell, onEnd }: { shell: Shell; onEnd: () => void }
   return (
     <div className="cf-fast">
       <div className="cf-fast-top">
-        <button className="cf-close" onClick={leave} aria-label="Leave fast review">
+        <button className="cf-close" onClick={onEnd} aria-label="Leave fast review">
           <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>

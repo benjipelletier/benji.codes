@@ -3,8 +3,9 @@
 // Pieces every screen uses: what the shell hands down, and a few ways of
 // writing things.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { CardHistory, Summary } from "@chongfuxi/lib/api";
+import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
 
 export interface Shell {
@@ -60,6 +61,23 @@ export const message = (e: unknown) => (e instanceof Error ? e.message : String(
 
 /** What a lost connection is called; the waiting line says it already, so it isn't repeated. */
 const OFFLINE = ["No connection.", "The connection dropped."];
+
+/** While `isOpen`, the phone's back button calls `close` instead of leaving the site (lib/back.ts). */
+export function useBackLayer(isOpen: boolean, close: () => void) {
+  const latest = useRef(close);
+  latest.current = close;
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = back.open(() => latest.current());
+    return () => back.release(id);
+  }, [isOpen]);
+}
+
+/** One step of back, for as long as it is rendered: one per level of a tree, say. */
+export function BackStep({ onBack }: { onBack: () => void }) {
+  useBackLayer(true, onBack);
+  return null;
+}
 
 const NOTHING_WAITING: outbox.OutboxState = { pending: 0, sending: false, stalled: null };
 

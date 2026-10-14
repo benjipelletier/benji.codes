@@ -15,8 +15,9 @@ import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
+import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
-import { Waiting, fmt, message, useOutbox, type Shell } from "./shared";
+import { Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
 type Tab = "review" | "cards" | "stats" | "import";
 
@@ -70,6 +71,10 @@ export function ChongfuxiApp() {
     wasSending.current = sending;
   }, [sending, refresh]);
   useEffect(() => outbox.start(), []);
+  // The phone's back button moves through the app (lib/back.ts); from any
+  // other tab it comes to Review, and from Review it leaves.
+  useEffect(() => back.install(), []);
+  useBackLayer(tab !== "review", () => setTab("review"));
 
   const canWrite = Boolean(summary?.viewer.isOwner);
 

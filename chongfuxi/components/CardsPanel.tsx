@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ListsPanel } from "./ListsPanel";
 import { SentencesPanel } from "./SentencesPanel";
 import { WordsPanel } from "./WordsPanel";
-import { fmt, type Shell } from "./shared";
+import { fmt, useBackLayer, type Shell } from "./shared";
 
 type Side = "words" | "sentences" | "lists";
 
@@ -15,6 +15,8 @@ export function CardsPanel({ shell }: { shell: Shell }) {
   const [side, setSide] = useState<Side>("words");
   // A word to find among the sentences, when a word's sheet asks for them.
   const [find, setFind] = useState<{ word: string; at: number } | null>(null);
+  // Back from Sentences or Lists comes to Words.
+  useBackLayer(side !== "words", () => setSide("words"));
   const s = shell.summary;
   const sides: Array<{ key: Side; label: string; n: number | null }> = [
     { key: "words", label: "Words", n: s?.words ?? null },

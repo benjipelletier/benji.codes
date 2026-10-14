@@ -14,7 +14,7 @@ import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { AdditionDetails } from "./NewWords";
-import { fmt, message, plecoHref, type Shell } from "./shared";
+import { BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
 /** As the server allows (LIST_ADD_MAX). */
@@ -100,6 +100,14 @@ export function ListsPanel({ shell }: { shell: Shell }) {
 
   return (
     <div className="cf-lists">
+      {/* The phone's back goes up one level, as Pleco's did. */}
+      {at
+        .split("/")
+        .filter(Boolean)
+        .map((_, i, all) => {
+          const path = all.slice(0, i + 1).join("/");
+          return <BackStep key={path} onBack={() => go(parentOf(path))} />;
+        })}
       {/* Where in the tree: every step back is a tap. */}
       <nav className="cf-crumbs" aria-label="Lists">
         <button className={at ? "" : "is-here"} onClick={() => go("")}>
@@ -258,6 +266,8 @@ function Added({ addition, list, onDone, onUndone }: { addition: Addition; list:
       setBusy(null);
     }
   };
+  // Back keeps them, as closing a sync's page does.
+  useBackLayer(true, () => void act("seen"));
   return (
     <div className="cf-arrival-back">
       <div className="cf-arrival" role="dialog" aria-modal="true" aria-labelledby="cf-added-title">
