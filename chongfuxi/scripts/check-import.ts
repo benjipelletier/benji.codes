@@ -1,92 +1,52 @@
-// Run the import and unlock pipeline on a Pleco backup outside the browser.
+// Run the reading and sorting of a Pleco file outside the browser and the database.
 //
 //   npx tsx chongfuxi/scripts/check-import.ts path/to/backup.pqb
+//   npx tsx chongfuxi/scripts/check-import.ts path/to/export.xml
 //
-// Prints what the app would show after importing it: how the cards were
-// sorted, how many texts are readable, and what to learn next. Useful for
-// checking a change to the corpus or the unlock rules against real data.
+// Prints what the file turns into: how its categories were taken, how the
+// cards were sorted, how many sentences are readable, and what blocks the
+// rest. Writes nothing. Useful for checking a change to the corpus or the
+// unlock rules against real data before an import.
 
 import { readFileSync } from "node:fs";
 import initSqlJs from "sql.js";
-import { readPleco } from "../lib/pleco";
-import { buildCorpus, defaultSettings, type Corpus, type Settings } from "../lib/corpus";
-import { apply, preview, replay, suggestions, type ChongEvent, type Env } from "../lib/machine";
-import { displayPinyin } from "../lib/hanzi";
+import { readBackup } from "../lib/backup";
+import { buildCorpus, defaultSettings } from "../lib/corpus";
+import { makeUnlock } from "../lib/unlock";
 
 async function main() {
   const path = process.argv[2];
-  if (!path) throw new Error("usage: check-import.ts <backup.pqb>");
-  const SQL = await initSqlJs();
-  const db = new SQL.Database(readFileSync(path));
+  if (!path) throw new Error("usage: check-import.ts <backup.pqb | export.xml>");
   let t = Date.now();
-  const snapshot = readPleco(db);
-  console.log(`read ${snapshot.cards.length} cards, ${snapshot.categories.length} categories in ${Date.now() - t}ms`);
+  const { format, snapshot } = await readBackup(new Uint8Array(readFileSync(path)), () => initSqlJs());
+  console.log(`read ${snapshot.cards.length} cards, ${snapshot.categories.length} categories from a .${format} in ${Date.now() - t}ms`);
 
   const settings = defaultSettings(snapshot);
   const names = new Map(snapshot.categories.map((c) => [c.id, c.name]));
   console.log("\nroles:");
   for (const [id, role] of Object.entries(settings.roles)) console.log(`  ${role.padEnd(9)} ${names.get(Number(id))}`);
 
-  const cache = new Map<string, Corpus>();
-  const env: Env = {
-    corpus(importId: string, s: Settings) {
-      const key = `${importId}:${JSON.stringify(s)}`;
-      if (!cache.has(key)) {
-        const t0 = Date.now();
-        cache.set(key, buildCorpus(snapshot, s));
-        console.log(`  (corpus built in ${Date.now() - t0}ms)`);
-      }
-      return cache.get(key)!;
-    },
-  };
-
-  const events: ChongEvent[] = [{ kind: "import", at: Date.now(), importId: "check", fileName: path, settings }];
   t = Date.now();
-  const state = replay(events, env);
-  console.log(`replayed in ${Date.now() - t}ms`);
-  const { corpus, derived } = state;
-  if (!corpus || !derived) throw new Error("nothing derived");
+  const corpus = buildCorpus(snapshot, settings);
+  console.log(`\ncorpus built in ${Date.now() - t}ms:`, corpus.stats);
 
-  console.log("\ncorpus:", corpus.stats);
-  console.log("counts:", derived.counts);
-  const byPool = new Map<number | null, { total: number; open: number }>();
-  corpus.texts.forEach((text) => {
-    for (const pool of text.pools.length ? text.pools : [null]) {
-      const p = byPool.get(pool) ?? { total: 0, open: 0 };
-      p.total++;
-      if (derived.unlocked.has(text.id)) p.open++;
-      byPool.set(pool, p);
-    }
-  });
-  console.log("traditional chars mapped:", corpus.simplified.size, [...corpus.simplified].slice(0, 12).map((p) => p.join("→")).join(" "));
-  console.log("\nreadable by pool:");
-  for (const [pool, p] of byPool) console.log(`  ${String(names.get(pool as number) ?? pool).padEnd(20)} ${p.open} / ${p.total}`);
-
-  const { learnNext, blockers } = suggestions(state);
-  const fmt = (s: { word: string; unlocks: number; pron: string | null }) =>
-    `${s.word}${s.pron ? ` ${displayPinyin(s.pron)}` : ""} ${s.unlocks}`;
-  console.log("\nlearn next:", learnNext.slice(0, 15).map(fmt).join(" · "));
-  console.log("other blockers:", blockers.slice(0, 15).map(fmt).join(" · "));
-
-  // Exact effect of the top suggestion and of marking the top blocker a name.
-  for (const [word, as] of [
-    [learnNext[0]?.word, "known"],
-    [blockers[0]?.word, "name"],
-  ] as const) {
-    if (!word) continue;
-    t = Date.now();
-    const fx = preview(state, { kind: "mark", at: Date.now(), word, as }, env);
-    console.log(`\npreview: mark ${word} as ${as} → +${fx.unlocked.length} readable (${Date.now() - t}ms)`);
-    for (const id of fx.unlocked.slice(0, 3)) {
-      const text = corpus.texts.find((x) => x.id === id);
-      console.log(`   ${text?.zh}  — ${text?.en?.slice(0, 60)}`);
+  const deck = [...corpus.words.values()].filter((w) => w.known);
+  const unlock = makeUnlock(new Set(deck.map((w) => w.w)), new Set(corpus.words.keys()));
+  const sole = new Map<string, number>();
+  let readable = 0;
+  let oneAway = 0;
+  for (const text of corpus.texts) {
+    const blockers = unlock.blockersOf(text.words);
+    if (blockers.length === 0) readable++;
+    else if (blockers.length === 1) {
+      oneAway++;
+      sole.set(blockers[0], (sole.get(blockers[0]) ?? 0) + 1);
     }
   }
-
-  // Undo is just another event; marking then unmarking must land where it began.
-  const marked = apply(state, { kind: "mark", at: 0, word: learnNext[0].word, as: "known" }, env);
-  const back = apply(marked, { kind: "unmark", at: 0, word: learnNext[0].word }, env);
-  console.log("\nmark+unmark round trip identical:", back.derived!.counts.unlocked === derived.counts.unlocked);
+  console.log(`\ndeck: ${deck.length} words (${deck.filter((w) => w.pleco).length} with a Pleco score)`);
+  console.log(`sentences: ${corpus.texts.length} — ${readable} readable, ${oneAway} one word away`);
+  const top = [...sole].sort((a, b) => b[1] - a[1]).slice(0, 20);
+  console.log("blocking the most on their own:", top.map(([w, n]) => `${w} ${n}`).join(" · "));
 }
 
 main().catch((e) => {

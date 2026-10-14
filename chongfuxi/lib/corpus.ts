@@ -1,31 +1,35 @@
 // From a Pleco snapshot to the corpus the app works on: words and texts.
 //
-// Everything here is a pure function of (snapshot, settings), so it can be
-// rebuilt at any point in the event history. What changes with your actions —
-// words marked known, names ignored — lives in the state machine on top.
+// Everything here is a pure function of (snapshot, settings). It reads and
+// sorts; app/api/chongfuxi/corpus.ts writes the result as rows, and what the
+// owner does afterwards (reviews, names) lives in those rows, not here.
 //
 // A card is a word or a text by its shape: one word (日本, AA制, 业余爱好者) or
 // a sentence or phrase (anything with punctuation, or longer). What it counts
 // for comes from the role of its top-level category:
 //
-//   known      its words count as known (ACTIVE, by default)
-//   list       word lists; their words are candidates for "learn next"
+//   words      the owner's own cards: its words are the deck, its sentences
+//              are sentences already studied (in Pleco, the category the owner
+//              calls ACTIVE — a name that stays in Pleco)
+//   list       word lists; their words are candidates for "learn next". A
+//              list gives words only: its long entries (place names, lines
+//              of poems, proverbs) are vocabulary, not sentences to read
 //   sentences  sentence pools; its words (lesson vocabulary) count for nothing
-//   ignore     not words at all (radicals)
+//   ignore     not words at all (radicals), or a deck that only repeats another
 //
 // A card filed in several categories takes them all, except that ignore only
 // wins when it is the card's only role.
 
-import type { PlecoCard, PlecoCategory, PlecoSnapshot } from "./pleco";
+import type { PlecoCard, PlecoCategory, PlecoSeed, PlecoSnapshot } from "./pleco";
 import { cleanHeadword, isHan, toneless } from "./hanzi";
 import { segmentByDictionary, segmentByPinyin, type SegmentContext } from "./segment";
 
-export type CategoryRole = "known" | "list" | "sentences" | "ignore";
+export type CategoryRole = "words" | "list" | "sentences" | "ignore";
 
 export interface Settings {
   /** Role per top-level category id. Categories not listed are word lists. */
   roles: Record<number, CategoryRole>;
-  /** A word with any score in the scorefile counts as known. */
+  /** A word Pleco has a score for is in the deck too, whatever it is filed under. */
   knownIfScored: boolean;
   /** Which scorefile to read scores from; null for the first one. */
   scorefile: number | null;
@@ -40,15 +44,23 @@ export interface Word {
   prons: string[];
   /** Best score across its cards in the chosen scorefile, null if never tested. */
   score: number | null;
+  /** The review record behind that score: what its cards here are seeded from. */
+  pleco: PlecoSeed | null;
+  /** The definition typed into its Pleco card, when it has one of its own. */
+  defn: string | null;
   inKnownCategory: boolean;
   inList: boolean;
-  /** Known before anything you've done in this app: by category or by score. */
+  /** The word lists it is filed under, as paths: "HSK 3.0/Level 2". */
+  lists: string[];
+  /** In the deck: one of the owner's own words, or one Pleco has a score for. */
   known: boolean;
 }
 
 export interface Text {
   /** The Pleco card it came from. */
   id: number;
+  /** Its Han characters only, simplified: what makes two cards the same sentence. */
+  key: string;
   /** As written, punctuation included. */
   zh: string;
   /** Translation — the card's own definition. */
@@ -59,8 +71,10 @@ export interface Text {
   source: "pleco" | "dictionary";
   /** Top-level categories it is filed under (a deck and a subset of it, say). */
   pools: number[];
-  /** Already studied in Pleco: filed under a known category, or scored. */
+  /** Already studied in Pleco: one of the owner's own cards, or scored. */
   studied: boolean;
+  /** Pleco's review record for it, when it has one. */
+  pleco: PlecoSeed | null;
 }
 
 export interface Corpus {
@@ -81,6 +95,8 @@ export interface Corpus {
     duplicateTexts: number;
     dictionarySplit: number;
     patterns: number;
+    /** Long entries of word lists, left out: a list gives words, not sentences. */
+    listPhrases: number;
   };
 }
 
@@ -103,6 +119,15 @@ export function topLevelMap(categories: PlecoCategory[]): Map<number, number> {
 }
 
 const LATIN = /[A-Za-z0-9\uff10-\uff19\uff21-\uff3a\uff41-\uff5a]/;
+
+/**
+ * A card's own definition, tidied. Cards brought into Pleco from a word list
+ * carry the list's last column on the end — a tab and a digit ("boy⇥1") —
+ * which is nothing to do with the meaning.
+ */
+function ownDefinition(card: PlecoCard): string | null {
+  return card.defn?.replace(/\t\d*\s*$/, "").trim() || null;
+}
 
 /**
  * The word a card stands for, or null when it reads as a sentence or phrase.
@@ -160,7 +185,7 @@ export function defaultSettings(snapshot: PlecoSnapshot): Settings {
   for (const c of snapshot.categories) {
     if (topOf.get(c.id) !== c.id) continue;
     const s = shapes.get(c.id) ?? { words: 0, texts: 0 };
-    if (/^active$/i.test(c.name.trim())) roles[c.id] = "known";
+    if (/^active$/i.test(c.name.trim())) roles[c.id] = "words";
     else if (/radical/i.test(c.name)) roles[c.id] = "ignore";
     else if (s.texts > 0 && s.texts >= 0.7 * (s.words + s.texts)) roles[c.id] = "sentences";
     else roles[c.id] = "list";
@@ -168,27 +193,41 @@ export function defaultSettings(snapshot: PlecoSnapshot): Settings {
   return { roles, knownIfScored: true, scorefile: null };
 }
 
-const ROLE_RANK: Record<CategoryRole, number> = { ignore: 0, list: 1, sentences: 1, known: 2 };
+const ROLE_RANK: Record<CategoryRole, number> = { ignore: 0, list: 1, sentences: 1, words: 2 };
 
 export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus {
   const topOf = topLevelMap(snapshot.categories);
   const roleOf = (cat: number): CategoryRole => settings.roles[topOf.get(cat) ?? cat] ?? "list";
 
+  const byId = new Map(snapshot.categories.map((c) => [c.id, c]));
+  const paths = new Map<number, string>();
+  /** A category's name with its ancestors': "HSK 3.0/Level 2". */
+  const pathOf = (id: number): string => {
+    const known = paths.get(id);
+    if (known !== undefined) return known;
+    const c = byId.get(id);
+    const above = c && byId.has(c.parent) && c.parent !== id ? pathOf(c.parent) : "";
+    const path = c ? (above ? `${above}/${c.name}` : c.name) : "";
+    paths.set(id, path);
+    return path;
+  };
+
   const scorefile =
     snapshot.scorefiles.find((s) => s.id === settings.scorefile) ?? snapshot.scorefiles[0] ?? null;
-  const scoreOf = new Map<number, number>();
-  for (const s of scorefile?.scores ?? []) scoreOf.set(s.card, s.score);
+  const scoreOf = new Map<number, PlecoSeed>();
+  for (const { card, ...seed } of scorefile?.scores ?? []) scoreOf.set(card, seed);
 
   // Readings each character has, from word cards whose pinyin lines up one
   // syllable per character. Used to check the sentence decks' pinyin.
   const charReadings = new Map<string, Set<string>>();
   const words = new Map<string, Word>();
-  const textCards: Array<{ card: PlecoCard; pools: number[]; studied: boolean }> = [];
+  const textCards: Array<{ card: PlecoCard; pools: number[]; studied: boolean; pleco: PlecoSeed | null }> = [];
   // Traditional → simplified, learnt from word cards that carry both forms.
   const simpChars = new Set<string>();
   const tradPairs = new Map<string, Map<string, number>>();
   let wordCards = 0;
   let patterns = 0;
+  let listPhrases = 0;
 
   for (const card of snapshot.cards) {
     const roles = card.cats.length ? card.cats.map(roleOf) : (["list"] as CategoryRole[]);
@@ -198,8 +237,9 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
       patterns++;
       continue;
     }
-    const inKnown = roles.includes("known");
-    const score = scoreOf.get(card.id) ?? null;
+    const inKnown = roles.includes("words");
+    const pleco = scoreOf.get(card.id) ?? null;
+    const score = pleco?.score ?? null;
 
     const w = wordOf(card);
     if (w) {
@@ -209,13 +249,22 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
         cards: [],
         prons: [],
         score: null,
+        pleco: null,
+        defn: null,
         inKnownCategory: false,
         inList: false,
+        lists: [],
         known: false,
       };
+      for (const cat of card.cats) {
+        const path = roleOf(cat) === "list" ? pathOf(cat) : "";
+        if (path && !entry.lists.includes(path)) entry.lists.push(path);
+      }
       entry.cards.push(card.id);
       if (card.pron && !entry.prons.includes(card.pron)) entry.prons.push(card.pron);
       if (score !== null) entry.score = Math.max(entry.score ?? 0, score);
+      if (pleco && (!entry.pleco || pleco.score > entry.pleco.score)) entry.pleco = pleco;
+      if (!entry.defn) entry.defn = ownDefinition(card);
       if (inKnown) entry.inKnownCategory = true;
       if (roles.includes("list") || inKnown) entry.inList = true;
       entry.known = entry.inKnownCategory || (settings.knownIfScored && entry.score !== null);
@@ -245,8 +294,14 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
         });
       }
     } else {
-      const pools = [...new Set(card.cats.map((c) => topOf.get(c) ?? c))];
-      textCards.push({ card, pools, studied: inKnown || score !== null });
+      // Filed only under word lists: an entry too long to be a word, but not a
+      // sentence either. (A card filed nowhere is the owner's own, and stays.)
+      if (card.cats.length && roles.every((r) => r === "list" || r === "ignore")) {
+        listPhrases++;
+        continue;
+      }
+      const pools = [...new Set(card.cats.filter((c) => roleOf(c) !== "ignore").map((c) => topOf.get(c) ?? c))];
+      textCards.push({ card, pools, studied: inKnown || score !== null, pleco });
     }
   }
 
@@ -277,7 +332,7 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
   const byKey = new Map<string, number>();
   let duplicateTexts = 0;
   let dictionarySplit = 0;
-  textCards.forEach(({ card, pools, studied }, i) => {
+  textCards.forEach(({ card, pools, studied, pleco }, i) => {
     const seg = pass1[i] ?? segmentByDictionary(prepared[i], segment);
     if (!seg.words.length) return;
     const zh = cleanHeadword(card.hw);
@@ -287,12 +342,13 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
       duplicateTexts++;
       const kept = texts[existing];
       if (studied) kept.studied = true;
+      if (pleco && (!kept.pleco || pleco.score > kept.pleco.score)) kept.pleco = pleco;
       for (const p of pools) if (!kept.pools.includes(p)) kept.pools.push(p);
       return;
     }
     if (seg.source === "dictionary") dictionarySplit++;
     byKey.set(key, texts.length);
-    texts.push({ id: card.id, zh, en: card.defn, words: seg.words, source: seg.source, pools, studied });
+    texts.push({ id: card.id, key, zh, en: ownDefinition(card), words: seg.words, source: seg.source, pools, studied, pleco });
   });
 
   return {
@@ -310,6 +366,7 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
       duplicateTexts,
       dictionarySplit,
       patterns,
+      listPhrases,
     },
   };
 }

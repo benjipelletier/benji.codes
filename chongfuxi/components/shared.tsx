@@ -1,60 +1,34 @@
 "use client";
 
-// Pieces every panel uses: the API the shell hands down, effect chips, and the
-// preview-then-act controls for a single word.
+// Pieces every screen uses: what the shell hands down, and a few ways of
+// writing things.
 
-import { useEffect, useState } from "react";
-import type { ChongEvent, Effects, MachineState, MarkReason } from "@chongfuxi/lib/machine";
-import type { Text } from "@chongfuxi/lib/corpus";
+import type { Summary } from "@chongfuxi/lib/api";
 
-export interface AppApi {
-  /** The state being shown — the present, or a past one when time travelling. */
-  state: MachineState;
-  /** True while looking at a past state: nothing can be changed from there. */
-  readOnly: boolean;
-  /** What an event would do to the present state. Synchronous and ~100ms. */
-  preview(event: ChongEvent): Effects;
-  dispatch(event: ChongEvent): Promise<void>;
+export interface Shell {
+  /** Where the deck stands; null until the server has answered. */
+  summary: Summary | null;
+  /** Signed in as the owner. Everyone else looks on and changes nothing. */
+  canWrite: boolean;
+  /** Fetch the counts again, after something that moved them. */
+  refresh(): void;
+  /** Give the whole screen to a review session: the header and tabs step aside. */
+  setFocus(on: boolean): void;
 }
 
 export function plecoHref(word: string): string {
   return `plecoapi://x-callback-url/s?q=${encodeURIComponent(word)}`;
 }
 
-const fmt = (n: number) => n.toLocaleString("en-US");
+export const fmt = (n: number) => n.toLocaleString("en-US");
 
-/** Signed deltas of an effect, the way the log and every preview show them. */
-export function EffectChips({ fx, empty = "no change" }: { fx: Effects | null; empty?: string }) {
-  if (!fx) return null;
-  const chips: Array<{ label: string; tone: "up" | "down" }> = [];
-  if (fx.wordsAdded.length) chips.push({ label: `+${fmt(fx.wordsAdded.length)} known`, tone: "up" });
-  if (fx.wordsRemoved.length) chips.push({ label: `−${fmt(fx.wordsRemoved.length)} known`, tone: "down" });
-  if (fx.unlocked.length) chips.push({ label: `+${fmt(fx.unlocked.length)} readable`, tone: "up" });
-  if (fx.relocked.length) chips.push({ label: `−${fmt(fx.relocked.length)} readable`, tone: "down" });
-  if (!chips.length) return <span className="cf-chip cf-chip-none">{empty}</span>;
-  return (
-    <span className="cf-chips">
-      {chips.map((c) => (
-        <span key={c.label} className={`cf-chip cf-chip-${c.tone}`}>
-          {c.label}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-/** A preview worked out after paint, so the tap that asks for it feels instant. */
-export function usePreview(api: AppApi, event: ChongEvent | null): Effects | null {
-  const [fx, setFx] = useState<Effects | null>(null);
-  const key = event ? JSON.stringify({ ...event, at: 0 }) : "";
-  useEffect(() => {
-    setFx(null);
-    if (!event || api.readOnly) return;
-    const handle = window.setTimeout(() => setFx(api.preview(event)), 16);
-    return () => window.clearTimeout(handle);
-    // The event is identified by its key, and a preview is stale once state moves.
-  }, [key, api.state]);
-  return fx;
+/** How long until a card comes back, as the buttons say it: 3d, 5w, 4mo, 2.5y. */
+export function span(days: number): string {
+  if (days < 21) return `${days}d`;
+  if (days < 84) return `${Math.round(days / 7)}w`;
+  if (days < 365) return `${Math.round(days / 30)}mo`;
+  const years = days / 365;
+  return `${years < 10 ? years.toFixed(1).replace(/\.0$/, "") : Math.round(years)}y`;
 }
 
 /** A sentence with one word picked out, where it appears as written. */
@@ -70,93 +44,14 @@ export function Highlighted({ text, word }: { text: string; word: string }) {
   );
 }
 
-export function textsById(state: MachineState, ids: number[], limit: number): Text[] {
-  if (!state.corpus) return [];
-  const wanted = new Set(ids.slice(0, limit * 4));
-  const out: Text[] = [];
-  for (const t of state.corpus.texts) {
-    if (wanted.has(t.id)) out.push(t);
-    if (out.length >= limit) break;
-  }
-  return out;
+/** How long ago something was, in the largest unit that fits: today, 5 days ago, 14 months ago. */
+export function ago(at: number, now = Date.now()): string {
+  const days = Math.floor((now - at) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 60) return `${days} days ago`;
+  if (days < 730) return `${Math.round(days / 30.4)} months ago`;
+  return `${(days / 365).toFixed(1).replace(/\.0$/, "")} years ago`;
 }
 
-/**
- * Everything you can do to one word, each with what it would do first.
- * Marking known and marking as a name unlock the same texts; they differ in
- * what they say about the word, which the log keeps.
- */
-export function WordActions({ api, word }: { api: AppApi; word: string }) {
-  const marked: MarkReason | undefined = api.state.marks.get(word);
-  const event: ChongEvent = marked
-    ? { kind: "unmark", at: Date.now(), word }
-    : { kind: "mark", at: Date.now(), word, as: "known" };
-  const fx = usePreview(api, event);
-  const [busy, setBusy] = useState(false);
-  const act = async (e: ChongEvent) => {
-    setBusy(true);
-    try {
-      await api.dispatch(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const examples = fx ? textsById(api.state, marked ? fx.relocked : fx.unlocked, 3) : [];
-
-  return (
-    <div className="cf-actions">
-      <div className="cf-actions-preview">
-        {api.readOnly ? (
-          <span className="cf-muted">Viewing a past state — return to now to act.</span>
-        ) : fx ? (
-          <>
-            <span className="cf-muted">{marked ? "Unmarking would:" : "Knowing it would:"}</span>{" "}
-            <EffectChips fx={fx} />
-          </>
-        ) : (
-          <span className="cf-muted">Working out what it would change…</span>
-        )}
-      </div>
-      {examples.length > 0 && (
-        <ul className="cf-examples">
-          {examples.map((t) => (
-            <li key={t.id}>
-              <span className="cf-zh">
-                <Highlighted text={t.zh} word={word} />
-              </span>
-              {t.en && <span className="cf-en">{t.en}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="cf-buttons">
-        <a className="cf-btn cf-btn-ghost" href={plecoHref(word)}>
-          Open in Pleco
-        </a>
-        {!api.readOnly &&
-          (marked ? (
-            <button className="cf-btn" disabled={busy} onClick={() => act(event)}>
-              Unmark ({marked === "name" ? "name" : "known"})
-            </button>
-          ) : (
-            <>
-              <button
-                className="cf-btn cf-btn-ghost"
-                disabled={busy}
-                onClick={() => act({ kind: "mark", at: Date.now(), word, as: "name" })}
-              >
-                It&apos;s a name
-              </button>
-              <button
-                className="cf-btn"
-                disabled={busy}
-                onClick={() => act({ kind: "mark", at: Date.now(), word, as: "known" })}
-              >
-                I know it
-              </button>
-            </>
-          ))}
-      </div>
-    </div>
-  );
-}
+export const message = (e: unknown) => (e instanceof Error ? e.message : String(e));

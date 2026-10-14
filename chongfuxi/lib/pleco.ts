@@ -48,6 +48,9 @@ export interface PlecoScore {
   last: number | null;
 }
 
+/** What Pleco knew about one card's reviews: where its schedule here starts from. */
+export type PlecoSeed = Omit<PlecoScore, "card">;
+
 export interface PlecoScorefile {
   id: number;
   name: string;

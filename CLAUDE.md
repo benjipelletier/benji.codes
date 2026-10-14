@@ -21,7 +21,8 @@ benji.codes/
 │   └── api/                # API routes namespaced per project
 │       ├── riddleyu/
 │       ├── gecijielong/
-│       └── longku/
+│       ├── longku/
+│       └── chongfuxi/
 ├── projects.config.ts      # Enable/disable projects, metadata
 ├── riddleyu/               # Source code (components, lib, styles)
 ├── gecijielong/            # Source code
@@ -60,9 +61,14 @@ on the landing page. All five current projects are enabled.
   `longku/scripts/build-cedict.py`.
 - **longku** frequencies come from [wordfreq](https://github.com/rspeer/wordfreq)
   (MIT), via `longku/scripts/build-frequency.py`.
-- **chongfuxi** vendors the [sql.js](https://github.com/sql-js/sql.js) browser
-  build (MIT) in `public/chongfuxi/vendor`. It ships no sentence data: sentences
-  come from the user's own Pleco backup and stay in their browser.
+- **chongfuxi** embeds [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict)
+  (CC BY-SA 4.0) as `chongfuxi/data/cedict.txt`, rebuilt with
+  `chongfuxi/scripts/build-dict.ts`, and copies its definitions onto the word
+  rows it serves; the app credits it. It reads Pleco backups on the server
+  with [sql.js](https://github.com/sql-js/sql.js) (MIT). The repo ships no
+  sentence data: sentences come from the owner's Pleco backup, live in the
+  `CHONGFUXI_DATABASE_URL` store and are served read-only. That backup
+  includes third-party sentence decks.
 
 ## Per-project CLAUDE.md
 

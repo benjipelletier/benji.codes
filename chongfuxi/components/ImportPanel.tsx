@@ -1,334 +1,218 @@
 "use client";
 
-// Bringing a Pleco backup in, and deciding what its categories mean.
+// Signing in, and bringing a newer Pleco backup in.
 //
-// Nothing is committed until you've seen what it would change: the backup is
-// read here in the browser, sorted with the roles you pick, and diffed against
-// the present state. Only then does "Import" write it and append the event.
+// Words come from Pleco and nowhere else: the owner adds them there, exports a
+// backup, and imports it here. The file goes to the server, which turns it
+// into rows. Before anything is written the server says what the import would
+// add, so it can be looked at first. Importing only ever adds.
 
-import { useEffect, useMemo, useState } from "react";
-import { readPleco, type PlecoSnapshot } from "@chongfuxi/lib/pleco";
-import { defaultSettings, topLevelMap, type CategoryRole, type Settings } from "@chongfuxi/lib/corpus";
-import type { Effects } from "@chongfuxi/lib/machine";
-import { loadSqlJs } from "@chongfuxi/lib/sqljs";
-import { newId, sha256, type StoredImport } from "@chongfuxi/lib/store";
-import { EffectChips, type AppApi } from "./shared";
+import { useEffect, useState } from "react";
+import { signInWithGoogle, signOut } from "@chongfuxi/lib/auth-client";
+import { get, send } from "@chongfuxi/lib/client";
+import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
+import { fmt, message, type Shell } from "./shared";
 
-export interface ImportMeta {
-  id: string;
-  at: number;
+/** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
+interface Outcome {
   fileName: string;
-  sha256: string | null;
+  cards: number;
+  words: { total: number; added: number; sample: string[] };
+  sentences: { total: number; added: number; readable: number; oneAway: number; unlocked: number };
 }
 
-const ROLES: Array<{ value: CategoryRole; label: string }> = [
-  { value: "known", label: "Known words" },
-  { value: "list", label: "Word list" },
-  { value: "sentences", label: "Sentences" },
-  { value: "ignore", label: "Ignore" },
-];
-
-/** Cards under each top-level category, for the role editor. */
-function topCounts(snapshot: PlecoSnapshot): Map<number, number> {
-  const topOf = topLevelMap(snapshot.categories);
-  const counts = new Map<number, number>();
-  for (const card of snapshot.cards) {
-    for (const top of new Set(card.cats.map((c) => topOf.get(c) ?? c))) counts.set(top, (counts.get(top) ?? 0) + 1);
-  }
-  return counts;
-}
-
-/** Keep the roles already chosen for categories that still exist; default the rest. */
-function carryOver(snapshot: PlecoSnapshot, prev: Settings | null): Settings {
-  const fresh = defaultSettings(snapshot);
-  if (!prev) return fresh;
-  const roles = { ...fresh.roles };
-  for (const id of Object.keys(roles)) if (prev.roles[Number(id)]) roles[Number(id)] = prev.roles[Number(id)];
-  return { ...fresh, roles, knownIfScored: prev.knownIfScored, scorefile: prev.scorefile };
-}
-
-function RoleEditor({
-  snapshot,
-  settings,
-  onChange,
-  disabled,
-}: {
-  snapshot: PlecoSnapshot;
-  settings: Settings;
-  onChange: (s: Settings) => void;
-  disabled?: boolean;
-}) {
-  const counts = useMemo(() => topCounts(snapshot), [snapshot]);
-  const tops = snapshot.categories
-    .filter((c) => settings.roles[c.id] !== undefined)
-    .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0));
-  return (
-    <div className="cf-roles">
-      {tops.map((c) => (
-        <label key={c.id} className="cf-role">
-          <span className="cf-role-name">
-            {c.name} <span className="cf-muted">{(counts.get(c.id) ?? 0).toLocaleString("en-US")}</span>
-          </span>
-          <select
-            className="cf-select"
-            disabled={disabled}
-            value={settings.roles[c.id]}
-            onChange={(e) =>
-              onChange({ ...settings, roles: { ...settings.roles, [c.id]: e.target.value as CategoryRole } })
-            }
-          >
-            {ROLES.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
-      <label className="cf-role cf-role-check">
-        <input
-          type="checkbox"
-          disabled={disabled}
-          checked={settings.knownIfScored}
-          onChange={(e) => onChange({ ...settings, knownIfScored: e.target.checked })}
-        />
-        <span>Any word with a Pleco score counts as known</span>
-      </label>
-    </div>
-  );
-}
-
-function Delta({ fx }: { fx: Effects }) {
-  const b = fx.before;
-  const a = fx.after;
-  if (!a) return null;
-  const line = (label: string, from: number | undefined, to: number) => (
-    <tr>
-      <th scope="row">{label}</th>
-      <td>{from === undefined ? "—" : from.toLocaleString("en-US")}</td>
-      <td>→</td>
-      <td>{to.toLocaleString("en-US")}</td>
-    </tr>
-  );
-  return (
-    <table className="cf-table cf-delta">
-      <tbody>
-        {line("Known words", b?.knownWords, a.knownWords)}
-        {line("Readable sentences", b?.unlocked, a.unlocked)}
-        {line("One word away", b?.oneAway, a.oneAway)}
-        {line("Locked", b?.locked, a.locked)}
-      </tbody>
-    </table>
-  );
-}
-
-type Pending = {
-  id: string;
-  fileName: string;
-  sha256: string | null;
-  snapshot: PlecoSnapshot;
-  settings: Settings;
-  duplicateOf: ImportMeta | null;
-};
-
-export function ImportPanel({
-  api,
-  imports,
-  currentSnapshot,
-  previewImport,
-  commitImport,
-}: {
-  api: AppApi;
-  imports: ImportMeta[];
-  currentSnapshot: PlecoSnapshot | null;
-  previewImport: (id: string, snapshot: PlecoSnapshot, settings: Settings) => Effects;
-  commitImport: (record: StoredImport, settings: Settings) => Promise<void>;
-}) {
-  const [pending, setPending] = useState<Pending | null>(null);
-  const [status, setStatus] = useState<"idle" | "reading" | "committing">("idle");
+function Account({ shell }: { shell: Shell }) {
+  const viewer = shell.summary!.viewer;
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fx, setFx] = useState<Effects | null>(null);
-  const [draft, setDraft] = useState<Settings | null>(null);
-  const [draftFx, setDraftFx] = useState<Effects | null>(null);
-
-  const readFile = async (file: File) => {
+  const go = async (action: () => Promise<void>) => {
+    setBusy(true);
     setError(null);
-    setPending(null);
-    setStatus("reading");
     try {
-      const bytes = await file.arrayBuffer();
-      const [hash, SQL] = await Promise.all([sha256(bytes), loadSqlJs()]);
-      const db = new SQL.Database(new Uint8Array(bytes));
-      let snapshot: PlecoSnapshot;
-      try {
-        snapshot = readPleco(db);
-      } finally {
-        db.close();
-      }
-      setPending({
-        id: newId(),
-        fileName: file.name,
-        sha256: hash,
-        snapshot,
-        settings: carryOver(snapshot, api.state.settings),
-        duplicateOf: (hash && imports.find((i) => i.sha256 === hash)) || null,
-      });
+      await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setStatus("idle");
+      setError(message(e));
+      setBusy(false);
     }
   };
+  return (
+    <section className="cf-section">
+      <h2 className="cf-h2">{viewer.isOwner ? "Your deck" : "Benji's deck"}</h2>
+      {!viewer.configured ? (
+        <p className="cf-lede">This deployment has no database set up.</p>
+      ) : viewer.isOwner ? (
+        <p className="cf-lede">
+          Signed in as <b>{viewer.email}</b>. Everyone else sees this read-only.
+        </p>
+      ) : viewer.email ? (
+        <p className="cf-lede">
+          Signed in as <b>{viewer.email}</b>. This is one person&apos;s deck — only Benji can review it — so you&apos;re
+          looking at it read-only.
+        </p>
+      ) : (
+        <p className="cf-lede">You&apos;re looking at Benji&apos;s deck, read-only. Only Benji can sign in to review it.</p>
+      )}
+      {error && <p className="cf-error">{error}</p>}
+      {viewer.configured && (
+        <div className="cf-buttons">
+          {viewer.email ? (
+            <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={() => go(signOut)}>
+              Sign out
+            </button>
+          ) : (
+            <button className="cf-btn" disabled={busy} onClick={() => go(signInWithGoogle)}>
+              {busy ? "Opening Google…" : "Sign in with Google"}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
-  // Preview a pending import whenever it or its roles change.
-  useEffect(() => {
-    setFx(null);
-    if (!pending) return;
-    const handle = window.setTimeout(
-      () => setFx(previewImport(pending.id, pending.snapshot, pending.settings)),
-      30,
-    );
-    return () => window.clearTimeout(handle);
-  }, [pending, previewImport]);
+function Importer({ shell }: { shell: Shell }) {
+  const [last, setLast] = useState<StoredImport | null>(null);
+  const [step, setStep] = useState<"idle" | "uploading" | "weighing" | "ready" | "importing" | "done">("idle");
+  const [note, setNote] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; outcome: Outcome } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Preview a change of roles on the current import.
   useEffect(() => {
-    setDraftFx(null);
-    if (!draft) return;
-    const handle = window.setTimeout(
-      () => setDraftFx(api.preview({ kind: "settings", at: Date.now(), settings: draft })),
-      30,
-    );
-    return () => window.clearTimeout(handle);
-    // api.preview is stable per state; re-run only when the draft or state moves.
-  }, [draft, api.state]);
+    get<{ imports: StoredImport[] }>("imports")
+      .then((r) => setLast(r.imports.filter((i) => i.ingested !== null).sort((a, b) => b.ingested! - a.ingested!)[0] ?? null))
+      .catch(() => undefined);
+  }, [step === "done"]);
+
+  const choose = async (file: File) => {
+    setError(null);
+    setPending(null);
+    try {
+      setStep("uploading");
+      setNote(`Sending ${file.name}…`);
+      const id = await uploadFile(file, (sent, total) => setNote(`Sending ${file.name}… ${sent}/${total}`));
+      setStep("weighing");
+      setNote("Working out what it would add…");
+      const outcome = await send<Outcome>(`imports/${encodeURIComponent(id)}/ingest`, {}, "POST", { dry: 1 });
+      setPending({ id, outcome });
+      setStep("ready");
+    } catch (e) {
+      setError(message(e));
+      setStep("idle");
+    } finally {
+      setNote(null);
+    }
+  };
 
   const commit = async () => {
     if (!pending) return;
-    setStatus("committing");
+    setError(null);
+    setStep("importing");
     try {
-      await commitImport(
-        {
-          id: pending.id,
-          at: Date.now(),
-          fileName: pending.fileName,
-          sha256: pending.sha256,
-          snapshot: pending.snapshot,
-        },
-        pending.settings,
-      );
-      setPending(null);
+      const outcome = await send<Outcome>(`imports/${encodeURIComponent(pending.id)}/ingest`, {});
+      setPending({ id: pending.id, outcome });
+      setStep("done");
+      shell.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setStatus("idle");
+      setError(message(e));
+      setStep("ready");
     }
   };
 
-  const last = imports[imports.length - 1];
+  const o = pending?.outcome;
+  const busy = step === "uploading" || step === "weighing" || step === "importing";
 
   return (
-    <div className="cf-panel">
-      <section className="cf-section">
-        <h2 className="cf-h2">Import a Pleco backup</h2>
-        <p className="cf-lede">
-          In Pleco: Flashcards → Import/Export → <b>Backup Database</b>, then pick the <code>.pqb</code> file here.
-          It&apos;s read in this browser and stays here.
+    <section className="cf-section">
+      <h2 className="cf-h2">Import from Pleco</h2>
+      <p className="cf-lede">
+        In Pleco: Flashcards → Import/Export → <b>Backup Database</b>, then pick the <code>.pqb</code> file here. New
+        words become cards, new sentences join the pool, and nothing you&apos;ve reviewed is touched.
+      </p>
+      {last && (
+        <p className="cf-muted">
+          Last import: {last.fileName},{" "}
+          {new Date(last.ingested!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
         </p>
-        {last && (
-          <p className="cf-muted">
-            Last import: {last.fileName}, {new Date(last.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
-          </p>
-        )}
-        {api.readOnly ? (
-          <p className="cf-muted">Viewing a past state — return to now to import.</p>
-        ) : (
-          <label className="cf-file">
-            <input
-              type="file"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) readFile(f);
-                e.target.value = "";
-              }}
-            />
-            <span className="cf-btn">{status === "reading" ? "Reading…" : "Choose backup"}</span>
-          </label>
-        )}
-        {error && <p className="cf-error">{error}</p>}
-      </section>
-
-      {pending && (
-        <section className="cf-section cf-pending">
-          <h2 className="cf-h2">{pending.fileName}</h2>
-          <p className="cf-muted">
-            {pending.snapshot.cards.length.toLocaleString("en-US")} cards,{" "}
-            {pending.snapshot.categories.length} categories,{" "}
-            {pending.snapshot.scorefiles.map((s) => `scorefile “${s.name}”`).join(", ") || "no scorefile"}
-          </p>
-          {pending.duplicateOf && (
-            <p className="cf-warn">
-              This exact file was already imported ({pending.duplicateOf.fileName}). Importing it again changes
-              nothing unless you change the roles below.
-            </p>
-          )}
-          <h3 className="cf-h3">What each category is</h3>
-          <RoleEditor
-            snapshot={pending.snapshot}
-            settings={pending.settings}
-            onChange={(settings) => setPending({ ...pending, settings })}
-          />
-          <h3 className="cf-h3">Importing it would</h3>
-          {fx ? (
-            <>
-              <EffectChips fx={fx} />
-              <Delta fx={fx} />
-            </>
-          ) : (
-            <p className="cf-muted">Working it out…</p>
-          )}
-          <div className="cf-buttons">
-            <button className="cf-btn cf-btn-ghost" onClick={() => setPending(null)}>
-              Cancel
-            </button>
-            <button className="cf-btn" disabled={!fx || status === "committing"} onClick={commit}>
-              {status === "committing" ? "Importing…" : "Import"}
-            </button>
-          </div>
-        </section>
       )}
+      <label className="cf-file">
+        <input
+          type="file"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void choose(f);
+            e.target.value = "";
+          }}
+        />
+        <span className="cf-btn">{busy ? "Working…" : "Choose backup"}</span>
+      </label>
+      {note && <p className="cf-muted">{note}</p>}
+      {error && <p className="cf-error">{error}</p>}
 
-      {currentSnapshot && api.state.settings && !pending && (
-        <section className="cf-section">
-          <h2 className="cf-h2">Categories of the current import</h2>
-          <p className="cf-lede">Change what a category means; you&apos;ll see the effect before applying it.</p>
-          <RoleEditor
-            snapshot={currentSnapshot}
-            settings={draft ?? api.state.settings}
-            disabled={api.readOnly}
-            onChange={setDraft}
-          />
-          {draft && (
-            <>
-              <h3 className="cf-h3">This change would</h3>
-              {draftFx ? <EffectChips fx={draftFx} /> : <p className="cf-muted">Working it out…</p>}
-              <div className="cf-buttons">
-                <button className="cf-btn cf-btn-ghost" onClick={() => setDraft(null)}>
-                  Discard
-                </button>
-                <button
-                  className="cf-btn"
-                  disabled={!draftFx}
-                  onClick={async () => {
-                    await api.dispatch({ kind: "settings", at: Date.now(), settings: draft });
-                    setDraft(null);
-                  }}
-                >
-                  Apply
-                </button>
-              </div>
-            </>
+      {o && (
+        <div className="cf-pending">
+          <h3 className="cf-h3">
+            {step === "done" ? "Imported" : "Importing it would add"} — {o.fileName}
+          </h3>
+          <table className="cf-table">
+            <tbody>
+              <tr>
+                <th scope="row">New words</th>
+                <td>{fmt(o.words.added)}</td>
+              </tr>
+              <tr>
+                <th scope="row">New sentences</th>
+                <td>{fmt(o.sentences.added)}</td>
+              </tr>
+              <tr>
+                <th scope="row">Sentences that become readable</th>
+                <td>{fmt(o.sentences.unlocked)}</td>
+              </tr>
+              <tr className="cf-sub">
+                <th scope="row">Words after</th>
+                <td>{fmt(o.words.total)}</td>
+              </tr>
+              <tr className="cf-sub">
+                <th scope="row">Readable after</th>
+                <td>{fmt(o.sentences.readable)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {o.words.sample.length > 0 && <p className="cf-zh">{o.words.sample.join(" ")}{o.words.added > o.words.sample.length ? " …" : ""}</p>}
+          {step !== "done" && (
+            <div className="cf-buttons">
+              <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={() => { setPending(null); setStep("idle"); }}>
+                Cancel
+              </button>
+              <button className="cf-btn" disabled={busy} onClick={commit}>
+                {step === "importing" ? "Importing…" : "Import"}
+              </button>
+            </div>
           )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function ImportPanel({ shell }: { shell: Shell }) {
+  const s = shell.summary!;
+  return (
+    <div className="cf-panel">
+      <Account shell={shell} />
+      {shell.canWrite && <Importer shell={shell} />}
+      {s.viewer.configured && (
+        <section className="cf-section">
+          <h2 className="cf-h2">About</h2>
+          <p className="cf-muted">
+            {fmt(s.words)} words and {fmt(s.sentences)} sentences, built from Benji&apos;s Pleco flashcards.{" "}
+            {s.retired > 0 && `${fmt(s.retired)} sentences retired. `}
+            Definitions are from{" "}
+            <a href="https://www.mdbg.net/chinese/dictionary?page=cc-cedict" target="_blank" rel="noreferrer">
+              CC-CEDICT
+            </a>
+            , CC BY-SA 4.0.
+          </p>
         </section>
       )}
     </div>
