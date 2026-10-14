@@ -1,0 +1,60 @@
+// The tab bar's icons: a drawing for what the tab is, with one character of
+// its Chinese name set over it. The character carries a halo in the colour
+// behind it (--cf-tab-halo), so it reads where it crosses a line.
+
+export type TabIconKind = "review" | "cards" | "stats" | "import";
+
+const GLYPH: Record<TabIconKind, { zh: string; x: number; y: number; size: number }> = {
+  review: { zh: "复", x: 16, y: 16.5, size: 15 },
+  cards: { zh: "卡", x: 14.5, y: 18.5, size: 14.5 },
+  stats: { zh: "统", x: 11, y: 12, size: 15 },
+  import: { zh: "入", x: 16, y: 10.5, size: 15.5 },
+};
+
+function Drawing({ kind }: { kind: TabIconKind }) {
+  switch (kind) {
+    // Going round again: a ring that ends in an arrowhead.
+    case "review":
+      return (
+        <>
+          <path d="M23.7 6.8A12 12 0 1 1 11.9 4.7" />
+          <path d="M8.5 2.6 13.8 4 10.6 8.6" />
+        </>
+      );
+    // A card in front of another.
+    case "cards":
+      return (
+        <>
+          <rect x="10" y="3" width="16" height="21" rx="3" transform="rotate(10 18 13.5)" className="cf-ti-back" />
+          <rect x="6" y="8" width="17" height="21" rx="3" className="cf-ti-face" />
+        </>
+      );
+    // Bars rising to the right, on a baseline.
+    case "stats":
+      return (
+        <>
+          <rect x="5" y="19" width="5.5" height="8.5" rx="1.5" className="cf-ti-fill" />
+          <rect x="13.25" y="13" width="5.5" height="14.5" rx="1.5" className="cf-ti-fill" />
+          <rect x="21.5" y="6.5" width="5.5" height="21" rx="1.5" className="cf-ti-fill" />
+          <path d="M3 28.5h26" />
+        </>
+      );
+    // A tray, open at the top, for what comes in.
+    case "import":
+      return <path d="M4.5 19v5.5a3 3 0 0 0 3 3h17a3 3 0 0 0 3-3V19M11 19.5h10" />;
+  }
+}
+
+export function TabIcon({ kind }: { kind: TabIconKind }) {
+  const g = GLYPH[kind];
+  return (
+    <svg className="cf-ti" viewBox="0 0 32 32" aria-hidden="true">
+      <g className="cf-ti-draw">
+        <Drawing kind={kind} />
+      </g>
+      <text x={g.x} y={g.y} fontSize={g.size} className="cf-ti-zh">
+        {g.zh}
+      </text>
+    </svg>
+  );
+}

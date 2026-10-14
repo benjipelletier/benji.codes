@@ -95,7 +95,9 @@
   min-height: 100dvh;
   background: var(--cf-bg);
   color: var(--cf-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  /* Faces loaded in app/chongfuxi/layout.tsx; system faces stand in until then. */
+  --cf-zh: var(--cf-font-han, "Noto Sans SC"), "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
   font-weight: 400;
   font-size: 15px;
   line-height: 1.5;
@@ -140,7 +142,7 @@
 }
 
 .cf-title h1 {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-weight: 700;
   font-size: 20px;
   letter-spacing: 0.02em;
@@ -237,9 +239,12 @@
   padding-bottom: 8px;
 }
 
-/* Bottom tab bar: fixed above the gesture bar, four equal tabs with the
-   Chinese over a small English label. */
+/* Bottom tab bar: fixed above the gesture bar, four equal tabs, each an icon
+   with a character of its Chinese name over it and a small English label
+   beneath. The current tab sits on a pill, as Android's own bars do. */
 .cf-tabs {
+  --cf-tab-halo: var(--cf-surface);
+  --cf-tab-pill: color-mix(in srgb, var(--cf-accent) 14%, var(--cf-surface));
   position: fixed;
   left: 0;
   right: 0;
@@ -253,35 +258,103 @@
 }
 
 .cf-tab {
-  /* Five tabs share a 360px screen: equal widths, and none may push the bar wider. */
+  /* Four tabs share a 360px screen: equal widths, and none may push the bar wider. */
   flex: 1 1 0;
   min-width: 0;
   max-width: 180px;
-  min-height: 56px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   background: none;
   border: 0;
-  border-top: 2px solid transparent;
   padding: 6px 2px;
   cursor: pointer;
   color: var(--cf-ink-soft);
-  font-size: 11px;
-  line-height: 1.3;
   white-space: nowrap;
+}
+
+.cf-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 32px;
+  border-radius: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.cf-tab-label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
 .cf-tab.is-on {
   color: var(--cf-accent);
-  border-top-color: var(--cf-accent);
 }
 
-.cf-tab-zh {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+.cf-tab.is-on .cf-tab-icon {
+  --cf-tab-halo: var(--cf-tab-pill);
+  background: var(--cf-tab-pill);
+}
+
+.cf-tab.is-on .cf-tab-label {
+  font-weight: 650;
+  color: var(--cf-ink);
+}
+
+.cf-ti {
+  width: 30px;
+  height: 30px;
+  overflow: visible;
+}
+
+.cf-ti-draw {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cf-ti-back {
+  opacity: 0.45;
+}
+
+.cf-ti-face {
+  fill: var(--cf-tab-halo);
+}
+
+.cf-ti-fill {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0.22;
+}
+
+.cf-tab.is-on .cf-ti-fill {
+  opacity: 0.4;
+}
+
+.cf-ti-zh {
+  font-family: var(--cf-zh);
   font-weight: 700;
-  font-size: 15px;
+  fill: currentColor;
+  text-anchor: middle;
+  dominant-baseline: central;
+  /* The halo: a stroke in the colour behind, drawn under the fill. */
+  stroke: var(--cf-tab-halo);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-tab-icon {
+    transition: none;
+  }
 }
 
 .cf-main {
@@ -379,7 +452,7 @@
 }
 
 .cf-word {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 20px;
   font-weight: 700;
 }
@@ -485,7 +558,7 @@
 }
 
 .cf-zh {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 18px;
   line-height: 1.6;
 }
@@ -639,7 +712,7 @@
 }
 
 .cf-blocker {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 16px;
   font-weight: 700;
   min-height: 36px;
@@ -1392,7 +1465,7 @@ label.cf-kind {
 }
 
 .cf-card-word {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-weight: 600;
   /* One line, whatever the length: the size comes down until the word fits
    * the card (--n characters across the card's inner width). */
@@ -1440,7 +1513,7 @@ label.cf-kind {
 
 /* The sentence a word is shown in: quieter than the word, the word picked out. */
 .cf-card-zh {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 20px;
   line-height: 1.6;
   text-align: center;
@@ -1456,7 +1529,7 @@ label.cf-kind {
 }
 
 .cf-card-sentence {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 30px;
   font-weight: 550;
   line-height: 1.6;
@@ -1580,7 +1653,7 @@ label.cf-kind {
 }
 
 .cf-token {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 20px;
   min-height: 46px;
   min-width: 46px;
@@ -1783,7 +1856,7 @@ label.cf-kind {
 }
 
 .cf-done-zh {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 80px;
   font-weight: 600;
   line-height: 1;
@@ -1801,7 +1874,7 @@ label.cf-kind {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(60px + env(safe-area-inset-bottom));
+  bottom: calc(64px + env(safe-area-inset-bottom));
   z-index: 9;
   display: flex;
   align-items: center;
@@ -2089,7 +2162,7 @@ label.cf-kind {
 }
 
 .cf-fast-peek b {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 20px;
   font-weight: 600;
   color: var(--cf-ink);
@@ -2109,7 +2182,7 @@ label.cf-kind {
 
 /* Sized to fit the cell on one line, like the word on a card. */
 .cf-fast-word {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-weight: 600;
   font-size: min(26px, calc((min(100vw, 720px) - 32px) / 3 / var(--n) - 4px));
   line-height: 1.2;
@@ -2280,7 +2353,7 @@ label.cf-kind {
 
 .cf-fast-forgot {
   margin: 0;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 17px;
   line-height: 1.7;
 }
@@ -3250,7 +3323,7 @@ label.cf-kind {
   padding: 0 4px;
   border: 1px solid transparent;
   border-radius: 9px;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: min(18px, calc(56px / var(--n, 2)));
   font-weight: 550;
   white-space: nowrap;
@@ -3356,7 +3429,7 @@ label.cf-kind {
 
 .cf-sheet-head h2 {
   margin: 0;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 44px;
   font-weight: 650;
   line-height: 1.15;
@@ -3491,7 +3564,7 @@ label.cf-kind {
 
 .cf-sheet-best .cf-zh {
   margin: 0;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 17px;
 }
 
@@ -3621,7 +3694,7 @@ label.cf-kind {
 .cf-arrival-zh {
   flex: none;
   min-width: 2.2em;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 30px;
   font-weight: 600;
   line-height: 1.1;
@@ -3682,7 +3755,7 @@ label.cf-kind {
 
 .cf-arrival-sentences .cf-zh {
   margin: 0;
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 17px;
 }
 
@@ -3939,7 +4012,7 @@ button.cf-synclog-row {
 }
 
 .cf-diff-word {
-  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-family: var(--cf-zh);
   font-size: 17px;
   font-weight: 600;
   min-width: 0;

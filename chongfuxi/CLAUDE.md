@@ -61,8 +61,16 @@ rejected as too themed. Keep it that way:
   little more colour comes from one hue per kind of card, used wherever that
   kind is named or counted: Read blue, Recall violet, Sentence green, new
   sentences amber (`--cf-read`, `--cf-recall`, `--cf-sentence`, `--cf-new`).
-- Chinese in the system sans (PingFang / Noto Sans), heavy and large. No serif
-  or brush faces, no schoolbook or paper motifs.
+- Type: Inter for Latin (one of the few UI faces with every pinyin vowel, ǎ ǐ
+  ǒ ǔ ǖ ǘ ǚ ǜ; Figtree, DM Sans, Manrope, Geist and most others lack some, so
+  a syllable would fall back mid-word) and Noto Sans SC for Chinese, heavy
+  and large. Both are web fonts through `next/font` in
+  `app/chongfuxi/layout.tsx`, so the phone gets real weights; CSS names them
+  as `var(--cf-zh)` and the `.cfx` default. No serif or brush faces, no
+  schoolbook or paper motifs.
+- The bottom tabs are icons (`components/TabIcon.tsx`), each with one
+  character of the tab's Chinese name set over it on a halo, and the English
+  small beneath; the current tab sits on a pill.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
 - Motion only answers the owner: the answer rises on reveal, an answered card

@@ -1,5 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Noto_Sans_SC } from "next/font/google";
 import "@chongfuxi/styles/chongfuxi.css";
+
+// Inter for Latin: one of the few UI faces with every pinyin vowel (ǎ ǐ ǒ ǔ ǖ
+// ǘ ǚ ǜ), so a syllable never falls back mid-word. Noto Sans SC for Chinese,
+// as a web font so every weight is real on the phone rather than a system
+// face bolded by the browser. Both variable, so 550 and 650 are exact.
+const latin = Inter({ subsets: ["latin", "latin-ext"], variable: "--cf-font-latin", display: "swap" });
+// Served in unicode-range slices: only the characters on screen are fetched.
+const han = Noto_Sans_SC({ preload: false, variable: "--cf-font-han", display: "swap" });
 
 export const metadata: Metadata = {
   title: "重复习 · Pleco-driven review",
@@ -24,5 +33,9 @@ export const viewport: Viewport = {
 };
 
 export default function ChongfuxiLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <div className={`${latin.variable} ${han.variable}`} style={{ display: "contents" }}>
+      {children}
+    </div>
+  );
 }

@@ -12,17 +12,19 @@ import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel } from "./ImportPanel";
 import { SyncPage } from "./SyncPage";
+import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import { fmt, message, type Shell } from "./shared";
 
 type Tab = "review" | "cards" | "stats" | "import";
 
-const TABS: Array<{ key: Tab; label: string; zh: string }> = [
-  { key: "review", label: "Review", zh: "复习" },
-  { key: "cards", label: "Cards", zh: "卡片" },
-  { key: "stats", label: "Stats", zh: "统计" },
-  { key: "import", label: "Import", zh: "导入" },
+// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 统计, 导入.
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: "review", label: "Review" },
+  { key: "cards", label: "Cards" },
+  { key: "stats", label: "Stats" },
+  { key: "import", label: "Import" },
 ];
 
 export function ChongfuxiApp() {
@@ -145,8 +147,10 @@ export function ChongfuxiApp() {
             aria-current={tab === t.key ? "page" : undefined}
             onClick={() => go(t.key)}
           >
-            <span className="cf-tab-zh">{t.zh}</span>
-            <span>{t.label}</span>
+            <span className="cf-tab-icon">
+              <TabIcon kind={t.key} />
+            </span>
+            <span className="cf-tab-label">{t.label}</span>
           </button>
         ))}
       </nav>
