@@ -393,6 +393,12 @@ then Add. No translations: those cards have no English. The owner's
 HSK标准教程5 课文 (37 lessons, about 700 sentences) came in this way, after
 earlier leaving Pleco's HSK课文 out for having no translations.
 
+Every sentence keeps the sources it came from (`chongfuxi_sentence.sources`:
+the Pleco and Anki deck names, or the name typed for a text upload). Cards ›
+Sentences filters by one (`From`, or a tap on a sentence's source tag), the
+Readable / One away / Locked counts following it (`listSources`, route
+`sources`; `source` on `sentences`). Unlock next still counts every source.
+
 ## New words through Anki (in progress)
 
 The way new words are meant to arrive without re-importing a backup: Pleco

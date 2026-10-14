@@ -408,6 +408,14 @@ export interface ListWord {
   inDeck: boolean;
 }
 
+/** A source of sentences (a deck, a book's lessons) and where its sentences stand. */
+export interface SourceCounts {
+  source: string;
+  readable: number;
+  oneAway: number;
+  locked: number;
+}
+
 /** A word on a list that isn't in the deck yet. */
 export interface MissingWord {
   word: string;

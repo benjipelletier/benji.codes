@@ -3,10 +3,12 @@
 // Every sentence, by how close it is to readable, shortest first. Readable
 // ones say where their card stands; the rest show the words still in the way.
 // The last choice turns it round: the words that would unlock the most.
-// Typing a word finds every sentence with it in, whatever the tab.
+// Typing a word finds every sentence with it in, whatever the tab. A source
+// (a deck, a book's lessons) narrows all of it; tapping a sentence's source
+// tag picks that source.
 
 import { useEffect, useState } from "react";
-import type { SentenceRow } from "@chongfuxi/lib/api";
+import type { SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { UnlockPanel } from "./UnlockPanel";
 import { Highlighted, fmt, message, type Shell } from "./shared";
@@ -37,6 +39,14 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
     setWord(find.word);
   }, [find]);
   const [within, setWithin] = useState(false);
+  // Every source, with its counts; and the one picked, if any.
+  const [sources, setSources] = useState<SourceCounts[] | null>(null);
+  const [source, setSource] = useState("");
+  useEffect(() => {
+    get<{ sources: SourceCounts[] }>("sources")
+      .then((r) => setSources(r.sources))
+      .catch(() => setSources([]));
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setWord(typed.trim()), 300);
@@ -50,6 +60,7 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
       show: which === "unlock" ? undefined : which,
       word: word || undefined,
       within: word && within ? 1 : undefined,
+      source: source || undefined,
       offset,
       limit: PAGE,
     })
@@ -62,9 +73,11 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => load(show, 0), [show, word, within]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => load(show, 0), [show, word, within, source]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const s = shell.summary;
+  // The counts are the picked source's, or the whole corpus's.
+  const picked = sources?.find((x) => x.source === source) ?? null;
+  const s = picked ?? shell.summary;
   const tabs: Array<{ key: Show; label: string; n: number | null }> = [
     { key: "readable", label: "Readable", n: s?.readable ?? null },
     { key: "one", label: "One away", n: s?.oneAway ?? null },
@@ -93,6 +106,20 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
           </label>
         )}
       </div>
+
+      {sources && sources.length > 1 && (
+        <label className="cf-source-pick">
+          <span>From</span>
+          <select value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="">every source</option>
+            {sources.map((x) => (
+              <option key={x.source} value={x.source}>
+                {x.source} ({fmt(x.readable + x.oneAway + x.locked)})
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {!finding && (
         <div className="cf-filters">
@@ -138,9 +165,14 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
                   ))}
                   {r.card && <span className="cf-tag">{CARD_LABEL[r.card]}</span>}
                   {r.sources.map((src) => (
-                    <span key={src} className="cf-tag">
+                    <button
+                      key={src}
+                      className={`cf-tag cf-tag-btn-src${src === source ? " is-on" : ""}`}
+                      title={src === source ? "Showing only this source" : `Only sentences from ${src}`}
+                      onClick={() => setSource(src === source ? "" : src)}
+                    >
                       {src}
-                    </span>
+                    </button>
                   ))}
                 </div>
               </li>

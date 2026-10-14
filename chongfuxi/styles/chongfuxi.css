@@ -4661,3 +4661,40 @@ button.cf-synclog-row {
 .cf-texts-done {
   margin-top: 12px;
 }
+
+/* ---------------------------------------------------------------- sources -- */
+
+/* Which source the sentences are from: every one, or one deck or book. */
+.cf-source-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-source-pick select {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 10px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+/* A sentence's source tag: tap to see only that source. */
+.cf-tag-btn-src {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.cf-tag-btn-src.is-on {
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
