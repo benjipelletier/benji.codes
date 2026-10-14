@@ -11,7 +11,8 @@
 //   asking when the sync is started by hand. (A background sync skips it.)
 // - `sync/upload` receives the whole collection, a SQLite file, and keeps its
 //   notes in chongfuxi_anki_note. Nothing else of the collection is kept, so
-//   there is never anything to download.
+//   there is never anything to download. Once the reply has gone, the notes
+//   not seen before become deck words, as one addition (additions.ts).
 // - `msync/*` answers for an empty media store. Media uploads are refused:
 //   media sync should be off for this profile.
 //
@@ -22,12 +23,16 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { decompress } from "fzstd";
 import initSqlJs from "sql.js";
+import { processAnkiNotes } from "./additions";
 import type { Sql } from "./db";
+import { loadDict } from "./dictfile";
 
 export interface AnkiReply {
   status: number;
   headers: Record<string, string>;
   body: Uint8Array;
+  /** Work to do once the reply has gone: turning new notes into words. */
+  afterwards?: () => Promise<unknown>;
 }
 
 export interface AnkiContext {
@@ -269,9 +274,10 @@ async function receiveUpload(ctx: AnkiContext, data: Uint8Array, client: string 
   const after = (await ctx.sql`select count(*)::int as n from chongfuxi_anki_note where owner_email = ${ctx.owner}`) as unknown as Array<{
     n: number;
   }>;
-  await ctx.sql`
+  const logged = (await ctx.sql`
     insert into chongfuxi_anki_sync (owner_email, client, bytes, notes, added)
     values (${ctx.owner}, ${client}, ${data.length}, ${notes.length}, ${after[0].n - before[0].n})
-  `;
-  return reply(text("OK"));
+    returning id::int as id
+  `) as unknown as Array<{ id: number }>;
+  return { ...reply(text("OK")), afterwards: () => processAnkiNotes(ctx.sql, ctx.owner, loadDict(), Date.now(), logged[0].id) };
 }

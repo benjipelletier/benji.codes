@@ -306,3 +306,35 @@ create table if not exists chongfuxi_anki_note (
   last_seen   timestamptz not null default now(),
   primary key (owner_email, note_id)
 );
+
+-- What became of each Anki note: the word read from it, and whether it was
+-- added (in which addition), already known, unreadable, or added and undone.
+alter table chongfuxi_anki_note add column if not exists word text;
+alter table chongfuxi_anki_note add column if not exists handled_at timestamptz;
+alter table chongfuxi_anki_note add column if not exists outcome text;
+alter table chongfuxi_anki_note add column if not exists addition_id bigint;
+
+-- A batch of words that joined the deck together (from an Anki sync), shown
+-- to the owner once and undoable while none of its cards has been answered.
+create table if not exists chongfuxi_addition (
+  id          bigint      generated always as identity primary key,
+  owner_email text        not null,
+  at          timestamptz not null default now(),
+  source      text        not null,
+  -- Each word, and what it was before: null (not in the corpus), 'listed' or 'name'.
+  words       jsonb       not null,
+  -- The sentences these words made readable.
+  unlocked    bigint[]    not null default '{}',
+  seen_at     timestamptz,
+  undone_at   timestamptz
+);
+
+create index if not exists chongfuxi_addition_owner on chongfuxi_addition (owner_email, at desc);
+
+-- What each sync did to the corpus, filled in once its notes are processed:
+-- the addition it made (if any), and its notes by outcome.
+alter table chongfuxi_anki_sync add column if not exists addition_id bigint;
+alter table chongfuxi_anki_sync add column if not exists words_added integer;
+alter table chongfuxi_anki_sync add column if not exists known integer;
+alter table chongfuxi_anki_sync add column if not exists unreadable integer;
+alter table chongfuxi_anki_sync add column if not exists unlocked integer;

@@ -16,7 +16,8 @@ const nextConfig: NextConfig = {
   // chongfuxi's ingest route reads these from disk at run time, where the
   // bundler can't see them: the SQLite reader's wasm and the dictionary.
   outputFileTracingIncludes: {
-    "/api/chongfuxi/anki/[...path]": ["./node_modules/sql.js/dist/sql-wasm.wasm"],
+    "/api/chongfuxi/anki/[...path]": ["./node_modules/sql.js/dist/sql-wasm.wasm", "./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/sync/[method]": ["./node_modules/sql.js/dist/sql-wasm.wasm", "./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/imports/[id]/ingest": [
       "./node_modules/sql.js/dist/sql-wasm.wasm",
       "./chongfuxi/data/cedict.txt",

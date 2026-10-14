@@ -7,10 +7,11 @@
 // reviews. Anyone else sees the same screens with nothing that changes them.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Summary } from "@chongfuxi/lib/api";
+import type { Addition, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel } from "./ImportPanel";
+import { NewWordsScreen } from "./NewWords";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import { fmt, message, type Shell } from "./shared";
@@ -30,6 +31,8 @@ export function ChongfuxiApp() {
   const [tab, setTab] = useState<Tab>("review");
   // A review session takes the whole screen.
   const [focus, setFocus] = useState(false);
+  // Words that joined the deck since the owner last looked, shown once, oldest first.
+  const [arrivals, setArrivals] = useState<Addition[]>([]);
 
   const refresh = useCallback(() => {
     get<Summary>("summary", today())
@@ -49,6 +52,22 @@ export function ChongfuxiApp() {
   }, [refresh]);
 
   const canWrite = Boolean(summary?.viewer.isOwner);
+
+  const checkArrivals = useCallback(() => {
+    get<{ additions: Addition[] }>("additions")
+      .then((r) => setArrivals(r.additions.filter((a) => !a.seen && !a.undone).reverse()))
+      .catch(() => {
+        // Nothing to show if it can't be fetched; it will be next time.
+      });
+  }, []);
+  // On opening, and whenever the app comes back into view (after a sync on the phone).
+  useEffect(() => {
+    if (!canWrite) return;
+    checkArrivals();
+    const seen = () => document.visibilityState === "visible" && checkArrivals();
+    document.addEventListener("visibilitychange", seen);
+    return () => document.removeEventListener("visibilitychange", seen);
+  }, [canWrite, checkArrivals]);
   const shell: Shell = useMemo(() => ({ summary, canWrite, refresh, setFocus }), [summary, canWrite, refresh]);
   const go = (t: Tab) => {
     setTab(t);
@@ -99,6 +118,17 @@ export function ChongfuxiApp() {
         {summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
         {summary && tab === "import" && <ImportPanel shell={shell} />}
       </main>
+
+      {canWrite && arrivals[0] && !focus && (
+        <NewWordsScreen
+          key={arrivals[0].id}
+          addition={arrivals[0]}
+          onDone={() => {
+            setArrivals((list) => list.slice(1));
+            refresh();
+          }}
+        />
+      )}
 
       {/* At the bottom, where a thumb reaches on a phone. */}
       <nav className="cf-tabs">

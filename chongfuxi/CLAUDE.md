@@ -225,8 +225,12 @@ the design was silent and are still to be confirmed.
 - **Order of word cards**: least likely to be remembered first, by the time
   since the last review over stability (the FSRS recall odds fall as that
   grows), never-answered first; ties shuffled by a hash of the card and the
-  study day. In sessions and Fast review alike. Seeded cards all fell due at
-  one instant, so this puts the weakest Pleco words first.
+  study day. Seeded cards all fell due at one instant, so this puts the
+  weakest Pleco words first. Fast review goes the other way: best known
+  first (highest stability, then Pleco's score, which separates the many
+  cards seeded at the cap, then lowest difficulty), so the easy ones can be
+  swept through; recall odds can't say that, since a word forgotten
+  yesterday scores high just for being fresh.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original
@@ -327,8 +331,22 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
 - Limits: a Vercel request tops out at 4.5 MB, so the AnkiDroid collection
   must hold little more than what Pleco sends (no big decks, no media).
   Pointing AnkiDroid here replaces AnkiWeb as its sync target.
-- Not done yet: turning notes into deck words. Waiting on a real upload to see
-  the fields Pleco writes.
+- After each upload, notes not seen before become deck words as one
+  addition (`additions.ts`): only the headword is taken (from a field named
+  like Front or Hanzi, else the first field that is a word; Pleco sends a
+  Basic note, Front the word, Back its own dictionary's definition as HTML,
+  which is not ours to show). Definitions and pinyin come from CC-CEDICT;
+  each word gets a new Read card, and sentences are unlocked. Each note
+  records its word and outcome (added, known, unreadable, undone).
+- The owner sees each addition once, over the app (`NewWordsScreen`): the
+  words with pinyin, meaning and HSK levels, the deck's size, sentences
+  unlocked with examples, and Keep or Undo. Undo puts each word back as it
+  was, removes its unanswered cards and those of the sentences it unlocked,
+  and re-locks them; the notes stay marked, so the next sync doesn't add them
+  back. Refused once any of its words has been answered.
+- The Sync URL needs its last slash (`…/anki/`): without it Anki's client
+  joins `sync/` one level up. `/api/chongfuxi/sync/*` and `msync/*` answer
+  too, so either works; the bare address shows instructions.
 - `scripts/check-anki.ts` drives sign-in, meta, uploads and media sync
   against a throwaway owner.
 

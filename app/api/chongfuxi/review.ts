@@ -83,6 +83,18 @@ const LEAST_LIKELY_FIRST = (at: string, day: string) => `
        else extract(epoch from (to_timestamp(${at}::double precision / 1000) - c.last_review)) / 86400.0 / c.stability
   end desc,
   md5(c.id::text || ${day}::text)`;
+/**
+ * For Fast review: the best-known first, to sweep through. Among due cards the
+ * recall odds hardly differ (a card falls due when they reach 90%), and a word
+ * forgotten yesterday has high odds only because it was just seen; how long a
+ * memory lasts (stability) says better how well a word is known. Cards seeded
+ * from Pleco all sit at the seeding cap, so among those Pleco's own score
+ * decides (needs \`w\`, the word's row). Then the easier first, then a
+ * shuffle. Cards new to both come last.
+ */
+const BEST_KNOWN_FIRST = (day: string) => `
+  (c.last_review is null or c.stability <= 0), c.stability desc, (w.pleco->>'score')::int desc nulls last,
+  c.difficulty asc, md5(c.id::text || ${day}::text)`;
 
 export const scheduleOf = (c: CardRow): Schedule => ({
   state: c.state,
@@ -284,7 +296,8 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
 }
 
 /**
- * Fast review: every Read card due today, the word alone, least likely to be remembered first.
+ * Fast review: every Read card due today, the word alone, best known first,
+ * so the easy ones go by quickly.
  * A word answered today waits, as in a session; split-off meanings are left
  * out, since the word alone doesn't say which meaning is asked.
  */
@@ -307,9 +320,9 @@ export async function fastCards(
      from chongfuxi_card c
      join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word
      where ${where}
-     order by ${LEAST_LIKELY_FIRST("$6", "$3")}
+     order by ${BEST_KNOWN_FIRST("$3")}
      limit $4 offset $5`,
-    [owner, day.cutoff, day.day, limit, offset, at],
+    [owner, day.cutoff, day.day, limit, offset],
   )) as unknown as Array<CardRow & { pinyin: string | null; defs: Definition[]; has_defs: boolean }>;
   const total = offset
     ? null

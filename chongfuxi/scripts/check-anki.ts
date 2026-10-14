@@ -1,6 +1,8 @@
 // Drives the Anki sync endpoint (app/api/chongfuxi/anki.ts) the way Anki's
 // client does — sign in, ask for meta, upload a collection, run media sync —
-// against a throwaway owner, then deletes what it wrote.
+// and follows the notes into the deck as additions (additions.ts): words
+// added, sentences unlocked, undo. Against a throwaway owner with a tiny
+// corpus, deleted afterwards.
 //
 //   npx tsx --env-file=.env.local chongfuxi/scripts/check-anki.ts
 
@@ -8,6 +10,9 @@ import { decompress } from "fzstd";
 import initSqlJs from "sql.js";
 import { getDb } from "../../app/api/chongfuxi/db";
 import { handleAnki, readCollection, zstdRaw, type AnkiContext } from "../../app/api/chongfuxi/anki";
+import { addWords, listAdditions, listAnkiSyncs, markSeen, undoAddition, wordOfNote } from "../../app/api/chongfuxi/additions";
+import { recomputeUnlocks } from "../../app/api/chongfuxi/corpus";
+import { loadDict } from "../../app/api/chongfuxi/dictfile";
 
 const sql = getDb();
 const owner = `check-anki-${Date.now()}@chongfuxi.test`;
@@ -24,6 +29,8 @@ const enc = (obj: unknown) => zstdRaw(new TextEncoder().encode(JSON.stringify(ob
 const header = (k: string) => JSON.stringify({ v: 11, k, c: "ankidroid,2.21.0,check", s: "session1" });
 async function call(kind: string, method: string, key: string, body: Uint8Array) {
   const r = await handleAnki(ctx, kind, method, header(key), body);
+  // What the route hands to after(): run it here, before looking.
+  await r.afterwards?.();
   const ok = r.status === 200;
   const data = ok ? decompress(r.body) : r.body;
   const textOut = new TextDecoder().decode(data);
@@ -86,6 +93,31 @@ async function main() {
   );
   check("and gives the server's time, for the client's clock check", Math.abs(meta.ts - Date.now() / 1000) < 5);
 
+  // A tiny corpus: 我 and 喝 known, 茶 on a list, and a sentence 茶 would unlock.
+  await sql`
+    insert into chongfuxi_word (owner_email, word, status) values
+      (${owner}, '我', 'deck'), (${owner}, '喝', 'deck'), (${owner}, '茶', 'listed')
+  `;
+  const sentence = (await sql`
+    insert into chongfuxi_sentence (owner_email, key, zh, en, split, sources)
+    values (${owner}, '我喝茶', '我喝茶。', 'I drink tea.', 'dictionary', array['check'])
+    returning id::int as id
+  `) as unknown as Array<{ id: number }>;
+  await sql`
+    insert into chongfuxi_token (owner_email, sentence_id, pos, word)
+    values (${owner}, ${sentence[0].id}, 0, '我'), (${owner}, ${sentence[0].id}, 1, '喝'), (${owner}, ${sentence[0].id}, 2, '茶')
+  `;
+  await recomputeUnlocks(sql, owner);
+  const blockersOf = async () =>
+    ((await sql`select blockers from chongfuxi_sentence where owner_email = ${owner} and id = ${sentence[0].id}`) as unknown as Array<{ blockers: string[] }>)[0]
+      .blockers;
+  check("the tiny corpus has its sentence waiting on 茶", (await blockersOf()).join() === "茶");
+
+  // Reading a word off a note.
+  check("a note's headword is read from its named field, with the traditional form dropped", wordOfNote({ Pinyin: "yáng", Hanzi: "扬眉吐气[揚眉吐氣]" }) === "扬眉吐气");
+  check("or from the first field that is a word, through its HTML", wordOfNote({ Front: "<b>出示</b>", Back: "to show" }) === "出示");
+  check("and a note with no word in it gives none", wordOfNote({ "Field 1": "hello there", "Field 2": "你好吗？我很好。" }) === null);
+
   // Upload a collection.
   const first = await collection([
     [1760000000001, "扬眉吐气", "yang2mei2tu3qi4", "feel proud and elated"],
@@ -108,6 +140,79 @@ async function main() {
   const log = (await sql`select notes, added from chongfuxi_anki_sync where owner_email = ${owner} order by id`) as unknown as Array<{ notes: number; added: number }>;
   check("the next upload adds the new note and updates the changed one", r.text === "OK" && stored.length === 3 && stored[0].meaning === "to feel proud");
   check("each sync is logged with what it added", log.map((l) => `${l.notes}/${l.added}`).join() === "2/2,3/1", log);
+
+  // The notes became words: one addition per sync that brought new ones.
+  let adds = await listAdditions(sql, owner);
+  check(
+    "each sync's new notes became deck words, as one addition each, newest first",
+    adds.length === 2 && adds[0].words.map((w) => w.word).join() === "踏实" && adds[1].words.map((w) => w.word).sort().join() === ["出示", "扬眉吐气"].sort().join(),
+    adds.map((a) => a.words.map((w) => w.word).join("+")),
+  );
+  const cards = (await sql`select word from chongfuxi_card where owner_email = ${owner} and kind = 'read' and state = 0 order by word`) as unknown as Array<{ word: string }>;
+  check("each new word has a new Read card", cards.map((c) => c.word).sort().join() === ["出示", "扬眉吐气", "踏实"].sort().join());
+  const defs = (await sql`select jsonb_array_length(defs)::int as n, pinyin from chongfuxi_word where owner_email = ${owner} and word = '出示'`) as unknown as Array<{ n: number; pinyin: string }>;
+  check("with CC-CEDICT's definition and pinyin, not the note's", defs[0].n > 0 && defs[0].pinyin === "chu1@shi4", defs[0]);
+  check("an edited note that was already added isn't added again", adds.every((a) => a.words.filter((w) => w.word === "扬眉吐气").length <= 1) && adds.length === 2);
+
+  // A note for a word on a list: it joins the deck and unlocks the sentence.
+  const third = await collection([
+    [1760000000001, "扬眉吐气", "yang2mei2tu3qi4", "to feel proud"],
+    [1760000000002, "出示", "chu1shi4", "to show; to present"],
+    [1760000000003, "踏实", "ta1shi5", "steady; at ease"],
+    [1760000000004, "茶", "cha2", "tea"],
+    [1760000000005, "hello there", "", "not a word"],
+  ]);
+  await call("sync", "upload", key, zstdRaw(third));
+  adds = await listAdditions(sql, owner);
+  const tea = adds[0];
+  check(
+    "茶 joins the deck from the list, and its sentence unlocks",
+    tea.words.length === 1 && tea.words[0].word === "茶" && tea.words[0].was === "listed" && tea.unlocked === 1 && (await blockersOf()).length === 0,
+    { words: tea.words, unlocked: tea.unlocked },
+  );
+  check("the addition shows the sentence, which word did it, and the deck's size", tea.examples[0]?.zh === "我喝茶。" && tea.examples[0]?.by === "茶" && tea.deck === 6 && tea.words[0].readable === 1, tea.examples);
+  const outcomes = (await sql`select word, outcome from chongfuxi_anki_note where owner_email = ${owner} order by note_id`) as unknown as Array<{ word: string | null; outcome: string }>;
+  check("each note says what became of it", outcomes.map((o) => `${o.word ?? "-"}:${o.outcome}`).join() === "扬眉吐气:added,出示:added,踏实:added,茶:added,-:unreadable", outcomes);
+  const sentenceCard = async () => (await sql`select id from chongfuxi_card where owner_email = ${owner} and kind = 'sentence' and sentence_id = ${sentence[0].id}`) as unknown as unknown[];
+  check("and the unlocked sentence has its card", (await sentenceCard()).length === 1);
+  const syncLog = await listAnkiSyncs(sql, owner);
+  check(
+    "the sync log says what each sync did, and links the one that added 茶 to its addition",
+    syncLog.length === 3 &&
+      syncLog[0].processed && syncLog[0].wordsAdded === 1 && syncLog[0].unlocked === 1 && syncLog[0].unreadable === 1 && syncLog[0].known === 0 &&
+      syncLog[0].additionId === tea.id && syncLog[2].wordsAdded === 2,
+    syncLog.map((y) => `${y.wordsAdded}w/${y.unlocked}u/${y.known}k/${y.unreadable}x -> ${y.additionId}`),
+  );
+
+  await markSeen(sql, owner, tea.id);
+  check("seen, it isn't shown again", (await listAdditions(sql, owner))[0].seen);
+
+  // Undo it.
+  const undone = await undoAddition(sql, owner, tea.id);
+  const status = (await sql`select status from chongfuxi_word where owner_email = ${owner} and word = '茶'`) as unknown as Array<{ status: string }>;
+  const teaCard = (await sql`select id from chongfuxi_card where owner_email = ${owner} and word = '茶'`) as unknown as unknown[];
+  check(
+    "undoing puts 茶 back on its list, takes its card away, and locks the sentence again",
+    undone.relocked === 1 && status[0]?.status === "listed" && teaCard.length === 0 && (await blockersOf()).join() === "茶" && (await sentenceCard()).length === 0,
+  );
+  await call("sync", "upload", key, zstdRaw(third));
+  adds = await listAdditions(sql, owner);
+  const afterUndo = await listAnkiSyncs(sql, owner);
+  check("after undoing, its sync is marked undone, and the next sync adds nothing", afterUndo[1].undone && afterUndo[0].wordsAdded === 0 && afterUndo[0].additionId === null);
+  check("and the next sync doesn't add it back", adds.length === 3 && adds[0].undone && (await sql`select outcome from chongfuxi_anki_note where owner_email = ${owner} and word = '茶'` as unknown as Array<{ outcome: string }>)[0].outcome === "undone");
+
+  // An addition whose words have been answered can't be undone.
+  await sql`update chongfuxi_card set answered = 1 where owner_email = ${owner} and word = '出示' and kind = 'read'`;
+  const first2 = adds.find((a) => a.words.some((w) => w.word === "出示"))!;
+  let refused = "";
+  try {
+    await undoAddition(sql, owner, first2.id);
+  } catch (e) {
+    refused = e instanceof Error ? e.message : String(e);
+  }
+  check("an addition with an answered word is kept, with the reason", refused.includes("出示"), refused);
+  check("and says so before it's tried", (await listAdditions(sql, owner)).find((a) => a.id === first2.id)!.answered.join() === "出示");
+  check("adding words already in the deck makes no addition", (await addWords(sql, owner, "check", ["出示", "我"], loadDict())) === null);
 
   r = await call("sync", "upload", key, zstdRaw(new TextEncoder().encode("not a database")));
   check("an unreadable upload gets a message back, not a crash", r.status === 200 && r.text !== "OK", r.text);
@@ -137,6 +242,11 @@ main()
   .finally(async () => {
     await sql`delete from chongfuxi_anki_note where owner_email = ${owner}`;
     await sql`delete from chongfuxi_anki_sync where owner_email = ${owner}`;
+    await sql`delete from chongfuxi_addition where owner_email = ${owner}`;
+    await sql`delete from chongfuxi_card where owner_email = ${owner}`;
+    await sql`delete from chongfuxi_token where owner_email = ${owner}`;
+    await sql`delete from chongfuxi_sentence where owner_email = ${owner}`;
+    await sql`delete from chongfuxi_word where owner_email = ${owner}`;
     console.log(`\ncleaned up: nothing left for this owner\n\n${failed ? `${failed} checks failed.` : "All checks passed."}`);
     process.exit(failed ? 1 : 0);
   });

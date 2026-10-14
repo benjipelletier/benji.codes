@@ -157,6 +157,55 @@ export interface WordDetail {
   };
 }
 
+/** A batch of words that joined the deck together, as the new-words screen shows it. */
+export interface Addition {
+  id: number;
+  at: number;
+  /** Where they came from: "anki". */
+  source: string;
+  seen: boolean;
+  undone: boolean;
+  words: Array<{
+    word: string;
+    pinyin: string | null;
+    gloss: string | null;
+    hsk: { old: string | null; v3: string | null };
+    /** What it was before: not in the corpus, on a list, or a name. */
+    was: "listed" | "name" | null;
+    /** Readable sentences it is in, now. */
+    readable: number;
+  }>;
+  /** Sentences these words made readable, and a few of them. */
+  unlocked: number;
+  examples: Array<{ zh: string; en: string | null; by: string | null }>;
+  /** Words in the deck now. */
+  deck: number;
+  /** Words whose cards have been answered since: while there are any, it can't be undone. */
+  answered: string[];
+}
+
+/** One Anki sync, for the log on the Import page: what came, and what it did to the corpus. */
+export interface AnkiSync {
+  id: number;
+  at: number;
+  /** The client's own version string: "26.05,e64c6b1a,android". */
+  client: string | null;
+  bytes: number;
+  /** Notes in the collection, and how many the server hadn't had before. */
+  notes: number;
+  newNotes: number;
+  error: string | null;
+  /** The addition it made, if it brought words not in the deck; whether that was undone. */
+  additionId: number | null;
+  undone: boolean;
+  /** Its new notes have been turned into words (just after the sync). */
+  processed: boolean;
+  wordsAdded: number;
+  known: number;
+  unreadable: number;
+  unlocked: number;
+}
+
 /** A Read card as Fast review shows it: the word alone, and what each answer would do. */
 export interface FastCard {
   id: number;

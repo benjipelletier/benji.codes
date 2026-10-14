@@ -1,0 +1,333 @@
+// Words joining the deck outside an import: from notes AnkiDroid uploaded.
+//
+// Each batch is an addition: which words, what each was before, and which
+// sentences they made readable. The owner sees it once on the new-words
+// screen, and can undo it while none of its cards has been answered.
+//
+// Only the headword is taken from a note. Pleco fills its notes from its own
+// dictionaries, which aren't ours to show, so definitions and pinyin come from
+// CC-CEDICT, as for every other word.
+
+import type { Sql } from "./db";
+import type { Addition, AnkiSync } from "@chongfuxi/lib/api";
+import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfuxi/lib/dict";
+import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
+import { newSchedule } from "@chongfuxi/lib/schedule";
+import { insertCards, recomputeUnlocks } from "./corpus";
+import { hskOf, promptSenses } from "./review";
+
+/** Longest word a note may carry. Longer is a phrase or a sentence. */
+const MAX_WORD = 8;
+const EXAMPLES = 4;
+
+/** A field's text without Anki's HTML. */
+const plain = (html: string) =>
+  html
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+
+/** Field names that usually hold the headword, in order of trust. */
+const HEADWORD_FIELDS = /^(simplified|hanzi|headword|chinese|word|expression|vocab|front|characters?)$/i;
+
+/**
+ * The word a note stands for, or null if it holds none. A named headword field
+ * is tried first, then every field in order; the first that reads as a word
+ * wins. Pleco may add the traditional form in brackets (扬眉吐气[揚眉吐氣]),
+ * which is dropped.
+ */
+export function wordOfNote(fields: Record<string, string>): string | null {
+  const entries = Object.entries(fields);
+  const ordered = [...entries.filter(([k]) => HEADWORD_FIELDS.test(k.trim())), ...entries.filter(([k]) => !HEADWORD_FIELDS.test(k.trim()))];
+  for (const [, value] of ordered) {
+    const text = cleanHeadword(plain(value))
+      .replace(/[[(（【].*$/u, "")
+      .replace(/[\s|｜/／].*$/u, "")
+      .trim();
+    const chars = [...text];
+    if (chars.length >= 1 && chars.length <= MAX_WORD && chars.every(isHan)) return text;
+  }
+  return null;
+}
+
+/**
+ * Put words in the deck as one addition: a word row and a new Read card each,
+ * then the sentences they unlock. Words already in the deck are passed over.
+ * Returns the addition, or null if every word was already there.
+ */
+export async function addWords(
+  sql: Sql,
+  owner: string,
+  source: string,
+  words: string[],
+  dict: Dict,
+  at = Date.now(),
+): Promise<{ id: number; added: string[]; unlocked: number } | null> {
+  const unique = [...new Set(words)];
+  if (!unique.length) return null;
+  const existing = (await sql`
+    select word, status from chongfuxi_word where owner_email = ${owner} and word = any(${unique}::text[])
+  `) as unknown as Array<{ word: string; status: "deck" | "listed" | "name" }>;
+  const was = new Map(existing.map((e) => [e.word, e.status]));
+  const fresh = unique.filter((w) => was.get(w) !== "deck");
+  if (!fresh.length) return null;
+
+  const rows = fresh.map((w) => {
+    const defs: Definition[] = definitionsFor(dict, w, null, null);
+    return { w, p: defs[0]?.p ?? null, d: defs, g: glossesOf(defs) };
+  });
+  await sql`
+    insert into chongfuxi_word (owner_email, word, status, pinyin, defs, glosses)
+    select ${owner}, e.value->>'w', 'deck', e.value->>'p', coalesce(e.value->'d', '[]'::jsonb),
+           array(select jsonb_array_elements_text(coalesce(e.value->'g', '[]'::jsonb)))
+    from jsonb_array_elements(${JSON.stringify(rows)}::jsonb) e
+    on conflict (owner_email, word) do update set
+      status  = 'deck',
+      pinyin  = coalesce(chongfuxi_word.pinyin, excluded.pinyin),
+      defs    = case when jsonb_array_length(chongfuxi_word.defs) > 0 then chongfuxi_word.defs else excluded.defs end,
+      glosses = case when cardinality(chongfuxi_word.glosses) > 0 then chongfuxi_word.glosses else excluded.glosses end
+  `;
+  await insertCards(
+    sql,
+    owner,
+    fresh.map((w) => ({ kind: "read" as const, word: w, schedule: newSchedule(at) })),
+  );
+  const result = await recomputeUnlocks(sql, owner, fresh, at);
+  const unlocked = (await sql`
+    select id::bigint as id from chongfuxi_sentence
+    where owner_email = ${owner} and unlocked_at = to_timestamp(${at}::double precision / 1000)
+      and unlocked_by = any(${fresh}::text[])
+  `) as unknown as Array<{ id: string }>;
+  const made = (await sql`
+    insert into chongfuxi_addition (owner_email, at, source, words, unlocked)
+    values (${owner}, to_timestamp(${at}::double precision / 1000), ${source},
+            ${JSON.stringify(fresh.map((w) => ({ word: w, was: was.get(w) ?? null })))}::jsonb,
+            ${unlocked.map((u) => u.id)}::bigint[])
+    returning id::int as id
+  `) as unknown as Array<{ id: number }>;
+  return { id: made[0].id, added: fresh, unlocked: result.unlocked };
+}
+
+/**
+ * Turn the notes not yet looked at into deck words, as one addition, and mark
+ * each note with what became of it. Run after every Anki upload; `syncId`
+ * gets what the sync did, for the log.
+ */
+export async function processAnkiNotes(sql: Sql, owner: string, dict: Dict, at = Date.now(), syncId: number | null = null) {
+  const notes = (await sql`
+    select note_id::text as id, fields from chongfuxi_anki_note
+    where owner_email = ${owner} and handled_at is null
+    order by note_id
+  `) as unknown as Array<{ id: string; fields: Record<string, string> }>;
+  if (!notes.length) {
+    if (syncId !== null) {
+      await sql`update chongfuxi_anki_sync set words_added = 0, known = 0, unreadable = 0, unlocked = 0 where id = ${syncId}`;
+    }
+    return null;
+  }
+  const read = notes.map((n) => ({ id: n.id, word: wordOfNote(n.fields) }));
+  const addition = await addWords(
+    sql,
+    owner,
+    "anki",
+    read.map((r) => r.word).filter((w): w is string => w !== null),
+    dict,
+    at,
+  );
+  const added = new Set(addition?.added ?? []);
+  const outcomes = read.map((r) => ({
+    i: r.id,
+    w: r.word,
+    o: r.word === null ? "unreadable" : added.has(r.word) ? "added" : "known",
+  }));
+  await sql`
+    update chongfuxi_anki_note n
+    set word = e.value->>'w', outcome = e.value->>'o', handled_at = now(),
+        addition_id = case when e.value->>'o' = 'added' then ${addition?.id ?? null}::bigint end
+    from jsonb_array_elements(${JSON.stringify(outcomes)}::jsonb) e
+    where n.owner_email = ${owner} and n.note_id = (e.value->>'i')::bigint
+  `;
+  if (syncId !== null) {
+    // Earlier syncs whose notes waited for this one: their notes are counted here.
+    await sql`
+      update chongfuxi_anki_sync set words_added = 0, known = 0, unreadable = 0, unlocked = 0
+      where owner_email = ${owner} and id < ${syncId} and words_added is null and error is null
+    `;
+    const count = (o: string) => outcomes.filter((x) => x.o === o).length;
+    await sql`
+      update chongfuxi_anki_sync
+      set addition_id = ${addition?.id ?? null}, words_added = ${count("added")}, known = ${count("known")},
+          unreadable = ${count("unreadable")}, unlocked = ${addition?.unlocked ?? 0}
+      where id = ${syncId}
+    `;
+  }
+  return addition;
+}
+
+/** Every Anki sync, newest first, with what it did to the corpus. */
+export async function listAnkiSyncs(sql: Sql, owner: string, limit = 50): Promise<AnkiSync[]> {
+  const rows = (await sql`
+    select y.id::int as id, (extract(epoch from y.at) * 1000)::double precision as at, y.client, y.bytes, y.notes, y.added,
+           y.error, y.addition_id::int as addition_id, y.words_added, y.known, y.unreadable, y.unlocked,
+           a.undone_at is not null as undone
+    from chongfuxi_anki_sync y
+    left join chongfuxi_addition a on a.owner_email = y.owner_email and a.id = y.addition_id
+    where y.owner_email = ${owner}
+    order by y.at desc limit ${limit}
+  `) as unknown as Array<{
+    id: number;
+    at: number;
+    client: string | null;
+    bytes: number;
+    notes: number;
+    added: number;
+    error: string | null;
+    addition_id: number | null;
+    words_added: number | null;
+    known: number | null;
+    unreadable: number | null;
+    unlocked: number | null;
+    undone: boolean;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    at: Math.round(r.at),
+    client: r.client,
+    bytes: r.bytes,
+    notes: r.notes,
+    newNotes: r.added,
+    error: r.error,
+    additionId: r.addition_id,
+    undone: r.undone,
+    processed: r.words_added !== null,
+    wordsAdded: r.words_added ?? 0,
+    known: r.known ?? 0,
+    unreadable: r.unreadable ?? 0,
+    unlocked: r.unlocked ?? 0,
+  }));
+}
+
+/** Recent additions, newest first, with what the new-words screen shows; or just the one asked for. */
+export async function listAdditions(sql: Sql, owner: string, limit = 10, only: number | null = null): Promise<Addition[]> {
+  const rows = (await sql`
+    select id::int as id, (extract(epoch from at) * 1000)::double precision as at, source, words,
+           unlocked::text[] as unlocked, seen_at is not null as seen, undone_at is not null as undone
+    from chongfuxi_addition where owner_email = ${owner} and (${only}::bigint is null or id = ${only}::bigint)
+    order by at desc limit ${limit}
+  `) as unknown as Array<{
+    id: number;
+    at: number;
+    source: string;
+    words: Array<{ word: string; was: "listed" | "name" | null }>;
+    unlocked: string[];
+    seen: boolean;
+    undone: boolean;
+  }>;
+  if (!rows.length) return [];
+  const all = [...new Set(rows.flatMap((r) => r.words.map((w) => w.word)))];
+  const info = (await sql`
+    select w.word, w.pinyin, w.defs, w.lists,
+           (select count(distinct t.sentence_id)::int from chongfuxi_token t
+            join chongfuxi_sentence s on s.owner_email = t.owner_email and s.id = t.sentence_id
+            where t.owner_email = w.owner_email and t.word = w.word and cardinality(s.blockers) = 0) as readable
+    from chongfuxi_word w where w.owner_email = ${owner} and w.word = any(${all}::text[])
+  `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; lists: string[] | null; readable: number }>;
+  const byWord = new Map(info.map((i) => [i.word, i]));
+  const answered = (await sql`
+    select distinct word from chongfuxi_card
+    where owner_email = ${owner} and word = any(${all}::text[]) and kind in ('read', 'produce') and answered > 0
+  `) as unknown as Array<{ word: string }>;
+  const touched = new Set(answered.map((a) => a.word));
+  const deck = (await sql`select count(*)::int as n from chongfuxi_word where owner_email = ${owner} and status = 'deck'`) as unknown as Array<{
+    n: number;
+  }>;
+
+  const out: Addition[] = [];
+  for (const r of rows) {
+    const examples = r.unlocked.length
+      ? ((await sql`
+          select zh, en, unlocked_by as by from chongfuxi_sentence
+          where owner_email = ${owner} and id = any(${r.unlocked}::bigint[])
+          order by abs(char_length(key) - 9), id
+          limit ${EXAMPLES}
+        `) as unknown as Array<{ zh: string; en: string | null; by: string | null }>)
+      : [];
+    out.push({
+      id: r.id,
+      at: Math.round(r.at),
+      source: r.source,
+      seen: r.seen,
+      undone: r.undone,
+      words: r.words.map((w) => {
+        const i = byWord.get(w.word);
+        return {
+          word: w.word,
+          pinyin: i?.pinyin ?? null,
+          gloss: i ? (promptSenses(i.defs).slice(0, 2).join("; ") || null) : null,
+          hsk: hskOf(i?.lists ?? []),
+          was: w.was,
+          readable: i?.readable ?? 0,
+        };
+      }),
+      unlocked: r.unlocked.length,
+      examples: examples.map((e) => ({ zh: zhShown(e.zh), en: e.en, by: e.by })),
+      deck: deck[0].n,
+      answered: r.words.map((w) => w.word).filter((w) => touched.has(w)),
+    });
+  }
+  return out;
+}
+
+export class AdditionError extends Error {}
+
+/** The owner has seen it: it won't be shown again. */
+export async function markSeen(sql: Sql, owner: string, id: number): Promise<void> {
+  await sql`
+    update chongfuxi_addition set seen_at = coalesce(seen_at, now())
+    where owner_email = ${owner} and id = ${id}
+  `;
+}
+
+/**
+ * Take an addition back: its words go back to what they were, their cards
+ * and the cards of the sentences they unlocked go, and those sentences lock
+ * again. The notes stay marked, so the next sync doesn't add them again.
+ * Refused once any of its words has been answered.
+ */
+export async function undoAddition(sql: Sql, owner: string, id: number, at = Date.now()): Promise<{ relocked: number }> {
+  const found = (await sql`
+    select words, unlocked::text[] as unlocked, undone_at is not null as undone
+    from chongfuxi_addition where owner_email = ${owner} and id = ${id}
+  `) as unknown as Array<{ words: Array<{ word: string; was: "listed" | "name" | null }>; unlocked: string[]; undone: boolean }>;
+  const a = found[0];
+  if (!a) throw new AdditionError("No such addition.");
+  if (a.undone) throw new AdditionError("Already undone.");
+  const words = a.words.map((w) => w.word);
+  const answered = (await sql`
+    select distinct word from chongfuxi_card
+    where owner_email = ${owner} and word = any(${words}::text[]) and kind in ('read', 'produce') and answered > 0
+  `) as unknown as Array<{ word: string }>;
+  if (answered.length) {
+    throw new AdditionError(`Already answered: ${answered.map((w) => w.word).join(" ")}. Undoing would lose those answers.`);
+  }
+  const gone = a.words.filter((w) => w.was === null).map((w) => w.word);
+  const back = a.words.filter((w) => w.was !== null).map((w) => ({ w: w.word, s: w.was }));
+  await sql.transaction([
+    sql`delete from chongfuxi_card where owner_email = ${owner} and word = any(${words}::text[]) and kind in ('read', 'produce') and answered = 0`,
+    sql`delete from chongfuxi_card where owner_email = ${owner} and kind = 'sentence' and answered = 0 and sentence_id = any(${a.unlocked}::bigint[])`,
+    sql`delete from chongfuxi_word where owner_email = ${owner} and word = any(${gone}::text[]) and status = 'deck'`,
+    sql`
+      update chongfuxi_word w set status = e.value->>'s'
+      from jsonb_array_elements(${JSON.stringify(back)}::jsonb) e
+      where w.owner_email = ${owner} and w.word = e.value->>'w'
+    `,
+    sql`update chongfuxi_addition set undone_at = now(), seen_at = coalesce(seen_at, now()) where owner_email = ${owner} and id = ${id}`,
+    sql`update chongfuxi_anki_note set outcome = 'undone' where owner_email = ${owner} and addition_id = ${id}`,
+  ]);
+  const result = await recomputeUnlocks(sql, owner, [], at);
+  return { relocked: result.relocked };
+}

@@ -3514,3 +3514,307 @@ label.cf-kind {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------ new words -- */
+
+/* Words that just joined the deck: over everything, until kept or undone. */
+.cf-arrival-back {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 10, 16, 0.5);
+  animation: cf-fade 0.18s ease both;
+}
+
+@media (min-width: 700px) {
+  .cf-arrival-back {
+    align-items: center;
+  }
+}
+
+.cf-arrival {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 18px 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--cf-bg);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.3);
+  animation: cf-rise 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (min-width: 700px) {
+  .cf-arrival {
+    border-radius: 24px;
+  }
+}
+
+.cf-arrival-from {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-arrival-title {
+  margin: 2px 0 14px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.cf-arrival-title b {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--cf-new);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+
+.cf-arrival-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.cf-arrival-stats > div {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+}
+
+.cf-arrival-stats dt {
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-arrival-stats dd {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-arrival-stats .is-up dd {
+  color: var(--cf-sentence);
+}
+
+.cf-arrival-words {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-arrival-words li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-arrival-zh {
+  flex: none;
+  min-width: 2.2em;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.cf-arrival-what {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cf-arrival-py {
+  font-size: 14px;
+  color: var(--cf-read);
+}
+
+.cf-arrival-gloss {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-arrival-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 2px;
+}
+
+.cf-arrival-in {
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-arrival-sentences {
+  margin-top: 16px;
+}
+
+.cf-arrival-sentences h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-arrival-sentences ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-arrival-sentences li {
+  padding: 6px 0;
+}
+
+.cf-arrival-sentences .cf-zh {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  font-size: 17px;
+}
+
+.cf-arrival-sentences .cf-mark {
+  color: var(--cf-sentence);
+  background: none;
+  font-weight: 600;
+  padding: 0;
+}
+
+.cf-arrival-sentences .cf-en {
+  margin: 1px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-arrival-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+}
+
+/* The two choices, kept in reach at the foot of the sheet. */
+.cf-arrival-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  margin: 16px -18px 0;
+  padding: 12px 18px calc(16px + env(safe-area-inset-bottom));
+  background: var(--cf-bg);
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-arrival-actions .cf-answer-btn {
+  flex: 1;
+  max-width: none;
+}
+
+.cfx .cf-arrival-undo.is-confirming {
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-arrival-back,
+  .cf-arrival {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- sync log -- */
+
+.cf-synclog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-synclog li {
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-synclog-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 2px;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--cf-ink);
+  text-align: left;
+}
+
+button.cf-synclog-row {
+  cursor: pointer;
+}
+
+/* What the sync did, as a dot: words added, nothing new, a failure, or waiting. */
+.cf-synclog-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.cf-synclog-dot.is-up {
+  background: var(--cf-new);
+}
+
+.cf-synclog-dot.is-flat {
+  background: var(--cf-rule-strong);
+}
+
+.cf-synclog-dot.is-down {
+  background: var(--cf-down);
+}
+
+.cf-synclog-dot.is-wait {
+  box-shadow: inset 0 0 0 1.5px var(--cf-ink-faint);
+}
+
+.cf-synclog-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cf-synclog-effect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  font-weight: 550;
+}
+
+.cf-synclog-meta {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-synclog-go {
+  flex: none;
+  font-size: 20px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-arrival-undone {
+  margin-left: 8px;
+}

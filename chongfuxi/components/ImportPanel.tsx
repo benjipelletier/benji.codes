@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { signInWithGoogle, signOut } from "@chongfuxi/lib/auth-client";
 import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
+import { SyncLog } from "./SyncLog";
 import { fmt, message, type Shell } from "./shared";
 
 /** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
@@ -200,6 +201,7 @@ export function ImportPanel({ shell }: { shell: Shell }) {
   return (
     <div className="cf-panel">
       <Account shell={shell} />
+      {s.viewer.configured && <SyncLog shell={shell} />}
       {shell.canWrite && <Importer shell={shell} />}
       {s.viewer.configured && (
         <section className="cf-section">
