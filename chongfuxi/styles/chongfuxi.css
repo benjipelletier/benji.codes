@@ -181,6 +181,24 @@
   padding: 0;
 }
 
+/* And is exactly one screen tall. A card with more on it than fits scrolls
+ * inside itself; the page never does. */
+.cfx.is-focus .cf-review {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cfx.is-focus .cf-card {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cfx.is-focus .cf-card > * {
+  flex-shrink: 0;
+}
+
 .cf-state > div {
   background: var(--cf-surface);
   border: 1px solid var(--cf-rule);
@@ -452,36 +470,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-}
-
-.cf-chips {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.cf-chip {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.cf-chip-up {
-  color: var(--cf-up);
-  background: var(--cf-up-soft);
-}
-
-.cf-chip-down {
-  color: var(--cf-down);
-  background: var(--cf-down-soft);
-}
-
-.cf-chip-none {
-  color: var(--cf-ink-faint);
-  background: var(--cf-sunken);
 }
 
 .cf-examples {
@@ -823,6 +811,14 @@
   margin: 2px 0 20px;
 }
 
+/* The count, and what it counts, on one line. */
+.cf-today-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
 .cf-today-n {
   font-size: 52px;
   font-weight: 650;
@@ -835,7 +831,7 @@
 .cf-today-sub {
   font-size: 15px;
   color: var(--cf-ink-soft);
-  margin: 6px 0 14px;
+  margin: 0;
 }
 
 .cf-today-done {
@@ -1063,6 +1059,59 @@ label.cf-kind {
   opacity: 0.4;
 }
 
+/* Today fits a phone's screen without scrolling: on anything but a tall
+ * window the heading goes (the date says it) and the rows close up. */
+@media (max-height: 940px) {
+  .cf-today {
+    padding-top: 4px;
+    padding-bottom: 60px;
+  }
+
+  .cf-today-title {
+    display: none;
+  }
+
+  .cf-today-date {
+    margin-bottom: 8px;
+  }
+
+  .cf-today-head {
+    margin-bottom: 10px;
+  }
+
+  .cf-today-n {
+    font-size: 46px;
+  }
+
+  .cf-days {
+    margin-top: 12px;
+  }
+
+  .cf-days > div {
+    padding: 7px 0;
+  }
+
+  .cf-kinds {
+    margin-top: 12px;
+  }
+
+  .cf-kind {
+    min-height: 52px;
+    padding: 6px 16px;
+  }
+}
+
+@media (max-height: 700px) {
+  .cf-today-date,
+  .cf-kind small {
+    display: none;
+  }
+
+  .cf-kind {
+    min-height: 44px;
+  }
+}
+
 /* --------------------------------------------------------------- review -- */
 
 /* One card at a time. The card scrolls; the answer stays at the foot. */
@@ -1262,10 +1311,18 @@ label.cf-kind {
 .cf-card-word {
   font-family: "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
   font-weight: 600;
-  font-size: clamp(64px, 24vw, 96px);
+  /* One line, whatever the length: the size comes down until the word fits
+   * the card (--n characters across the card's inner width). */
+  font-size: min(clamp(64px, 24vw, 96px), calc((min(100vw, 560px) - 80px) / var(--n, 2)));
   line-height: 1.15;
   text-align: center;
   margin: 26px 0 12px;
+  white-space: nowrap;
+}
+
+/* Longer than any word in the deck today: let it wrap rather than shrink to nothing. */
+.cf-card-word.is-long {
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
@@ -1473,56 +1530,159 @@ label.cf-kind {
   margin-bottom: 8px;
 }
 
-/* The receipt: what the last answer changed, itemised under the card. */
+/* The receipt: what the last answer changed, as figures. Two fixed rows, so
+ * the card above keeps its size from one answer to the next. */
 .cf-receipt {
-  margin: 10px 4px 0;
+  flex: none;
+  margin: 10px 2px 0;
   font-size: 12.5px;
-  line-height: 1.45;
   color: var(--cf-ink-soft);
+  --cf-tone: var(--cf-up);
 }
 
-.cf-receipt-head {
-  width: 100%;
+.cf-receipt.is-forgot {
+  --cf-tone: var(--cf-down);
+}
+
+.cf-receipt-top {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 2px 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
+  gap: 8px;
+  height: 20px;
 }
 
-.cf-receipt-head b {
+.cf-receipt-top > b {
   flex: none;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
   color: var(--cf-ink);
 }
 
-.cf-receipt-head span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* How long the card waits, on a log scale: the fill runs from where it was to
+ * where it is now, and a tick stays behind at where it was. */
+.cf-meter {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--cf-sunken);
+}
+
+.cf-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--to);
+  min-width: 8px;
+  border-radius: 4px;
+  background: var(--cf-tone);
+  animation: cf-meter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.cf-meter-was {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: var(--from);
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--cf-ink-soft);
+  box-shadow: 0 0 0 2px var(--cf-bg);
+}
+
+@keyframes cf-meter {
+  from {
+    width: var(--from);
+  }
+  to {
+    width: var(--to);
+  }
+}
+
+.cf-receipt-span {
+  flex: none;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.cf-receipt-head small {
-  flex: none;
-  margin-left: auto;
-  font-size: 12px;
+.cf-receipt-span em {
+  font-style: normal;
   color: var(--cf-ink-faint);
 }
 
-.cf-receipt ul {
-  list-style: none;
-  margin: 2px 0 0;
-  padding: 0 0 0 16px;
+.cf-receipt-span b {
+  font-weight: 650;
+  color: var(--cf-ink);
 }
 
-.cf-receipt li {
-  overflow-wrap: anywhere;
+/* One row of chips; more than fit scroll sideways rather than add a line. */
+.cf-facts {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  height: 26px;
+  margin: 8px -18px 0;
+  padding: 0 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cf-facts::-webkit-scrollbar {
+  display: none;
+}
+
+.cf-facts li {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 13px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  font-size: 12px;
+  white-space: nowrap;
+  animation: cf-fact 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.cf-facts b {
+  font-weight: 650;
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-facts .is-up b {
+  color: var(--cf-up);
+}
+
+.cf-facts .is-down b {
+  color: var(--cf-down);
+}
+
+.cf-facts .is-recall b {
+  color: var(--cf-recall);
+}
+
+.cf-facts .is-sentence b {
+  color: var(--cf-sentence);
+}
+
+.cf-facts .is-new b {
+  color: var(--cf-new);
+}
+
+@keyframes cf-fact {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .cf-done {
@@ -1623,7 +1783,9 @@ label.cf-kind {
 
 @media (prefers-reduced-motion: reduce) {
   .cf-card,
-  .cf-back {
+  .cf-back,
+  .cf-meter-fill,
+  .cf-facts li {
     animation: none;
     transition: none;
   }

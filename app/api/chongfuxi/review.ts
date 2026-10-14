@@ -24,7 +24,7 @@ import type { StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import { CLEAN_READS_TO_RETIRE, REVIVED_CLEAN_READS, interleave, lapseTargets, piecesOf, readSentence } from "@chongfuxi/lib/review";
-import { SCHEDULER, answer, intervals, newSchedule, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
+import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
 const DAY_MS = 86_400_000;
 /** A word card rotates through this many of its shortest readable sentences. */
@@ -416,6 +416,8 @@ const NOTHING: ReviewResult = {
   lapsed: [],
   revived: 0,
   was: null,
+  odds: null,
+  difficulty: { before: null, after: 0 },
   cleanReads: null,
   exposed: [],
   firstSeen: [],
@@ -679,6 +681,8 @@ export async function submitReview(sql: Sql, owner: string, input: ReviewInput, 
     lapsed: effects.lapsed ?? [],
     revived: revive.size,
     was: waitOf(before),
+    odds: recallOdds(before, at),
+    difficulty: { before: before.state === 0 ? null : before.difficulty, after: after.difficulty },
     cleanReads,
     exposed: inOrder(met.map((m) => m.word)),
     firstSeen: inOrder(met.filter((m) => m.exposures === 0).map((m) => m.word)),

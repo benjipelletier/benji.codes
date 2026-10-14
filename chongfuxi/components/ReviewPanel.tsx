@@ -70,47 +70,100 @@ function promptOf(card: SessionCard): string[] {
   return (defs.find((d) => !d.own) ?? defs[0])?.senses.slice(0, 3) ?? [];
 }
 
-/** What an answer changed, itemised: the card first, then everything it touched. */
+/** What an answer changed, as figures: where the card went, then a chip for each thing it moved. */
+interface Chip {
+  n: string;
+  label: string;
+  tone?: "up" | "down" | "recall" | "sentence" | "new";
+}
+
 interface Receipt {
+  id: string;
   title: string;
   grade: Grade;
-  lines: string[];
+  /** Days the card waited before, and waits now. Null: new before, retired now. */
+  was: number | null;
+  days: number | null;
+  chips: Chip[];
 }
 
-function receiptOf(card: SessionCard, grade: Grade, r: ReviewResult): Receipt {
+function receiptOf(card: SessionCard, grade: Grade, r: ReviewResult, id: string, streak: number): Receipt {
   const good = grade === "good";
-  const was = (days: number | null) => (days === null ? "its first answer here" : `was ${span(days)}`);
-  const lines: string[] = [];
-  const count = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+  const chips: Chip[] = [];
 
-  if (card.word) {
-    lines.push(`${good ? "Back" : "Forgotten, back"} in ${span(r.days ?? 1)} (${was(r.was)})`);
-    if (r.produceOpened) lines.push(`Recall card opened, first asked ${r.recallIn && r.recallIn > 1 ? `in ${span(r.recallIn)}` : "tomorrow"}`);
-    if (r.firstSeen.length) lines.push("Read in a sentence for the first time");
-    else if (r.exposed.length) lines.push("Counted as read in a sentence once more");
-  } else {
-    const reads = r.cleanReads;
-    if (r.retired) lines.push(`Retired after ${count(reads?.now ?? 2, "clean read")}`);
-    else lines.push(`${good ? "Back" : "Forgotten, back"} in ${span(r.days ?? 1)} (${was(r.was)})`);
-    if (reads && good && !r.retired) {
-      lines.push(
-        reads.now === reads.before
-          ? `Still ${reads.now} of ${reads.need} clean reads: today's was already counted`
-          : `Clean read ${reads.now} of ${reads.need} before it retires`,
-      );
-    }
-    if (reads && !good && reads.before > 0) lines.push(`Clean reads back to none (had ${reads.before})`);
-    for (const l of r.lapses) lines.push(`${l.word} lapsed, back in ${span(l.days)} (${was(l.was)})`);
-    if (r.exposed.length) lines.push(`${count(r.exposed.length, "word")} read in context: ${r.exposed.join(" ")}`);
-    if (r.firstSeen.length) lines.push(`First time in a sentence: ${r.firstSeen.join(" ")}`);
+  if (r.was !== null && r.days !== null) {
+    const ratio = r.days / r.was;
+    if (ratio >= 1.05) chips.push({ n: `×${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}`, label: "longer", tone: "up" });
+    else if (ratio <= 0.95) chips.push({ n: `−${Math.round((1 - ratio) * 100)}%`, label: "shorter", tone: "down" });
   }
-  for (const zh of r.revivedSentences) lines.push(`Retired sentence back tomorrow: ${zh}`);
+  if (r.odds !== null) chips.push({ n: `${Math.round(r.odds * 100)}%`, label: "recall odds" });
+  if (r.difficulty.after > 0) {
+    const d = r.difficulty;
+    const moved = d.before === null ? "" : d.after < d.before - 0.005 ? " ↓" : d.after > d.before + 0.005 ? " ↑" : "";
+    chips.push({ n: d.after.toFixed(1), label: `difficulty${moved}`, tone: moved === " ↓" ? "up" : moved === " ↑" ? "down" : undefined });
+  }
+  if (r.produceOpened) chips.push({ n: "+1", label: "recall card", tone: "recall" });
+  if (r.cleanReads && good) {
+    const { now, need } = r.cleanReads;
+    chips.push({ n: "●".repeat(Math.min(now, need)) + "○".repeat(Math.max(0, need - now)), label: r.retired ? "retired" : "clean reads", tone: "sentence" });
+  }
+  for (const l of r.lapses.slice(0, 2)) chips.push({ n: l.word, label: `lapsed, ${span(l.days)}`, tone: "down" });
+  if (r.lapses.length > 2) chips.push({ n: `+${r.lapses.length - 2}`, label: "lapsed", tone: "down" });
+  if (!card.word && r.exposed.length) chips.push({ n: String(r.exposed.length), label: r.exposed.length === 1 ? "word read" : "words read" });
+  if (r.firstSeen.length) chips.push({ n: card.word ? "1st" : String(r.firstSeen.length), label: card.word ? "time in a sentence" : "first in context", tone: "new" });
+  if (r.revived) chips.push({ n: `+${r.revived}`, label: r.revived === 1 ? "sentence back" : "sentences back", tone: "sentence" });
+  if (streak >= 3) chips.push({ n: String(streak), label: "in a row", tone: "up" });
 
-  const what = card.word ? `${card.word.word}, ${card.kind === "produce" ? "recall" : "read"}` : "Sentence";
-  return { title: what, grade, lines };
+  return { id, title: card.word ? card.word.word : "Sentence", grade, was: r.was, days: r.retired ? null : r.days, chips };
 }
 
-const RECEIPT_KEY = "chongfuxi:receipt";
+/** The word, large, on one line: its length sets its size. */
+function Word({ word }: { word: string }) {
+  const n = [...word].length;
+  return (
+    <div className={`cf-card-word${n > 6 ? " is-long" : ""}`} style={{ "--n": Math.min(n, 6) } as React.CSSProperties}>
+      {word}
+    </div>
+  );
+}
+
+/** Where a wait of so many days sits on the meter: a log scale, full at two years. */
+const onMeter = (days: number | null) => (days === null ? 0 : Math.min(1, Math.log1p(days) / Math.log1p(730)));
+
+function ReceiptStrip({ r }: { r: Receipt }) {
+  const from = onMeter(r.was);
+  const to = r.days === null ? 1 : onMeter(r.days);
+  return (
+    // Keyed by the answer, so each one plays in afresh.
+    <section key={r.id} className={`cf-receipt is-${r.grade}`} aria-live="polite">
+      <div className="cf-receipt-top">
+        <i className={`cf-bubble${r.grade === "forgot" ? " is-forgot" : ""}`} />
+        <b>{r.title}</b>
+        <div
+          className="cf-meter"
+          style={{ "--from": `${from * 100}%`, "--to": `${to * 100}%` } as React.CSSProperties}
+          role="img"
+          aria-label={r.days === null ? "Retired" : `Back in ${span(r.days)}${r.was === null ? "" : `, was ${span(r.was)}`}`}
+        >
+          <i className="cf-meter-fill" />
+          {r.was !== null && <i className="cf-meter-was" />}
+        </div>
+        <span className="cf-receipt-span">
+          {r.was === null ? "new" : span(r.was)} <em>→</em> <b>{r.days === null ? "retired" : span(r.days)}</b>
+        </span>
+      </div>
+      {r.chips.length > 0 && (
+        <ul className="cf-facts">
+          {r.chips.map((c, i) => (
+            <li key={`${c.n} ${c.label}`} className={c.tone ? `is-${c.tone}` : undefined} style={{ animationDelay: `${120 + i * 60}ms` }}>
+              <b>{c.n}</b> {c.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 /** What the last session included, kept on this device. */
 const KINDS_KEY = "chongfuxi:session";
@@ -220,8 +273,10 @@ function Today({
       <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
       <h2 className="cf-today-title">Today</h2>
 
-      <p className="cf-today-n">{fmt(total)}</p>
-      <p className="cf-today-sub">{total === 1 ? "card to review" : "cards to review"}</p>
+      <div className="cf-today-head">
+        <p className="cf-today-n">{fmt(total)}</p>
+        <p className="cf-today-sub">{total === 1 ? "card to review" : "cards to review"}</p>
+      </div>
       {/* The day as one bar: what is done, then what is left, by kind. */}
       <div className="cf-daybar" role="img" aria-label={`${fmt(s.answeredToday)} done, ${fmt(total)} to go`}>
         <i className="is-done" style={{ width: share(s.answeredToday) }} />
@@ -337,25 +392,8 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   const [noting, setNoting] = useState<string | null>(null);
   const [splitting, setSplitting] = useState<string | null>(null);
   const [last, setLast] = useState<Receipt | null>(null);
-  // The receipt can be folded down to its first line; the choice is kept.
-  const [itemised, setItemised] = useState(true);
-  useEffect(() => {
-    try {
-      setItemised(window.localStorage.getItem(RECEIPT_KEY) !== "0");
-    } catch {
-      // Open, then.
-    }
-  }, []);
-  const fold = () => {
-    setItemised((open) => {
-      try {
-        window.localStorage.setItem(RECEIPT_KEY, open ? "0" : "1");
-      } catch {
-        // It still holds for this visit.
-      }
-      return !open;
-    });
-  };
+  // Got its in a row this session.
+  const streak = useRef(0);
   const [unsent, setUnsent] = useState<ReviewInput[]>([]);
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
@@ -419,11 +457,11 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
   }, [card?.id]);
 
   const post = useCallback(
-    async (input: ReviewInput, shown: SessionCard | null) => {
+    async (input: ReviewInput, shown: SessionCard | null, run = 0) => {
       try {
         const result = await send<ReviewResult>("review", input);
         setUnsent((list) => list.filter((r) => r.id !== input.id));
-        if (shown && !result.duplicate) setLast(receiptOf(shown, input.grade, result));
+        if (shown && !result.duplicate) setLast(receiptOf(shown, input.grade, result, input.id, run));
         refresh();
       } catch (e) {
         // 409: the card had already left the queue (answered on another device). Nothing to resend.
@@ -467,7 +505,8 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
     };
     recentIds.current = [...recentIds.current, card.id].slice(-IN_FLIGHT);
     if (card.word) recentWords.current = [...recentWords.current, card.word.word].slice(-IN_FLIGHT);
-    void post(input, card);
+    streak.current = grade === "good" ? streak.current + 1 : 0;
+    void post(input, card, streak.current);
     setAnswered((n) => n + 1);
     next(grade);
   };
@@ -568,7 +607,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
 
           {card.kind === "read" && card.word && (
             <>
-              <div className="cf-card-word">{card.word.word}</div>
+              <Word word={card.word.word} />
               {card.meaning && !revealed && <p className="cf-card-hint">One of its other meanings, one you split off.</p>}
               {card.sentence && (
                 <p className="cf-card-zh">
@@ -605,7 +644,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
               )}
               {revealed && (
                 <div className="cf-back">
-                  <div className="cf-card-word">{card.word.word}</div>
+                  <Word word={card.word.word} />
                   {card.word.pinyin && <div className="cf-card-pinyin">{displayPinyin(card.word.pinyin)}</div>}
                   {card.alternatives && card.alternatives.length > 0 && (
                     <p className="cf-muted cf-also">Also means this: {card.alternatives.join("、")}</p>
@@ -695,23 +734,7 @@ function Session({ shell, kinds, onEnd }: { shell: Shell; kinds: SessionKinds; o
       )}
 
       {/* What the last answer changed. */}
-      {last && (
-        <section className={`cf-receipt is-${last.grade}`} aria-live="polite">
-          <button className="cf-receipt-head" aria-expanded={itemised} onClick={fold}>
-            <i className={`cf-bubble${last.grade === "forgot" ? " is-forgot" : ""}`} />
-            <b>{last.title}</b>
-            <span>{itemised || last.lines.length < 2 ? (last.grade === "good" ? "Got it" : "Forgot") : last.lines[0]}</span>
-            <small>{itemised ? "Hide" : `${last.lines.length} changes`}</small>
-          </button>
-          {itemised && (
-            <ul>
-              {last.lines.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      {last && <ReceiptStrip r={last} />}
 
       {/* The answer, at the foot of the screen, under the thumb. */}
       {card && (

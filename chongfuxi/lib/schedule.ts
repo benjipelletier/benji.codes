@@ -115,6 +115,12 @@ export function answer(s: Schedule, grade: Grade, at: number): Schedule {
   return fromCard(scheduler.next(toCard(s), new Date(at), grade === "good" ? Rating.Good : Rating.Again).card);
 }
 
+/** The odds, 0 to 1, that the card would be remembered at this moment; null for one never answered. */
+export function recallOdds(s: Schedule, at: number): number | null {
+  if (s.state === State.New || s.lastReview === null) return null;
+  return scheduler.get_retrievability(toCard(s), new Date(at), false);
+}
+
 /** Days until the card would come back for each button — shown on the buttons. */
 export function intervals(s: Schedule, at: number): Record<Grade, number> {
   const days = (g: Grade) => Math.max(1, Math.round((answer(s, g, at).due - at) / DAY));

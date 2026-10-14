@@ -176,6 +176,11 @@ async function main() {
   r = await submit(tea1.id, "good", 1);
   check("a second clean read the same day doesn't count", !r.retired && (await sentenceCard("我喝茶。")).clean_reads === 1);
   check("and the receipt shows it didn't", r.cleanReads?.before === 1 && r.cleanReads.now === 1 && r.was !== null && r.firstSeen.length === 0);
+  check(
+    "a card answered before comes with the odds it was remembered and its difficulty either side",
+    r.odds !== null && r.odds > 0 && r.odds <= 1 && r.difficulty.before !== null && r.difficulty.after >= 1 && r.difficulty.after <= 10,
+    JSON.stringify({ odds: r.odds, difficulty: r.difficulty }),
+  );
   await submit(tea2.id, "good", 1);
   const exposures = ((await sql`select exposures from chongfuxi_word where owner_email = ${owner} and word = '茶'`) as unknown as Array<{ exposures: number }>)[0].exposures;
   check("reading sentences counts as seeing their words", exposures >= 3, `茶 seen ${exposures} times`);
