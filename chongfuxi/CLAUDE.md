@@ -374,7 +374,8 @@ Built on the owner's corpus alone, since that is what answers lead with:
   model); Close, but no with a wrong and a right sentence; the owner's
   sentences as examples; sentences the model wrote, labelled; Was this
   right?; the history with its verdicts.
-- Config: `CHONGFUXI_LOOKUP_MODEL` (default `claude-opus-5-5`),
+- Config: `CHONGFUXI_LOOKUP_MODEL` (default `claude-haiku-5-5`, the
+  owner's choice; see The model below),
   `CHONGFUXI_LOOKUP_EFFORT` (default `medium`), and
   `CHONGFUXI_ANTHROPIC_API_KEY` or the site's `ANTHROPIC_API_KEY`. The
   answer's check list ends with its estimated cost. On Claude models that
@@ -411,15 +412,18 @@ Built on the owner's corpus alone, since that is what answers lead with:
   schema, dealing, the session screens, Stats and `check-review.ts`; a Recall
   card per phrase reuses all of that but is keyed by word, and one word can
   have several phrases. Not needed for the proof of concept.
-- **The model.** Claude, for now: Claude Haiku 5.5 ($0.10 / $0.50 per
+- **The model.** Decided: Claude Haiku 5.5, chosen by the owner in October
+  2026 for cost. Claude Haiku 5.5 ($0.10 / $0.50 per
   million tokens) is as cheap as the cheap Chinese-first models (DeepSeek V4
   Flash, Qwen Flash, Gemini Flash-Lite, all roughly $0.10–0.30 in and
   $0.40–1.20 out by October 2026 aggregators), so price is no reason to
   switch; the tool runner, structured output and fallbacks are already
   wired. A lookup is several calls (about 30k tokens in, 2–3k out): roughly
-  $0.15 on Opus 5.5, $0.08 on Sonnet 5.5, under a cent on Haiku 5.5. Which
-  is good enough is for the test set to decide: run the same lookups with
-  `CHONGFUXI_LOOKUP_MODEL` set to each and compare verdicts. A Chinese-first
+  $0.15 on Opus 5.5, $0.08 on Sonnet 5.5, under a cent on Haiku 5.5. If
+  Haiku's verdicts in the test set disappoint, raise
+  `CHONGFUXI_LOOKUP_EFFORT` first, then run the same lookups with
+  `CHONGFUXI_LOOKUP_MODEL` set to Sonnet or Opus and compare. Haiku has no
+  server-side fallback on a refusal; the screen says the model declined. A Chinese-first
   model would mean a second SDK; worth it only if Claude misses on
   collocation nuance the evidence can't fix.
 - **The test set.** Over about a month the owner is collecting what they'd

@@ -8,9 +8,10 @@
 // the evidence backs. Each lookup is kept (chongfuxi_lookup), which caches it
 // and, with the owner's Right / Wrong, is the test set the plan asks for.
 //
-// The model is CHONGFUXI_LOOKUP_MODEL (default claude-opus-5-5) at
-// CHONGFUXI_LOOKUP_EFFORT (default medium), on CHONGFUXI_ANTHROPIC_API_KEY,
-// else the site's ANTHROPIC_API_KEY. Owner only: every lookup costs money.
+// The model is CHONGFUXI_LOOKUP_MODEL (default claude-haiku-5-5, the owner's
+// choice: well under a cent a lookup) at CHONGFUXI_LOOKUP_EFFORT (default
+// medium), on CHONGFUXI_ANTHROPIC_API_KEY, else the site's ANTHROPIC_API_KEY.
+// Owner only: every lookup costs money.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
@@ -22,12 +23,17 @@ import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, to
 
 export class LookupError extends Error {}
 
-const MODEL = process.env.CHONGFUXI_LOOKUP_MODEL || "claude-opus-5-5";
+const MODEL = process.env.CHONGFUXI_LOOKUP_MODEL || "claude-haiku-5-5";
 const EFFORT = (process.env.CHONGFUXI_LOOKUP_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max";
-/** Models the server-side fallback on a refusal is offered for. */
+/** Models the server-side fallback on a refusal is offered for. Haiku has none: a refusal there is shown as such. */
 const WITH_FALLBACK = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"]);
 
-/** Dollars per million tokens: input, output, cache read, cache write. Estimates, for the cost line under an answer. */
+/**
+ * Dollars per million tokens: input, output, cache read, cache write. Estimates,
+ * for the cost line under an answer. Haiku's are for prompts of 100K tokens or
+ * fewer (each call of a lookup is), and its cache rates are guesses at a tenth
+ * and 1.25 times input: they aren't published where this was written.
+ */
 const PRICES: Record<string, [number, number, number, number]> = {
   "claude-opus-5-5": [4, 20, 0.2, 5],
   "claude-sonnet-5-5": [2, 10, 0.2, 2.5],
