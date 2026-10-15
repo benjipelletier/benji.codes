@@ -164,14 +164,19 @@ function BugSheet({ draft, onDone }: { draft: { context: BugContext; shot: Promi
   );
 }
 
-/** The bugs filed, on the Import page: open ones first, each closable with a tap. */
-export function BugList({ canWrite }: { canWrite: boolean }) {
+/** The bugs filed, on the Import page's Bugs side: open ones first, each closable with a tap. */
+export function BugList({ canWrite, onCount }: { canWrite: boolean; onCount?: (open: number) => void }) {
   const [list, setList] = useState<BugReport[] | null>(null);
   const [all, setAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const counted = useRef(onCount);
+  counted.current = onCount;
   const load = useCallback(() => {
     get<{ bugs: BugReport[] }>("bugs", { all: all ? 1 : undefined })
-      .then((r) => setList(r.bugs))
+      .then((r) => {
+        setList(r.bugs);
+        counted.current?.(r.bugs.filter((b) => b.status === "open").length);
+      })
       .catch((e) => setError(message(e)));
   }, [all]);
   useEffect(load, [load]);
@@ -185,7 +190,6 @@ export function BugList({ canWrite }: { canWrite: boolean }) {
     }
   };
 
-  if (!list || (!list.length && !all)) return null;
   return (
     <section className="cf-section">
       <h2 className="cf-h2">Bug reports</h2>
@@ -193,42 +197,46 @@ export function BugList({ canWrite }: { canWrite: boolean }) {
         Filed with the bug tab on the right edge. A Claude session pulls them in with <code>chongfuxi/scripts/bugs.ts</code>.
       </p>
       {error && <p className="cf-error">{error}</p>}
-      <ul className="cf-bugs">
-        {list.map((b) => (
-          <li key={b.id} className={`is-${b.status}`}>
-            {b.hasImage && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/api/chongfuxi/bugs/${b.id}?image=1`} alt="" loading="lazy" />
-            )}
-            <div>
-              <p className="cf-bug-head">
-                <b>#{b.id}</b> {new Date(b.at).toLocaleString()} · {b.context.screen}
-                {b.status !== "open" && <span className="cf-tag">{b.status === "fixed" ? "fixed" : "won't fix"}</span>}
-              </p>
-              <p>{b.text || <i className="cf-muted">No words, just the screenshot.</i>}</p>
-              {b.note && <p className="cf-muted">{b.note}</p>}
-              {canWrite && (
-                <p className="cf-bug-acts">
-                  {b.status === "open" ? (
-                    <>
-                      <button className="cf-link" onClick={() => void mark(b.id, "fixed")}>
-                        Mark fixed
-                      </button>
-                      <button className="cf-link" onClick={() => void mark(b.id, "wontfix")}>
-                        Won&apos;t fix
-                      </button>
-                    </>
-                  ) : (
-                    <button className="cf-link" onClick={() => void mark(b.id, "open")}>
-                      Open again
-                    </button>
-                  )}
-                </p>
+      {list === null && !error && <p className="cf-muted">Loading…</p>}
+      {list?.length === 0 && <p className="cf-muted">{all ? "No bugs filed yet." : "No open bugs."}</p>}
+      {list && list.length > 0 && (
+        <ul className="cf-bugs">
+          {list.map((b) => (
+            <li key={b.id} className={`is-${b.status}`}>
+              {b.hasImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/api/chongfuxi/bugs/${b.id}?image=1`} alt="" loading="lazy" />
               )}
-            </div>
-          </li>
-        ))}
-      </ul>
+              <div>
+                <p className="cf-bug-head">
+                  <b>#{b.id}</b> {new Date(b.at).toLocaleString()} · {b.context.screen}
+                  {b.status !== "open" && <span className="cf-tag">{b.status === "fixed" ? "fixed" : "won't fix"}</span>}
+                </p>
+                <p>{b.text || <i className="cf-muted">No words, just the screenshot.</i>}</p>
+                {b.note && <p className="cf-muted">{b.note}</p>}
+                {canWrite && (
+                  <p className="cf-bug-acts">
+                    {b.status === "open" ? (
+                      <>
+                        <button className="cf-link" onClick={() => void mark(b.id, "fixed")}>
+                          Mark fixed
+                        </button>
+                        <button className="cf-link" onClick={() => void mark(b.id, "wontfix")}>
+                          Won&apos;t fix
+                        </button>
+                      </>
+                    ) : (
+                      <button className="cf-link" onClick={() => void mark(b.id, "open")}>
+                        Open again
+                      </button>
+                    )}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       <button className="cf-more" onClick={() => setAll(!all)}>
         {all ? "Only the open ones" : "Show closed ones too"}
       </button>

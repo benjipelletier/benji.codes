@@ -1,7 +1,8 @@
 "use client";
 
-// Bringing a newer Pleco backup in, the Anki syncs, and bug reports.
-// (Signing in is in the header: components/Account.tsx.)
+// Everything that brings material in, or looks at what came in, as four sides:
+// Analyse a text, the Anki syncs, uploads (a Pleco backup, or texts), and bug
+// reports. (Signing in is in the header: components/Account.tsx.)
 //
 // Words come from Pleco and nowhere else: the owner adds them there, exports a
 // backup, and imports it here. The file goes to the server, which turns it
@@ -15,7 +16,7 @@ import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
 import { TextAnalyser } from "./TextAnalyser";
 import { TextImport } from "./TextImport";
-import { fmt, message, type Shell } from "./shared";
+import { fmt, message, useBackLayer, type Shell } from "./shared";
 
 /** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
 interface Outcome {
@@ -150,15 +151,59 @@ function Importer({ shell }: { shell: Shell }) {
   );
 }
 
-export function ImportPanel({ shell }: { shell: Shell }) {
+export type ImportSide = "analyse" | "syncs" | "upload" | "bugs";
+
+export function ImportPanel({ shell, start = "analyse" }: { shell: Shell; start?: ImportSide }) {
   const s = shell.summary!;
+  const sides: Array<{ key: ImportSide; label: string }> = [
+    ...(s.viewer.configured ? [{ key: "analyse" as const, label: "Analyse" }, { key: "syncs" as const, label: "Syncs" }] : []),
+    ...(shell.canWrite ? [{ key: "upload" as const, label: "Upload" }] : []),
+    ...(s.viewer.configured ? [{ key: "bugs" as const, label: "Bugs" }] : []),
+  ];
+  const first = sides[0]?.key;
+  const [picked, setSide] = useState<ImportSide>(start);
+  const side = sides.some((t) => t.key === picked) ? picked : first;
+  // Back from any other side comes to the first, as in Cards.
+  useBackLayer(side !== first, () => setSide(first!));
+  // The open bugs, counted under their side.
+  const [openBugs, setOpenBugs] = useState<number | null>(null);
+  useEffect(() => {
+    if (!s.viewer.configured) return;
+    get<{ bugs: Array<{ status: string }> }>("bugs")
+      .then((r) => setOpenBugs(r.bugs.filter((b) => b.status === "open").length))
+      .catch(() => undefined);
+  }, [s.viewer.configured]);
+
   return (
     <div className="cf-panel">
-      {s.viewer.configured && <TextAnalyser shell={shell} />}
-      {s.viewer.configured && <SyncLog shell={shell} />}
-      {shell.canWrite && <Importer shell={shell} />}
-      {shell.canWrite && <TextImport shell={shell} />}
-      {s.viewer.configured && <BugList canWrite={shell.canWrite} />}
+      {sides.length > 1 && (
+        <div className="cf-sides" role="tablist">
+          {sides.map((t) => (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={side === t.key}
+              className={`cf-side${side === t.key ? " is-on" : ""}`}
+              onClick={() => {
+                setSide(t.key);
+                window.scrollTo({ top: 0 });
+              }}
+            >
+              {t.label}
+              {t.key === "bugs" && openBugs ? <small>{fmt(openBugs)} open</small> : null}
+            </button>
+          ))}
+        </div>
+      )}
+      {side === "analyse" && <TextAnalyser shell={shell} />}
+      {side === "syncs" && <SyncLog shell={shell} />}
+      {side === "upload" && (
+        <>
+          <Importer shell={shell} />
+          <TextImport shell={shell} />
+        </>
+      )}
+      {side === "bugs" && <BugList canWrite={shell.canWrite} onCount={setOpenBugs} />}
       {s.viewer.configured && (
         <section className="cf-section">
           <h2 className="cf-h2">About</h2>
