@@ -902,39 +902,131 @@ body:has(.cfx) {
   margin: 6px 0 0;
 }
 
-/* Either side of today, in three plain figures. */
-.cf-days {
-  display: flex;
+/* The days either side of today: a bar a day, sliding sideways, today in
+ * the middle (components/DayStrip.tsx), kept quiet: one colour, the date,
+ * one line beneath. */
+.cf-strip {
+  position: relative;
   margin: 16px 0 0;
+  padding: 10px 0 0;
   border-top: 1px solid var(--cf-rule);
-  border-bottom: 1px solid var(--cf-rule);
 }
 
-.cf-days > div {
-  flex: 1;
-  padding: 10px 0;
+/* The month in view, at the chart's top left, over any bar it meets. */
+.cf-strip-month {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  z-index: 1;
+  padding: 0 6px 2px 0;
+  background: var(--cf-bg);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+  pointer-events: none;
 }
 
-.cf-days > div + div {
-  border-left: 1px solid var(--cf-rule);
-  padding-left: 14px;
+.cf-strip.is-loading {
+  height: 128px;
 }
 
-.cf-days dt {
-  font-size: 12px;
+.cf-strip-days {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  padding: 0 2px 2px;
+  mask-image: linear-gradient(to right, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+
+.cf-strip-days::-webkit-scrollbar {
+  display: none;
+}
+
+.cfx .cf-strip-day {
+  flex: none;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 2px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.cfx .cf-strip-day.is-today {
+  width: 52px;
+}
+
+.cfx .cf-strip-day.is-picked {
+  background: var(--cf-sunken);
+}
+
+.cf-strip-bar {
+  height: 76px;
+  width: 16px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+}
+
+.is-today .cf-strip-bar {
+  width: 26px;
+}
+
+.cf-strip-bar i {
+  display: block;
+  width: 100%;
+  border-radius: 2px;
+}
+
+/* Reviewed: grey. Due ahead: the accent, pale. Today: done in the accent,
+ * still to go paler above it. */
+.is-past .cf-strip-bar i {
+  background: var(--cf-rule-strong);
+}
+
+.is-ahead .cf-strip-bar i {
+  background: color-mix(in srgb, var(--cf-accent) 40%, transparent);
+}
+
+.is-today .cf-strip-bar i.is-solid {
+  background: var(--cf-accent);
+}
+
+.is-today .cf-strip-bar i.is-pale {
+  background: color-mix(in srgb, var(--cf-accent) 28%, transparent);
+}
+
+.cf-strip-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11.5px;
+  line-height: 1.15;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-today .cf-strip-label {
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-strip-pace {
+  margin: 8px 0 0;
+  font-size: 12.5px;
   color: var(--cf-ink-faint);
 }
 
-.cf-days dd {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-days b {
-  font-size: 16px;
+.cf-strip-pace b {
   font-weight: 600;
-  color: var(--cf-ink);
+  color: var(--cf-ink-soft);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1145,12 +1237,12 @@ label.cf-kind {
     font-size: 46px;
   }
 
-  .cf-days {
+  .cf-strip {
     margin-top: 12px;
   }
 
-  .cf-days > div {
-    padding: 7px 0;
+  .cf-strip-bar {
+    height: 56px;
   }
 
   .cf-kinds {

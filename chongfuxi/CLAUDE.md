@@ -138,10 +138,14 @@ sentences with no daily limit, learn-next, the sentence browser and stats.
 Review opens on Today: what is due by kind of card, with the Recall and
 Sentences rows doubling as the choice to leave them out (remembered on the
 device), then Start. The choices only filter
-the queue; nothing about the schedule changes. Three figures sit either side
-of today: answers given yesterday, cards whose due date fell inside today, and
-cards joining the queue tomorrow (those falling due then, plus those held back
-today by the same-word rule).
+the queue; nothing about the schedule changes. Above them, the days either
+side of today as a strip of bars, sliding sideways with today in the middle
+(`components/DayStrip.tsx`, route `days`): cards reviewed each day before
+(grey), cards falling due each day after (blue), today's done and still to
+go. One line beneath: the streak, the cards a day this week and those due in
+the next seven; tapping a day puts its number there instead. The owner asked
+for it in place of three plain figures (yesterday, came due today,
+tomorrow), and then for it quieter: one colour, the date, one line.
 
 Cards has three sides; the third, Lists, is below. Words is the deck against the HSK lists, old six-level and
 3.0: the share of each level in the deck, and the missing words of a level a

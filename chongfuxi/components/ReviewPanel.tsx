@@ -22,6 +22,7 @@ import { blankOut } from "@chongfuxi/lib/review";
 import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
+import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { History, HskTags, LongkuTag, SentenceText, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
@@ -286,27 +287,8 @@ function Today({
       </div>
       {s.answeredToday > 0 && <p className="cf-today-done">{fmt(s.answeredToday)} done so far</p>}
 
-      {/* Either side of today: what was done, what arrived, what is coming. */}
-      <dl className="cf-days">
-        <div>
-          <dt>Yesterday</dt>
-          <dd>
-            <b>{fmt(s.answeredYesterday)}</b> reviewed
-          </dd>
-        </div>
-        <div>
-          <dt>Today</dt>
-          <dd>
-            <b>{fmt(s.cameDueToday)}</b> came due
-          </dd>
-        </div>
-        <div>
-          <dt>Tomorrow</dt>
-          <dd>
-            <b>{fmt(s.dueTomorrow)}</b> due
-          </dd>
-        </div>
-      </dl>
+      {/* The days either side of today: reviewed before, due after, by kind. */}
+      <DayStrip summary={s} kinds={kinds} />
 
       {/* What is due by kind, each row the choice to take that kind in or leave it out. */}
       <ul className="cf-kinds">

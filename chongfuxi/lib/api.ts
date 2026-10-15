@@ -80,6 +80,30 @@ export interface SentenceInfo {
   sources: string[];
 }
 
+/** One day on Today's strip: cards reviewed (before today) or falling due (after), by kind; Learn steps taken. */
+export interface DayBar {
+  /** The study day, YYYY-MM-DD. */
+  day: string;
+  read: number;
+  recall: number;
+  sentence: number;
+  learn: number;
+}
+
+/** The days either side of today (app/api/chongfuxi/days.ts). */
+export interface Days {
+  /** Reviewed, oldest first, ending yesterday. */
+  past: DayBar[];
+  /** Reviewed so far today. */
+  today: DayBar;
+  /** Falling due, from tomorrow. */
+  ahead: DayBar[];
+  /** Days in a row with an answer, today counted once it has one. */
+  streak: number;
+  /** Cards answered a day, over the last seven. */
+  weekAverage: number;
+}
+
 /** A new word to learn, with the sentences that teach it (app/api/chongfuxi/learn.ts). */
 export interface LearnWord {
   /** Its Read card. */
