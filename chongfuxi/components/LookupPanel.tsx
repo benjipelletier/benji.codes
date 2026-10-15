@@ -279,6 +279,7 @@ export function LookupPanel({ shell }: { shell: Shell }) {
 
   return (
     <div className="cf-panel cf-lk">
+      {/* One field, with a small round arrow inside it to ask. */}
       <form
         className="cf-lk-ask"
         onSubmit={(e) => {
@@ -287,16 +288,21 @@ export function LookupPanel({ shell }: { shell: Shell }) {
         }}
       >
         <input
-          className="cf-input"
           type="search"
-          enterKeyHint="search"
+          enterKeyHint="go"
           placeholder="What do you want to say?"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           aria-label="What do you want to say?"
         />
-        <button className="cf-btn" disabled={busy || !typed.trim()}>
-          {busy ? "Looking…" : "Look up"}
+        <button className={`cf-lk-go${busy ? " is-busy" : ""}`} disabled={busy || !typed.trim()} aria-label={busy ? "Looking it up" : "Look up"}>
+          {busy ? (
+            <i className="cf-lk-spin" aria-hidden="true" />
+          ) : (
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <path d="M4 10h11M11 5.5 15.5 10 11 14.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </button>
       </form>
       <p className="cf-muted cf-lk-hint">English, Chinese or both: develop depression · 得了 depression · the more… the more</p>

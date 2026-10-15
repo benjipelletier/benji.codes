@@ -367,13 +367,19 @@ Built on the owner's corpus alone, since that is what answers lead with:
   tool returned. Anything else is shown as the model's own or dropped, and
   listed under "What the check changed". `scripts/check-lookup.ts` tests it
   without a database or model.
-- `components/LookupPanel.tsx`: the question; how it was read (the asked
+- `components/LookupPanel.tsx`: the question (one rounded field with a
+  small round arrow inside it, grey until something is typed, a spinner
+  while it looks: the owner found a plain "Look up" button clumsy); how it was read (the asked
   part in blue) and the kind; the phrase with its gap filled by the word
   tapped (green, or struck through red with the reason); Fits with each
   point labelled by source (your sentences · count, dictionary, deck,
   model); Close, but no with a wrong and a right sentence; the owner's
   sentences as examples; sentences the model wrote, labelled; Was this
   right?; the history with its verdicts.
+- Owner only, at the owner's insistence (it spends their tokens): the route
+  goes through `ownerOnly`, so signed out (or a forged cookie) it answers 401
+  and signed in as anyone else 403, before any model call; the tab is hidden
+  from everyone but the owner too.
 - Config: `CHONGFUXI_LOOKUP_MODEL` (default `claude-haiku-5-5`, the
   owner's choice; see The model below),
   `CHONGFUXI_LOOKUP_EFFORT` (default `medium`), and
