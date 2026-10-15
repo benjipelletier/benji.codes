@@ -127,7 +127,7 @@ export async function wordsToLearn(
     card: c.card,
     word: c.word,
     pinyin: shownPinyin(c.pinyin, c.defs),
-    senses: promptSenses(c.defs),
+    senses: promptSenses(c.defs, c.pinyin),
     hsk: hskOf(c.lists ?? []),
     longku: inLongku.has(c.word),
     sentences: (picked.get(c.word) ?? []).flatMap((x): LearnSentence[] => {

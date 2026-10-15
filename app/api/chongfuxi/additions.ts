@@ -14,6 +14,8 @@ import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfux
 import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
 import { newSchedule, type Schedule } from "@chongfuxi/lib/schedule";
 import { insertCards, recomputeUnlocks } from "./corpus";
+import { voteOrder } from "./defs";
+import { mainEntry } from "@chongfuxi/lib/senses";
 import { longkuWords, reconcileLongku } from "./longku";
 import { hskOf, listMissingAll, promptSenses } from "./review";
 
@@ -79,9 +81,12 @@ export async function addWords(
   const fresh = unique.filter((w) => was.get(w) !== "deck");
   if (!fresh.length) return null;
 
-  const rows = fresh.map((w) => {
-    const defs: Definition[] = definitionsFor(dict, w, null, null);
-    return { w, p: defs[0]?.p ?? null, d: defs, g: glossesOf(defs) };
+  // The entry the word's sentences are about first, and its reading taken as the word's (lib/senses.ts).
+  const found = fresh.map((w) => ({ word: w, pinyin: null, defs: definitionsFor(dict, w, null, null) as Definition[] }));
+  const ordered = await voteOrder(sql, owner, found);
+  const rows = found.map(({ word: w, defs: given }) => {
+    const defs = ordered.get(w) ?? given;
+    return { w, p: mainEntry(defs, null)?.p ?? null, d: defs, g: glossesOf(defs) };
   });
   await sql`
     insert into chongfuxi_word (owner_email, word, status, pinyin, defs, glosses)
@@ -315,7 +320,7 @@ export async function listAdditions(sql: Sql, owner: string, limit = 10, only: n
         return {
           word: w.word,
           pinyin: i?.pinyin ?? null,
-          gloss: i ? (promptSenses(i.defs).slice(0, 2).join("; ") || null) : null,
+          gloss: i ? (promptSenses(i.defs, i.pinyin).slice(0, 2).join("; ") || null) : null,
           hsk: hskOf(i?.lists ?? []),
           longku: inLongku.has(w.word),
           was: w.was,

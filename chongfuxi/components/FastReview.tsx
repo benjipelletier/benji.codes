@@ -389,13 +389,16 @@ export function FastReview({
                     onPointerMove={moveHold}
                     onContextMenu={(e) => e.preventDefault()}
                     aria-pressed={isForgot}
-                    aria-label={`${c.word}${isForgot ? ", forgotten" : ""}`}
+                    aria-label={c.word}
                   >
                     <span className="cf-fast-word" style={{ "--n": Math.min(Math.max(n, 2), 5) } as React.CSSProperties}>
                       {c.word}
                     </span>
-                    {/* The answer: there all along, it rises into view in the top third, or once tapped. */}
-                    <span className="cf-fast-meaning" aria-hidden={!isForgot && i >= shown}>
+                    {/* The answer: there all along, it rises into view in the top third, or once tapped.
+                        Hidden from the accessibility tree even when shown, so the card is its word
+                        alone: Pleco's screen reader reads that tree and skips a card whose only
+                        inner text is pinyin and English (bug #7). Pressed says it was forgotten. */}
+                    <span className="cf-fast-meaning" aria-hidden="true">
                       {c.pinyin && <span>{displayPinyin(c.pinyin)}</span>}
                       {c.gloss && <span>{c.gloss}</span>}
                     </span>

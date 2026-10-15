@@ -4180,13 +4180,33 @@ button.cf-synclog-row {
   margin: 10px 0 0;
 }
 
-.cf-list-review,
 .cf-list-add {
   width: 100%;
   margin-top: 14px;
 }
 
-.cf-list-review + .cf-list-add {
+/* Learn and Review on one line, each its count beneath. */
+.cf-list-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cf-list-actions .cf-btn {
+  flex: 1;
+  flex-direction: column;
+  min-height: 56px;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.cf-list-actions .cf-btn small {
+  font-size: 12.5px;
+  font-weight: 450;
+  opacity: 0.8;
+}
+
+.cf-list-actions + .cf-list-add {
   margin-top: 8px;
 }
 
@@ -4902,9 +4922,6 @@ button.cf-synclog-row {
   color: var(--cf-ink) !important;
 }
 
-.cf-list-learn + .cf-list-review {
-  margin-top: 8px;
-}
 
 .cf-card.is-learn {
   --cf-kind: var(--cf-new);

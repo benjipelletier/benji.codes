@@ -19,6 +19,7 @@ import { isHan } from "@chongfuxi/lib/hanzi";
 import { wordsByPinyin } from "@chongfuxi/lib/pinyin";
 import { segmentByDictionary } from "@chongfuxi/lib/segment";
 import { makeUnlock } from "@chongfuxi/lib/unlock";
+import { orderStoredDefs } from "./defs";
 import { reconcileLongku } from "./longku";
 
 const BATCH = 1000;
@@ -290,7 +291,7 @@ export async function ingest(
   const entries = corpus.texts.filter((t) => isEntry(t, dict)).length;
   corpus.texts = corpus.texts.filter((t) => !isEntry(t, dict));
   const words = wordRows(corpus, dict);
-  log(`${corpus.texts.length.toLocaleString("en-US")} sentences and ${words.length.toLocaleString("en-US")} words read from ${snapshot.cards.length.toLocaleString("en-US")} cards (${entries} dictionary entries left out)`);
+  log(`${corpus.texts.length.toLocaleString("en-US")} sentences and ${words.length.toLocaleString("en-US")} words read from ${snapshot.cards.length.toLocaleString("en-US")} cards (${entries} dictionary entries and ${corpus.stats.cutShort} sentences cut short left out)`);
 
   // What is there already, to say what this adds.
   const existing = (await sql`
@@ -419,6 +420,8 @@ export async function ingest(
   `;
   // Chengyu the import made known join 龙库.
   await reconcileLongku(sql, owner);
+  // Definitions were written in the dictionary's order: where a word's record can't choose, its sentences do.
+  await orderStoredDefs(sql, owner);
 
   return { ...summary, sentences: { ...summary.sentences, readable: result.readable, oneAway: result.oneAway, unlocked: result.unlocked } };
 }
@@ -427,6 +430,35 @@ export async function ingest(
  * Mark a word as a name — it stops blocking sentences and is never reviewed —
  * or take that back. Only words that aren't in the deck can be names.
  */
+/**
+ * Take sentences out of the corpus, for good: each is kept as it was in
+ * chongfuxi_sentence_left_out (same id, with `reason`), since a review row or
+ * the Learn log may name it. Its words in order go with it. Its sentence card
+ * goes too, unless it was answered here: then it is retired, so it never
+ * comes back, and its answers stay. Returns how many were taken out.
+ */
+export async function leaveOutSentences(sql: Sql, owner: string, ids: number[], reason: string): Promise<number> {
+  if (!ids.length) return 0;
+  const [, , , gone] = (await sql.transaction([
+    sql`
+      insert into chongfuxi_sentence_left_out (owner_email, id, key, zh, en, sources, reason)
+      select owner_email, id, key, zh, en, sources, ${reason}
+      from chongfuxi_sentence where owner_email = ${owner} and id = any(${ids}::bigint[])
+      on conflict (owner_email, id) do nothing
+    `,
+    sql`
+      update chongfuxi_card set retired = coalesce(retired, now())
+      where owner_email = ${owner} and kind = 'sentence' and sentence_id = any(${ids}::bigint[]) and answered > 0
+    `,
+    sql`
+      delete from chongfuxi_card
+      where owner_email = ${owner} and kind = 'sentence' and sentence_id = any(${ids}::bigint[]) and answered = 0
+    `,
+    sql`delete from chongfuxi_sentence where owner_email = ${owner} and id = any(${ids}::bigint[]) returning id`,
+  ])) as unknown as [unknown, unknown, unknown, Array<{ id: number }>];
+  return gone.length;
+}
+
 export async function setName(sql: Sql, owner: string, word: string, on: boolean): Promise<UnlockResult> {
   if (on) {
     await sql`

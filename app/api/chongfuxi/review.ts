@@ -30,6 +30,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { longkuWords } from "./longku";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
+import { mainSenses } from "@chongfuxi/lib/senses";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import {
   CLEAN_READS_TO_RETIRE,
@@ -399,7 +400,7 @@ export async function fastCards(
         id: c.id,
         word: c.word!,
         pinyin: shownPinyin(c.pinyin, c.defs),
-        gloss: promptSenses(c.defs).slice(0, 2).join("; ") || null,
+        gloss: promptSenses(c.defs, c.pinyin).slice(0, 2).join("; ") || null,
         intervals: intervals(schedule, at),
         was: waitOf(schedule),
         opensRecall: c.passed === 0 && c.has_defs,
@@ -541,7 +542,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     const card: SessionCard = { ...base, history: historyOf(c, plecoRecord), word, meaning, sentence: sentenceOf(chosen.get(c.id)) };
     if (c.kind === "produce") {
       // Other deck words with the same meaning, so "I said 快乐" can be judged against 高兴.
-      const senses = meaning ? [meaning.gloss.toLowerCase()] : promptSenses(word.defs).map((s) => s.toLowerCase());
+      const senses = meaning ? [meaning.gloss.toLowerCase()] : promptSenses(word.defs, word.pinyin).map((s) => s.toLowerCase());
       const others = senses.length
         ? ((await sql`
             select word from chongfuxi_word
@@ -595,7 +596,7 @@ export async function sentenceDresser(
     const p = row && shownPinyin(row.pinyin, row.defs);
     // The row's own meaning, unless a particle's running reading is asked
     // for and the row has another (a 了 card for liǎo).
-    if (row && p && (!want || want === p)) return { p, gloss: promptSenses(row.defs).slice(0, 2).join("; ") || null };
+    if (row && p && (!want || want === p)) return { p, gloss: promptSenses(row.defs, p).slice(0, 2).join("; ") || null };
     return dictEntry(w, want);
   };
   const looked = new Map<string, Looked | null>();
@@ -619,9 +620,12 @@ export function hskOf(lists: string[]): WordInfo["hsk"] {
   return { old: level("HSK 2012-2021"), v3: level("HSK 3.0") };
 }
 
-/** The senses a Produce card asks with: the first few of the word's main definition. */
-export function promptSenses(defs: Definition[]): string[] {
-  return (defs.find((d) => !d.own) ?? defs[0])?.senses.slice(0, 3) ?? [];
+/**
+ * The senses shown where one meaning has room: the first few of the entry the
+ * word is learnt as, those the sentence (`en`) is about first (lib/senses.ts).
+ */
+export function promptSenses(defs: Definition[], pinyin: string | null, en?: string | null): string[] {
+  return mainSenses(defs, pinyin, { en });
 }
 
 // ------------------------------------------------------------------ answer --
@@ -1224,7 +1228,7 @@ export async function listBlockers(sql: Sql, owner: string, limit: number): Prom
     unlocks: r.n,
     listed: r.status === "listed",
     pinyin: shownPinyin(r.pinyin, r.defs),
-    gloss: r.defs?.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? null,
+    gloss: r.defs ? promptSenses(r.defs, r.pinyin).slice(0, 2).join("; ") || null : null,
   });
   return {
     learnNext: rows.filter((r) => r.status === "listed").slice(0, limit).map(toBlocker),
@@ -1404,7 +1408,7 @@ export async function listWords(sql: Sql, owner: string, list: string, offset: n
   return rows.map((r) => ({
     word: r.word,
     pinyin: shownPinyin(r.pinyin, r.defs),
-    gloss: promptSenses(r.defs).slice(0, 2).join("; ") || null,
+    gloss: promptSenses(r.defs, r.pinyin).slice(0, 2).join("; ") || null,
     inDeck: r.in_deck,
   }));
 }
@@ -1431,6 +1435,6 @@ export async function listMissing(sql: Sql, owner: string, list: string, offset:
   return rows.map((r) => ({
     word: r.word,
     pinyin: shownPinyin(r.pinyin, r.defs),
-    gloss: r.defs.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? r.defs[0]?.senses[0] ?? null,
+    gloss: promptSenses(r.defs, r.pinyin).slice(0, 2).join("; ") || null,
   }));
 }

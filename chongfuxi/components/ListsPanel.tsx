@@ -162,22 +162,27 @@ export function ListsPanel({
             {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
           </p>
           <Bar node={here} />
-          {canWrite && onLearn && here.toLearn > 0 && (
-            <button className="cf-btn cf-list-review cf-list-learn" onClick={() => onLearn(at)}>
-              {here.toLearn > 10
-                ? `Learn 10 of ${fmt(here.toLearn)} new words`
-                : `Learn ${fmt(here.toLearn)} new ${here.toLearn === 1 ? "word" : "words"}`}
-            </button>
-          )}
-          {canWrite && onReview && here.due > 0 && (
-            <button className="cf-btn cf-list-review" onClick={() => onReview({ list: at, due: here.due })}>
-              Review {fmt(here.due)} due
-            </button>
+          {/* Learn its new words and review its due ones, side by side, the counts beneath. */}
+          {canWrite && ((onLearn && here.toLearn > 0) || (onReview && here.due > 0)) && (
+            <div className="cf-list-actions">
+              {onLearn && here.toLearn > 0 && (
+                <button className="cf-btn cf-list-learn" onClick={() => onLearn(at)}>
+                  Learn
+                  <small>{here.toLearn > 10 ? `10 of ${fmt(here.toLearn)} new` : `${fmt(here.toLearn)} new`}</small>
+                </button>
+              )}
+              {onReview && here.due > 0 && (
+                <button className="cf-btn cf-list-review" onClick={() => onReview({ list: at, due: here.due })}>
+                  Review
+                  <small>{fmt(here.due)} due</small>
+                </button>
+              )}
+            </div>
           )}
           {canWrite && missing > 0 && (
             <>
               <button
-                className={`cf-btn cf-list-add${onReview && here.due > 0 ? " cf-btn-ghost" : ""}`}
+                className={`cf-btn cf-list-add${(onReview && here.due > 0) || (onLearn && here.toLearn > 0) ? " cf-btn-ghost" : ""}`}
                 disabled={busy || toAdd <= 0 || toAdd > ADD_MAX}
                 onClick={() => void add()}
               >

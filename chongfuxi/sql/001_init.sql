@@ -389,3 +389,18 @@ create index if not exists chongfuxi_learn_owner on chongfuxi_learn (owner_email
 
 -- A word's Learn row is written once per session, however often it is sent.
 create unique index if not exists chongfuxi_learn_once on chongfuxi_learn (owner_email, session, card_id);
+
+-- Sentences taken out of the corpus, kept here as they were (same id), with
+-- why: a review row or the Learn log may still name one. Cut-short cards
+-- (lib/corpus.ts, cutShort) are the first; a re-import leaves them out too.
+create table if not exists chongfuxi_sentence_left_out (
+  owner_email text        not null,
+  id          bigint      not null,
+  key         text        not null,
+  zh          text        not null,
+  en          text,
+  sources     text[]      not null default '{}',
+  reason      text        not null,
+  at          timestamptz not null default now(),
+  primary key (owner_email, id)
+);

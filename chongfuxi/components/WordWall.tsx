@@ -11,6 +11,7 @@ import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import { mainSenses } from "@chongfuxi/lib/senses";
 import { Highlighted, History, LongkuTag, fmt, message, plecoHref, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
@@ -382,7 +383,7 @@ function WordSheet({
   }, [word, onClose]);
 
   const cutoff = today().cutoff;
-  const senses = d ? ((d.defs.find((x) => !x.own) ?? d.defs[0])?.senses ?? []) : [];
+  const senses = d ? mainSenses(d.defs, d.pinyin, { n: 4 }) : [];
 
   return (
     <div className="cf-sheet-back" onClick={onClose}>

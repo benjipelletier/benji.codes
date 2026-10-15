@@ -19,6 +19,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { blankOut } from "@chongfuxi/lib/review";
+import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
@@ -38,8 +39,8 @@ const KIND_NAME = { read: "Read", produce: "Recall", sentence: "Sentence" } as c
 /** The senses a Produce card asks with: the first few of the word's main definition. */
 function promptOf(card: SessionCard): string[] {
   if (card.meaning) return [card.meaning.gloss];
-  const defs = card.word?.defs ?? [];
-  return (defs.find((d) => !d.own) ?? defs[0])?.senses.slice(0, 3) ?? [];
+  // The meaning the card's sentence is about first: 米 "meter" under 跑完了1000米.
+  return card.word ? mainSenses(card.word.defs, card.word.pinyin, { en: card.sentence?.en }) : [];
 }
 
 /** What an answer changed, as figures: where the card went, then a chip for each thing it moved. */
@@ -1024,7 +1025,7 @@ function Definitions({
   if (!word.defs.length) return <p className="cf-muted">No definition on file. Look it up in Pleco.</p>;
   return (
     <div className="cf-defs">
-      {word.defs.map((d, i) => (
+      {mainFirst(word.defs, word.pinyin).map((d, i) => (
         <div key={i} className="cf-def">
           {!d.own && d.p && d.p !== word.pinyin && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
           <ul>

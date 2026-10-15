@@ -364,6 +364,21 @@ the design was silent and are still to be confirmed.
   `app/api/chongfuxi/headwords.ts`; a lone character takes the reading most
   of its compounds use, since the dictionary lists 跑 páo before pǎo), then
   the pieces a word splits into (孩子们).
+- **Which meaning is shown** where one has room (a Recall prompt, a tile's
+  gloss, a word tapped in a sentence, Learn; `lib/senses.ts`): a character
+  often has several CC-CEDICT entries, one per reading or traditional form,
+  in no useful order. The entry shown is the one read as the word is read
+  (几 jǐ "how many", not jī "small table"), not a name's, sharing a meaning
+  with the owner's own Pleco definition (咸 "salty", not "all"), not
+  marginal (an onomatopoeia, classical, old, a variant, "used in"); where
+  that still ties, the one the word's sentences are about, by their
+  translations, if the vote is clear (只 zhī "classifier for birds", not
+  "grain that has begun to ripen"). The vote is stored as the order of
+  `chongfuxi_word.defs` (`app/api/chongfuxi/defs.ts`, on adding words, after
+  an import, and `scripts/order-defs.ts` for all). Within the entry, senses
+  the card's sentence shares a word with come first (米 "meter" under
+  跑完了1000米, 本 "classifier for books" under 那本书), then those the
+  owner's own definition does. Reported by the owner as bugs #2–#6 and #8.
 - **Recall** (kind `produce`): appears after the first Got it on Read. The
   definition, and the sentence with the word blanked; a sentence that writes
   one of the word's characters again (月 in 下个月是二月) gives the blank away
@@ -446,8 +461,8 @@ the design was silent and are still to be confirmed.
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in
   `app/api/chongfuxi/review.ts`). Learn is on Today ("Learn new words", how
-  many wait) and on each list with any ("Learn N new words", that list's
-  only); it takes ten at a time, newest first. Each word climbs four steps
+  many wait) and on each list with any (Learn, beside Review, its count
+  beneath; that list's words only); it takes ten at a time, newest first. Each word climbs four steps
   (`lib/learn.ts`): meet it (pinyin, meaning, two sentences with their
   translations; not a test), read it in a sentence (what does it mean
   here?), fill it into a gap from the English, the word alone. A word
@@ -517,6 +532,7 @@ after an answer.
 | `chongfuxi_card` | scheduled card: kind read / produce / sentence, the FSRS state, clean reads, retired, flagged, suspended |
 | `chongfuxi_review` | answer, append-only: schedule before and after, the sentence shown, tapped words, `effects` on other cards, time to answer and to reveal, and where it was given (timezone, UTC offset, device, position in the session) |
 | `chongfuxi_settings` | owner: new sentences per day |
+| `chongfuxi_sentence_left_out` | sentence taken out of the corpus (cut short), as it was, same id, with why |
 | `chongfuxi_learn` | word through Learn in a session: misses, and each step with its sentence and how it went. Never touches a schedule. `chongfuxi_card.learned_at` marks a new Read card as through Learn. |
 
 Database: `CHONGFUXI_DATABASE_URL`, its own Neon store. On Vercel it exists
@@ -640,7 +656,8 @@ the tree, or `?list=` its words; POST to add, owner).
 
 Each list also shows how many of its words are due today (words with a Read
 or Recall card a session would deal: due before the day ends, not answered
-yet today), and a list with any has "Review N due": a session of only that
+yet today), and a list with any has Review (the count beneath, beside Learn
+and its new words: one line, at the owner's request): a session of only that
 list's word cards, Read and Recall whatever Today's choices, no sentences
 (`list` on `session`; `onList` in `app/api/chongfuxi/review.ts`, 龙库 by
 `longku_bank`). It takes the whole screen like any session and closes back
@@ -760,6 +777,17 @@ Known quirks of the owner's sentence decks, all handled in `lib/corpus.ts` and
   optional parts (点(钟)), full-width Latin (ＡＡ制).
 - Grammar-pattern cards (只有…才…, 越  越) are set aside and counted; they
   are neither words nor sentences.
+- Cut short: a sentence card whose pinyin runs two or more syllables past
+  its characters lost its end in the deck (参加了训练课程就有资格成为, its
+  pinyin going on to 当驾驶教练, cut at a "/"; bug #9) or isn't the sentence
+  its pinyin reads. `cutShort` in `lib/corpus.ts` leaves it out at import
+  (97 cards in the owner's backup, nearly all in 18k HSK Sentences).
+  `scripts/leave-out-cut.ts` took out the 73 an earlier import had stored
+  (`leaveOutSentences` in `app/api/chongfuxi/corpus.ts`): each is kept in
+  `chongfuxi_sentence_left_out` with its id and why, since review rows may
+  name it; a sentence card never answered goes, one answered is retired
+  with its answers kept. A sentence another deck has too, as the same
+  characters, stays.
 
 ## Code
 
@@ -779,6 +807,7 @@ Pure, in `lib/`, shared by routes, screens and scripts:
 - `review.ts` — sentence retirement, which words lapse, blanking, the mix.
 - `learn.ts` — Learn's drill: the next word, each step's sentence, what a
   pass or a miss does.
+- `senses.ts` — which dictionary entry, and which of its senses, to show.
 - `day.ts` — the study day. `api.ts` — what the routes send and take.
 - `client.ts`, `upload.ts`, `auth-client.ts`, `outbox.ts`, `back.ts`,
   `resume.ts`, `bugs.ts` — browser side. `session.ts` —
@@ -793,6 +822,8 @@ so scripts run the same code as routes):
 - `imports.ts` — the stored files. `dictfile.ts` — loads the dictionary and
   sql.js from disk. `guard.ts` — `ownersLog` (reads) and `ownerOnly` (writes).
 - `stats.ts` — `getStats`.
+- `defs.ts` — `orderStoredDefs`: a word's tied dictionary entries ordered by
+  its sentences.
 - `learn.ts` — `wordsToLearn` (the words and their teaching sentences),
   `finishLearning`. Route `learn` (GET the words, `?list=`; POST the words
   learned, owner).
@@ -817,6 +848,10 @@ Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
   `app/api/chongfuxi/`.
 - `reseed.ts [--dry-run]` — re-apply the seeding rule to cards not yet
   answered here.
+- `order-defs.ts [--dry-run]` — order every word's tied dictionary entries
+  by its sentences.
+- `check-senses.ts` (no database) — which meaning is shown, on the cases
+  the owner reported.
 - `ingest-anki.ts <deck.apkg | collection.anki21> [--dry-run]` — add an Anki
   deck's sentences.
 - `check-import.ts <file>` — read and sort a Pleco file, write nothing.

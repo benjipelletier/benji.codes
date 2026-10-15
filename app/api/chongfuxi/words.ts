@@ -46,7 +46,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
   }>;
   const inLongku = await longkuWords(sql, owner, rows.map((r) => r.word));
   return rows.map((r) => {
-    const gloss = promptSenses(r.defs)[0] ?? null;
+    const gloss = promptSenses(r.defs, r.pinyin)[0] ?? null;
     return {
       word: r.word,
       pinyin: r.pinyin,

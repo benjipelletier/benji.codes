@@ -97,7 +97,26 @@ export interface Corpus {
     patterns: number;
     /** Long entries of word lists, left out: a list gives words, not sentences. */
     listPhrases: number;
+    /** Sentence cards cut short in the deck, left out (`cutShort`). */
+    cutShort: number;
   };
+}
+
+/** Syllables of pinyin beyond the characters written that mark a card as cut short. */
+const CUT_SHORT_SYLLABLES = 2;
+
+/**
+ * A sentence card whose characters stop before its pinyin does: the deck lost
+ * the end of it (参加了训练课程就有资格成为, read on as … dang1 jia4shi3
+ * jiao4lian4, cut at a "/"), or its characters aren't the sentence its
+ * pinyin reads. Either way it can't be trusted. Digits count as written; an
+ * erhua written as its own syllable (r5) doesn't count as read.
+ */
+export function cutShort(hw: string, pron: string): boolean {
+  const written = (cleanHeadword(hw).match(/[\p{Script=Han}0-9０-９]/gu) ?? []).length;
+  const syllables: string[] = pron.match(/[a-zü]+[1-5]/gi) ?? [];
+  const read = syllables.filter((s) => s.toLowerCase() !== "r5").length;
+  return read - written >= CUT_SHORT_SYLLABLES;
 }
 
 /** Pleco puts top-level categories under a sentinel parent; find it by absence. */
@@ -228,6 +247,7 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
   let wordCards = 0;
   let patterns = 0;
   let listPhrases = 0;
+  let cutShortCards = 0;
 
   for (const card of snapshot.cards) {
     const roles = card.cats.length ? card.cats.map(roleOf) : (["list"] as CategoryRole[]);
@@ -300,6 +320,10 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
         listPhrases++;
         continue;
       }
+      if (cutShort(card.hw, card.pron)) {
+        cutShortCards++;
+        continue;
+      }
       const pools = [...new Set(card.cats.filter((c) => roleOf(c) !== "ignore").map((c) => topOf.get(c) ?? c))];
       textCards.push({ card, pools, studied: inKnown || score !== null, pleco });
     }
@@ -367,6 +391,7 @@ export function buildCorpus(snapshot: PlecoSnapshot, settings: Settings): Corpus
       dictionarySplit,
       patterns,
       listPhrases,
+      cutShort: cutShortCards,
     },
   };
 }
