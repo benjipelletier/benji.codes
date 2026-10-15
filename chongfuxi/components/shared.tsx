@@ -5,7 +5,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import type { CardHistory, SentenceInfo, Summary } from "@chongfuxi/lib/api";
+import type { CardHistory, SentenceInfo, Summary, WordInfo } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
@@ -295,5 +295,26 @@ export function LongkuTag() {
     <span className="cf-tag cf-longku" title="One of the chengyu 龙库 plays">
       龙库
     </span>
+  );
+}
+
+/** A word's HSK levels, old and 3.0, as tags; "not HSK" when it is in neither. */
+export function HskTags({ hsk }: { hsk: WordInfo["hsk"] }) {
+  if (!hsk.old && !hsk.v3) return <span className="cf-tag cf-hsk is-none">not HSK</span>;
+  return (
+    <>
+      {hsk.old && <span className={`cf-tag cf-hsk cf-level is-l${hsk.old}`}>HSK {hsk.old}</span>}
+      {hsk.v3 && <span className={`cf-tag cf-hsk cf-level is-l${hsk.v3.split("-")[0]}`}>HSK 3.0: {hsk.v3.replace("-", "–")}</span>}
+    </>
+  );
+}
+
+/** The word, large, on one line: its length sets its size. */
+export function Word({ word }: { word: string }) {
+  const n = [...word].length;
+  return (
+    <div className={`cf-card-word${n > 6 ? " is-long" : ""}`} style={{ "--n": Math.min(n, 6) } as React.CSSProperties}>
+      {word}
+    </div>
   );
 }

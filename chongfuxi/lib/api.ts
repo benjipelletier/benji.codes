@@ -50,6 +50,8 @@ export interface Summary {
    * back today because another card of the same word was answered.
    */
   dueTomorrow: number;
+  /** New words waiting for Learn before they join the review. */
+  toLearn: number;
 }
 
 export interface WordInfo {
@@ -79,6 +81,38 @@ export interface SentenceInfo {
   looks?: Array<{ p: string; gloss: string | null } | null>;
   /** The decks it came from. */
   sources: string[];
+}
+
+/** A new word to learn, with the sentences that teach it (app/api/chongfuxi/learn.ts). */
+export interface LearnWord {
+  /** Its Read card. */
+  card: number;
+  word: string;
+  pinyin: string | null;
+  /** The first few senses of its main definition. */
+  senses: string[];
+  hsk: WordInfo["hsk"];
+  longku: boolean;
+  /** Sentences to teach it with, best first. */
+  sentences: LearnSentence[];
+}
+
+export interface LearnSentence extends SentenceInfo {
+  /** With the word blanked, where a gap doesn't give it away: for the cloze. */
+  blanked: string | null;
+  /** The one word in it not known yet, shown with its meaning; null when every word is known. */
+  unknown: string | null;
+}
+
+/** The steps of Learn, in order: meet the word, read it in context, fill the gap, the word alone. */
+export type LearnStep = "meet" | "context" | "cloze" | "word";
+
+/** How Learn went for one word: logged, never counted as an answer. */
+export interface LearnResult {
+  card: number;
+  word: string;
+  misses: number;
+  steps: Array<{ step: LearnStep; sentence: number | null; grade: Grade | "seen" }>;
 }
 
 /** How a card has gone so far: in Pleco before it came here, then here. Oldest first. */
@@ -414,6 +448,8 @@ export interface ListNode {
   inDeck: number;
   /** Its words a session would deal today (one card a word). */
   due: number;
+  /** Its new words waiting for Learn. */
+  toLearn: number;
   /** A list another app keeps: "龙库" is the chengyu 龙库 plays, linked both ways. */
   linked?: "longku";
 }

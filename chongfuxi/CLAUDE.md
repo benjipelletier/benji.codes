@@ -442,6 +442,32 @@ the design was silent and are still to be confirmed.
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
   yesterday scores high just for being fresh.
+- **Learn**: a new word (a Read card never answered, from Pleco
+  unscored, an Anki sync, a list or 龙库) stays out of the review and its
+  counts until it has been through Learn (`WAITING_TO_LEARN` in
+  `app/api/chongfuxi/review.ts`). Learn is on Today ("Learn new words", how
+  many wait) and on each list with any ("Learn N new words", that list's
+  only); it takes ten at a time, newest first. Each word climbs four steps
+  (`lib/learn.ts`): meet it (pinyin, meaning, two sentences with their
+  translations; not a test), read it in a sentence (what does it mean
+  here?), fill it into a gap from the English, the word alone. A word
+  without sentences skips reading in context and fills the gap from its
+  meaning. Four words are in play at once and take turns, a word coming
+  back after others, the gap growing as it climbs (2, 4, 7 turns); a miss
+  puts it back a step and brings it back in two, and every step takes a
+  sentence it hasn't been shown with while there is one. Sentences
+  (`app/api/chongfuxi/learn.ts`): every word known first, then those with
+  one word not known yet, which is shown with its reading and meaning;
+  with a translation first; about nine characters; where the word is part
+  of a longer word (手 in 住手) last. A gap is not offered where a character
+  of the word is written again in the sentence. **Nothing in Learn counts**,
+  at the owner's request (he answers minutes after being taught, which says
+  little): a word through every step is marked learned (`learned_at`) and
+  made due the next study day, still new, so its first real answer, Read
+  and then Recall as usual, comes a day later. How each step went is kept
+  in `chongfuxi_learn` (once per session and word) for reading back, and
+  touches no schedule. Not kept to carry on from: a word is saved as soon
+  as it is learned, so leaving loses only the ones part way.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original
@@ -491,6 +517,7 @@ after an answer.
 | `chongfuxi_card` | scheduled card: kind read / produce / sentence, the FSRS state, clean reads, retired, flagged, suspended |
 | `chongfuxi_review` | answer, append-only: schedule before and after, the sentence shown, tapped words, `effects` on other cards, time to answer and to reveal, and where it was given (timezone, UTC offset, device, position in the session) |
 | `chongfuxi_settings` | owner: new sentences per day |
+| `chongfuxi_learn` | word through Learn in a session: misses, and each step with its sentence and how it went. Never touches a schedule. `chongfuxi_card.learned_at` marks a new Read card as through Learn. |
 
 Database: `CHONGFUXI_DATABASE_URL`, its own Neon store. On Vercel it exists
 for Preview and Production only, so `vercel env pull` does not bring it down;
@@ -750,6 +777,8 @@ Pure, in `lib/`, shared by routes, screens and scripts:
 - `schedule.ts` — ts-fsrs: seeding, an answer, the interval on each button.
   Bump `SCHEDULER` whenever the same inputs would give a different result.
 - `review.ts` — sentence retirement, which words lapse, blanking, the mix.
+- `learn.ts` — Learn's drill: the next word, each step's sentence, what a
+  pass or a miss does.
 - `day.ts` — the study day. `api.ts` — what the routes send and take.
 - `client.ts`, `upload.ts`, `auth-client.ts`, `outbox.ts`, `back.ts`,
   `resume.ts`, `bugs.ts` — browser side. `session.ts` —
@@ -764,6 +793,9 @@ so scripts run the same code as routes):
 - `imports.ts` — the stored files. `dictfile.ts` — loads the dictionary and
   sql.js from disk. `guard.ts` — `ownersLog` (reads) and `ownerOnly` (writes).
 - `stats.ts` — `getStats`.
+- `learn.ts` — `wordsToLearn` (the words and their teaching sentences),
+  `finishLearning`. Route `learn` (GET the words, `?list=`; POST the words
+  learned, owner).
 - Routes: `summary`, `session`, `sentences`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
   `imports/[id]/ingest` (owner).
@@ -771,7 +803,7 @@ so scripts run the same code as routes):
   dictionary into the ingest route.
 
 Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
-the session), `CardsPanel` (`WordsPanel`, and `SentencesPanel` with
+the session), `Learn` (new words, from Today or a list), `CardsPanel` (`WordsPanel`, and `SentencesPanel` with
 `UnlockPanel` inside it), `StatsPanel`, `ImportPanel`.
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):

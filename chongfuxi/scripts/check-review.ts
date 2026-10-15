@@ -11,7 +11,9 @@
 import { neon } from "@neondatabase/serverless";
 import { ingest, setName } from "../../app/api/chongfuxi/corpus";
 import type { Sql } from "../../app/api/chongfuxi/db";
+import { addWords } from "../../app/api/chongfuxi/additions";
 import { loadDict } from "../../app/api/chongfuxi/dictfile";
+import { finishLearning, wordsToLearn } from "../../app/api/chongfuxi/learn";
 import { getStats } from "../../app/api/chongfuxi/stats";
 import {
   getSummary,
@@ -138,6 +140,37 @@ async function main() {
   check("a word Pleco never tested starts new", cha.state === 0 && cha.answered === 0);
   const ni = (await wordCard("read", "你"))!;
   check("Pleco's top score is capped, and due at once like the rest", ni.stability === SEED_CAP_DAYS && ni.due === noon(1), `stability ${ni.stability}`);
+
+  // ----------------------------------------------------------------- learn
+  // The five words Pleco never tested wait for Learn before they are reviewed.
+  const newWords = ["他", "茶", "水", "很", "好"];
+  check("a word never tested waits for Learn, out of the queue", !(await queue(1)).some((c) => c.word && newWords.includes(c.word.word)));
+  check("and out of Today's counts, which count it to learn", (await getSummary(sql, owner, dayN(1))).toLearn === newWords.length);
+  const toLearn = await wordsToLearn(sql, owner, null);
+  const chaToLearn = toLearn.find((w) => w.word === "茶");
+  check(
+    "Learn offers them, each with sentences that have it, every word known first",
+    toLearn.length === newWords.length &&
+      Boolean(chaToLearn?.sentences.length) &&
+      chaToLearn!.sentences.every((x) => x.words.includes("茶")) &&
+      chaToLearn!.sentences[0].unknown === null,
+    chaToLearn?.sentences.map((x) => x.zh).join(" "),
+  );
+  check(
+    "a sentence with one word not known yet names it, and blanks the word for the cloze",
+    chaToLearn!.sentences.some((x) => x.unknown === "约翰" && x.blanked === "约翰喝＿＿。"),
+    JSON.stringify(chaToLearn!.sentences.map((x) => [x.unknown, x.blanked])),
+  );
+  // Learned the evening before, so they are due on day 1 as before.
+  const eve: StudyDay = { day: "2029-12-31", cutoff: Date.UTC(2030, 0, 1, 4) };
+  const learnedResults = toLearn.map((w) => ({ card: w.card, word: w.word, misses: 1, steps: [{ step: "meet" as const, sentence: null, grade: "seen" as const }] }));
+  const learnRows = async () =>
+    Number(((await sql`select count(*) as n from chongfuxi_learn where owner_email = ${owner}`) as unknown as Array<{ n: string }>)[0].n);
+  const learnedNow = await finishLearning(sql, owner, eve, "check-learn", learnedResults);
+  check("Learn marks them learned and logs how it went, answering nothing", learnedNow.length === newWords.length && (await reviews()) === 0 && (await learnRows()) === newWords.length);
+  check("sending it again changes nothing", (await finishLearning(sql, owner, eve, "check-learn", learnedResults)).length === 0 && (await learnRows()) === newWords.length);
+  const chaLearned = (await wordCard("read", "茶"))!;
+  check("a learned card is still new and due no sooner than it was", chaLearned.state === 0 && chaLearned.answered === 0 && chaLearned.due === cha.due);
 
   // ----------------------------------------------------------------- day 1
   let q = await queue(1);
@@ -334,6 +367,20 @@ async function main() {
   const matches = [...state].every(([id, st]) => now.get(id)!.due === st.due && Math.abs(now.get(id)!.stability - st.stability) < 1e-9);
   check(`replaying the ${log.length} reviews reproduces every answer`, agree);
   check("and leaves every reviewed card where the database has it", matches, `${state.size} cards`);
+
+  // ---------------------------------------------------- learned on the day
+  await addWords(sql, owner, "check", ["咖啡"], loadDict(), noon(4));
+  const later = await wordsToLearn(sql, owner, null);
+  check("a word added later waits for Learn too", later.map((w) => w.word).join() === "咖啡", later.map((w) => w.word).join());
+  await finishLearning(sql, owner, dayN(4), "check-learn-4", [{ card: later[0].card, word: "咖啡", misses: 0, steps: [] }]);
+  const kafei = (await wordCard("read", "咖啡"))!;
+  check(
+    "learned on a day, it is due the next, still new",
+    kafei.state === 0 &&
+      kafei.due > dayN(4).cutoff &&
+      !(await queue(4)).some((c) => c.word?.word === "咖啡") &&
+      (await queue(5)).some((c) => c.word?.word === "咖啡"),
+  );
 }
 
 const pick = (s: Schedule): Schedule => ({
@@ -354,7 +401,7 @@ main()
   })
   .finally(async () => {
     // The review log is append-only for a real owner; the invented one is swept away.
-    for (const table of ["chongfuxi_review", "chongfuxi_card", "chongfuxi_meaning", "chongfuxi_sentence", "chongfuxi_word", "chongfuxi_settings", "chongfuxi_import", "longku_bank", "longku_excluded", "chongfuxi_addition"]) {
+    for (const table of ["chongfuxi_review", "chongfuxi_card", "chongfuxi_meaning", "chongfuxi_sentence", "chongfuxi_word", "chongfuxi_settings", "chongfuxi_import", "longku_bank", "longku_excluded", "chongfuxi_addition", "chongfuxi_learn"]) {
       await sql.query(`delete from ${table} where owner_email = $1`, [owner]);
     }
     const left = (await sql`

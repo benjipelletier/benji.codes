@@ -4849,3 +4849,179 @@ button.cf-synclog-row {
   font-size: 13.5px;
   color: var(--cf-ink-soft);
 }
+
+/* ---------------------------------------------------------------- learn -- */
+
+/* On Today: new words waiting to be learned, in the new-card amber. */
+.cf-learn-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--cf-new) 40%, transparent);
+  background: color-mix(in srgb, var(--cf-new) 10%, var(--cf-surface));
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-learn-btn-zh {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cf-new) 22%, transparent);
+  color: var(--cf-new);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cf-learn-btn-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.cf-learn-btn-label small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+/* On a list, under its name: the same amber, beside the blue Review. */
+.cfx .cf-list-learn {
+  background: color-mix(in srgb, var(--cf-new) 14%, var(--cf-surface));
+  border-color: color-mix(in srgb, var(--cf-new) 45%, transparent);
+  color: var(--cf-ink) !important;
+}
+
+.cf-list-learn + .cf-list-review {
+  margin-top: 8px;
+}
+
+.cf-card.is-learn {
+  --cf-kind: var(--cf-new);
+  overflow-y: auto;
+}
+
+/* Where the word is on its steps: one pip a step, filled once climbed. */
+.cf-learn-steps {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.cf-learn-steps i {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cf-rule-strong);
+}
+
+.cf-learn-steps i.is-done {
+  background: var(--cf-new);
+}
+
+.cf-learn-steps i.is-here {
+  background: color-mix(in srgb, var(--cf-new) 45%, transparent);
+}
+
+.cf-learn-sentences {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  text-align: center;
+}
+
+.cf-learn-sentences .cf-en {
+  margin: 2px 0 0;
+}
+
+/* The step's name and pips stay on one line; the tags wrap beside them. */
+.cf-card.is-learn .cf-card-kind {
+  white-space: nowrap;
+}
+
+.cf-card.is-learn .cf-card-tags {
+  white-space: normal;
+}
+
+.cf-learn-sentences li + li {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-learn-sentences .cf-card-zh {
+  margin: 0;
+}
+
+/* The one other word a sentence needs, given, so it doesn't stand in the way. */
+.cf-learn-unknown {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-learn-unknown .cf-zh {
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-learn-none {
+  margin-top: 14px;
+}
+
+.cf-learn .cf-done-zh {
+  color: var(--cf-new);
+}
+
+.cf-learn-summary {
+  list-style: none;
+  margin: 8px auto 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 420px;
+}
+
+.cf-learn-summary li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cf-sunken);
+}
+
+.cf-learn-summary .cf-zh {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cf-learn-summary small {
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+/* The meaning under the word: quieter than a Recall card's prompt, so sentences fit below it. */
+.cf-prompt.cf-learn-meaning {
+  margin: 10px 0 0;
+}
+
+.cf-prompt.cf-learn-meaning li {
+  font-size: 17px;
+}
+
+.cf-learn .cf-progress i {
+  background: var(--cf-new);
+}

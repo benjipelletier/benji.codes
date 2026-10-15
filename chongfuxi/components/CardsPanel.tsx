@@ -4,6 +4,7 @@
 // the Pleco word lists more words come from.
 
 import { useCallback, useState } from "react";
+import { Learn } from "./Learn";
 import { ListsPanel } from "./ListsPanel";
 import { Session, type ListReview } from "./ReviewPanel";
 import { SentencesPanel } from "./SentencesPanel";
@@ -18,17 +19,26 @@ export function CardsPanel({ shell }: { shell: Shell }) {
   const [find, setFind] = useState<{ word: string; at: number } | null>(null);
   // Back from Sentences or Lists comes to Words.
   useBackLayer(side !== "words", () => setSide("words"));
-  // A list's own review, over the whole screen; Lists stays as it was beneath.
-  const [reviewing, setReviewing] = useState<ListReview | null>(null);
-  const [reviewed, setReviewed] = useState(0);
+  // A list's own review or Learn, over the whole screen; Lists stays as it was beneath.
+  const [run, setRun] = useState<
+    | { kind: "review"; review: ListReview }
+    | { kind: "learn"; list: string }
+    | null
+  >(null);
+  const [ran, setRan] = useState(0);
   const { setFocus, refresh } = shell;
-  const endReview = useCallback(() => {
-    setReviewing(null);
-    setReviewed((n) => n + 1);
+  const endRun = useCallback(() => {
+    setRun(null);
+    setRan((n) => n + 1);
     setFocus(false);
     refresh();
   }, [setFocus, refresh]);
-  useBackLayer(reviewing !== null, endReview);
+  useBackLayer(run !== null, endRun);
+  const start = (r: NonNullable<typeof run>) => {
+    setFocus(true);
+    setRun(r);
+    window.scrollTo({ top: 0 });
+  };
   const s = shell.summary;
   const sides: Array<{ key: Side; label: string; n: number | null }> = [
     { key: "words", label: "Words", n: s?.words ?? null },
@@ -37,10 +47,13 @@ export function CardsPanel({ shell }: { shell: Shell }) {
   ];
   return (
     <>
-      {reviewing && (
-        <Session shell={shell} list={reviewing} onEnd={endReview} />
+      {run?.kind === "review" && (
+        <Session shell={shell} list={run.review} onEnd={endRun} />
       )}
-      <div className="cf-panel" hidden={reviewing !== null}>
+      {run?.kind === "learn" && (
+        <Learn shell={shell} list={run.list} onEnd={endRun} />
+      )}
+      <div className="cf-panel" hidden={run !== null}>
         <div className="cf-sides" role="tablist">
           {sides.map((t) => (
             <button
@@ -69,12 +82,9 @@ export function CardsPanel({ shell }: { shell: Shell }) {
         ) : (
           <ListsPanel
             shell={shell}
-            reviewed={reviewed}
-            onReview={(r) => {
-              setFocus(true);
-              setReviewing(r);
-              window.scrollTo({ top: 0 });
-            }}
+            reviewed={ran}
+            onReview={(review) => start({ kind: "review", review })}
+            onLearn={(list) => start({ kind: "learn", list })}
           />
         )}
       </div>

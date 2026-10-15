@@ -364,3 +364,28 @@ create table if not exists chongfuxi_bug (
 );
 
 create index if not exists chongfuxi_bug_owner on chongfuxi_bug (owner_email, status, at desc);
+
+-- Learn: a new word is drilled with sentences before it joins the review.
+-- A Read card never answered and not yet through Learn waits for it
+-- (learned_at null); Learn sets learned_at and makes it due the next study
+-- day, still new: nothing Learn does counts as an answer.
+alter table chongfuxi_card add column if not exists learned_at timestamptz;
+
+-- What happened in Learn, a row per word: each step with its sentence and
+-- how it went. Read back later; never touches a schedule.
+create table if not exists chongfuxi_learn (
+  id          bigint      generated always as identity primary key,
+  owner_email text        not null,
+  at          timestamptz not null default now(),
+  day         date        not null,
+  session     text        not null,
+  card_id     bigint      not null,
+  word        text        not null,
+  misses      integer     not null default 0,
+  steps       jsonb       not null default '[]'
+);
+
+create index if not exists chongfuxi_learn_owner on chongfuxi_learn (owner_email, at desc);
+
+-- A word's Learn row is written once per session, however often it is sent.
+create unique index if not exists chongfuxi_learn_once on chongfuxi_learn (owner_email, session, card_id);

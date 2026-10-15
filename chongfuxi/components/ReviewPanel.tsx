@@ -12,7 +12,7 @@
 // while one is running. A visitor can page through the cards but not answer.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordInfo } from "@chongfuxi/lib/api";
+import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -22,7 +22,8 @@ import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { History, LongkuTag, SentenceText, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
+import { Learn } from "./Learn";
+import { History, HskTags, LongkuTag, SentenceText, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -89,30 +90,10 @@ function receiptOf(card: SessionCard, grade: Grade, r: ReviewResult, id: string,
 }
 
 /** A word's HSK levels, old and 3.0, or that it is in neither. */
-function HskTags({ hsk }: { hsk: WordInfo["hsk"] }) {
-  if (!hsk.old && !hsk.v3) return <span className="cf-tag cf-hsk is-none">not HSK</span>;
-  return (
-    <>
-      {hsk.old && <span className={`cf-tag cf-hsk cf-level is-l${hsk.old}`}>HSK {hsk.old}</span>}
-      {hsk.v3 && <span className={`cf-tag cf-hsk cf-level is-l${hsk.v3.split("-")[0]}`}>HSK 3.0: {hsk.v3.replace("-", "–")}</span>}
-    </>
-  );
-}
-
 /** Which deck a sentence comes from. */
 function SourceOf({ sentence }: { sentence: SentenceInfo | null }) {
   if (!sentence?.sources.length) return null;
   return <p className="cf-source">{sentence.sources.join(", ")}</p>;
-}
-
-/** The word, large, on one line: its length sets its size. */
-function Word({ word }: { word: string }) {
-  const n = [...word].length;
-  return (
-    <div className={`cf-card-word${n > 6 ? " is-long" : ""}`} style={{ "--n": Math.min(n, 6) } as React.CSSProperties}>
-      {word}
-    </div>
-  );
 }
 
 /** Where a wait of so many days sits on the meter: a log scale, full at two years. */
@@ -181,7 +162,7 @@ function rememberedKinds(): SessionKinds {
 
 export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () => void }) {
   const [kinds, setKinds] = useState<SessionKinds>(EVERYTHING);
-  const [started, setStarted] = useState<"session" | "fast" | null>(null);
+  const [started, setStarted] = useState<"session" | "fast" | "learn" | null>(null);
   const { setFocus, refresh } = shell;
   useEffect(() => {
     setKinds(rememberedKinds());
@@ -202,14 +183,14 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     }
   };
 
-  const begin = (how: "session" | "fast") => {
+  const begin = (how: "session" | "fast" | "learn") => {
     setFocus(true);
     setStarted(how);
   };
   // Left by the close button or back: kept, to carry on from Today.
   const end = useCallback(() => {
     setStarted((was) => {
-      if (was) resume.close(was);
+      if (was && was !== "learn") resume.close(was);
       return null;
     });
     setFocus(false);
@@ -220,9 +201,18 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   useEffect(() => () => setFocus(false), [setFocus]);
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load("fast")} />;
+  if (started === "learn") return <Learn shell={shell} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} saved={resume.load("session")} />;
   return (
-    <Today shell={shell} kinds={kinds} onChoose={choose} onStart={() => begin("session")} onFast={() => begin("fast")} onImport={onImport} />
+    <Today
+      shell={shell}
+      kinds={kinds}
+      onChoose={choose}
+      onStart={() => begin("session")}
+      onFast={() => begin("fast")}
+      onLearn={() => begin("learn")}
+      onImport={onImport}
+    />
   );
 }
 
@@ -233,6 +223,7 @@ function Today({
   onChoose,
   onStart,
   onFast,
+  onLearn,
   onImport,
 }: {
   shell: Shell;
@@ -240,6 +231,7 @@ function Today({
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
   onFast: () => void;
+  onLearn: () => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite, refresh } = shell;
@@ -382,6 +374,21 @@ function Today({
           </li>
         )}
       </ul>
+
+      {/* New words wait here, out of the review, until they have been learned with sentences. */}
+      {s.toLearn > 0 && (
+        <button className="cf-learn-btn" onClick={onLearn}>
+          <span className="cf-learn-btn-zh cf-zh" aria-hidden="true">
+            学
+          </span>
+          <span className="cf-learn-btn-label">
+            Learn new words
+            <small>
+              {fmt(s.toLearn)} waiting{s.toLearn > 10 ? ", 10 at a time" : ""}
+            </small>
+          </span>
+        </button>
+      )}
 
       <div className="cf-answer">
         {/* Every Read card due, as a grid to sweep through: for a pile of easy ones. */}

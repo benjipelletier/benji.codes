@@ -47,7 +47,7 @@ const DAY_MS = 86_400_000;
  * A word's pinyin as saved, else its dictionary entry's (the first that
  * isn't a name's): a word added without a reading still shows one.
  */
-function shownPinyin(pinyin: string | null, defs: Definition[] | null): string | null {
+export function shownPinyin(pinyin: string | null, defs: Definition[] | null): string | null {
   return pinyin || defs?.find((d) => /^[a-z]/.test(d.p))?.p || defs?.[0]?.p || null;
 }
 
@@ -91,7 +91,13 @@ export const CARD_COLUMNS = `
   (extract(epoch from c.retired) * 1000)::double precision as retired, c.note`;
 
 /** In the queue: not retired, not flagged, not set aside. */
-const ACTIVE = `c.retired is null and c.flagged is null and not c.suspended`;
+export const ACTIVE = `c.retired is null and c.flagged is null and not c.suspended`;
+
+/**
+ * A new word's Read card that hasn't been through Learn yet (learn.ts): it
+ * waits there, out of the review and its counts, until it has.
+ */
+export const WAITING_TO_LEARN = `(c.kind = 'read' and c.state = 0 and c.learned_at is null and c.meaning_id is null)`;
 
 /**
  * Word cards, least likely to be remembered first. FSRS's recall odds fall as
@@ -138,7 +144,7 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promise<Omit<Summary, "viewer">> {
   const rows = (await sql.query(
     `with active as (
-       select c.* from chongfuxi_card c where c.owner_email = $1 and ${ACTIVE}
+       select c.* from chongfuxi_card c where c.owner_email = $1 and ${ACTIVE} and not ${WAITING_TO_LEARN}
      ), today as (
        select * from chongfuxi_review where owner_email = $1 and day = $2::date
      )
@@ -182,6 +188,8 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
                   and a.due <= to_timestamp($3::double precision / 1000) + interval '1 day')
               or (a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
                   and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
+       (select count(*) from chongfuxi_card c
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn,
        coalesce((select new_sentences from chongfuxi_settings where owner_email = $1), 10)::int as new_per_day`,
     [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
@@ -209,6 +217,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     answeredYesterday: r.answered_yesterday,
     cameDueToday: r.came_due_today,
     dueTomorrow: r.due_tomorrow,
+    toLearn: r.to_learn,
   };
 }
 
@@ -249,7 +258,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   const words = (await sql.query(
     `select ${CARD_COLUMNS}
      from chongfuxi_card c
-     where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE}
+     where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE} and not ${WAITING_TO_LEARN}
        and c.due <= to_timestamp($2::double precision / 1000)
        and not (c.id = any($3::bigint[]))
        and not (c.word = any($4::text[]))
@@ -360,7 +369,7 @@ export async function fastCards(
   limit: number,
   at = Date.now(),
 ): Promise<{ cards: FastCard[]; total: number | null }> {
-  const where = `c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and ${ACTIVE}
+  const where = `c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and ${ACTIVE} and not ${WAITING_TO_LEARN}
        and c.due <= to_timestamp($2::double precision / 1000)
        and not exists (
          select 1 from chongfuxi_review r
@@ -499,6 +508,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
   }
 
   const sentenceIds = [...new Set([...cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!), ...[...chosen.values()].map((s) => s.id)])];
+  const sentenceOf = await sentenceDresser(sql, owner, sentenceIds);
   const own = cards.filter((c) => c.sentence_id).map((c) => c.sentence_id!);
   const ownRows = own.length
     ? ((await sql`
@@ -506,46 +516,6 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
         where owner_email = ${owner} and id = any(${own}::bigint[])
       `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null; sources: string[] }>)
     : [];
-  const tokenRows = sentenceIds.length
-    ? ((await sql`
-        select sentence_id::int as id, array_agg(word order by pos) as words
-        from chongfuxi_token
-        where owner_email = ${owner} and sentence_id = any(${sentenceIds}::bigint[])
-        group by sentence_id
-      `) as unknown as Array<{ id: number; words: string[] }>)
-    : [];
-  const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
-  // The reading and meaning of every word of those sentences, for a tap:
-  // the word's own row where it has one, the dictionary otherwise
-  // (lib/readings.ts).
-  const tokenWords = [...new Set(tokenRows.flatMap((t) => t.words))];
-  const tokenWordRows = tokenWords.length
-    ? new Map(
-        ((await sql`
-          select word, pinyin, defs from chongfuxi_word
-          where owner_email = ${owner}
-            and word = any(${[...new Set(tokenWords.flatMap((w) => [w, ...w]))]}::text[])
-        `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>).map((r) => [r.word, r]),
-      )
-    : new Map<string, { word: string; pinyin: string | null; defs: Definition[] }>();
-  const lookup: Lookup = (w, want) => {
-    const row = tokenWordRows.get(w);
-    const p = row && shownPinyin(row.pinyin, row.defs);
-    // The row's own meaning, unless a particle's running reading is asked
-    // for and the row has another (a 了 card for liǎo).
-    if (row && p && (!want || want === p)) return { p, gloss: promptSenses(row.defs).slice(0, 2).join("; ") || null };
-    return dictEntry(w, want);
-  };
-  const looked = new Map<string, Looked | null>();
-  const lookOf = (w: string) => {
-    if (!looked.has(w)) looked.set(w, lookUp(w, lookup));
-    return looked.get(w)!;
-  };
-  const sentenceOf = (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null => {
-    if (!s) return null;
-    const words = wordsOf.get(s.id) ?? [];
-    return { id: s.id, zh: zhShown(s.zh), en: s.en, words, looks: words.map(lookOf), sources: s.sources };
-  };
 
   const out: SessionCard[] = [];
   for (const c of cards) {
@@ -586,6 +556,58 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     out.push(card);
   }
   return out;
+}
+
+/**
+ * For drawing sentences: their words in order, and each word's reading and
+ * meaning for a tap. Returns a function from a sentence row (one of `sentenceIds`)
+ * to what a card shows.
+ */
+export async function sentenceDresser(
+  sql: Sql,
+  owner: string,
+  sentenceIds: number[],
+): Promise<(s: { id: number; zh: string; en: string | null; sources: string[] } | undefined) => SentenceInfo | null> {
+  const tokenRows = sentenceIds.length
+    ? ((await sql`
+        select sentence_id::int as id, array_agg(word order by pos) as words
+        from chongfuxi_token
+        where owner_email = ${owner} and sentence_id = any(${sentenceIds}::bigint[])
+        group by sentence_id
+      `) as unknown as Array<{ id: number; words: string[] }>)
+    : [];
+  const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
+  // The reading and meaning of every word of those sentences, for a tap:
+  // the word's own row where it has one, the dictionary otherwise
+  // (lib/readings.ts).
+  const tokenWords = [...new Set(tokenRows.flatMap((t) => t.words))];
+  const tokenWordRows = tokenWords.length
+    ? new Map(
+        ((await sql`
+          select word, pinyin, defs from chongfuxi_word
+          where owner_email = ${owner}
+            and word = any(${[...new Set(tokenWords.flatMap((w) => [w, ...w]))]}::text[])
+        `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>).map((r) => [r.word, r]),
+      )
+    : new Map<string, { word: string; pinyin: string | null; defs: Definition[] }>();
+  const lookup: Lookup = (w, want) => {
+    const row = tokenWordRows.get(w);
+    const p = row && shownPinyin(row.pinyin, row.defs);
+    // The row's own meaning, unless a particle's running reading is asked
+    // for and the row has another (a 了 card for liǎo).
+    if (row && p && (!want || want === p)) return { p, gloss: promptSenses(row.defs).slice(0, 2).join("; ") || null };
+    return dictEntry(w, want);
+  };
+  const looked = new Map<string, Looked | null>();
+  const lookOf = (w: string) => {
+    if (!looked.has(w)) looked.set(w, lookUp(w, lookup));
+    return looked.get(w)!;
+  };
+  return (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null => {
+    if (!s) return null;
+    const words = wordsOf.get(s.id) ?? [];
+    return { id: s.id, zh: zhShown(s.zh), en: s.en, words, looks: words.map(lookOf), sources: s.sources };
+  };
 }
 
 /** A word's levels in the two HSK schemes, from the Pleco lists it is in. */
@@ -1284,12 +1306,17 @@ const LISTS_HIDDEN = /npcr|成语/i;
  */
 const DUE_WORDS = `
   select distinct c.word from chongfuxi_card c
-  where c.owner_email = $1 and c.kind in ('read', 'produce') and ${ACTIVE}
+  where c.owner_email = $1 and c.kind in ('read', 'produce') and ${ACTIVE} and not ${WAITING_TO_LEARN}
     and c.due <= to_timestamp($2::double precision / 1000)
     and not exists (
       select 1 from chongfuxi_review r
       where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word
     )`;
+
+/** Words with a Read card waiting for Learn. */
+const TO_LEARN_WORDS = `
+  select distinct c.word from chongfuxi_card c
+  where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN}`;
 
 /**
  * Every Pleco word list and every category above one, as Pleco shows them
@@ -1301,12 +1328,14 @@ export async function listTree(sql: Sql, owner: string, day: StudyDay | null = n
   // Without a day, nothing counts as due.
   const dayParams = [owner, day?.cutoff ?? 0, day?.day ?? "1970-01-01"];
   const rows = (await sql.query(
-    `with due as (${DUE_WORDS})
+    `with due as (${DUE_WORDS}), fresh as (${TO_LEARN_WORDS})
      select x.p as list, count(distinct w.word)::int as total,
             count(distinct w.word) filter (where w.status = 'deck')::int as in_deck,
-            count(distinct d.word)::int as due
+            count(distinct d.word)::int as due,
+            count(distinct f.word)::int as to_learn
      from chongfuxi_word w
      left join due d on d.word = w.word
+     left join fresh f on f.word = w.word
      cross join unnest(w.lists) l
      cross join lateral (
        select array_to_string((string_to_array(l, '/'))[1:n], '/') as p
@@ -1315,22 +1344,21 @@ export async function listTree(sql: Sql, owner: string, day: StudyDay | null = n
      where w.owner_email = $1
      group by x.p`,
     dayParams,
-  )) as unknown as Array<{ list: string; total: number; in_deck: number; due: number }>;
+  )) as unknown as Array<{ list: string; total: number; in_deck: number; due: number; to_learn: number }>;
   const longku = (await sql.query(
-    `with due as (${DUE_WORDS})
-     select count(*)::int as n, count(d.word)::int as due
-     from longku_bank b left join due d on d.word = b.w
+    `with due as (${DUE_WORDS}), fresh as (${TO_LEARN_WORDS})
+     select count(*)::int as n, count(d.word)::int as due, count(f.word)::int as to_learn
+     from longku_bank b left join due d on d.word = b.w left join fresh f on f.word = b.w
      where b.owner_email = $1`,
     dayParams,
-  )) as unknown as Array<{ n: number; due: number }>;
+  )) as unknown as Array<{ n: number; due: number; to_learn: number }>;
+  const l = longku[0];
   return [
     // 龙库's chengyu: every one a deck word, kept in step with 龙库 (longku.ts).
-    ...(longku[0].n
-      ? [{ list: LONGKU_LIST, total: longku[0].n, inDeck: longku[0].n, due: longku[0].due, linked: "longku" as const }]
-      : []),
+    ...(l.n ? [{ list: LONGKU_LIST, total: l.n, inDeck: l.n, due: l.due, toLearn: l.to_learn, linked: "longku" as const }] : []),
     ...rows
       .filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0]))
-      .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck, due: r.due })),
+      .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck, due: r.due, toLearn: r.to_learn })),
   ];
 }
 
@@ -1338,7 +1366,7 @@ export async function listTree(sql: Sql, owner: string, day: StudyDay | null = n
  * A condition that the word in `column` is on a list (or a list under it, or
  * 龙库), with its parameters numbered from `from`.
  */
-function onList(list: string, column: string, from: number): { where: string; params: string[] } {
+export function onList(list: string, column: string, from: number): { where: string; params: string[] } {
   if (list === LONGKU_LIST) {
     return { where: `exists (select 1 from longku_bank b where b.owner_email = $1 and b.w = ${column})`, params: [] };
   }

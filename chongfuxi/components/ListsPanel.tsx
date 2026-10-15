@@ -30,12 +30,15 @@ const natural = (a: string, b: string) => a.localeCompare(b, "zh-Hans-CN", { num
 export function ListsPanel({
   shell,
   onReview,
+  onLearn,
   reviewed = 0,
 }: {
   shell: Shell;
   /** Review a list's due words on their own. */
   onReview?: (r: ListReview) => void;
-  /** Counts up as each list review ends, so the due counts are read again. */
+  /** Learn a list's new words. */
+  onLearn?: (list: string) => void;
+  /** Counts up as each list review or Learn ends, so the counts are read again. */
   reviewed?: number;
 }) {
   const { canWrite, refresh } = shell;
@@ -159,6 +162,13 @@ export function ListsPanel({
             {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
           </p>
           <Bar node={here} />
+          {canWrite && onLearn && here.toLearn > 0 && (
+            <button className="cf-btn cf-list-review cf-list-learn" onClick={() => onLearn(at)}>
+              {here.toLearn > 10
+                ? `Learn 10 of ${fmt(here.toLearn)} new words`
+                : `Learn ${fmt(here.toLearn)} new ${here.toLearn === 1 ? "word" : "words"}`}
+            </button>
+          )}
           {canWrite && onReview && here.due > 0 && (
             <button className="cf-btn cf-list-review" onClick={() => onReview({ list: at, due: here.due })}>
               Review {fmt(here.due)} due
