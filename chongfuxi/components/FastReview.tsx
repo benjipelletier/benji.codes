@@ -149,7 +149,7 @@ export function FastReview({
   // leaving or closing the site must not lose them.
   useEffect(() => {
     if (stage !== "grid") return;
-    resume.save("fast", {
+    resume.save({
       open: true,
       session: session.current,
       cards,
@@ -261,7 +261,7 @@ export function FastReview({
     // Kept on the device before any is sent: whatever doesn't get through now goes when the connection is back.
     outbox.add(...inputs);
     // They are answers now, kept in the outbox; the sweep is done with.
-    resume.clear("fast");
+    resume.clear();
     const r = await outbox.flush((n) => setSent(Math.min(n, inputs.length)));
     setOutcome(r);
     setStage("done");

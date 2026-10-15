@@ -85,13 +85,14 @@ check every screen at 360px wide first.
   after Forgot, the note box) puts one history entry on, and back closes the
   top one. A layer closed from the page takes its entry back off quietly.
   From Review with nothing open, back leaves the site.
-- A review is never lost to leaving it (`lib/resume.ts`, localStorage, one
-  study day). A session keeps its cards in hand, how far in and its streak;
-  Fast review keeps its loaded cards, the ones marked forgotten and the
-  scroll. Closed by back or the close button, Today offers to carry on
-  ("Carry on · 12 done", "Fast review · 27 marked, carry on"); left with the
-  site closed, opening it again goes straight back in. A finished session,
-  or a sweep sent at Done, is cleared.
+- Fast review is never lost to leaving it (`lib/resume.ts`, localStorage,
+  one study day): it keeps its loaded cards, the ones marked forgotten and
+  the scroll, since its marks are not answers until Done. Closed by back or
+  the close button, Today offers "Fast review · 27 marked, carry on"; left
+  with the site closed, opening it again goes straight back in. A review
+  session keeps nothing, at the owner's request: each answer is sent (or put
+  in the outbox) as it is given, so starting again simply deals what is still
+  due. (It used to keep its cards in hand, with "Carry on · 12 done".)
 - Not yet: opening the app with no connection (there is no service worker).
 
 ## Look
@@ -103,6 +104,10 @@ rejected as too themed. Keep it that way:
   little more colour comes from one hue per kind of card, used wherever that
   kind is named or counted: Read blue, Recall violet, Sentence green, new
   sentences amber (`--cf-read`, `--cf-recall`, `--cf-sentence`, `--cf-new`).
+  A review card says its kind at a glance: an outline in its colour, the
+  name on a pill, and the faintest wash of the colour (4%) over the usual
+  grey; a new word's Learn steps are amber. The owner found a stronger tint
+  too much and the outline alone a little bare.
 - Type: Inter for Latin (one of the few UI faces with every pinyin vowel, ǎ ǐ
   ǒ ǔ ǖ ǘ ǚ ǜ; Figtree, DM Sans, Manrope, Geist and most others lack some, so
   a syllable would fall back mid-word) and Noto Sans SC for Chinese, heavy

@@ -143,8 +143,10 @@ export function LearnCard({ ladder }: { ladder: Ladder }) {
   return (
     <article className="cf-card is-learn">
       <div className="cf-card-kind">
-        <i className="cf-dot" />
-        {STEP_NAME[step]}
+        <span className="cf-kind-pill">
+          <i className="cf-dot" />
+          {STEP_NAME[step]}
+        </span>
         <span className="cf-learn-steps" aria-label={`Step ${Math.min(item.at, item.steps.length - 1) + 1} of ${item.steps.length}`}>
           {item.steps.map((s, k) => (
             <i key={s} className={k < item.at ? "is-done" : k === item.at ? "is-here" : ""} />

@@ -1313,6 +1313,26 @@ label.cf-kind {
   margin: 0;
 }
 
+/* Which kind of card it is, told by colour before anything is read: the
+ * card edged in its kind's colour, its name on a pill, and the faintest wash
+ * of the colour over the usual grey (a stronger one was too much). */
+.cfx .cf-card {
+  background: color-mix(in srgb, var(--cf-kind) 4%, var(--cf-surface));
+  border: 1.5px solid color-mix(in srgb, var(--cf-kind) 60%, transparent);
+}
+
+.cf-kind-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cf-kind) 18%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .cf-card-kind .cf-tag {
   font-weight: 400;
 }

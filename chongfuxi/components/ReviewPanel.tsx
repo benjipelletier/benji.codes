@@ -169,11 +169,12 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   const { setFocus, refresh } = shell;
   useEffect(() => {
     setKinds(rememberedKinds());
-    // Left mid-review (the site closed, the phone locked): straight back into it.
-    const was = resume.wasOpen();
-    if (was) {
+    // Left mid-Fast review (the site closed, the phone locked): straight back
+    // into it. A session keeps nothing: each answer is sent as it is given, so
+    // starting again simply deals what is still due.
+    if (resume.wasOpen()) {
       setFocus(true);
-      setStarted(was);
+      setStarted("fast");
     }
   }, [setFocus]);
 
@@ -190,10 +191,10 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     setFocus(true);
     setStarted(how);
   };
-  // Left by the close button or back: kept, to carry on from Today.
+  // Left by the close button or back: Fast review's marks are kept, to carry on from Today.
   const end = useCallback(() => {
     setStarted((was) => {
-      if (was) resume.close(was);
+      if (was === "fast") resume.close();
       return null;
     });
     setFocus(false);
@@ -203,8 +204,8 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   // Leaving the tab mid-session must give the header and tabs back.
   useEffect(() => () => setFocus(false), [setFocus]);
 
-  if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load("fast")} />;
-  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} saved={resume.load("session")} />;
+  if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load()} />;
+  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} />;
   return (
     <Today
       shell={shell}
@@ -235,10 +236,8 @@ function Today({
 }) {
   const { summary: s, canWrite } = shell;
   if (!s) return null;
-  // A review left part way through today, to carry on.
-  const keptSession = resume.load("session");
-  const keptFast = resume.load("fast")?.marked ? resume.load("fast") : null;
-  const carryOn = keptSession !== null && keptSession.answered > 0;
+  // A Fast review left part way through today, to carry on.
+  const keptFast = resume.load()?.marked ? resume.load() : null;
 
   if (s.words === 0) {
     return (
@@ -263,7 +262,9 @@ function Today({
   const words = wordsDue(s, kinds);
   // New sentences have no daily limit: they are mixed in as the session goes, so only the due ones are counted.
   const sentences = kinds.sentences ? s.dueSentences : 0;
-  const total = words + sentences;
+  // New words waiting for Learn count once each, while they are included.
+  const learning = kinds.learn ? s.toLearn : 0;
+  const total = words + sentences + learning;
   const all = total + s.answeredToday;
   const share = (n: number) => `${all ? (100 * n) / all : 0}%`;
 
@@ -281,6 +282,7 @@ function Today({
         <i className="is-done" style={{ width: share(s.answeredToday) }} />
         <i className="is-read" style={{ width: share(words) }} />
         <i className="is-sentence" style={{ width: share(kinds.sentences ? s.dueSentences : 0) }} />
+        <i className="is-new" style={{ width: share(learning) }} />
       </div>
       {s.answeredToday > 0 && <p className="cf-today-done">{fmt(s.answeredToday)} done so far</p>}
 
@@ -351,7 +353,7 @@ function Today({
               <i className="cf-tick" />
               <span>
                 New words
-                <small>Learned with sentences, a step every fifth card, five at a time</small>
+                <small>Taught with sentences as you review</small>
               </span>
               <b>{fmt(s.toLearn)}</b>
             </label>
@@ -374,12 +376,10 @@ function Today({
         )}
         <button
           className="cf-answer-btn cf-answer-show"
-          disabled={total === 0 && !carryOn && !(kinds.sentences && s.newSentences > 0) && !(kinds.learn && s.toLearn > 0)}
+          disabled={total === 0 && !(kinds.sentences && s.newSentences > 0) && !(kinds.learn && s.toLearn > 0)}
           onClick={onStart}
         >
-          {carryOn
-            ? `Carry on · ${fmt(keptSession.answered)} done`
-            : !kinds.read && !kinds.recall && !kinds.sentences
+          {!kinds.read && !kinds.recall && !kinds.sentences
             ? "Nothing chosen"
             : total === 0
               ? kinds.learn && s.toLearn > 0
@@ -410,28 +410,19 @@ export function Session({
   shell,
   kinds: chosen,
   onEnd,
-  saved: kept,
   list = null,
 }: {
   shell: Shell;
   /** What to include; a list's review sets its own. */
   kinds?: SessionKinds;
   onEnd: () => void;
-  /** Where this session was left today, to carry on from. */
-  saved?: resume.SessionResume | null;
-  /** Only this list's words. Not kept to carry on from: the day's session is. */
+  /** Only this list's words. */
   list?: ListReview | null;
 }) {
   const { summary, canWrite, refresh } = shell;
   const kinds = list ? LIST_KINDS : (chosen ?? EVERYTHING);
-  const saved = list ? null : (kept ?? null);
-  // Carried on: the cards that were in hand, less any kind left out since.
-  const [queue, setQueue] = useState<SessionCard[]>(() =>
-    (saved?.queue ?? []).filter((c) =>
-      c.kind === "sentence" ? kinds.sentences : c.kind === "produce" ? kinds.recall : kinds.read,
-    ),
-  );
-  const [status, setStatus] = useState<"loading" | "ready" | "empty">(() => (queue.length ? "ready" : "loading"));
+  const [queue, setQueue] = useState<SessionCard[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "empty">("loading");
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
@@ -449,10 +440,10 @@ export function Session({
   const [splitting, setSplitting] = useState<string | null>(null);
   const [last, setLast] = useState<Receipt | null>(null);
   // Got its in a row this session.
-  const streak = useRef(saved?.streak ?? 0);
+  const streak = useRef(0);
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
-  const [answered, setAnswered] = useState(saved?.answered ?? 0);
+  const [answered, setAnswered] = useState(0);
   // New words' Learn steps, one every fifth card (components/Learn.tsx); none in a list's review.
   const ladder = useLadder({ list: null, enabled: !list && kinds.learn, canWrite });
   const { begin: beginStep, current: step } = ladder;
@@ -463,14 +454,13 @@ export function Session({
   // Started with nothing due, it begins there.
   const [more, setMore] = useState(
     () =>
-      saved?.more ??
-      (!list && kinds.sentences && summary !== null && wordsDue(summary, kinds) + summary.dueSentences === 0),
+      !list && kinds.sentences && summary !== null && wordsDue(summary, kinds) + summary.dueSentences === 0,
   );
 
-  const session = useRef(saved?.session ?? newId());
-  const dealt = useRef(saved?.dealt ?? 0);
-  const recentIds = useRef<number[]>(saved?.recentIds ?? []);
-  const recentWords = useRef<string[]>(saved?.recentWords ?? []);
+  const session = useRef(newId());
+  const dealt = useRef(0);
+  const recentIds = useRef<number[]>([]);
+  const recentWords = useRef<string[]>([]);
   const loading = useRef(false);
   const exhausted = useRef(false);
   const queueRef = useRef(queue);
@@ -524,32 +514,10 @@ export function Session({
     if (queue.length <= REFILL_AT) void refill();
   }, [queue.length, refill]);
 
-  // Kept on the device as it goes, so leaving or closing the site loses
-  // nothing: the cards in hand (less one answered and on its way out), how far in.
-  useEffect(() => {
-    if (list) return;
-    resume.save("session", {
-      open: true,
-      session: session.current,
-      kinds,
-      queue: queue.filter((c) => !recentIds.current.includes(c.id)),
-      dealt: dealt.current,
-      answered,
-      streak: streak.current,
-      recentIds: recentIds.current,
-      recentWords: recentWords.current,
-      more,
-    });
-  }, [queue, answered, kinds, list, more]);
   // Nothing left to review: the ladder's steps one after another, until every word on it is learned.
   useEffect(() => {
     if (status === "empty" && !queue.length && !step) beginStep();
   }, [status, queue.length, step, ladder.items, beginStep]);
-
-  // Finished: nothing to carry on.
-  useEffect(() => {
-    if (!list && status === "empty" && !queue.length) resume.clear("session");
-  }, [status, queue.length, list]);
 
   // For a bug filed now: the card on screen.
   useEffect(() => {
@@ -740,7 +708,11 @@ export function Session({
 
   const words = summary ? wordsDue(summary, kinds) : 0;
   // New sentences aren't counted: they have no end, and come as long as the owner goes on.
-  const left = list ? Math.max(0, list.due - answered) : summary ? words + (kinds.sentences ? summary.dueSentences : 0) : 0;
+  const left = list
+    ? Math.max(0, list.due - answered)
+    : summary
+      ? words + (kinds.sentences ? summary.dueSentences : 0) + (kinds.learn ? summary.toLearn : 0)
+      : 0;
   const progress = more ? 100 : answered + left ? (100 * answered) / (answered + left) : 0;
 
   return (
@@ -800,8 +772,10 @@ export function Session({
       {card && !step && (
         <article key={card.id} className={`cf-card is-${card.kind}${leaving ? ` is-leaving-${leaving}` : ""}`}>
           <div className="cf-card-kind">
-            <i className="cf-dot" />
-            {KIND_NAME[card.kind]}
+            <span className="cf-kind-pill">
+              <i className="cf-dot" />
+              {KIND_NAME[card.kind]}
+            </span>
             {card.isNew && <span className="cf-tag">new</span>}
             {card.kind === "sentence" && !card.isNew && <span className="cf-tag">{card.cleanReads} of 2 clean reads</span>}
             <span className="cf-card-tags">
