@@ -140,12 +140,15 @@ rejected as too themed. Keep it that way:
 
 ## Status
 
-**Version.** The header shows `v0.1.N` (`lib/version.ts`), so the owner can
-tell production releases apart. N counts the commits on main that touch
-重复习 (`chongfuxi/`, `app/chongfuxi/`, `app/api/chongfuxi/`), the release's
-own included: bump it in the commit that goes to main (how to count is in
-the file). Hovering it shows the commit, where Vercel exposes it. 0.1.67 was
-the first, with Look up's answer blocks.
+**Version.** The header shows `v0.1.N`, so the owner can tell production
+releases apart: N counts the commits that touch 重复习 (`chongfuxi/`,
+`app/chongfuxi/`, `app/api/chongfuxi/`), so it goes up by one with every
+release that changes it, with nothing to bump by hand. Counted at build time
+in `next.config.ts` (`chongfuxiVersion`): Vercel clones only the last few
+commits, so it fetches the full history first (the repo is public), and
+failing that asks GitHub's API (which counts `chongfuxi/` alone, a few
+short). Hovering it shows the commit. 0.1.67 was the first, with Look up's
+answer blocks.
 
 Built: import (server-side), unlocking, the review session with Read, Recall
 (the Produce card) and Sentence cards, meaning splits, card notes, new

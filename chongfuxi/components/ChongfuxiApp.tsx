@@ -19,7 +19,6 @@ import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import * as back from "@chongfuxi/lib/back";
-import { VERSION } from "@chongfuxi/lib/version";
 import * as outbox from "@chongfuxi/lib/outbox";
 import { Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
@@ -128,9 +127,9 @@ export function ChongfuxiApp() {
         <div className="cf-title">
           <h1>
             重复习 <span className="cf-title-py">chóngfùxí</span>
-            {/* Which release this is; the commit too, where Vercel says it. */}
-            <span className="cf-version" title={process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7)}>
-              v{VERSION}
+            {/* Which release this is (counted at build time, next.config.ts), and its commit. */}
+            <span className="cf-version" title={process.env.NEXT_PUBLIC_CHONGFUXI_COMMIT}>
+              v{process.env.NEXT_PUBLIC_CHONGFUXI_VERSION}
             </span>
           </h1>
           {/* Who is here, and signing in or out. */}
