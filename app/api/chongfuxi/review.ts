@@ -7,7 +7,7 @@
 // opened, retired sentences brought back, tapped words lapsed.
 
 import type { Sql } from "./db";
-import { loadHeadwords } from "./headwords";
+import { dictEntry, loadHeadwords } from "./headwords";
 import type {
   Blocker,
   CardHistory,
@@ -28,6 +28,7 @@ import type {
 import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
+import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import {
   CLEAN_READS_TO_RETIRE,
@@ -41,6 +42,14 @@ import {
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
 const DAY_MS = 86_400_000;
+/**
+ * A word's pinyin as saved, else its dictionary entry's (the first that
+ * isn't a name's): a word added without a reading still shows one.
+ */
+function shownPinyin(pinyin: string | null, defs: Definition[] | null): string | null {
+  return pinyin || defs?.find((d) => /^[a-z]/.test(d.p))?.p || defs?.[0]?.p || null;
+}
+
 /** A word card rotates through this many of its readable sentences, best first (see `dress`). */
 const CONTEXT_POOL = 12;
 /** Ranked in SQL before the ones that fit badly (contextFit) are sent to the back. */
@@ -373,7 +382,7 @@ export async function fastCards(
       return {
         id: c.id,
         word: c.word!,
-        pinyin: c.pinyin,
+        pinyin: shownPinyin(c.pinyin, c.defs),
         gloss: promptSenses(c.defs).slice(0, 2).join("; ") || null,
         intervals: intervals(schedule, at),
         was: waitOf(schedule),
@@ -424,7 +433,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       w.word,
       {
         word: w.word,
-        pinyin: w.pinyin,
+        pinyin: shownPinyin(w.pinyin, w.defs),
         defs: w.defs,
         split: meaningRows.filter((m) => m.word === w.word).map(({ id, gloss }) => ({ id, gloss })),
         hsk: hskOf(w.lists ?? []),
@@ -497,8 +506,37 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       `) as unknown as Array<{ id: number; words: string[] }>)
     : [];
   const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
-  const sentenceOf = (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null =>
-    s ? { id: s.id, zh: zhShown(s.zh), en: s.en, words: wordsOf.get(s.id) ?? [], sources: s.sources } : null;
+  // The reading and meaning of every word of those sentences, for a tap:
+  // the word's own row where it has one, the dictionary otherwise
+  // (lib/readings.ts).
+  const tokenWords = [...new Set(tokenRows.flatMap((t) => t.words))];
+  const tokenWordRows = tokenWords.length
+    ? new Map(
+        ((await sql`
+          select word, pinyin, defs from chongfuxi_word
+          where owner_email = ${owner}
+            and word = any(${[...new Set(tokenWords.flatMap((w) => [w, ...w]))]}::text[])
+        `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>).map((r) => [r.word, r]),
+      )
+    : new Map<string, { word: string; pinyin: string | null; defs: Definition[] }>();
+  const lookup: Lookup = (w, want) => {
+    const row = tokenWordRows.get(w);
+    const p = row && shownPinyin(row.pinyin, row.defs);
+    // The row's own meaning, unless a particle's running reading is asked
+    // for and the row has another (a 了 card for liǎo).
+    if (row && p && (!want || want === p)) return { p, gloss: promptSenses(row.defs).slice(0, 2).join("; ") || null };
+    return dictEntry(w, want);
+  };
+  const looked = new Map<string, Looked | null>();
+  const lookOf = (w: string) => {
+    if (!looked.has(w)) looked.set(w, lookUp(w, lookup));
+    return looked.get(w)!;
+  };
+  const sentenceOf = (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null => {
+    if (!s) return null;
+    const words = wordsOf.get(s.id) ?? [];
+    return { id: s.id, zh: zhShown(s.zh), en: s.en, words, looks: words.map(lookOf), sources: s.sources };
+  };
 
   const out: SessionCard[] = [];
   for (const c of cards) {
@@ -1154,7 +1192,7 @@ export async function listBlockers(sql: Sql, owner: string, limit: number): Prom
     word: r.word,
     unlocks: r.n,
     listed: r.status === "listed",
-    pinyin: r.pinyin,
+    pinyin: shownPinyin(r.pinyin, r.defs),
     gloss: r.defs?.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? null,
   });
   return {
@@ -1265,7 +1303,7 @@ export async function listWords(sql: Sql, owner: string, list: string, offset: n
   `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; in_deck: boolean }>;
   return rows.map((r) => ({
     word: r.word,
-    pinyin: r.pinyin,
+    pinyin: shownPinyin(r.pinyin, r.defs),
     gloss: promptSenses(r.defs).slice(0, 2).join("; ") || null,
     inDeck: r.in_deck,
   }));
@@ -1292,7 +1330,7 @@ export async function listMissing(sql: Sql, owner: string, list: string, offset:
   `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>;
   return rows.map((r) => ({
     word: r.word,
-    pinyin: r.pinyin,
+    pinyin: shownPinyin(r.pinyin, r.defs),
     gloss: r.defs.find((d) => !d.own)?.senses.slice(0, 2).join("; ") ?? r.defs[0]?.senses[0] ?? null,
   }));
 }

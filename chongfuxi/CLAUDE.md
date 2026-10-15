@@ -219,7 +219,21 @@ the design was silent and are still to be confirmed.
   CC-CEDICT headword around it (手 in 住手, 日 in 周日), since they show the
   compound, not the word (`contextFit`; the decks' word breaks often split
   compounds, so tokens alone can't say). Back: pinyin, every
-  definition, the translation.
+  definition, the translation. A word with no saved pinyin shows its
+  dictionary entry's (`shownPinyin`).
+- **Tapping a word in a sentence**, on any card and either side, opens a small
+  popup with its pinyin and a short meaning (`SentenceText` in
+  `components/shared.tsx`); a tap anywhere else closes it. Not shown
+  otherwise: the owner tried pinyin over every word and preferred it on
+  demand. The front of a Read card won't open its own word. Words looked up
+  on a sentence card come already ticked in "which words tripped you" after
+  Forgot. Readings (`lib/readings.ts`, sent as `looks` with the sentence):
+  the decks' pinyin is never used. A particle takes its reading in running
+  text (了 le, 得 de, 着 zhe, 还 hái, 都 dōu: `RUNNING_READINGS`), then the
+  word's own row, then CC-CEDICT (`dictEntry` in
+  `app/api/chongfuxi/headwords.ts`; a lone character takes the reading most
+  of its compounds use, since the dictionary lists 跑 páo before pǎo), then
+  the pieces a word splits into (孩子们).
 - **Recall** (kind `produce`): appears after the first Got it on Read. The
   definition, and the sentence with the word blanked; a sentence that writes
   one of the word's characters again (月 in 下个月是二月) gives the blank away

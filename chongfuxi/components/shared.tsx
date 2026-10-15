@@ -3,8 +3,10 @@
 // Pieces every screen uses: what the shell hands down, and a few ways of
 // writing things.
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { CardHistory, Summary } from "@chongfuxi/lib/api";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+import type { CardHistory, SentenceInfo, Summary } from "@chongfuxi/lib/api";
+import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
 
@@ -43,6 +45,146 @@ export function Highlighted({ text, word }: { text: string; word: string }) {
       {text.slice(0, at)}
       <mark className="cf-mark">{word}</mark>
       {text.slice(at + word.length)}
+    </>
+  );
+}
+
+/** A stretch of a sentence: one of its words, with what a tap shows, or the text between. */
+interface Piece {
+  zh: string;
+  /** Where it starts in the sentence, for picking out the card's word. */
+  at: number;
+  /** Index into the sentence's words; null for the text between them. */
+  word: number | null;
+}
+
+/** The sentence cut at its words, as far as they can be found in it, in order. */
+function piecesOf(sentence: SentenceInfo): Piece[] {
+  const { zh, words } = sentence;
+  const out: Piece[] = [];
+  let at = 0;
+  words.forEach((w, i) => {
+    const found = w ? zh.indexOf(w, at) : -1;
+    // A word written differently in the text (a traditional character) stays plain.
+    if (found < 0) return;
+    if (found > at) out.push({ zh: zh.slice(at, found), at, word: null });
+    out.push({ zh: w, at: found, word: i });
+    at = found + w.length;
+  });
+  if (at < zh.length) out.push({ zh: zh.slice(at), at, word: null });
+  return out;
+}
+
+/**
+ * A sentence with one word picked out, each of its words tappable for its
+ * pinyin and meaning in a small popup (`looks`, from the server). `hide` is a
+ * word that can't be tapped, the answer on a card's front.
+ */
+export function SentenceText({
+  sentence,
+  word = "",
+  hide,
+  onLook,
+}: {
+  sentence: SentenceInfo;
+  word?: string;
+  hide?: string;
+  onLook?: (word: string) => void;
+}) {
+  const [open, setOpen] = useState<{ i: number; el: HTMLElement } | null>(null);
+  const pop = useRef<HTMLSpanElement>(null);
+  const [place, setPlace] = useState<{ left: number; top: number; below: boolean } | null>(null);
+
+  // Placed over the word, or under it near the top of the screen, and kept on screen.
+  useLayoutEffect(() => {
+    if (!open || !pop.current) return setPlace(null);
+    const r = open.el.getBoundingClientRect();
+    const box = pop.current.getBoundingClientRect();
+    const below = r.top - box.height - 8 < 8;
+    setPlace({
+      left: Math.min(Math.max(8, r.left + r.width / 2 - box.width / 2), window.innerWidth - box.width - 8),
+      top: below ? r.bottom + 8 : r.top - box.height - 8,
+      below,
+    });
+  }, [open]);
+
+  // Any tap elsewhere, or the card scrolling, puts it away.
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e.target instanceof Node && (pop.current?.contains(e.target) || open.el.contains(e.target))) return;
+      setOpen(null);
+    };
+    document.addEventListener("pointerdown", close, true);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("pointerdown", close, true);
+      document.removeEventListener("scroll", close, true);
+    };
+  }, [open]);
+
+  const pieces = sentence.looks ? piecesOf(sentence) : null;
+  if (!pieces) return <Highlighted text={sentence.zh} word={word} />;
+  const from = word ? sentence.zh.indexOf(word) : -1;
+  const to = from + word.length;
+  /** A piece's characters, the picked-out word's in a mark. */
+  const marked = (b: Piece) => {
+    if (from < 0 || b.at >= to || b.at + b.zh.length <= from) return b.zh;
+    const x = Math.max(0, from - b.at);
+    const y = Math.min(b.zh.length, to - b.at);
+    return (
+      <>
+        {b.zh.slice(0, x)}
+        <mark className="cf-mark">{b.zh.slice(x, y)}</mark>
+        {b.zh.slice(y)}
+      </>
+    );
+  };
+  const look = open ? sentence.looks?.[open.i] : null;
+  const host = open?.el.closest(".cfx");
+  return (
+    <>
+      {pieces.map((b) => {
+        const i = b.word;
+        if (i === null || !sentence.looks?.[i] || (hide && b.zh.includes(hide))) return <span key={b.at}>{marked(b)}</span>;
+        const show = (el: HTMLElement) => {
+          if (open?.i === i) return setOpen(null);
+          setOpen({ i, el });
+          onLook?.(b.zh);
+        };
+        return (
+          <span
+            key={b.at}
+            role="button"
+            tabIndex={0}
+            className={`cf-tap${open?.i === i ? " is-open" : ""}`}
+            onClick={(e) => show(e.currentTarget)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                show(e.currentTarget);
+              }
+            }}
+          >
+            {marked(b)}
+          </span>
+        );
+      })}
+      {look &&
+        host &&
+        createPortal(
+          <span
+            ref={pop}
+            role="tooltip"
+            className={`cf-look${place?.below ? " is-below" : ""}`}
+            style={place ? { left: place.left, top: place.top } : { visibility: "hidden", left: 0, top: 0 }}
+          >
+            <span className="cf-look-zh">{sentence.words[open!.i]}</span>
+            <span className="cf-look-py">{displayPinyin(look.p)}</span>
+            {look.gloss && <span className="cf-look-gloss">{look.gloss}</span>}
+          </span>,
+          host,
+        )}
     </>
   );
 }

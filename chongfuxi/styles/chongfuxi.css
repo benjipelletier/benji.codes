@@ -87,10 +87,13 @@
 
 /* ---------------------------------------------------------------- shell -- */
 
-/* The site's body is at least 100vh tall, and on Android Chrome 100vh is the
- * height with the address bar hidden: while the bar shows, the page scrolled
- * by its height with nothing below (bug #1). Here the shell sets the height,
- * 100dvh, the height actually visible; other projects keep the site's rule. */
+/* The site's body is at least 100vh tall, and on Android Chrome 100vh can be
+ * taller than what is visible: in the browser it is the height with the
+ * address bar hidden, and in the installed app (no address bar at all, where
+ * the owner hit it) it can still count the system bars or keyboard. The page
+ * then scrolled by the difference with nothing below (bug #1). Here the shell
+ * sets the height, 100dvh, the height actually visible; other projects keep
+ * the site's rule. */
 body:has(.cfx) {
   min-height: 0;
 }
@@ -4697,4 +4700,83 @@ button.cf-synclog-row {
 .cf-tag-btn-src.is-on {
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
+}
+
+/* A sentence's words open their pinyin and meaning when tapped
+ * (SentenceText in components/shared.tsx): nothing marks them until then, so
+ * the sentence reads as it is. */
+.cf-tap {
+  cursor: pointer;
+  border-radius: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cf-tap.is-open {
+  background: var(--cf-mark);
+}
+
+.cf-tap:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 1px;
+}
+
+.cf-look {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 8px 12px 9px;
+  border-radius: 12px;
+  background: var(--cf-ink);
+  color: var(--cf-surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  text-align: center;
+  font-feature-settings: normal;
+  pointer-events: auto;
+  animation: cf-look-in 0.14s ease-out both;
+}
+
+.cf-look-zh {
+  font-family: var(--cf-zh);
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.cf-look-py {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cf-look-gloss {
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+@keyframes cf-look-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.cf-look.is-below {
+  animation-name: cf-look-in-below;
+}
+
+@keyframes cf-look-in-below {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-look {
+    animation: none;
+  }
 }

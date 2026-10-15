@@ -69,6 +69,12 @@ export interface SentenceInfo {
   en: string | null;
   /** Its words in order. */
   words: string[];
+  /**
+   * Each word's reading (numbered, "@" between syllables) and a short
+   * meaning, for when it is tapped; null where there is none
+   * (lib/readings.ts). Sent with a review card's sentence only.
+   */
+  looks?: Array<{ p: string; gloss: string | null } | null>;
   /** The decks it came from. */
   sources: string[];
 }

@@ -22,7 +22,7 @@ import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { Highlighted, History, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
+import { History, SentenceText, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -436,6 +436,8 @@ function Session({
   const [revealed, setRevealed] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
+  /** Words of this card's sentence tapped for their meaning. */
+  const looked = useRef(new Set<string>());
   // After Forgot, before it is sent: what went wrong, in the owner's words. Null when not forgetting.
   const [why, setWhy] = useState<string | null>(null);
   const whyBox = useRef<HTMLDivElement>(null);
@@ -464,6 +466,9 @@ function Session({
   const revealedAt = useRef<number | null>(null);
 
   const card = queue[0] ?? null;
+  useEffect(() => {
+    looked.current = new Set();
+  }, [card?.id]);
 
   const refill = useCallback(async () => {
     if (loading.current || exhausted.current) return;
@@ -654,7 +659,8 @@ function Session({
 
   const forget = () => {
     if (!card) return;
-    if (card.kind === "sentence") setTapped(new Set());
+    // Words looked up on a sentence come ticked: they are the likely culprits.
+    if (card.kind === "sentence") setTapped(new Set(looked.current));
     setWhy("");
   };
   const sendForgot = () => answer("forgot", tapped ? [...tapped] : [], why ?? undefined);
@@ -767,7 +773,7 @@ function Session({
               {card.sentence && (
                 <>
                   <p className="cf-card-zh">
-                    <Highlighted text={card.sentence.zh} word={card.word.word} />
+                    <SentenceText sentence={card.sentence} word={card.word.word} hide={revealed ? undefined : card.word.word} />
                   </p>
                   <SourceOf sentence={card.sentence} />
                 </>
@@ -810,7 +816,7 @@ function Session({
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">
-                        <Highlighted text={card.sentence.zh} word={card.word.word} />
+                        <SentenceText sentence={card.sentence} word={card.word.word} />
                       </p>
                       {card.sentence.en && <p className="cf-en">{card.sentence.en}</p>}
                       <SourceOf sentence={card.sentence} />
@@ -823,7 +829,9 @@ function Session({
 
           {card.kind === "sentence" && card.sentence && (
             <>
-              <p className="cf-card-sentence">{card.sentence.zh}</p>
+              <p className="cf-card-sentence">
+                <SentenceText sentence={card.sentence} onLook={(w) => looked.current.add(w)} />
+              </p>
               {revealed && (
                 <div className="cf-back">
                   {card.sentence.en && <p className="cf-card-en">{card.sentence.en}</p>}

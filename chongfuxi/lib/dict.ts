@@ -41,7 +41,7 @@ function pinyinOf(source: string): string {
 }
 
 /** Senses that only point somewhere else, or only name a measure word. */
-const POINTER = /^(?:(?:old |archaic |erhua |Japanese |Taiwan )?variant of |see (?:also )?[^a-z]|CL:|also written |also pr\. |abbr\. for [^a-z])/;
+export const POINTER = /^(?:(?:old |archaic |erhua |Japanese |Taiwan )?variant of |see (?:also )?[^a-z]|CL:|also written |also pr\. |abbr\. for [^a-z])/;
 
 function rank(d: Definition): number {
   // Names and surnames (capitalised pinyin) after the word itself; entries
