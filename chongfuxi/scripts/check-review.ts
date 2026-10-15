@@ -354,7 +354,7 @@ main()
   })
   .finally(async () => {
     // The review log is append-only for a real owner; the invented one is swept away.
-    for (const table of ["chongfuxi_review", "chongfuxi_card", "chongfuxi_meaning", "chongfuxi_sentence", "chongfuxi_word", "chongfuxi_settings", "chongfuxi_import"]) {
+    for (const table of ["chongfuxi_review", "chongfuxi_card", "chongfuxi_meaning", "chongfuxi_sentence", "chongfuxi_word", "chongfuxi_settings", "chongfuxi_import", "longku_bank", "longku_excluded", "chongfuxi_addition"]) {
       await sql.query(`delete from ${table} where owner_email = $1`, [owner]);
     }
     const left = (await sql`

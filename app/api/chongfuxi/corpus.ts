@@ -19,6 +19,7 @@ import { isHan } from "@chongfuxi/lib/hanzi";
 import { wordsByPinyin } from "@chongfuxi/lib/pinyin";
 import { segmentByDictionary } from "@chongfuxi/lib/segment";
 import { makeUnlock } from "@chongfuxi/lib/unlock";
+import { reconcileLongku } from "./longku";
 
 const BATCH = 1000;
 const TOKEN_BATCH = 2500;
@@ -416,6 +417,8 @@ export async function ingest(
         ingested = to_timestamp(${at}::double precision / 1000)
     where owner_email = ${owner} and id = ${file.importId}
   `;
+  // Chengyu the import made known join 龙库.
+  await reconcileLongku(sql, owner);
 
   return { ...summary, sentences: { ...summary.sentences, readable: result.readable, oneAway: result.oneAway, unlocked: result.unlocked } };
 }

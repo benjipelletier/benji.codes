@@ -1,23 +1,19 @@
 #!/usr/bin/env node
-// Apply longku/sql/*.sql to LONGKU_DATABASE_URL, in filename order.
+// Apply longku/sql/*.sql to 龙库's database, in filename order.
 //
-// Statements are idempotent (create table if not exists / create index if not
-// exists), so re-running is safe and there is no migrations table to keep.
+// 龙库 is backed by 重复习: its tables live in CHONGFUXI_DATABASE_URL (see
+// app/api/longku/db.ts). Statements are idempotent (create table if not
+// exists / create index if not exists), so re-running is safe and there is
+// no migrations table to keep.
 
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { neon } from "@neondatabase/serverless";
 
-// Same aliases the app accepts — see app/api/longku/db.ts.
-const url =
-  process.env.LONGKU_DATABASE_URL ||
-  process.env.LONGKU_DATABASE_DATABASE_URL ||
-  process.env.LONGKU_DATABASE_POSTGRES_URL;
+const url = process.env.CHONGFUXI_DATABASE_URL;
 if (!url) {
-  console.error("No longku database URL in the environment.");
-  console.error("Looked for LONGKU_DATABASE_URL, LONGKU_DATABASE_DATABASE_URL,");
-  console.error("and LONGKU_DATABASE_POSTGRES_URL.");
+  console.error("No CHONGFUXI_DATABASE_URL in the environment: 龙库's tables live in 重复习's database.");
   process.exit(1);
 }
 

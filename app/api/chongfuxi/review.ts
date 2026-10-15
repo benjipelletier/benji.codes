@@ -28,6 +28,7 @@ import type {
 import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
+import { longkuWords } from "./longku";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import {
@@ -428,6 +429,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
         order by id
       `) as unknown as Array<{ id: number; word: string; gloss: string }>)
     : [];
+  const inLongku = await longkuWords(sql, owner, wordList);
   const infoOf = new Map<string, WordInfo>(
     wordRows.map((w) => [
       w.word,
@@ -437,6 +439,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
         defs: w.defs,
         split: meaningRows.filter((m) => m.word === w.word).map(({ id, gloss }) => ({ id, gloss })),
         hsk: hskOf(w.lists ?? []),
+        longku: inLongku.has(w.word),
       },
     ]),
   );
@@ -1287,20 +1290,36 @@ export async function listTree(sql: Sql, owner: string): Promise<ListNode[]> {
     where w.owner_email = ${owner}
     group by x.p
   `) as unknown as Array<{ list: string; total: number; in_deck: number }>;
-  return rows
-    .filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0]))
-    .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck }));
+  const longku = (await sql`select count(*)::int as n from longku_bank where owner_email = ${owner}`) as unknown as Array<{ n: number }>;
+  return [
+    // 龙库's chengyu: every one a deck word, kept in step with 龙库 (longku.ts).
+    ...(longku[0].n ? [{ list: LONGKU_LIST, total: longku[0].n, inDeck: longku[0].n, linked: "longku" as const }] : []),
+    ...rows.filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0])).map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck })),
+  ];
 }
+
+/** The list name 龙库's chengyu go under. */
+export const LONGKU_LIST = "龙库";
 
 /** The words of a list and of every list under it: those not in the deck first, then shortest first. */
 export async function listWords(sql: Sql, owner: string, list: string, offset: number, limit: number): Promise<ListWord[]> {
-  const rows = (await sql`
-    select word, pinyin, defs, status = 'deck' as in_deck from chongfuxi_word
-    where owner_email = ${owner}
-      and exists (select 1 from unnest(lists) l where l = ${list} or l like ${underList(list)})
-    order by status = 'deck', char_length(word), word
-    limit ${limit} offset ${offset}
-  `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; in_deck: boolean }>;
+  const rows = (
+    list === LONGKU_LIST
+      ? await sql`
+          select w.word, w.pinyin, w.defs, w.status = 'deck' as in_deck
+          from longku_bank b join chongfuxi_word w on w.owner_email = b.owner_email and w.word = b.w
+          where b.owner_email = ${owner}
+          order by w.word
+          limit ${limit} offset ${offset}
+        `
+      : await sql`
+          select word, pinyin, defs, status = 'deck' as in_deck from chongfuxi_word
+          where owner_email = ${owner}
+            and exists (select 1 from unnest(lists) l where l = ${list} or l like ${underList(list)})
+          order by status = 'deck', char_length(word), word
+          limit ${limit} offset ${offset}
+        `
+  ) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; in_deck: boolean }>;
   return rows.map((r) => ({
     word: r.word,
     pinyin: shownPinyin(r.pinyin, r.defs),

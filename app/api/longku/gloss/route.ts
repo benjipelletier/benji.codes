@@ -6,7 +6,7 @@ import { gloss } from "@longku/lib/gloss";
  * English meanings for a handful of words: `?w=…&w=…`.
  *
  * Meanings only, not pinyin or the entry — this backs the chain game's hint,
- * where anything more gives the answer away. Off-corpus words are left out.
+ * where anything more gives the answer away.
  */
 export async function GET(req: NextRequest) {
   const words = req.nextUrl.searchParams.getAll("w").slice(0, 50);

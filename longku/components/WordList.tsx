@@ -190,7 +190,7 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
           <div className="longku-words-row" role="row" key={r.w}>
             <div className="longku-words-td col-word">
               <span className="longku-words-w">{r.w}</span>
-              <TierPill f={r.f} offCorpus={r.offCorpus} />
+              <TierPill f={r.f} />
             </div>
 
             <div

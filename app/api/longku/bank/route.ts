@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, hasDb } from "../db";
+import { loadDict } from "../../chongfuxi/dictfile";
+import { longkuAdd, longkuRemove } from "../../chongfuxi/longku";
 import { getViewer, NotOwnerError, requireOwner } from "@longku/lib/session";
 
 export const dynamic = "force-dynamic";
+// Adding a word adds it to 重复习's deck too, which re-checks its sentences.
+export const maxDuration = 60;
 
 /** The sweep is always written whole — it's small and never partially updated. */
 async function saveChains(
@@ -32,7 +36,6 @@ interface BankRow {
   strength: number;
   misses: number;
   last_seen: string | null;
-  off_corpus: boolean;
   added: string;
   last_recalled: string | null;
   due: string | null;
@@ -66,7 +69,7 @@ export async function GET() {
 
   const sql = getDb();
   const rows = (await sql`
-    select w, fs, ls, f, recalls, strength, misses, off_corpus,
+    select w, fs, ls, f, recalls, strength, misses,
            added, last_recalled, last_seen, due, in_sweep
     from longku_bank
     where owner_email = ${owner}
@@ -100,7 +103,6 @@ export async function GET() {
       ...(r.last_seen ? { lastSeen: new Date(r.last_seen).getTime() } : {}),
       ...(r.last_recalled ? { lastRecalled: new Date(r.last_recalled).getTime() } : {}),
       ...(r.due ? { due: new Date(r.due).getTime() } : {}),
-      ...(r.off_corpus ? { offCorpus: true } : {}),
     })),
     sweep: rows.filter((r) => r.in_sweep).map((r) => r.w),
     chains,
@@ -109,7 +111,7 @@ export async function GET() {
 }
 
 type Op =
-  | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number; offCorpus?: boolean }> }
+  | { op: "add"; words: Array<{ w: string; fs: string; ls: string | null; f?: number }> }
   | { op: "remove"; w: string; chains?: unknown[][] }
   | {
       op: "play";
@@ -164,28 +166,16 @@ export async function POST(req: NextRequest) {
       if (body.words.length > 500) {
         return NextResponse.json({ error: "too many words in one call" }, { status: 413 });
       }
-      const added: string[] = [];
-      for (const word of body.words) {
-        if (!word?.w || !word?.fs) continue;
-        // A repeat add must not reset recalls or the added date, but should
-        // fill in a reading or frequency the first pass didn't have.
-        const res = (await sql`
-          insert into longku_bank (owner_email, w, fs, ls, f, off_corpus)
-          values (${owner}, ${word.w}, ${word.fs}, ${word.ls ?? null},
-                  ${word.f ?? null}, ${word.offCorpus ?? false})
-          on conflict (owner_email, w) do update set
-            ls = coalesce(longku_bank.ls, excluded.ls),
-            f  = coalesce(longku_bank.f,  excluded.f)
-          returning (xmax = 0) as inserted
-        `) as unknown as Array<{ inserted: boolean }>;
-        if (res[0]?.inserted) added.push(word.w);
-      }
+      // Into 重复习's deck as well as this bank: the two share their words.
+      const words = body.words.filter((w) => w?.w && w?.fs);
+      const added = await longkuAdd(sql, owner, words, loadDict());
       return NextResponse.json({ ok: true, added });
     }
 
     case "remove": {
       if (!body.w) return NextResponse.json({ error: "no word given" }, { status: 400 });
-      await sql`delete from longku_bank where owner_email = ${owner} and w = ${body.w}`;
+      // Out of 龙库 only: the word stays in 重复习's deck, and isn't linked back.
+      await longkuRemove(sql, owner, body.w);
       if (body.chains) await saveChains(sql, owner, body.chains);
       return NextResponse.json({ ok: true });
     }

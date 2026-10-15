@@ -638,6 +638,33 @@ on Vercel; otherwise say which to mark fixed in the app). A cloud session
 needs `benji.codes` in its environment's allowed domains. `.bugs/` is
 ignored by git. Reports are readable by anyone, like the rest of the log.
 
+## 龙库 is backed by this app
+
+龙库 (/longku, the chengyu chain game) keeps its tables (`longku_bank`,
+`longku_review`, `longku_sweep`, `longku_excluded`) in this database
+(`app/api/longku/db.ts` reads `CHONGFUXI_DATABASE_URL`; its old store is no
+longer read). Its words are deck words here; the two keep separate schedules,
+by the owner's choice: `longku_bank` holds 龙库's own game state.
+
+- `app/api/chongfuxi/longku.ts`: `reconcileLongku` runs after anything that
+  changes the deck (`addWords`, `removeWord`, `undoAddition`, a Pleco
+  import): every deck word in 龙库's idiom list (`longku/data/chengyu.json`)
+  is linked into 龙库 unless the owner removed it there (`longku_excluded`),
+  and a 龙库 word that has left the deck leaves 龙库.
+- Adding in 龙库 (`longkuAdd`, from its bank route's `add`) puts the word in
+  the deck too: one addition, source `longku`, a new Read card each.
+  Removing in 龙库 (`longkuRemove`) only unlinks it and remembers that; the
+  deck word and its cards stay. Removing from the deck here unlinks it.
+- Shown here as a 龙库 tag (card header, word sheet, new-word screens) and as
+  the 龙库 list, first in Cards > Lists, marked "linked to 龙库".
+- The move (Oct 2026): `longku/scripts/migrate.mjs` made the tables,
+  `longku/scripts/move-to-chongfuxi.mjs` copied 89 words, 447 reviews and the
+  sweep (re-runnable; newer rows win), `chongfuxi/scripts/link-longku.ts` put
+  the 67 not yet in the deck into it with Read cards seeded from 龙库's record
+  (`seedFromLongku`: 龙库's interval for the word's strength as stability)
+  and linked 18 deck chengyu into 龙库: 107 in all.
+- `scripts/check-longku.ts` checks the link against a throwaway owner.
+
 ## Pleco files
 
 Two kinds are read, told apart by content (`lib/backup.ts`), and both come out

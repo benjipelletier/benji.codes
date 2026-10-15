@@ -11,7 +11,7 @@ import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, History, fmt, message, plecoHref, span, useBackLayer } from "./shared";
+import { Highlighted, History, LongkuTag, fmt, message, plecoHref, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -405,6 +405,7 @@ function WordSheet({
                 </span>
               )}
               {!d.hsk.old && !d.hsk.v3 && <span className="cf-tag cf-hsk is-none">not HSK</span>}
+              {d.longku && <LongkuTag />}
               <a className="cf-link" href={plecoHref(word)}>
                 Open in Pleco
               </a>

@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  guessFirstSyllable,
-  guessLastSyllable,
-  lookupWord,
-  type ChengyuEntry,
-} from "@longku/lib/data";
+import { lookupWord, type ChengyuEntry } from "@longku/lib/data";
 
 /** Cap per request so a giant paste can't pin the function. */
 const MAX_RUNS = 2000;
 /** Longest chengyu we'll try to peel off the front of a run. */
 const MAX_WORD = 12;
-/** Run lengths we'll still treat as "probably a chengyu the corpus lacks". */
-const PLAUSIBLE_MIN = 3;
-const PLAUSIBLE_MAX = 9;
 
 export interface ResolvedWord {
   w: string;
@@ -20,17 +12,6 @@ export interface ResolvedWord {
   fs: string;
   ls: string;
   f: number;
-}
-
-/** A word the corpus doesn't have, but that still looks like a chengyu. */
-export interface UnmatchedWord {
-  w: string;
-  /** Bucket guessed from the leading character's commonest reading. */
-  fs: string;
-  /** Ending syllable guessed the same way, so the word can still chain. */
-  ls: string | null;
-  ambiguous: boolean;
-  alternatives: string[];
 }
 
 function slim(e: ChengyuEntry): ResolvedWord {
@@ -84,7 +65,6 @@ export async function POST(req: NextRequest) {
   }
 
   const found: ResolvedWord[] = [];
-  const unmatched: UnmatchedWord[] = [];
   const unknown: string[] = [];
   const seen = new Set<string>();
 
@@ -92,19 +72,8 @@ export async function POST(req: NextRequest) {
     if (typeof raw !== "string") continue;
     const parts = segment(raw);
     if (!parts) {
-      // Didn't segment. If it's chengyu-shaped, it's more likely a gap in the
-      // corpus than junk, so offer it with a guessed bucket instead of
-      // dropping it. Anything longer is prose and stays unknown.
-      const len = raw.length;
-      const guess =
-        len >= PLAUSIBLE_MIN && len <= PLAUSIBLE_MAX ? guessFirstSyllable(raw) : null;
-      if (guess && !seen.has(raw)) {
-        seen.add(raw);
-        const tail = guessLastSyllable(raw);
-        unmatched.push({ w: raw, ...guess, ls: tail ? tail.fs : null });
-      } else if (!guess) {
-        unknown.push(raw);
-      }
+      // Not in the idiom list: 龙库 holds nothing else.
+      unknown.push(raw);
       continue;
     }
     for (const e of parts) {
@@ -114,5 +83,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ found, unmatched, unknown });
+  return NextResponse.json({ found, unknown });
 }

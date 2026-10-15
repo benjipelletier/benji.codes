@@ -7,6 +7,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import { recallOdds, type Grade } from "@chongfuxi/lib/schedule";
+import { longkuWords } from "./longku";
 import { CARD_COLUMNS, CONTEXT_IDEAL_HAN, CONTEXT_MIN_HAN, hskOf, promptSenses, scheduleOf, type CardRow } from "./review";
 
 /** Sentences shown on a word's sheet. */
@@ -43,6 +44,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
     difficulty: number;
     recall: boolean;
   }>;
+  const inLongku = await longkuWords(sql, owner, rows.map((r) => r.word));
   return rows.map((r) => {
     const gloss = promptSenses(r.defs)[0] ?? null;
     return {
@@ -56,6 +58,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
       difficulty: Math.round(r.difficulty * 10) / 10,
       recall: r.recall,
       hsk: hskOf(r.lists ?? []),
+      longku: inLongku.has(r.word),
     };
   });
 }
@@ -119,6 +122,7 @@ export async function wordDetail(sql: Sql, owner: string, word: string, at = Dat
     pinyin: w.pinyin,
     defs: w.defs,
     hsk: hskOf(w.lists ?? []),
+    longku: (await longkuWords(sql, owner, [w.word])).has(w.word),
     cards: cards.map((c) => {
       const schedule = scheduleOf(c);
       const here = answers.filter((a) => a.card === c.id);

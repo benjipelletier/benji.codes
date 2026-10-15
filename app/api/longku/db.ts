@@ -1,21 +1,13 @@
 import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
 /**
- * Connection string, however it got here.
- *
- * The Neon ↔ Vercel integration prefixes every variable it injects with the
- * store name, so a store called LONGKU_DATABASE yields LONGKU_DATABASE_DATABASE_URL
- * rather than the LONGKU_DATABASE_URL the repo convention would suggest.
- * Accept both, plus the POSTGRES_URL alias, so wiring this up doesn't depend on
- * having renamed anything by hand.
+ * 龙库's database is 重复习's: its tables (longku_bank, longku_review,
+ * longku_sweep, longku_excluded) live beside the deck they are linked to (see
+ * app/api/chongfuxi/longku.ts). Its own old store, LONGKU_DATABASE_*, is no
+ * longer read; it holds the data as it was before the move.
  */
 function connectionString(): string | undefined {
-  return (
-    process.env.LONGKU_DATABASE_URL ||
-    process.env.LONGKU_DATABASE_DATABASE_URL ||
-    process.env.LONGKU_DATABASE_POSTGRES_URL ||
-    undefined
-  );
+  return process.env.CHONGFUXI_DATABASE_URL || undefined;
 }
 
 // Lazy so the env var isn't read at build time.
