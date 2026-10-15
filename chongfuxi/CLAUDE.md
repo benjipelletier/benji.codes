@@ -43,7 +43,8 @@ app is where they are reviewed. Route: `/chongfuxi`.
 The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
-- Navigation is a bottom tab bar (thumb reach): Review, Cards, Stats, Import.
+- Navigation is a bottom tab bar (thumb reach): Review, Cards, Look up (the
+  owner's only), Stats, Import.
   The header holds the title and one quiet line (`Glance` in
   `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
   and the share of sentences readable, each with its Chinese unit (词 字 句) in
@@ -125,7 +126,7 @@ rejected as too themed. Keep it that way:
   schoolbook or paper motifs.
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
   character of the tab's Chinese name set over it on a halo, in LXGW WenKai
-  (a modern regular script, the one exception to the sans: only 复卡统入 are
+  (a modern regular script, the one exception to the sans: only 复卡查统入 are
   fetched, so a new tab character must be added to the URL in the layout), and the English
   small beneath; the current tab sits on a pill.
 - A review session takes the whole screen: the shell hides its header and
@@ -220,18 +221,20 @@ through the same functions the routes call.
 
 Next:
 - **Look up**, a fifth tab: a dictionary that answers "what do I say here"
-  from a phrase, led by the owner's own sentences. Planned, not built; see
-  Look up (planned) below.
+  from a phrase, led by the owner's own sentences. A proof of concept is
+  built (see Look up below); the test set decides what comes next.
 - **An agent** that sense-tags sentences and writes new ones, with an `edits`
   audit table. The Fix button it was meant to answer is gone; rethink its
   trigger before building it.
 - Later: auto-import through a self-hosted Anki sync server, "can I read
   this?" for arbitrary text, FSRS parameters fitted to the owner's log, export.
 
-## Look up (planned)
+## Look up
 
-Agreed with the owner in October 2026; nothing is built yet. A fifth tab, 查
-Look up, inside chongfuxi (not its own route), because it ties into the deck.
+Agreed with the owner in October 2026. A fifth tab, 查 Look up, inside
+chongfuxi (not its own route), because it ties into the deck. A proof of
+concept is built (Proof of concept, below); the rest of this section is the
+plan it starts on.
 
 **Why.** Pleco answers "what does this word mean". Looking up "trauma" there
 gives ten headwords in a flat list (创伤, 外伤, 损伤, 伤损, 硬伤…) and no way
@@ -337,18 +340,88 @@ saves the phrase as a card ("develop (an illness)" → 得了抑郁症), so the
 usage is reviewed, not just the word. Later: Android share target (select
 text in any app → Share → 重复习), follow-up questions on an answer.
 
+### Proof of concept (October 2026)
+
+Built on the owner's corpus alone, since that is what answers lead with:
+
+- `app/api/chongfuxi/lookup-evidence.ts`: the evidence, as functions over
+  the database and CC-CEDICT. `searchSentences` (the owner's sentences by
+  English words in the translation, any form, and Chinese words in the
+  sentence), `neighbours` (the words just before or after a word, within
+  up to 3, by sentences: collocations from `chongfuxi_token`), `together`
+  (how often one word is followed by another), `dictionary` (entries, deck
+  standing and strength, corpus count) and `englishCandidates` (headwords
+  whose senses say the English, `englishToChinese` in `headwords.ts`,
+  ranked by corpus count). Each records what it returned (`Seen`).
+- `app/api/chongfuxi/lookup.ts`: one call through the SDK's tool runner,
+  the evidence as tools the model picks from, the answer in a fixed shape
+  (`ANSWER_SCHEMA`, structured output). Kept in `chongfuxi_lookup` (made on
+  first use): a cache, and with the owner's Right / Wrong and note, the test
+  set. Route `lookup` (owner only: GET the history, POST `{ q, fresh? }` or
+  `{ q, verdict, note }`).
+- `app/api/chongfuxi/lookup-check.ts`: the check. Pinyin from our readings;
+  an option must be a headword, a pattern of headwords, or split into at
+  least one real word (nearly every character is a headword, so two lone
+  ones don't count); a cited count must be one a tool returned for that word,
+  a pair with it, or part of it (得 for 得了); an example must be a sentence a
+  tool returned. Anything else is shown as the model's own or dropped, and
+  listed under "What the check changed". `scripts/check-lookup.ts` tests it
+  without a database or model.
+- `components/LookupPanel.tsx`: the question; how it was read (the asked
+  part in blue) and the kind; the phrase with its gap filled by the word
+  tapped (green, or struck through red with the reason); Fits with each
+  point labelled by source (your sentences · count, dictionary, deck,
+  model); Close, but no with a wrong and a right sentence; the owner's
+  sentences as examples; sentences the model wrote, labelled; Was this
+  right?; the history with its verdicts.
+- Config: `CHONGFUXI_LOOKUP_MODEL` (default `claude-opus-5-5`),
+  `CHONGFUXI_LOOKUP_EFFORT` (default `medium`), and
+  `CHONGFUXI_ANTHROPIC_API_KEY` or the site's `ANTHROPIC_API_KEY`. The
+  answer's check list ends with its estimated cost. On Claude models that
+  offer it, a refusal falls back server-side (`fallbacks: "default"`).
+- Not yet exercised against the real database or a real model: the session
+  that built it had neither. Run a few lookups first and read "What the check
+  changed".
+
 ### Open questions
 
-- **The bigger corpus.** Candidates: Tatoeba (zh–en pairs, ~70k; licence to
-  confirm), Chinese Wikipedia (written only; CC BY-SA), subtitles via OPUS
-  (spoken, zh–en; licence unclear), Leipzig news/web corpora (licence to
-  check). Collocation table built offline by a Python script (segmenter
-  with part-of-speech tags), keeping pairs whose words are CC-CEDICT
-  headwords. Check each licence before use.
+- **The bigger corpus.** Looked at in October 2026 (from search results;
+  the sites themselves couldn't be reached from the cloud session):
+  - *Tatoeba*: about 89k Mandarin sentences (89,134 in an October 2026
+    parse), short and everyday, most with English. CC BY 2.0 FR, some CC0;
+    per-language and pair exports on tatoeba.org. The cmn–eng pair count
+    needs the export. Clearest licence and has translations: first choice.
+  - *Leipzig Corpora Collection*: news and web sentences by language and
+    size; downloads are CC BY by its terms page (other uses CC BY-NC). No
+    translations. Good for collocation counts in written Chinese.
+  - *OPUS OpenSubtitles v2024*: spoken, zh_CN–en, about 22M pairs (a
+    third-party figure); no licence stated, OPUS disclaims owning the text,
+    attribution to opensubtitles.org asked. Counts only, never shown, if at
+    all.
+  - *Chinese Wikipedia*: CC BY-SA 4.0, written and formal, no translations;
+    large dumps to process offline.
+  - Also seen: BCC (BLCU, 15 billion characters, online search, frequency
+    lists with unclear terms), Chinese Gigaword (LDC, paid), zhTenTen
+    word sketches (Sketch Engine, paid; exactly collocations by grammatical
+    relation, the gold standard if ever worth paying for).
+  A cloud session needs these hosts allowed in its environment's network
+  settings to fetch them.
 - **Phrase cards** from Learn: a new card kind, or Recall cards with a
-  phrase prompt.
-- **API key:** riddleyu's Anthropic key or a separate
-  `CHONGFUXI_ANTHROPIC_API_KEY`.
+  phrase prompt. It only matters once Learn is built: a new kind touches the
+  schema, dealing, the session screens, Stats and `check-review.ts`; a Recall
+  card per phrase reuses all of that but is keyed by word, and one word can
+  have several phrases. Not needed for the proof of concept.
+- **The model.** Claude, for now: Claude Haiku 5.5 ($0.10 / $0.50 per
+  million tokens) is as cheap as the cheap Chinese-first models (DeepSeek V4
+  Flash, Qwen Flash, Gemini Flash-Lite, all roughly $0.10–0.30 in and
+  $0.40–1.20 out by October 2026 aggregators), so price is no reason to
+  switch; the tool runner, structured output and fallbacks are already
+  wired. A lookup is several calls (about 30k tokens in, 2–3k out): roughly
+  $0.15 on Opus 5.5, $0.08 on Sonnet 5.5, under a cent on Haiku 5.5. Which
+  is good enough is for the test set to decide: run the same lookups with
+  `CHONGFUXI_LOOKUP_MODEL` set to each and compare verdicts. A Chinese-first
+  model would mean a second SDK; worth it only if Claude misses on
+  collocation nuance the evidence can't fix.
 - **The test set.** Over about a month the owner is collecting what they'd
   type, each with the situation (the sentence meant) and what was used in
   the end, ideally tagged with a kind from the table. Every entry gets run
@@ -921,7 +994,7 @@ so scripts run the same code as routes):
   `?list=`; POST the steps taken, owner).
 - Routes: `summary`, `session`, `sentences`, `sentence`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
-  `imports/[id]/ingest` (owner).
+  `imports/[id]/ingest`, `lookup` (owner).
 - `next.config.ts` keeps `sql.js` external and traces its wasm and the
   dictionary into the ingest route.
 
@@ -929,7 +1002,7 @@ Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
 the session), `Learn` (the ladder: `useLadder` for the session, and a list's
 drill), `CardsPanel` (`WordsPanel`, `SentencesPanel` with its sentence
 page and `UnlockPanel`'s Unlock next page and blocker sheet, `ListsPanel`),
-`StatsPanel`, `ImportPanel`. `Sheet` in `shared.tsx` is the sheet over the
+`LookupPanel` (Look up), `StatsPanel`, `ImportPanel`. `Sheet` in `shared.tsx` is the sheet over the
 page (back, Escape, a tap outside close it).
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
@@ -950,6 +1023,7 @@ Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
 - `ingest-anki.ts <deck.apkg | collection.anki21> [--dry-run]` — add an Anki
   deck's sentences.
 - `check-import.ts <file>` — read and sort a Pleco file, write nothing.
+- `check-lookup.ts` (no database) — Look up's check, on a made-up answer.
 - `bugs.ts [--all] [--close <id> <status> <note>]` — pull the bugs filed from
   the app into `.bugs/` (see Bug reports).
 - `build-dict.ts <cedict.txt>` — rebuild `data/cedict.txt`.

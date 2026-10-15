@@ -28,6 +28,10 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/lists": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
     // Its headwords, for picking the sentences a word card is shown in.
     "/api/chongfuxi/session": ["./chongfuxi/data/cedict.txt"],
+    // A sentence's words, read from the dictionary when the deck has none.
+    "/api/chongfuxi/sentence": ["./chongfuxi/data/cedict.txt"],
+    // Look up: the dictionary both ways, and the readings of every option.
+    "/api/chongfuxi/lookup": ["./chongfuxi/data/cedict.txt"],
     // Removing a word, or undoing an addition, unlinks it from 龙库.
     "/api/chongfuxi/word": ["./longku/data/chengyu.json"],
     "/api/chongfuxi/additions/[id]": ["./longku/data/chengyu.json"],

@@ -82,3 +82,39 @@ export function dictEntry(word: string, want?: string): Looked | undefined {
   const kept = senses.filter((s) => !POINTER.test(s));
   return { p, gloss: (kept.length ? kept : senses).slice(0, 2).join("; ") || null };
 }
+
+/** Every entry of a headword: its reading and senses. Empty when it isn't one. */
+export function dictEntries(word: string): Array<{ p: string; senses: string[] }> {
+  if (!entries) load();
+  return (entries!.get(word) ?? []).map((e) => ({ p: e.p, senses: e.senses.split("/").filter(Boolean) }));
+}
+
+/**
+ * Headwords whose senses say this English word or phrase, best first: a sense
+ * that is exactly it ("to develop"), then one that starts with it, then one
+ * that has it as a whole word somewhere. Names and pointer senses are skipped.
+ * For "what do I say here": the candidates before the corpus decides.
+ */
+export function englishToChinese(english: string, limit = 40): Array<{ word: string; p: string; sense: string; score: number }> {
+  if (!entries) load();
+  const phrase = english.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!phrase) return [];
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const whole = new RegExp(`\\b${escaped}`, "i");
+  const best = new Map<string, { word: string; p: string; sense: string; score: number }>();
+  for (const [word, list] of entries!) {
+    for (const e of list) {
+      if (/^[A-Z]/.test(e.p)) continue;
+      for (const raw of e.senses.split("/")) {
+        if (!raw || POINTER.test(raw)) continue;
+        const sense = raw.toLowerCase().replace(/\([^)]*\)/g, "").replace(/^to /, "").trim();
+        const score = sense === phrase ? 3 : sense.startsWith(phrase) ? 2 : whole.test(raw) ? 1 : 0;
+        if (!score) continue;
+        const had = best.get(word);
+        // Shorter senses say it more squarely: "to develop" over "to develop a film".
+        if (!had || score > had.score || (score === had.score && raw.length < had.sense.length)) best.set(word, { word, p: e.p, sense: raw, score });
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) => b.score - a.score || [...a.word].length - [...b.word].length).slice(0, limit);
+}

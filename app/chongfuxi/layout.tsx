@@ -10,8 +10,8 @@ const latin = Inter({ subsets: ["latin", "latin-ext"], variable: "--cf-font-lati
 // Served in unicode-range slices: only the characters on screen are fetched.
 const han = Noto_Sans_SC({ preload: false, variable: "--cf-font-han", display: "swap" });
 // The tab icons' characters in LXGW WenKai (霞鹜文楷), a modern regular script.
-// Four characters, so only those are fetched: a few KB, not the whole face.
-const TAB_GLYPHS = `https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&text=${encodeURIComponent("复卡统入")}&display=block`;
+// Five characters, so only those are fetched: a few KB, not the whole face.
+const TAB_GLYPHS = `https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&text=${encodeURIComponent("复卡查统入")}&display=block`;
 
 export const metadata: Metadata = {
   title: "重复习 · Pleco-driven review",

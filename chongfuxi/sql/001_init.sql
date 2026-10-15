@@ -427,3 +427,21 @@ create table if not exists chongfuxi_text (
 );
 
 create index if not exists chongfuxi_text_owner on chongfuxi_text (owner_email, at desc);
+
+-- ------------------------------------------------------------- look up --
+
+-- Look up's answers (app/api/chongfuxi/lookup.ts), one per question as typed
+-- (lower case, single spaces): a cache, since each costs model calls, and
+-- with the owner's verdict the test set that decides what is built next.
+-- Also made on first use.
+create table if not exists chongfuxi_lookup (
+  owner_email text        not null,
+  query       text        not null,
+  at          timestamptz not null default now(),
+  model       text        not null,
+  kind        text,
+  answer      jsonb       not null,
+  verdict     text,
+  note        text,
+  primary key (owner_email, query)
+);

@@ -11,6 +11,7 @@ import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
 import { ImportPanel, type ImportPage } from "./ImportPanel";
+import { LookupPanel } from "./LookupPanel";
 import { Account } from "./Account";
 import { BugButton } from "./BugReport";
 import { SyncPage } from "./SyncPage";
@@ -21,14 +22,16 @@ import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
 import { Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
-type Tab = "review" | "cards" | "stats" | "import";
+type Tab = "review" | "cards" | "lookup" | "stats" | "import";
 
-// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 统计, 导入.
+// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 查, 统计, 导入.
 const OFFLINE = "No connection: these counts may be out of date.";
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "review", label: "Review" },
   { key: "cards", label: "Cards" },
+  // The owner's only: every lookup asks a model.
+  { key: "lookup", label: "Look up" },
   { key: "stats", label: "Stats" },
   { key: "import", label: "Import" },
 ];
@@ -142,6 +145,7 @@ export function ChongfuxiApp() {
         )}
         {summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "pleco")} />}
         {summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
+        {summary?.viewer.configured && tab === "lookup" && <LookupPanel shell={shell} />}
         {summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
         {summary && tab === "import" && <ImportPanel shell={shell} start={importPage} />}
       </main>
@@ -164,7 +168,7 @@ export function ChongfuxiApp() {
 
       {/* At the bottom, where a thumb reaches on a phone. */}
       <nav className="cf-tabs">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.key !== "lookup" || canWrite).map((t) => (
           <button
             key={t.key}
             className={`cf-tab${tab === t.key ? " is-on" : ""}`}

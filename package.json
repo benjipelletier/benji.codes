@@ -8,7 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.40.0",
+    "@anthropic-ai/sdk": "^0.131.0",
     "@neondatabase/auth": "^0.4.1-beta",
     "@neondatabase/serverless": "^1.0.2",
     "@vercel/analytics": "^2.0.1",

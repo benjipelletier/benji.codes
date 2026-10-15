@@ -622,3 +622,65 @@ export interface BugReport {
   note: string | null;
   closedAt: number | null;
 }
+
+/** The kinds of question Look up answers (chongfuxi/CLAUDE.md, Look up). */
+export type LookupKind = "pairing" | "meaning" | "synonyms" | "tone" | "pattern" | "expression" | "reading";
+
+/** What an option is judged on. */
+export type LookupPoint = "meaning" | "pairing" | "grammar" | "register" | "tone" | "frequency";
+
+/** Where a judgment came from. "model" is the model's own knowledge, shown as such. */
+export type LookupSource = "corpus" | "dictionary" | "deck" | "model";
+
+/** One of the owner's sentences, as evidence. */
+export interface LookupSentence {
+  id: number;
+  zh: string;
+  en: string | null;
+  readable: boolean;
+}
+
+/** One answer to "what do I say here", after the check: every fact in it traced to the evidence. */
+export interface LookupAnswer {
+  query: string;
+  /** The model that answered, and when. */
+  model: string;
+  at: number;
+  /** How the query was read: its parts, which of them is the question, and what kind of question it is. */
+  reading: { parts: Array<{ text: string; asked: boolean }>; kind: LookupKind; note: string };
+  /** The Chinese phrase with ___ where the asked part goes; empty when the question has no single gap. */
+  frame: string;
+  /** For a word with several meanings: which words go with which. Empty otherwise. */
+  senses: Array<{ label: string; words: string[] }>;
+  options: Array<{
+    zh: string;
+    /** From the dictionary (our readings code), never from the model. */
+    pinyin: string | null;
+    gloss: string | null;
+    inDictionary: boolean;
+    fits: boolean;
+    /** One line: why it fits, or why not. */
+    verdict: string;
+    points: Array<{ point: LookupPoint; says: string; source: LookupSource; count: number | null; checked: boolean }>;
+    /** The owner's sentences that show it, as the tools returned them. */
+    examples: LookupSentence[];
+    /** For one that doesn't fit: the wrong sentence and the right one. */
+    wrong: string;
+    right: string;
+  }>;
+  /** Example sentences the model wrote itself, labelled as such. */
+  written: Array<{ zh: string; en: string }>;
+  summary: string;
+  /** What the check took out or marked, and why. */
+  checks: string[];
+  usage: { input: number; output: number; calls: number };
+}
+
+/** A lookup in the history, with the owner's verdict on it. */
+export interface LookupListed {
+  query: string;
+  at: number;
+  kind: LookupKind | null;
+  verdict: "right" | "wrong" | null;
+  note: string | null;
+}

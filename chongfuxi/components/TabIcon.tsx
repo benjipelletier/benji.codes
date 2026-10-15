@@ -2,11 +2,12 @@
 // its Chinese name set over it. The character carries a halo in the colour
 // behind it (--cf-tab-halo), so it reads where it crosses a line.
 
-export type TabIconKind = "review" | "cards" | "stats" | "import";
+export type TabIconKind = "review" | "cards" | "lookup" | "stats" | "import";
 
 const GLYPH: Record<TabIconKind, { zh: string; x: number; y: number; size: number }> = {
   review: { zh: "复", x: 16, y: 16.5, size: 16.5 },
   cards: { zh: "卡", x: 14.5, y: 18.5, size: 16 },
+  lookup: { zh: "查", x: 13.5, y: 13.5, size: 13.5 },
   stats: { zh: "统", x: 11, y: 11.5, size: 16.5 },
   import: { zh: "入", x: 16, y: 10, size: 17 },
 };
@@ -27,6 +28,14 @@ function Drawing({ kind }: { kind: TabIconKind }) {
         <>
           <rect x="10" y="3" width="16" height="21" rx="3" transform="rotate(10 18 13.5)" className="cf-ti-back" />
           <rect x="6" y="8" width="17" height="21" rx="3" className="cf-ti-face" />
+        </>
+      );
+    // A lens with its handle, the character inside it.
+    case "lookup":
+      return (
+        <>
+          <circle cx="13.5" cy="13.5" r="10" className="cf-ti-face" />
+          <path d="M21 21l6.5 6.5" />
         </>
       );
     // Bars rising to the right, on a baseline.
