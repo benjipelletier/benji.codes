@@ -228,6 +228,8 @@ export interface QueueOptions {
   recall?: boolean;
   /** Leave sentence cards out, new ones included. */
   sentences?: boolean;
+  /** Only the word cards of this list (and the lists under it, or 龙库); no sentences. */
+  list?: string;
   at?: number;
 }
 
@@ -242,6 +244,7 @@ export interface QueueOptions {
 export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: QueueOptions): Promise<SessionCard[]> {
   const at = o.at ?? Date.now();
   const cutoff = day.cutoff;
+  const inList = o.list === undefined ? null : onList(o.list, "c.word", 9);
 
   const words = (await sql.query(
     `select ${CARD_COLUMNS}
@@ -254,6 +257,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
          select 1 from chongfuxi_review r
          where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
        )
+       ${inList ? `and ${inList.where}` : ""}
      order by ${LEAST_LIKELY_FIRST("$8", "$5")}
      limit $6`,
     [
@@ -265,12 +269,14 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
       o.limit * 4,
       [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
       at,
+      ...(inList?.params ?? []),
     ],
   )) as unknown as CardRow[];
   const seen = new Set<string>();
   const wordCards = words.filter((c) => !seen.has(c.word!) && seen.add(c.word!));
 
-  const withSentences = o.sentences !== false;
+  // A list's review is its words only.
+  const withSentences = o.sentences !== false && !inList;
   const dueSentences = !withSentences ? [] : (await sql.query(
     `select ${CARD_COLUMNS}
      from chongfuxi_card c
@@ -1273,29 +1279,76 @@ const underList = (list: string) => `${list.replace(/[\\%_]/g, "\\$&")}/%`;
 const LISTS_HIDDEN = /npcr|成语/i;
 
 /**
+ * Words with a Read or Recall card a session would deal today: due before
+ * the day ends, the word not answered yet today (one card a word a day).
+ */
+const DUE_WORDS = `
+  select distinct c.word from chongfuxi_card c
+  where c.owner_email = $1 and c.kind in ('read', 'produce') and ${ACTIVE}
+    and c.due <= to_timestamp($2::double precision / 1000)
+    and not exists (
+      select 1 from chongfuxi_review r
+      where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word
+    )`;
+
+/**
  * Every Pleco word list and every category above one, as Pleco shows them
  * (HSK标准教程 › HSK标准教程5 › 第24课), with how many of their words are in
- * the deck. A word filed under two lessons of a book counts once in the book.
+ * the deck and, given the study day, how many are due. A word filed under
+ * two lessons of a book counts once in the book.
  */
-export async function listTree(sql: Sql, owner: string): Promise<ListNode[]> {
-  const rows = (await sql`
-    select x.p as list, count(distinct w.word)::int as total,
-           count(distinct w.word) filter (where w.status = 'deck')::int as in_deck
-    from chongfuxi_word w
-    cross join unnest(w.lists) l
-    cross join lateral (
-      select array_to_string((string_to_array(l, '/'))[1:n], '/') as p
-      from generate_series(1, cardinality(string_to_array(l, '/'))) n
-    ) x
-    where w.owner_email = ${owner}
-    group by x.p
-  `) as unknown as Array<{ list: string; total: number; in_deck: number }>;
-  const longku = (await sql`select count(*)::int as n from longku_bank where owner_email = ${owner}`) as unknown as Array<{ n: number }>;
+export async function listTree(sql: Sql, owner: string, day: StudyDay | null = null): Promise<ListNode[]> {
+  // Without a day, nothing counts as due.
+  const dayParams = [owner, day?.cutoff ?? 0, day?.day ?? "1970-01-01"];
+  const rows = (await sql.query(
+    `with due as (${DUE_WORDS})
+     select x.p as list, count(distinct w.word)::int as total,
+            count(distinct w.word) filter (where w.status = 'deck')::int as in_deck,
+            count(distinct d.word)::int as due
+     from chongfuxi_word w
+     left join due d on d.word = w.word
+     cross join unnest(w.lists) l
+     cross join lateral (
+       select array_to_string((string_to_array(l, '/'))[1:n], '/') as p
+       from generate_series(1, cardinality(string_to_array(l, '/'))) n
+     ) x
+     where w.owner_email = $1
+     group by x.p`,
+    dayParams,
+  )) as unknown as Array<{ list: string; total: number; in_deck: number; due: number }>;
+  const longku = (await sql.query(
+    `with due as (${DUE_WORDS})
+     select count(*)::int as n, count(d.word)::int as due
+     from longku_bank b left join due d on d.word = b.w
+     where b.owner_email = $1`,
+    dayParams,
+  )) as unknown as Array<{ n: number; due: number }>;
   return [
     // 龙库's chengyu: every one a deck word, kept in step with 龙库 (longku.ts).
-    ...(longku[0].n ? [{ list: LONGKU_LIST, total: longku[0].n, inDeck: longku[0].n, linked: "longku" as const }] : []),
-    ...rows.filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0])).map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck })),
+    ...(longku[0].n
+      ? [{ list: LONGKU_LIST, total: longku[0].n, inDeck: longku[0].n, due: longku[0].due, linked: "longku" as const }]
+      : []),
+    ...rows
+      .filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0]))
+      .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck, due: r.due })),
   ];
+}
+
+/**
+ * A condition that the word in `column` is on a list (or a list under it, or
+ * 龙库), with its parameters numbered from `from`.
+ */
+function onList(list: string, column: string, from: number): { where: string; params: string[] } {
+  if (list === LONGKU_LIST) {
+    return { where: `exists (select 1 from longku_bank b where b.owner_email = $1 and b.w = ${column})`, params: [] };
+  }
+  return {
+    where: `exists (
+      select 1 from chongfuxi_word lw cross join unnest(lw.lists) l
+      where lw.owner_email = $1 and lw.word = ${column} and (l = $${from} or l like $${from + 1})
+    )`,
+    params: [list, underList(list)],
+  };
 }
 
 /** The list name 龙库's chengyu go under. */

@@ -412,19 +412,35 @@ function Today({
   );
 }
 
-function Session({
+/** A list's own review, from Cards › Lists: its words' Read and Recall cards, nothing else. */
+export interface ListReview {
+  list: string;
+  /** Its words due when it began. */
+  due: number;
+}
+
+/** A list's review takes both kinds of word card and no sentences. */
+const LIST_KINDS: SessionKinds = { read: true, recall: true, sentences: false };
+
+export function Session({
   shell,
-  kinds,
+  kinds: chosen,
   onEnd,
-  saved,
+  saved: kept,
+  list = null,
 }: {
   shell: Shell;
-  kinds: SessionKinds;
+  /** What to include; a list's review sets its own. */
+  kinds?: SessionKinds;
   onEnd: () => void;
   /** Where this session was left today, to carry on from. */
-  saved: resume.SessionResume | null;
+  saved?: resume.SessionResume | null;
+  /** Only this list's words. Not kept to carry on from: the day's session is. */
+  list?: ListReview | null;
 }) {
   const { summary, canWrite, refresh } = shell;
+  const kinds = list ? LIST_KINDS : (chosen ?? EVERYTHING);
+  const saved = list ? null : (kept ?? null);
   // Carried on: the cards that were in hand, less any kind left out since.
   const [queue, setQueue] = useState<SessionCard[]>(() =>
     (saved?.queue ?? []).filter((c) =>
@@ -486,6 +502,7 @@ function Session({
         read: kinds.read ? undefined : 0,
         recall: kinds.recall ? undefined : 0,
         sentences: kinds.sentences ? undefined : 0,
+        list: list?.list,
       });
       if (!cards.length) exhausted.current = true;
       // The same card can't be in hand twice, whatever the timing.
@@ -503,7 +520,7 @@ function Session({
     } finally {
       loading.current = false;
     }
-  }, [kinds]);
+  }, [kinds, list?.list]);
 
   useEffect(() => {
     if (queue.length <= REFILL_AT) void refill();
@@ -512,6 +529,7 @@ function Session({
   // Kept on the device as it goes, so leaving or closing the site loses
   // nothing: the cards in hand (less one answered and on its way out), how far in.
   useEffect(() => {
+    if (list) return;
     resume.save("session", {
       open: true,
       session: session.current,
@@ -523,11 +541,11 @@ function Session({
       recentIds: recentIds.current,
       recentWords: recentWords.current,
     });
-  }, [queue, answered, kinds]);
+  }, [queue, answered, kinds, list]);
   // Finished: nothing to carry on.
   useEffect(() => {
-    if (status === "empty" && !queue.length) resume.clear("session");
-  }, [status, queue.length]);
+    if (!list && status === "empty" && !queue.length) resume.clear("session");
+  }, [status, queue.length, list]);
 
   // For a bug filed now: the card on screen.
   useEffect(() => {
@@ -715,7 +733,11 @@ function Session({
   };
 
   const words = summary ? wordsDue(summary, kinds) : 0;
-  const left = summary ? words + (kinds.sentences ? summary.dueSentences + summary.newLeftToday : 0) : 0;
+  const left = list
+    ? Math.max(0, list.due - answered)
+    : summary
+      ? words + (kinds.sentences ? summary.dueSentences + summary.newLeftToday : 0)
+      : 0;
   const progress = answered + left ? (100 * answered) / (answered + left) : 0;
 
   return (
@@ -726,6 +748,7 @@ function Session({
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" fill="none" />
           </svg>
         </button>
+        {list && <span className="cf-session-list cf-zh">{list.list.slice(list.list.lastIndexOf("/") + 1)}</span>}
         <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
           <i style={{ width: `${progress}%` }} />
         </div>
@@ -741,7 +764,7 @@ function Session({
           <p className="cf-done-zh">完</p>
           <p className="cf-muted">
             {answered > 0 ? `${fmt(answered)} answered. ` : ""}
-            {left > 0 ? "That's everything in hand." : "Nothing more due today."}
+            {left > 0 ? "That's everything in hand." : list ? "Nothing more due on this list today." : "Nothing more due today."}
           </p>
           <button className="cf-btn" onClick={onEnd}>
             Back to today

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AdditionError, addList } from "../additions";
 import { loadDict } from "../dictfile";
 import { ownerOnly, ownersLog } from "../guard";
-import { bad, body } from "../params";
+import { bad, body, dayFrom } from "../params";
 import { listTree, listWords } from "../review";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   if ("refused" in gate) return gate.refused;
   const p = req.nextUrl.searchParams;
   const list = p.get("list");
-  if (!list) return NextResponse.json({ lists: await listTree(gate.sql, gate.owner) });
+  // With the study day, each list says how many of its words are due.
+  if (!list) return NextResponse.json({ lists: await listTree(gate.sql, gate.owner, dayFrom(req)) });
   const words = await listWords(
     gate.sql,
     gate.owner,

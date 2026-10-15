@@ -611,6 +611,15 @@ Keep and Undo, as a sync's do. NPCR and 成语 are left off the screen
 whole scheme is refused and a lesson or level isn't. Routes: `lists` (GET
 the tree, or `?list=` its words; POST to add, owner).
 
+Each list also shows how many of its words are due today (words with a Read
+or Recall card a session would deal: due before the day ends, not answered
+yet today), and a list with any has "Review N due": a session of only that
+list's word cards, Read and Recall whatever Today's choices, no sentences
+(`list` on `session`; `onList` in `app/api/chongfuxi/review.ts`, 龙库 by
+`longku_bank`). It takes the whole screen like any session and closes back
+onto the same list. It isn't kept to carry on from, so it never replaces the
+day's own session; its answers go through the outbox as any others.
+
 ## Bug reports
 
 The owner files bugs from any screen: a slim tab on the right edge (owner

@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     read: p.get("read") !== "0",
     recall: p.get("recall") !== "0",
     sentences: p.get("sentences") !== "0",
+    list: p.get("list") || undefined,
   });
   return NextResponse.json({ cards });
 }

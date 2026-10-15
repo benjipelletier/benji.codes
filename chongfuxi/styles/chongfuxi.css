@@ -1224,6 +1224,19 @@ label.cf-kind {
   transition: width 0.3s ease;
 }
 
+/* Which list a list's review is of. */
+.cf-session-list {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
 .cf-left {
   min-width: 44px;
   text-align: right;
@@ -4167,9 +4180,14 @@ button.cf-synclog-row {
   margin: 10px 0 0;
 }
 
+.cf-list-review,
 .cf-list-add {
   width: 100%;
   margin-top: 14px;
+}
+
+.cf-list-review + .cf-list-add {
+  margin-top: 8px;
 }
 
 .cf-list-bar {
@@ -4230,6 +4248,21 @@ button.cf-synclog-row {
   grid-area: count;
   font-size: 13px;
   color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Words due today, beside the bar, in the colour of the Read cards they mostly are. */
+.cf-list-rows button.has-due {
+  grid-template-areas: "name count go" "bar due go";
+}
+
+.cf-list-due {
+  grid-area: due;
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--cf-read);
   font-variant-numeric: tabular-nums;
 }
 

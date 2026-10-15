@@ -412,6 +412,8 @@ export interface ListNode {
   list: string;
   total: number;
   inDeck: number;
+  /** Its words a session would deal today (one card a word). */
+  due: number;
   /** A list another app keeps: "龙库" is the chengyu 龙库 plays, linked both ways. */
   linked?: "longku";
 }

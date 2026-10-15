@@ -7,14 +7,15 @@
 //
 // The lists came in with the Pleco backup: each word row knows the lists it
 // is filed under. Adding is one addition, shown at once with Keep and Undo,
-// as a sync's new words are.
+// as a sync's new words are. A list with words due can be reviewed on its own.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
-import { get, send } from "@chongfuxi/lib/client";
+import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { AdditionDetails } from "./NewWords";
+import type { ListReview } from "./ReviewPanel";
 import { BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
@@ -26,7 +27,17 @@ const parentOf = (list: string) => (list.includes("/") ? list.slice(0, list.last
 /** 第9课 before 第10课, Level 2 before Level 10. */
 const natural = (a: string, b: string) => a.localeCompare(b, "zh-Hans-CN", { numeric: true });
 
-export function ListsPanel({ shell }: { shell: Shell }) {
+export function ListsPanel({
+  shell,
+  onReview,
+  reviewed = 0,
+}: {
+  shell: Shell;
+  /** Review a list's due words on their own. */
+  onReview?: (r: ListReview) => void;
+  /** Counts up as each list review ends, so the due counts are read again. */
+  reviewed?: number;
+}) {
   const { canWrite, refresh } = shell;
   const [nodes, setNodes] = useState<ListNode[] | null>(null);
   const [at, setAt] = useState("");
@@ -38,11 +49,11 @@ export function ListsPanel({ shell }: { shell: Shell }) {
   const [added, setAdded] = useState<Addition | null>(null);
 
   const loadTree = useCallback(() => {
-    get<{ lists: ListNode[] }>("lists")
+    get<{ lists: ListNode[] }>("lists", today())
       .then((r) => setNodes(r.lists))
       .catch((e) => setError(message(e)));
   }, []);
-  useEffect(loadTree, [loadTree]);
+  useEffect(loadTree, [loadTree, reviewed]);
 
   const byList = useMemo(() => new Map((nodes ?? []).map((n) => [n.list, n])), [nodes]);
   const children = useMemo(
@@ -148,9 +159,18 @@ export function ListsPanel({ shell }: { shell: Shell }) {
             {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
           </p>
           <Bar node={here} />
+          {canWrite && onReview && here.due > 0 && (
+            <button className="cf-btn cf-list-review" onClick={() => onReview({ list: at, due: here.due })}>
+              Review {fmt(here.due)} due
+            </button>
+          )}
           {canWrite && missing > 0 && (
             <>
-              <button className="cf-btn cf-list-add" disabled={busy || toAdd <= 0 || toAdd > ADD_MAX} onClick={() => void add()}>
+              <button
+                className={`cf-btn cf-list-add${onReview && here.due > 0 ? " cf-btn-ghost" : ""}`}
+                disabled={busy || toAdd <= 0 || toAdd > ADD_MAX}
+                onClick={() => void add()}
+              >
                 {busy ? "Adding…" : `Add ${fmt(toAdd)} ${toAdd === 1 ? "word" : "words"} to the deck`}
               </button>
               {toAdd > ADD_MAX && (
@@ -167,7 +187,7 @@ export function ListsPanel({ shell }: { shell: Shell }) {
         <ul className="cf-list-rows">
           {children.map((n) => (
             <li key={n.list}>
-              <button onClick={() => go(n.list)}>
+              <button className={n.due > 0 ? "has-due" : undefined} onClick={() => go(n.list)}>
                 <span className="cf-list-name cf-zh">
                   {nameOf(n.list)}
                   {n.linked === "longku" && <span className="cf-list-linked">linked to 龙库</span>}
@@ -177,6 +197,7 @@ export function ListsPanel({ shell }: { shell: Shell }) {
                   {fmt(n.total)}
                 </span>
                 <Bar node={n} />
+                {n.due > 0 && <b className="cf-list-due">{fmt(n.due)} due</b>}
                 <i className="cf-list-go" aria-hidden="true">
                   ›
                 </i>
