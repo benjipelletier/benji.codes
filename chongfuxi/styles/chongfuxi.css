@@ -5122,3 +5122,284 @@ button.cf-synclog-row {
 .cf-learn .cf-progress i {
   background: var(--cf-new);
 }
+
+/* ------------------------------------------------------- text analyser -- */
+
+.cf-an-text {
+  display: block;
+  margin-top: 10px;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.cf-an-url {
+  margin-top: 8px;
+}
+
+.cf-an-go {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.cf-an-history {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-an-history li {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-an-past {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-an-past .cf-zh {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.cf-an-past small {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cfx .cf-an-drop {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink-faint);
+  cursor: pointer;
+}
+
+.cf-an-sheet {
+  max-width: 640px;
+}
+
+.cf-an-head h2 {
+  margin: 0 40px 2px 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cf-an-head p {
+  margin: 0;
+}
+
+/* The score: the share of its words known, large; distinct words and sentences beside. */
+.cf-an-score {
+  margin: 16px 0 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--cf-rule);
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-an-pct {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+
+.cf-an-pct b {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-an-pct span {
+  color: var(--cf-ink-soft);
+}
+
+.cf-an-facts {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-an-facts b {
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+
+.cf-an-hsk {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 14px 0 0;
+  font-size: 12.5px;
+}
+
+.cf-an-level {
+  display: contents;
+}
+
+.cf-an-level-name {
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+}
+
+.cf-an-level-name.is-none {
+  color: var(--cf-ink-faint);
+}
+
+.cf-an-level-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+.cf-an-level-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--cf-up);
+}
+
+.cf-an-level-n {
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cf-an-sheet .cf-an-sub {
+  margin: 22px 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.cf-an-key {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-an-body p {
+  margin: 0 0 12px;
+  font-size: 18px;
+  line-height: 1.85;
+}
+
+/* A word in the text: known plain; still being learnt underlined; not known highlighted. */
+.cfx .cf-an-w {
+  display: inline;
+  padding: 0 1px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.cfx .cf-an-w.is-learning {
+  text-decoration: underline 2px color-mix(in srgb, var(--cf-read) 70%, transparent);
+  text-underline-offset: 4px;
+}
+
+.cfx .cf-an-w.is-unknown {
+  background: color-mix(in srgb, var(--cf-new) 22%, transparent);
+}
+
+.cfx .cf-an-w.is-ticked {
+  background: color-mix(in srgb, var(--cf-up) 28%, transparent);
+}
+
+.cfx .cf-an-w.is-picked {
+  outline: 2px solid var(--cf-accent);
+}
+
+.cf-an-key .cf-an-w {
+  cursor: default;
+}
+
+/* The word tapped: its reading and meaning, kept in view at the foot of the sheet. */
+.cf-an-picked {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 8px -18px 0;
+  padding: 10px 18px 12px;
+  background: var(--cf-surface);
+  border-top: 1px solid var(--cf-rule-strong);
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.cf-an-picked p {
+  margin: 0;
+}
+
+.cf-an-picked .cf-zh {
+  font-size: 22px;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.cf-an-picked-foot {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.cf-an-words .cf-kind {
+  min-height: 56px;
+}
+
+.cf-an-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-an-count small {
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-an-actions {
+  margin-top: 16px;
+}
+
+.cf-an-actions > .cf-btn {
+  width: 100%;
+}
+
+.cf-an-save {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cf-an-save .cf-btn {
+  flex: none;
+}

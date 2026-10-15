@@ -571,21 +571,31 @@ export async function sentenceDresser(
       `) as unknown as Array<{ id: number; words: string[] }>)
     : [];
   const wordsOf = new Map(tokenRows.map((t) => [t.id, t.words]));
-  // The reading and meaning of every word of those sentences, for a tap:
-  // the word's own row where it has one, the dictionary otherwise
-  // (lib/readings.ts).
-  const tokenWords = [...new Set(tokenRows.flatMap((t) => t.words))];
-  const tokenWordRows = tokenWords.length
+  const lookOf = await wordLooks(sql, owner, tokenRows.flatMap((t) => t.words));
+  return (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null => {
+    if (!s) return null;
+    const words = wordsOf.get(s.id) ?? [];
+    return { id: s.id, zh: zhShown(s.zh), en: s.en, words, looks: words.map(lookOf), sources: s.sources };
+  };
+}
+
+/**
+ * The reading and short meaning of each of these words, for a tap: the word's
+ * own row where it has one, the dictionary otherwise (lib/readings.ts).
+ */
+export async function wordLooks(sql: Sql, owner: string, words: string[]): Promise<(w: string) => Looked | null> {
+  const unique = [...new Set(words)];
+  const rows = unique.length
     ? new Map(
         ((await sql`
           select word, pinyin, defs from chongfuxi_word
           where owner_email = ${owner}
-            and word = any(${[...new Set(tokenWords.flatMap((w) => [w, ...w]))]}::text[])
+            and word = any(${[...new Set(unique.flatMap((w) => [w, ...w]))]}::text[])
         `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] }>).map((r) => [r.word, r]),
       )
     : new Map<string, { word: string; pinyin: string | null; defs: Definition[] }>();
   const lookup: Lookup = (w, want) => {
-    const row = tokenWordRows.get(w);
+    const row = rows.get(w);
     const p = row && shownPinyin(row.pinyin, row.defs);
     // The row's own meaning, unless a particle's running reading is asked
     // for and the row has another (a 了 card for liǎo).
@@ -593,14 +603,9 @@ export async function sentenceDresser(
     return dictEntry(w, want);
   };
   const looked = new Map<string, Looked | null>();
-  const lookOf = (w: string) => {
+  return (w: string) => {
     if (!looked.has(w)) looked.set(w, lookUp(w, lookup));
     return looked.get(w)!;
-  };
-  return (s: { id: number; zh: string; en: string | null; sources: string[] } | undefined): SentenceInfo | null => {
-    if (!s) return null;
-    const words = wordsOf.get(s.id) ?? [];
-    return { id: s.id, zh: zhShown(s.zh), en: s.en, words, looks: words.map(lookOf), sources: s.sources };
   };
 }
 

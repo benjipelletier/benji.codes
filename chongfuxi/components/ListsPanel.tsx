@@ -304,7 +304,7 @@ function Bar({ node }: { node: ListNode }) {
 }
 
 /** What adding brought, at once, with Keep or Undo: the same page a sync's new words get. */
-function Added({ addition, list, onDone, onUndone }: { addition: Addition; list: string; onDone: () => void; onUndone: () => void }) {
+export function Added({ addition, list, onDone, onUndone }: { addition: Addition; list: string; onDone: () => void; onUndone: () => void }) {
   const [busy, setBusy] = useState<"keep" | "undo" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const n = addition.words.length;

@@ -13,6 +13,7 @@ import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
 import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
+import { TextAnalyser } from "./TextAnalyser";
 import { TextImport } from "./TextImport";
 import { fmt, message, type Shell } from "./shared";
 
@@ -153,6 +154,7 @@ export function ImportPanel({ shell }: { shell: Shell }) {
   const s = shell.summary!;
   return (
     <div className="cf-panel">
+      {s.viewer.configured && <TextAnalyser shell={shell} />}
       {s.viewer.configured && <SyncLog shell={shell} />}
       {shell.canWrite && <Importer shell={shell} />}
       {shell.canWrite && <TextImport shell={shell} />}

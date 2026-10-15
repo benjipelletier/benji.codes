@@ -80,6 +80,66 @@ export interface SentenceInfo {
   sources: string[];
 }
 
+/** How a word in an analysed text stands: read with ease, still being learnt, or not known. */
+export type WordStanding = "known" | "learning" | "unknown";
+
+/** A piece of an analysed sentence: a word (with how it stands), or what lies between words. */
+export interface TextToken {
+  t: string;
+  /** Set on a word. */
+  k?: WordStanding;
+}
+
+/** A word in an analysed text not known yet, and what learning it would do for the text. */
+export interface TextUnknown {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  hsk: WordInfo["hsk"];
+  /** Times it stands in the way in the text. */
+  count: number;
+  /** Sentences it is the only thing missing from. */
+  unlocks: number;
+  /** In a Pleco word list (not learnt); else only in the dictionary, or neither. */
+  listed: boolean;
+  /** A dictionary headword or a word with a row: something the deck can take. */
+  addable: boolean;
+}
+
+/** A text analysed against the corpus (app/api/chongfuxi/analyse.ts). */
+export interface TextAnalysis {
+  /** In the history, when kept (the owner's); null for a visitor's. */
+  id: number | null;
+  kind: "paste" | "web" | "youtube";
+  title: string | null;
+  url: string | null;
+  at: number;
+  /** The source name its sentences were added under, if they were. */
+  savedAs: string | null;
+  /** Word occurrences (Han words), and distinct words; how many of each are known. */
+  words: { total: number; known: number; unique: number; uniqueKnown: number; learning: number };
+  sentences: { total: number; readable: number; oneAway: number };
+  /** The text in order: paragraphs of sentences of tokens. */
+  paragraphs: TextToken[][][];
+  /** Most useful first: how often it stands in the way, and what it alone would unlock. */
+  unknown: TextUnknown[];
+  /** Distinct words by HSK 3.0 level ("1" … "7-9", "none"), and how many are known. */
+  hsk: Array<{ level: string; words: number; known: number }>;
+  /** Each word's reading and short meaning, for a tap. */
+  looks: Record<string, { p: string; gloss: string | null } | null>;
+}
+
+/** A text in the history. */
+export interface TextListed {
+  id: number;
+  kind: TextAnalysis["kind"];
+  title: string | null;
+  url: string | null;
+  at: number;
+  chars: number;
+  savedAs: string | null;
+}
+
 /** One day on Today's strip: cards reviewed (before today) or falling due (after), by kind; Learn steps taken. */
 export interface DayBar {
   /** The study day, YYYY-MM-DD. */

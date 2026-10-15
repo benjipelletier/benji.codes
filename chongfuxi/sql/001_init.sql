@@ -409,3 +409,21 @@ create table if not exists chongfuxi_sentence_left_out (
 -- word); null before it is met. Saved as each step is taken, so leaving a
 -- session loses nothing, and the ladder carries on in the next one.
 alter table chongfuxi_card add column if not exists learn_step text;
+
+-- A text analysed against the corpus (Import › Analyse a text): pasted, from
+-- a web page, or a YouTube video's captions. Only the text is kept; the
+-- analysis is worked out again each time it is opened, against what is known
+-- then. `saved_as` is the source name its sentences were added under, if
+-- they were.
+create table if not exists chongfuxi_text (
+  id          bigint      generated always as identity primary key,
+  owner_email text        not null,
+  at          timestamptz not null default now(),
+  kind        text        not null,
+  title       text,
+  url         text,
+  text        text        not null,
+  saved_as    text
+);
+
+create index if not exists chongfuxi_text_owner on chongfuxi_text (owner_email, at desc);

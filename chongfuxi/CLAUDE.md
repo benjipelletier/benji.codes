@@ -585,6 +585,40 @@ whole as an import of format `anki`.
 - Each sentence keeps its sub-deck as its source, so a source can be dropped.
   Importing is by script only: an `.apkg` with audio is hundreds of megabytes.
 
+## Analysing a text
+
+Import › Analyse a text (`components/TextAnalyser.tsx`, route `analyse`,
+`app/api/chongfuxi/analyse.ts`): how much of a text the owner can read, and
+which words would open up the most of it. The owner asked for something like
+Chinese Text Analyser, but measured against this corpus.
+
+- In: pasted text (anyone; a visitor's isn't kept), a web page by its link
+  (`fetchtext.ts`: fetched on the server, charset honoured, the lines of its
+  article or body with four or more Han characters kept), or a YouTube
+  video's Chinese captions (`youtube.ts`: the player asked for as YouTube's
+  Android app, then its iOS app, asks for it, since the web player's caption
+  links now need a browser token; hand-made captions before automatic,
+  simplified before traditional; each caption line a line of the text). Links
+  are the owner's only. YouTube may refuse a server it takes for a bot; then
+  the message says to paste the transcript instead.
+- Words as the Texts import splits them (dictionary matching, four
+  characters at most) and known as unlocking counts them (`lib/unlock.ts`):
+  known, or made of known words. A deck word whose Read card is new or under
+  three weeks strong is "still being learnt".
+- Shows: the share of its word occurrences known (large), distinct words
+  known, sentences readable and one word away; its distinct words by HSK 3.0
+  level; the text with words marked (not known highlighted, still being
+  learnt underlined), a tap giving reading and meaning; and the words to
+  learn, ranked by how often each stands in the way plus four for each
+  sentence it alone holds back.
+- Does: tick words and add them (one addition, source `text:<title>`, Keep
+  or Undo as from Lists), and add its sentences to the corpus under a name
+  (`ingestSentences`, as the Texts import does).
+- Kept: the owner's texts, as text only (`chongfuxi_text`), listed under the
+  box; reopening one analyses it again against what is known then.
+- Not yet: traditional-character texts split poorly (the dictionary
+  matching is simplified).
+
 ## Texts
 
 Plain Chinese text (a textbook's 课文, an article) joins the corpus as
