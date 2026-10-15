@@ -6210,8 +6210,15 @@ button.cf-synclog-row {
   font-size: 14px;
 }
 
+.cf-lk-senses span {
+  min-width: 0;
+}
+
+/* The words never wrap: the label beside them does. */
 .cf-lk-senses b {
+  flex: none;
   font-size: 18px;
+  white-space: nowrap;
 }
 
 .cf-lk-opt {
