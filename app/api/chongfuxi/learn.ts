@@ -3,11 +3,13 @@
 //
 // A Read card never answered and not yet through Learn waits here
 // (WAITING_TO_LEARN in review.ts keeps it out of the review and its counts).
-// Learn takes up to ten at a time, each with sentences to teach it: readable
-// ones first, then ones with a single word not known yet, shown with its
-// meaning. Nothing Learn does counts as an answer: finishing a word marks its
-// card learned and makes it due the next study day, still new, so its first
-// real answer comes a day later. How each step went is logged
+// Each word comes with sentences to teach it: readable ones first, then ones
+// with a single word not known yet, shown with its meaning. Its steps are
+// taken in the review session (one every fifth card) or in a list's drill,
+// and each is saved as it is taken (`chongfuxi_card.learn_step`), so leaving
+// loses nothing. Nothing Learn does counts as an answer: the last step marks
+// the card learned and makes it due the next study day, still new, so its
+// first real answer comes a day later. How each step went is logged
 // (chongfuxi_learn) and touches no schedule.
 
 import type { Sql } from "./db";
@@ -22,21 +24,24 @@ import {
   sentenceDresser,
   shownPinyin,
 } from "./review";
-import type { LearnResult, LearnSentence, LearnWord } from "@chongfuxi/lib/api";
+import type { LearnSentence, LearnStepDone, LearnWord } from "@chongfuxi/lib/api";
 import type { StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { blankOut, contextFit } from "@chongfuxi/lib/review";
 
-/** Words in one Learn session. */
+/** Words in a list's Learn drill. */
 export const LEARN_MAX = 10;
+/** Words sent to a review session: enough for a long one, five on the ladder at a time. */
+export const LEARN_SESSION_MAX = 30;
 /** Sentences sent per word: enough for a new one at every step, and again after a miss. */
 const SENTENCES_PER_WORD = 8;
 /** Longer than this (in Han characters) is too much to read while learning a word. */
 const LEARN_SENTENCE_MAX_HAN = 30;
 
 /**
- * The next words to learn, newest first (the ones just added), from one list
- * or from the whole deck, each with its teaching sentences.
+ * The next words to learn, from one list or from the whole deck, each with
+ * its teaching sentences and where it is on the ladder: those part way up
+ * first, then the newest (the ones just added).
  */
 export async function wordsToLearn(
   sql: Sql,
@@ -46,12 +51,12 @@ export async function wordsToLearn(
 ): Promise<LearnWord[]> {
   const inList = list === null ? null : onList(list, "c.word", 3);
   const cards = (await sql.query(
-    `select c.id::int as card, c.word, w.pinyin, w.defs, w.lists
+    `select c.id::int as card, c.word, w.pinyin, w.defs, w.lists, c.learn_step
      from chongfuxi_card c
      join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word and w.status = 'deck'
      where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN}
        ${inList ? `and ${inList.where}` : ""}
-     order by c.id desc
+     order by (c.learn_step is null), c.id desc
      limit $2`,
     [owner, limit, ...(inList?.params ?? [])],
   )) as unknown as Array<{
@@ -60,6 +65,7 @@ export async function wordsToLearn(
     pinyin: string | null;
     defs: Definition[];
     lists: string[] | null;
+    learn_step: LearnWord["step"];
   }>;
   if (!cards.length) return [];
   const words = cards.map((c) => c.word);
@@ -126,6 +132,7 @@ export async function wordsToLearn(
   return cards.map((c) => ({
     card: c.card,
     word: c.word,
+    step: c.learn_step,
     pinyin: shownPinyin(c.pinyin, c.defs),
     senses: promptSenses(c.defs, c.pinyin),
     hsk: hskOf(c.lists ?? []),
@@ -146,43 +153,40 @@ export async function wordsToLearn(
 }
 
 /**
- * Words through Learn: each card is marked learned and made due the next
- * study day, still new; and how it went is logged, once per session however
- * often it is sent. A card answered or learned meanwhile is left as it is.
- * Returns the words newly marked.
+ * Steps taken, in the order taken, saved as they go: the card's place on the
+ * ladder moves to the next step, or, after the last, the card is marked
+ * learned and made due the next study day, still new. A card answered or
+ * learned meanwhile is left as it is. Each step is logged once (by its id),
+ * however often it is sent. Returns the words learned.
  */
-export async function finishLearning(
-  sql: Sql,
-  owner: string,
-  day: StudyDay,
-  session: string,
-  results: LearnResult[],
-): Promise<string[]> {
-  if (!results.length) return [];
-  const rows = JSON.stringify(
-    results.map((r) => ({
-      card: r.card,
-      word: r.word,
-      misses: r.misses,
-      steps: r.steps,
-    })),
-  );
-  const [marked] = (await sql.transaction([
-    sql`
-      update chongfuxi_card c
-      set learned_at = now(),
-          due = greatest(c.due, to_timestamp(${day.cutoff}::double precision / 1000) + interval '1 second')
-      where c.owner_email = ${owner} and c.kind = 'read' and c.state = 0 and c.learned_at is null
-        and c.id in (select (e.value->>'card')::bigint from jsonb_array_elements(${rows}::jsonb) e)
-      returning c.word
-    `,
-    sql`
-      insert into chongfuxi_learn (owner_email, day, session, card_id, word, misses, steps)
-      select ${owner}, ${day.day}::date, ${session}, (e.value->>'card')::bigint, e.value->>'word',
-             (e.value->>'misses')::int, e.value->'steps'
-      from jsonb_array_elements(${rows}::jsonb) e
-      on conflict (owner_email, session, card_id) do nothing
-    `,
-  ])) as unknown as [Array<{ word: string }>];
-  return marked.map((m) => m.word);
+export async function recordSteps(sql: Sql, owner: string, day: StudyDay, session: string, steps: LearnStepDone[]): Promise<string[]> {
+  if (!steps.length) return [];
+  const queries = steps.flatMap((s) => {
+    const entry = JSON.stringify([{ id: s.id, step: s.step, sentence: s.sentence, grade: s.grade }]);
+    return [
+      s.next === null
+        ? sql`
+            update chongfuxi_card c
+            set learned_at = now(), learn_step = null,
+                due = greatest(c.due, to_timestamp(${day.cutoff}::double precision / 1000) + interval '1 second')
+            where c.owner_email = ${owner} and c.id = ${s.card} and c.kind = 'read' and c.state = 0 and c.learned_at is null
+            returning c.word
+          `
+        : sql`
+            update chongfuxi_card c set learn_step = ${s.next}
+            where c.owner_email = ${owner} and c.id = ${s.card} and c.kind = 'read' and c.state = 0 and c.learned_at is null
+            returning null as word
+          `,
+      sql`
+        insert into chongfuxi_learn (owner_email, day, session, card_id, word, misses, steps)
+        values (${owner}, ${day.day}::date, ${session}, ${s.card}, ${s.word}, ${s.grade === "forgot" ? 1 : 0}, ${entry}::jsonb)
+        on conflict (owner_email, session, card_id) do update
+          set misses = chongfuxi_learn.misses + excluded.misses,
+              steps = chongfuxi_learn.steps || excluded.steps
+          where not chongfuxi_learn.steps @> jsonb_build_array(jsonb_build_object('id', ${s.id}::text))
+      `,
+    ];
+  });
+  const results = (await sql.transaction(queries)) as unknown as Array<Array<{ word: string | null }>>;
+  return results.flatMap((r) => r.map((x) => x.word)).filter((w): w is string => Boolean(w));
 }

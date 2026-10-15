@@ -13,7 +13,7 @@ import { ingest, setName } from "../../app/api/chongfuxi/corpus";
 import type { Sql } from "../../app/api/chongfuxi/db";
 import { addWords } from "../../app/api/chongfuxi/additions";
 import { loadDict } from "../../app/api/chongfuxi/dictfile";
-import { finishLearning, wordsToLearn } from "../../app/api/chongfuxi/learn";
+import { recordSteps, wordsToLearn } from "../../app/api/chongfuxi/learn";
 import { getStats } from "../../app/api/chongfuxi/stats";
 import {
   getSummary,
@@ -163,12 +163,41 @@ async function main() {
   );
   // Learned the evening before, so they are due on day 1 as before.
   const eve: StudyDay = { day: "2029-12-31", cutoff: Date.UTC(2030, 0, 1, 4) };
-  const learnedResults = toLearn.map((w) => ({ card: w.card, word: w.word, misses: 1, steps: [{ step: "meet" as const, sentence: null, grade: "seen" as const }] }));
+  // Part way up the ladder: the place is saved, and the word comes first next time.
+  const chaWord = chaToLearn!;
+  await recordSteps(sql, owner, eve, "check-learn", [
+    { id: "s-cha-meet", card: chaWord.card, word: "茶", step: "meet", sentence: null, grade: "seen", next: "context" },
+  ]);
+  const resumed = await wordsToLearn(sql, owner, null);
+  check(
+    "a step is saved as it is taken: the word keeps its place and comes first",
+    resumed[0]?.word === "茶" && resumed[0]?.step === "context" && resumed.filter((w) => w.step === null).length === newWords.length - 1,
+    resumed.map((w) => `${w.word}:${w.step}`).join(" "),
+  );
+  check("and is still waiting for Learn, out of the queue", !(await queue(1)).some((c) => c.word?.word === "茶"));
+  const learnedResults = toLearn.map((w) => ({
+    id: `s-${w.card}-word`,
+    card: w.card,
+    word: w.word,
+    step: "word" as const,
+    sentence: null,
+    grade: "good" as const,
+    next: null,
+  }));
   const learnRows = async () =>
     Number(((await sql`select count(*) as n from chongfuxi_learn where owner_email = ${owner}`) as unknown as Array<{ n: string }>)[0].n);
-  const learnedNow = await finishLearning(sql, owner, eve, "check-learn", learnedResults);
-  check("Learn marks them learned and logs how it went, answering nothing", learnedNow.length === newWords.length && (await reviews()) === 0 && (await learnRows()) === newWords.length);
-  check("sending it again changes nothing", (await finishLearning(sql, owner, eve, "check-learn", learnedResults)).length === 0 && (await learnRows()) === newWords.length);
+  const learnedNow = await recordSteps(sql, owner, eve, "check-learn", learnedResults);
+  const chaLog = (await sql`select steps from chongfuxi_learn where owner_email = ${owner} and card_id = ${chaWord.card}`) as unknown as Array<{ steps: unknown[] }>;
+  check(
+    "the last step marks them learned and logs each step, answering nothing",
+    learnedNow.length === newWords.length && (await reviews()) === 0 && (await learnRows()) === newWords.length && chaLog[0]?.steps.length === 2,
+  );
+  check(
+    "sending it again changes nothing",
+    (await recordSteps(sql, owner, eve, "check-learn", learnedResults)).length === 0 &&
+      (await learnRows()) === newWords.length &&
+      ((await sql`select steps from chongfuxi_learn where owner_email = ${owner} and card_id = ${chaWord.card}`) as unknown as Array<{ steps: unknown[] }>)[0].steps.length === 2,
+  );
   const chaLearned = (await wordCard("read", "茶"))!;
   check("a learned card is still new and due no sooner than it was", chaLearned.state === 0 && chaLearned.answered === 0 && chaLearned.due === cha.due);
 
@@ -378,7 +407,9 @@ async function main() {
   await addWords(sql, owner, "check", ["咖啡"], loadDict(), noon(4));
   const later = await wordsToLearn(sql, owner, null);
   check("a word added later waits for Learn too", later.map((w) => w.word).join() === "咖啡", later.map((w) => w.word).join());
-  await finishLearning(sql, owner, dayN(4), "check-learn-4", [{ card: later[0].card, word: "咖啡", misses: 0, steps: [] }]);
+  await recordSteps(sql, owner, dayN(4), "check-learn-4", [
+    { id: "s-kafei", card: later[0].card, word: "咖啡", step: "word", sentence: null, grade: "good", next: null },
+  ]);
   const kafei = (await wordCard("read", "咖啡"))!;
   check(
     "learned on a day, it is due the next, still new",

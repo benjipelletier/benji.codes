@@ -404,3 +404,8 @@ create table if not exists chongfuxi_sentence_left_out (
   at          timestamptz not null default now(),
   primary key (owner_email, id)
 );
+
+-- Where a new word is on Learn's ladder (the next step: meet, context, cloze,
+-- word); null before it is met. Saved as each step is taken, so leaving a
+-- session loses nothing, and the ladder carries on in the next one.
+alter table chongfuxi_card add column if not exists learn_step text;

@@ -467,29 +467,35 @@ the design was silent and are still to be confirmed.
 - **Learn**: a new word (a Read card never answered, from Pleco
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in
-  `app/api/chongfuxi/review.ts`). Learn is on Today ("Learn new words", how
-  many wait) and on each list with any (Learn, beside Review, its count
-  beneath; that list's words only); it takes ten at a time, newest first. Each word climbs four steps
-  (`lib/learn.ts`): meet it (pinyin, meaning, two sentences with their
-  translations; not a test), read it in a sentence (what does it mean
-  here?), fill it into a gap from the English, the word alone. A word
-  without sentences skips reading in context and fills the gap from its
-  meaning. Four words are in play at once and take turns, a word coming
-  back after others, the gap growing as it climbs (2, 4, 7 turns); a miss
-  puts it back a step and brings it back in two, and every step takes a
-  sentence it hasn't been shown with while there is one. Sentences
-  (`app/api/chongfuxi/learn.ts`): every word known first, then those with
-  one word not known yet, which is shown with its reading and meaning;
-  with a translation first; about nine characters; where the word is part
-  of a longer word (手 in 住手) last. A gap is not offered where a character
-  of the word is written again in the sentence. **Nothing in Learn counts**,
-  at the owner's request (he answers minutes after being taught, which says
-  little): a word through every step is marked learned (`learned_at`) and
-  made due the next study day, still new, so its first real answer, Read
-  and then Recall as usual, comes a day later. How each step went is kept
-  in `chongfuxi_learn` (once per session and word) for reading back, and
-  touches no schedule. Not kept to carry on from: a word is saved as soon
-  as it is learned, so leaving loses only the ones part way.
+  `app/api/chongfuxi/review.ts`). Its steps are folded into the review
+  session, at the owner's request (so they are spaced out): one every fifth
+  card (`LEARN_EVERY`), five words on the ladder at a time (`IN_PLAY`), and
+  one after another once nothing is left to review. Today lists "New words"
+  among the kinds, to leave out like the others. A list's drill (Learn,
+  beside Review on the list, ten of its words, one step after another) is
+  the other way in. Each word climbs four steps (`lib/learn.ts`): meet it
+  (pinyin, meaning, two sentences with their translations; not a test), read
+  it in a sentence (what does it mean here?), fill it into a gap from the
+  English, the word alone. A word without sentences skips reading in context
+  and fills the gap from its meaning. A word comes back after others, the
+  gap growing as it climbs (2, 4, 7 of its turns: in a session about 10, 20,
+  35 cards); a miss puts it back a step and brings it back in two, and every
+  step takes a sentence it hasn't been shown with while there is one.
+  **Each step is saved as it is taken** (`chongfuxi_card.learn_step`, the
+  next step; `recordSteps`): the owner lost his place leaving the first
+  version, which kept it on the screen. Words part way up come first next
+  time. Steps go one request at a time, in order, and a failed one is sent
+  with the next. Sentences (`app/api/chongfuxi/learn.ts`): every word known
+  first, then those with one word not known yet, which is shown with its
+  reading and meaning; with a translation first; about nine characters;
+  where the word is part of a longer word (手 in 住手) last. A gap is not
+  offered where a character of the word is written again in the sentence.
+  **Nothing in Learn counts**, at the owner's request (he answers minutes
+  after being taught, which says little): the last step marks the card
+  learned (`learned_at`) and makes it due the next study day, still new, so
+  its first real answer, Read and then Recall as usual, comes a day later.
+  How each step went is kept in `chongfuxi_learn` (a row per session and
+  word, each step once by its id) for reading back, and touches no schedule.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original
@@ -831,9 +837,9 @@ so scripts run the same code as routes):
 - `stats.ts` — `getStats`.
 - `defs.ts` — `orderStoredDefs`: a word's tied dictionary entries ordered by
   its sentences.
-- `learn.ts` — `wordsToLearn` (the words and their teaching sentences),
-  `finishLearning`. Route `learn` (GET the words, `?list=`; POST the words
-  learned, owner).
+- `learn.ts` — `wordsToLearn` (the words, where each is on the ladder, and
+  their teaching sentences), `recordSteps`. Route `learn` (GET the words,
+  `?list=`; POST the steps taken, owner).
 - Routes: `summary`, `session`, `sentences`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
   `imports/[id]/ingest` (owner).
@@ -841,7 +847,8 @@ so scripts run the same code as routes):
   dictionary into the ingest route.
 
 Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
-the session), `Learn` (new words, from Today or a list), `CardsPanel` (`WordsPanel`, and `SentencesPanel` with
+the session), `Learn` (the ladder: `useLadder` for the session, and a list's
+drill), `CardsPanel` (`WordsPanel`, and `SentencesPanel` with
 `UnlockPanel` inside it), `StatsPanel`, `ImportPanel`.
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):

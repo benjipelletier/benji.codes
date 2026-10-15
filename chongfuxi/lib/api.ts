@@ -85,6 +85,8 @@ export interface LearnWord {
   /** Its Read card. */
   card: number;
   word: string;
+  /** Where it is on the ladder: the next step to take; null before it is met. */
+  step: LearnStep | null;
   pinyin: string | null;
   /** The first few senses of its main definition. */
   senses: string[];
@@ -104,12 +106,17 @@ export interface LearnSentence extends SentenceInfo {
 /** The steps of Learn, in order: meet the word, read it in context, fill the gap, the word alone. */
 export type LearnStep = "meet" | "context" | "cloze" | "word";
 
-/** How Learn went for one word: logged, never counted as an answer. */
-export interface LearnResult {
+/** A step taken in Learn: saved as it is taken, never counted as an answer. */
+export interface LearnStepDone {
+  /** Made on the device: a step sent twice is logged once. */
+  id: string;
   card: number;
   word: string;
-  misses: number;
-  steps: Array<{ step: LearnStep; sentence: number | null; grade: Grade | "seen" }>;
+  step: LearnStep;
+  sentence: number | null;
+  grade: Grade | "seen";
+  /** The step it goes on to; null when this one learned it. */
+  next: LearnStep | null;
 }
 
 /** How a card has gone so far: in Pleco before it came here, then here. Oldest first. */
@@ -316,6 +323,8 @@ export interface SessionKinds {
   recall: boolean;
   /** Sentence cards, new ones included. */
   sentences: boolean;
+  /** New words' Learn steps, one every fifth card. */
+  learn: boolean;
 }
 
 export interface DayStats {

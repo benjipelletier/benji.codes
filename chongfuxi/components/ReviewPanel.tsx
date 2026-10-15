@@ -23,7 +23,7 @@ import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { Learn } from "./Learn";
+import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { History, HskTags, LongkuTag, SentenceText, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
@@ -145,7 +145,9 @@ function ReceiptStrip({ r, onUndo, undoing }: { r: Receipt; onUndo?: () => void;
 
 /** What the last session included, kept on this device. */
 const KINDS_KEY = "chongfuxi:session";
-const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true };
+const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true, learn: true };
+/** A new word's Learn step comes every this many cards. */
+const LEARN_EVERY = 5;
 
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
 function wordsDue(s: { dueWords: number; dueRead: number; dueRecall: number }, kinds: SessionKinds): number {
@@ -163,7 +165,7 @@ function rememberedKinds(): SessionKinds {
 
 export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () => void }) {
   const [kinds, setKinds] = useState<SessionKinds>(EVERYTHING);
-  const [started, setStarted] = useState<"session" | "fast" | "learn" | null>(null);
+  const [started, setStarted] = useState<"session" | "fast" | null>(null);
   const { setFocus, refresh } = shell;
   useEffect(() => {
     setKinds(rememberedKinds());
@@ -184,14 +186,14 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     }
   };
 
-  const begin = (how: "session" | "fast" | "learn") => {
+  const begin = (how: "session" | "fast") => {
     setFocus(true);
     setStarted(how);
   };
   // Left by the close button or back: kept, to carry on from Today.
   const end = useCallback(() => {
     setStarted((was) => {
-      if (was && was !== "learn") resume.close(was);
+      if (was) resume.close(was);
       return null;
     });
     setFocus(false);
@@ -202,7 +204,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   useEffect(() => () => setFocus(false), [setFocus]);
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load("fast")} />;
-  if (started === "learn") return <Learn shell={shell} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} saved={resume.load("session")} />;
   return (
     <Today
@@ -211,7 +212,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
       onChoose={choose}
       onStart={() => begin("session")}
       onFast={() => begin("fast")}
-      onLearn={() => begin("learn")}
       onImport={onImport}
     />
   );
@@ -224,7 +224,6 @@ function Today({
   onChoose,
   onStart,
   onFast,
-  onLearn,
   onImport,
 }: {
   shell: Shell;
@@ -232,7 +231,6 @@ function Today({
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
   onFast: () => void;
-  onLearn: () => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
@@ -345,22 +343,21 @@ function Today({
             <b>{fmt(s.dueSentences)}</b>
           </label>
         </li>
+        {/* New words wait out of the review until they have been learned with sentences: in the session, a step every fifth card. */}
+        {s.toLearn > 0 && (
+          <li>
+            <label className={`cf-kind is-new${kinds.learn ? "" : " is-off"}`}>
+              <input type="checkbox" checked={kinds.learn} onChange={(e) => onChoose({ ...kinds, learn: e.target.checked })} />
+              <i className="cf-tick" />
+              <span>
+                New words
+                <small>Learned with sentences, a step every fifth card, five at a time</small>
+              </span>
+              <b>{fmt(s.toLearn)}</b>
+            </label>
+          </li>
+        )}
       </ul>
-
-      {/* New words wait here, out of the review, until they have been learned with sentences. */}
-      {s.toLearn > 0 && (
-        <button className="cf-learn-btn" onClick={onLearn}>
-          <span className="cf-learn-btn-zh cf-zh" aria-hidden="true">
-            学
-          </span>
-          <span className="cf-learn-btn-label">
-            Learn new words
-            <small>
-              {fmt(s.toLearn)} waiting{s.toLearn > 10 ? ", 10 at a time" : ""}
-            </small>
-          </span>
-        </button>
-      )}
 
       <div className="cf-answer">
         {/* Every Read card due, as a grid to sweep through: for a pile of easy ones. */}
@@ -377,7 +374,7 @@ function Today({
         )}
         <button
           className="cf-answer-btn cf-answer-show"
-          disabled={total === 0 && !carryOn && !(kinds.sentences && s.newSentences > 0)}
+          disabled={total === 0 && !carryOn && !(kinds.sentences && s.newSentences > 0) && !(kinds.learn && s.toLearn > 0)}
           onClick={onStart}
         >
           {carryOn
@@ -385,9 +382,11 @@ function Today({
             : !kinds.read && !kinds.recall && !kinds.sentences
             ? "Nothing chosen"
             : total === 0
-              ? kinds.sentences && s.newSentences > 0
-                ? "Read new sentences"
-                : "Nothing due"
+              ? kinds.learn && s.toLearn > 0
+                ? "Learn new words"
+                : kinds.sentences && s.newSentences > 0
+                  ? "Read new sentences"
+                  : "Nothing due"
               : canWrite
                 ? "Start reviewing"
                 : "Look through the cards"}
@@ -405,7 +404,7 @@ export interface ListReview {
 }
 
 /** A list's review takes both kinds of word card and no sentences. */
-const LIST_KINDS: SessionKinds = { read: true, recall: true, sentences: false };
+const LIST_KINDS: SessionKinds = { read: true, recall: true, sentences: false, learn: false };
 
 export function Session({
   shell,
@@ -454,6 +453,12 @@ export function Session({
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
   const [answered, setAnswered] = useState(saved?.answered ?? 0);
+  // New words' Learn steps, one every fifth card (components/Learn.tsx); none in a list's review.
+  const ladder = useLadder({ list: null, enabled: !list && kinds.learn, canWrite });
+  const { begin: beginStep, current: step } = ladder;
+  /** Cards dealt since the last Learn step. */
+  const sinceStep = useRef(0);
+
   // Kept going once nothing was due: new sentences only, from the whole pool.
   // Started with nothing due, it begins there.
   const [more, setMore] = useState(
@@ -536,6 +541,11 @@ export function Session({
       more,
     });
   }, [queue, answered, kinds, list, more]);
+  // Nothing left to review: the ladder's steps one after another, until every word on it is learned.
+  useEffect(() => {
+    if (status === "empty" && !queue.length && !step) beginStep();
+  }, [status, queue.length, step, ladder.items, beginStep]);
+
   // Finished: nothing to carry on.
   useEffect(() => {
     if (!list && status === "empty" && !queue.length) resume.clear("session");
@@ -601,6 +611,8 @@ export function Session({
     const drop = () => {
       dealt.current++;
       setQueue((q) => q.slice(1));
+      // Every fifth card, a new word's Learn step, while there is one.
+      if (++sinceStep.current >= LEARN_EVERY - 1 && beginStep()) sinceStep.current = 0;
       if (queueRef.current.length <= 1 && exhausted.current) setStatus("empty");
     };
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return drop();
@@ -749,8 +761,9 @@ export function Session({
       {error && <p className="cf-error">{error}</p>}
       <Waiting />
 
-      {status === "loading" && !card && <p className="cf-muted cf-pad">Getting your cards…</p>}
-      {status === "empty" && !card && (
+      {status === "loading" && !card && !step && <p className="cf-muted cf-pad">Getting your cards…</p>}
+      {ladder.saveError && <p className="cf-error">{ladder.saveError}</p>}
+      {status === "empty" && !card && !step && (ladder.items !== null || !kinds.learn || list) && (
         <div className="cf-done">
           <p className="cf-done-zh">完</p>
           <p className="cf-muted">
@@ -782,7 +795,9 @@ export function Session({
         </div>
       )}
 
-      {card && (
+      {/* A new word's Learn step, when one is on show, comes before the next card. */}
+      {step && <LearnCard ladder={ladder} />}
+      {card && !step && (
         <article key={card.id} className={`cf-card is-${card.kind}${leaving ? ` is-leaving-${leaving}` : ""}`}>
           <div className="cf-card-kind">
             <i className="cf-dot" />
@@ -956,7 +971,8 @@ export function Session({
       )}
 
       {/* The answer, at the foot of the screen, under the thumb. */}
-      {card && (
+      {step && <LearnAnswers ladder={ladder} />}
+      {card && !step && (
         <div className="cf-answer is-floor">
           {!revealed ? (
             <button className="cf-answer-btn cf-answer-show" onClick={reveal}>
