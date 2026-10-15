@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly } from "../guard";
 import { AdditionError } from "../additions";
@@ -42,6 +43,12 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     if (e instanceof LookupError) return bad(e.message, 422);
     if (e instanceof AdditionError) return bad(e.message, 409);
-    throw e;
+    // Only the owner gets here, so the real reason is shown, not a bare 500.
+    console.error("lookup failed", e);
+    if (e instanceof Anthropic.APIError) {
+      const detail = (e.error as { error?: { message?: string } } | undefined)?.error?.message ?? e.message;
+      return bad(`The model call failed (${e.status ?? "no status"}): ${detail}`, 502);
+    }
+    return bad(`Look up failed: ${e instanceof Error ? e.message : String(e)}`, 500);
   }
 }
