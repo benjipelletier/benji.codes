@@ -164,7 +164,7 @@ function BugSheet({ draft, onDone }: { draft: { context: BugContext; shot: Promi
   );
 }
 
-/** The bugs filed, on the Import page's Bugs side: open ones first, each closable with a tap. */
+/** The bugs filed, on the Import page's Bug reports: open ones first, each closable with a tap. */
 export function BugList({ canWrite, onCount }: { canWrite: boolean; onCount?: (open: number) => void }) {
   const [list, setList] = useState<BugReport[] | null>(null);
   const [all, setAll] = useState(false);

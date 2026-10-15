@@ -797,6 +797,91 @@ body:has(.cfx) {
 
 /* --------------------------------------------------------------- import -- */
 
+/* The Import page is a menu: one row per page, each opening it. */
+.cf-menu {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.cf-menu li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-menu-row {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-menu-row:active {
+  background: var(--cf-sunken);
+}
+
+.cf-menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cf-menu-text b {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cf-menu-text small {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-menu-count {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-menu-row > i {
+  flex: none;
+  font-style: normal;
+  font-size: 20px;
+  color: var(--cf-ink-faint);
+}
+
+/* A page opened from it: "‹ Import" above, its own heading as the title. */
+.cf-subpage > .cf-crumbs {
+  margin: -6px 0 0 -6px;
+}
+
+.cf-subpage > .cf-section:first-of-type {
+  margin-top: 4px;
+}
+
+.cf-subpage > .cf-section:first-of-type > .cf-h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
 .cf-file input {
   position: absolute;
   width: 1px;

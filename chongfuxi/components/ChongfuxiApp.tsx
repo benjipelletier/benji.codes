@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
-import { ImportPanel, type ImportSide } from "./ImportPanel";
+import { ImportPanel, type ImportPage } from "./ImportPanel";
 import { Account } from "./Account";
 import { BugButton } from "./BugReport";
 import { SyncPage } from "./SyncPage";
@@ -37,8 +37,8 @@ export function ChongfuxiApp() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("review");
-  // Which side Import opens on: Review's "Import a Pleco backup" goes straight to Upload.
-  const [importSide, setImportSide] = useState<ImportSide | undefined>(undefined);
+  // Which page Import opens on: Review's "Import a Pleco backup" goes straight to it.
+  const [importPage, setImportPage] = useState<ImportPage | undefined>(undefined);
   // A review session takes the whole screen.
   const [focus, setFocus] = useState(false);
   // A sync that added words and hasn't been looked at yet: its page opens by itself, oldest first.
@@ -102,9 +102,9 @@ export function ChongfuxiApp() {
     return () => document.removeEventListener("visibilitychange", seen);
   }, [canWrite, checkArrivals]);
   const shell: Shell = useMemo(() => ({ summary, canWrite, refresh, setFocus }), [summary, canWrite, refresh]);
-  const go = (t: Tab, side?: ImportSide) => {
+  const go = (t: Tab, page?: ImportPage) => {
     setTab(t);
-    setImportSide(side);
+    setImportPage(page);
     window.scrollTo({ top: 0 });
   };
 
@@ -130,10 +130,10 @@ export function ChongfuxiApp() {
         {summary && !summary.viewer.configured && tab !== "import" && (
           <p className="cf-muted cf-pad">This deployment has no database set up, so there is nothing to show.</p>
         )}
-        {summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "upload")} />}
+        {summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "pleco")} />}
         {summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
         {summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
-        {summary && tab === "import" && <ImportPanel shell={shell} start={importSide} />}
+        {summary && tab === "import" && <ImportPanel shell={shell} start={importPage} />}
       </main>
 
       {canWrite && arrival !== null && !focus && (

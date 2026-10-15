@@ -1,8 +1,9 @@
 "use client";
 
-// Everything that brings material in, or looks at what came in, as four sides:
-// Analyse a text, the Anki syncs, uploads (a Pleco backup, or texts), and bug
-// reports. (Signing in is in the header: components/Account.tsx.)
+// Everything that brings material in, or looks at what came in: a short menu,
+// each row opening its own page (Analyse a text, the Anki syncs, a Pleco
+// backup, texts, bug reports), with "‹ Import" to come back.
+// (Signing in is in the header: components/Account.tsx.)
 //
 // Words come from Pleco and nowhere else: the owner adds them there, exports a
 // backup, and imports it here. The file goes to the server, which turns it
@@ -151,60 +152,84 @@ function Importer({ shell }: { shell: Shell }) {
   );
 }
 
-export type ImportSide = "analyse" | "syncs" | "upload" | "bugs";
+export type ImportPage = "analyse" | "syncs" | "pleco" | "texts" | "bugs";
 
-export function ImportPanel({ shell, start = "analyse" }: { shell: Shell; start?: ImportSide }) {
+export function ImportPanel({ shell, start }: { shell: Shell; start?: ImportPage }) {
   const s = shell.summary!;
-  const sides: Array<{ key: ImportSide; label: string }> = [
-    ...(s.viewer.configured ? [{ key: "analyse" as const, label: "Analyse" }, { key: "syncs" as const, label: "Syncs" }] : []),
-    ...(shell.canWrite ? [{ key: "upload" as const, label: "Upload" }] : []),
-    ...(s.viewer.configured ? [{ key: "bugs" as const, label: "Bugs" }] : []),
-  ];
-  const first = sides[0]?.key;
-  const [picked, setSide] = useState<ImportSide>(start);
-  const side = sides.some((t) => t.key === picked) ? picked : first;
-  // Back from any other side comes to the first, as in Cards.
-  useBackLayer(side !== first, () => setSide(first!));
-  // The open bugs, counted under their side.
+  const configured = s.viewer.configured;
+  const [page, setPage] = useState<ImportPage | null>(start ?? null);
+  // Back from a page comes to the menu.
+  useBackLayer(page !== null, () => setPage(null));
+  const open = (p: ImportPage | null) => {
+    setPage(p);
+    window.scrollTo({ top: 0 });
+  };
+  // The open bugs, counted on their row.
   const [openBugs, setOpenBugs] = useState<number | null>(null);
   useEffect(() => {
-    if (!s.viewer.configured) return;
+    if (!configured) return;
     get<{ bugs: Array<{ status: string }> }>("bugs")
       .then((r) => setOpenBugs(r.bugs.filter((b) => b.status === "open").length))
       .catch(() => undefined);
-  }, [s.viewer.configured]);
+  }, [configured]);
+
+  if (page) {
+    return (
+      <div className="cf-panel cf-subpage">
+        <nav className="cf-crumbs" aria-label="Import">
+          <button onClick={() => open(null)}>‹ Import</button>
+        </nav>
+        {page === "analyse" && <TextAnalyser shell={shell} />}
+        {page === "syncs" && <SyncLog shell={shell} />}
+        {page === "pleco" && <Importer shell={shell} />}
+        {page === "texts" && <TextImport shell={shell} />}
+        {page === "bugs" && <BugList canWrite={shell.canWrite} onCount={setOpenBugs} />}
+      </div>
+    );
+  }
+
+  const rows: Array<{ key: ImportPage; title: string; about: string; count?: string }> = [
+    ...(configured
+      ? [{ key: "analyse" as const, title: "Analyse a text", about: "What you can read, and what to learn" }]
+      : []),
+    ...(shell.canWrite
+      ? [
+          { key: "pleco" as const, title: "Pleco backup", about: "New words and sentences from a .pqb" },
+          { key: "texts" as const, title: "Texts", about: "Sentences from lessons or articles" },
+        ]
+      : []),
+    ...(configured
+      ? [
+          { key: "syncs" as const, title: "Anki syncs", about: "Words that came in from AnkiDroid" },
+          {
+            key: "bugs" as const,
+            title: "Bug reports",
+            about: "Filed with the bug tab",
+            count: openBugs ? `${fmt(openBugs)} open` : undefined,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <div className="cf-panel">
-      {sides.length > 1 && (
-        <div className="cf-sides" role="tablist">
-          {sides.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={side === t.key}
-              className={`cf-side${side === t.key ? " is-on" : ""}`}
-              onClick={() => {
-                setSide(t.key);
-                window.scrollTo({ top: 0 });
-              }}
-            >
-              {t.label}
-              {t.key === "bugs" && openBugs ? <small>{fmt(openBugs)} open</small> : null}
-            </button>
+      {rows.length > 0 && (
+        <ul className="cf-menu">
+          {rows.map((r) => (
+            <li key={r.key}>
+              <button className="cf-menu-row" onClick={() => open(r.key)}>
+                <span className="cf-menu-text">
+                  <b>{r.title}</b>
+                  <small>{r.about}</small>
+                </span>
+                {r.count && <span className="cf-menu-count">{r.count}</span>}
+                <i aria-hidden="true">›</i>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-      {side === "analyse" && <TextAnalyser shell={shell} />}
-      {side === "syncs" && <SyncLog shell={shell} />}
-      {side === "upload" && (
-        <>
-          <Importer shell={shell} />
-          <TextImport shell={shell} />
-        </>
-      )}
-      {side === "bugs" && <BugList canWrite={shell.canWrite} onCount={setOpenBugs} />}
-      {s.viewer.configured && (
+      {configured && (
         <section className="cf-section">
           <h2 className="cf-h2">About</h2>
           <p className="cf-muted">

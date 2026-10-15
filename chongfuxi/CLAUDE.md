@@ -53,12 +53,13 @@ check every screen at 360px wide first.
   which is why the figure went from about 4k to 3k.) Signing in sits at the
   right of the title (`components/Account.tsx`): the owner's 笨鸡 (Benji) opens a
   menu with the address and Sign out; anyone else gets Sign in.
-- Import has four sides, like Cards (`components/ImportPanel.tsx`), since
-  stacked as one page it had grown messy: Analyse (a text against the
-  corpus), Syncs (the Anki log), Upload (a Pleco backup, then Texts; owner
-  only) and Bugs (the open count under it). It opens on Analyse; Today's
-  "Import a Pleco backup" opens it on Upload. About, with the CC-CEDICT
-  credit, sits under every side.
+- Import is a menu (`components/ImportPanel.tsx`), since stacked as one
+  page it had grown messy: a row per page, title and one line under it, each
+  opening the page with "‹ Import" above to come back. Analyse a text, Pleco
+  backup and Texts (owner only), Anki syncs, Bug reports (the open count on
+  its row). About, with the CC-CEDICT credit, sits under the menu. Today's
+  "Import a Pleco backup" opens the Pleco backup page directly. The owner
+  tried the pages as sides like Cards' and didn't want tabs here.
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.
@@ -86,8 +87,8 @@ check every screen at 360px wide first.
   phone's clock says (`answeredAt`, up to 30 days).
 - The phone's back button moves through the app (`lib/back.ts`,
   `useBackLayer` in `components/shared.tsx`): every layer that opens over
-  another (a tab other than Review, Sentences or Lists in Cards, a side of
-  Import other than Analyse, each level of
+  another (a tab other than Review, Sentences or Lists in Cards, a page
+  opened from Import's menu, each level of
   the list tree, a word's sheet, a sync's page, a review session, the step
   after Forgot, the note box) puts one history entry on, and back closes the
   top one. A layer closed from the page takes its entry back off quietly.
@@ -596,7 +597,7 @@ whole as an import of format `anki`.
 
 ## Analysing a text
 
-Import › Analyse (`components/TextAnalyser.tsx`, route `analyse`,
+Import › Analyse a text (`components/TextAnalyser.tsx`, route `analyse`,
 `app/api/chongfuxi/analyse.ts`): how much of a text the owner can read, and
 which words would open up the most of it. The owner asked for something like
 Chinese Text Analyser, but measured against this corpus.
@@ -631,7 +632,7 @@ Chinese Text Analyser, but measured against this corpus.
 ## Texts
 
 Plain Chinese text (a textbook's 课文, an article) joins the corpus as
-sentences from Import › Upload, under Texts (`components/TextImport.tsx`,
+sentences from Import › Texts (`components/TextImport.tsx`,
 route `texts`): a .zip of .txt files (read in the browser, `lib/zip.ts`) or
 the files themselves, under one source name typed there (it is the deck name
 on each card). `lib/texts.ts` takes a file's first line as its title when it
@@ -687,7 +688,7 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   and HSK levels, the deck's size, sentences unlocked with examples) with Keep
   or Undo. A new sync that added words opens its page by itself, once, oldest
   first (`chongfuxi_anki_sync.seen_at`); one that changed nothing stays in the
-  log on Import › Syncs, where every sync's page opens. Two or more such
+  log on Import › Anki syncs, where every sync's page opens. Two or more such
   syncs in a row fold into one line there ("±0 ×5"), opened with a tap. Undo puts each word back as it
   was, removes its unanswered cards and those of the sentences it unlocked,
   and re-locks them; the notes stay marked, so the next sync doesn't add them
@@ -742,7 +743,7 @@ Each report keeps what the app knew (`BugContext`): the screen, what the
 screens on show noted about themselves (`note` in `lib/bugs.ts`: the card in
 a session, Fast review's progress, the open list, a word's sheet), the
 page's last errors, the viewport, the build. Stored in `chongfuxi_bug`
-(made on first use), listed on Import › Bugs with Mark fixed / Won't fix.
+(made on first use), listed on Import › Bug reports with Mark fixed / Won't fix.
 
 **To work on them from a Claude session:**
 
