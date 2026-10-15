@@ -174,11 +174,141 @@ the owner's Google sign-in). The rules are covered by `scripts/check-review.ts`
 through the same functions the routes call.
 
 Next:
+- **Look up**, a fifth tab: a dictionary that answers "what do I say here"
+  from a phrase, led by the owner's own sentences. Planned, not built; see
+  Look up (planned) below.
 - **An agent** that sense-tags sentences and writes new ones, with an `edits`
   audit table. The Fix button it was meant to answer is gone; rethink its
   trigger before building it.
 - Later: auto-import through a self-hosted Anki sync server, "can I read
   this?" for arbitrary text, FSRS parameters fitted to the owner's log, export.
+
+## Look up (planned)
+
+Agreed with the owner in October 2026; nothing is built yet. A fifth tab, 查
+Look up, inside chongfuxi (not its own route), because it ties into the deck.
+
+**Why.** Pleco answers "what does this word mean". Looking up "trauma" there
+gives ten headwords in a flat list (创伤, 外伤, 损伤, 伤损, 硬伤…) and no way
+to tell which one the situation needs. The owner wants "what do I say here":
+type "develop depression" and get 得了 / 患上, with why 发展, 有 or 产生
+don't fit. English, Chinese, pinyin and mixed input. It must feel like a
+dictionary unlike any other, not a chat with a model: "we can use any chat
+bot for that".
+
+**Mockup:** https://claude.ai/artifact/P4PseBCDCuYmsHryQNmhmq (hand-written
+data, invented counts): the phrase with its gap (`___抑郁症`) filled by
+whichever word is tapped, Fits and "Close, but no" lists with wrong/right
+pairs, a sense map for "trauma" (the mind 创伤 / 阴影, the body 外伤, medicine
+创伤外科), word pages for 抑郁症 and 阴影 listing what each combines with, and
+source tags (model vs dictionary, corpus, your deck).
+
+### Kinds of question
+
+Collocations (which word goes with this word) are one kind, not the shape
+of every answer. Over-fitting everything into "fill the gap" was the risk
+the owner raised. Kinds seen so far:
+
+| Kind | Example | What decides it |
+|---|---|---|
+| Word pairing | develop depression | the words around it (collocation counts) |
+| Which meaning | trauma | context, then pairing within the meaning |
+| Near-synonyms | 认识 vs 知道, 以为 vs 认为 | meaning and grammar (以为: you were wrong; 帮忙 takes no object) |
+| Tone | result vs consequence | connotation (后果 is always bad) |
+| Sentence pattern | the more… the more | a pattern, 越…越… |
+| Whole expression | I'm not in the mood | a sentence-level equivalent, 没心情 |
+| Reading | 你真行 | meaning in this context |
+
+Collocation counts help with the first two, a little with near-synonyms,
+and mislead on their own: 有 is common before 抑郁症 but means having it,
+not getting it; rare pairs have too few examples; Chinese pairs sit apart
+(帮了我一个忙) and the splitter can cut them wrong.
+
+### Design: fixed answer shape, flexible evidence
+
+Not one prompt around the whole thing, and not one rigid pipeline either:
+
+1. **A fixed answer shape.** A set of options, each judged on named points
+   (meaning, words it goes with, grammar, register, tone, how common), each
+   judgment saying where it came from. The screen draws the points an answer
+   uses: the gap-filling phrase for pairing questions, side by side for
+   near-synonyms, a pattern with slots for patterns.
+2. **Evidence as tools the model chooses from**, our own functions:
+   - the owner's sentences, searched on the Chinese or the English side
+     (most of the 39k have translations, so they are already a parallel
+     corpus: "develop depression" can find "depress…" in the English and
+     return the Chinese)
+   - the deck: whether a word is a card, its strength, what it's met in
+     (患 from 患者)
+   - CC-CEDICT entries and readings (`lib/readings.ts`, `dictEntry`)
+   - collocation counts for a word and a grammatical relation (verbs taking
+     it as object, words describing it, words it goes with)
+   - translated examples from a bigger corpus
+3. **A checking step after the model.** Every Chinese word must be a
+   CC-CEDICT headword (or flagged); pinyin always comes from our readings
+   code, never the model; every "common" claim points to a count; every
+   example is a real corpus sentence or labelled as written by the model. A
+   claim that fails is dropped or marked, never shown as fact.
+
+The model makes two kinds of call: reading the query (structure, senses,
+which part is in question) and judging the options given the evidence.
+Both cached per query; lookups are owner only (they cost money).
+
+### Leading with the owner's corpus
+
+Answers rank by where they were found: in the owner's sentences and readable
+now; in them but blocked by an unknown word; only in the bigger corpus;
+written by the model (labelled). With nothing in the owner's corpus the
+bigger sources fill in and the screen says so; a lookup that keeps missing
+is a hint about what to import next.
+
+### Which part is the question
+
+"develop depression" could be asking about either word. The model only
+labels the parts; the gap is chosen from evidence:
+
+- **Base and collocate.** In a pair the noun (base) translates on its own and
+  the verb (collocate) depends on it, so learners get stuck on the
+  collocate. The gap goes there by default.
+- **Measured ambiguity.** How many words could fill each part, and how
+  evenly the corpus splits between them, given the rest of the phrase.
+  "develop" fans out to a dozen verbs; "depression" next to it is nearly
+  always 抑郁症 (alone it splits into 抑郁症, 抑郁 / 忧郁, 萧条). Both
+  ambiguous → both get a gap.
+- **The deck.** A strong card for 抑郁症 means it isn't the question.
+- **The owner overrides:** typing the known part in Chinese ("develop
+  抑郁症", "得了 depression") says which part is asked; tapping a part in the
+  "Reading it as" strip makes it the gap. The screen always shows what it
+  took as the question.
+
+### Screens
+
+The gap-filling phrase (tap a word to try it; a wrong one struck out in red
+with its reason), Fits and "Close, but no" with wrong/right pairs, a sense
+map before any list when a word has several meanings, word pages (what a
+word combines with, by relation and by sense; every word is a link), an
+evidence drawer of real sentences (the owner's first), and **Learn**, which
+saves the phrase as a card ("develop (an illness)" → 得了抑郁症), so the
+usage is reviewed, not just the word. Later: Android share target (select
+text in any app → Share → 重复习), follow-up questions on an answer.
+
+### Open questions
+
+- **The bigger corpus.** Candidates: Tatoeba (zh–en pairs, ~70k; licence to
+  confirm), Chinese Wikipedia (written only; CC BY-SA), subtitles via OPUS
+  (spoken, zh–en; licence unclear), Leipzig news/web corpora (licence to
+  check). Collocation table built offline by a Python script (segmenter
+  with part-of-speech tags), keeping pairs whose words are CC-CEDICT
+  headwords. Check each licence before use.
+- **Phrase cards** from Learn: a new card kind, or Recall cards with a
+  phrase prompt.
+- **API key:** riddleyu's Anthropic key or a separate
+  `CHONGFUXI_ANTHROPIC_API_KEY`.
+- **The test set.** Over about a month the owner is collecting what he'd
+  type, each with the situation (the sentence he meant) and what he ended
+  up using, ideally tagged with a kind from the table. Every entry gets run
+  through the design and marked: right part in question, right meaning,
+  right word. The misses decide what is built first.
 
 ## The owner's corpus
 
