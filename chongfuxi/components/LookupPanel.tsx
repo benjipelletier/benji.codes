@@ -2,7 +2,9 @@
 
 // Look up (查): "what do I say here", answered from the owner's own sentences
 // (app/api/chongfuxi/lookup.ts), laid out as a dictionary entry (layout A of
-// the owner's pick): the answer in one line, then each word that fits as a
+// the owner's pick). Nothing says what the answer is: for a gap, the phrase
+// shows the best word in it and every candidate under it (fitting ones with
+// their tag, near misses struck through), so it reads at a glance. Then each word that fits as a
 // numbered sense (what it's for, the word and its pinyin, its dictionary
 // meaning, why, how often the owner's sentences have it, an example), with
 // the evidence behind "Why, and more examples"; the near misses struck
@@ -34,14 +36,18 @@ const SOURCE: Record<LookupSource, string> = {
   model: "model",
 };
 
-/** The phrase with the gap filled by the word picked. */
-function Frame({ frame, zh }: { frame: string; zh: string | null }) {
+/** The phrase with the gap filled by the word picked: green when it fits, struck through red when it doesn't. */
+function Frame({ frame, zh, fits }: { frame: string; zh: string | null; fits: boolean }) {
   const at = frame.indexOf("___");
   if (at < 0) return <p className="cf-lk-frame">{frame}</p>;
   return (
     <p className="cf-lk-frame" lang="zh">
       {frame.slice(0, at)}
-      {zh ? <span className="cf-lk-gap is-fit">{zh}</span> : <span className="cf-lk-gap" aria-label="the gap" />}
+      {zh ? (
+        <span className={`cf-lk-gap ${fits ? "is-fit" : "is-miss"}`}>{zh}</span>
+      ) : (
+        <span className="cf-lk-gap" aria-label="the gap" />
+      )}
       {frame.slice(at + 3)}
     </p>
   );
@@ -201,13 +207,32 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
   const named = new Set(a.options.map((o) => o.zh));
   const senses = a.senses.filter((s) => s.words.some((w) => !named.has(w)));
 
+  const shown = a.options.find((o) => o.zh === picked) ?? null;
+
   return (
     <article className="cf-lk-answer">
-      <p className="cf-lk-label">{KIND[a.reading.kind]}</p>
-      <p className="cf-lk-gist">{a.gist || a.summary}</p>
-      {a.gist && a.summary && <p className="cf-lk-summary">{a.summary}</p>}
-
-      {a.frame && <Frame frame={a.frame} zh={picked} />}
+      {/* No sentence saying what the answer is: the phrase and the words under it show it. */}
+      {a.frame && (
+        <div className="cf-lk-head">
+          <Frame frame={a.frame} zh={picked} fits={shown?.fits ?? true} />
+          <div className="cf-lk-tries" role="group" aria-label="Words for the gap">
+            {a.options.map((o) => (
+              <button
+                key={o.zh}
+                className={`cf-lk-try ${o.fits ? "is-fit" : "is-miss"}${picked === o.zh ? " is-on" : ""}`}
+                aria-pressed={picked === o.zh}
+                aria-label={`${o.zh}${o.fits ? (o.label ? `, ${o.label}` : "") : ", doesn't fit"}`}
+                onClick={() => setPicked(o.zh)}
+              >
+                <b>{o.zh}</b>
+                {o.fits && o.label && <small>{o.label}</small>}
+              </button>
+            ))}
+          </div>
+          {/* Under the words, so tapping one never moves them. */}
+          {shown && !shown.fits && <p className="cf-lk-miss-why">{shown.verdict}</p>}
+        </div>
+      )}
 
       {fits.length > 0 && (
         <ol className="cf-lk-entry">
@@ -310,6 +335,7 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
 
       <details className="cf-lk-checks">
         <summary>How it was read, and what the check changed</summary>
+        {a.summary && <p>{a.summary}</p>}
         <p className="cf-lk-parts">
           {a.reading.parts.map((p, i) => (
             <span key={i} className={`cf-lk-part${p.asked ? " is-asked" : ""}`} title={p.asked ? "The question" : "Known"}>
@@ -394,7 +420,9 @@ export function LookupPanel({ shell }: { shell: Shell }) {
           )}
         </button>
       </form>
-      <p className="cf-muted cf-lk-hint">English, Chinese or both: develop depression · 得了 depression · the more… the more</p>
+      {!answer && !busy && (
+        <p className="cf-muted cf-lk-hint">English, Chinese or both: develop depression · 得了 depression · the more… the more</p>
+      )}
 
       {busy && <p className="cf-muted cf-pad">Looking through your sentences and the dictionary… this can take a minute.</p>}
       {error && <p className="cf-error">{error}</p>}

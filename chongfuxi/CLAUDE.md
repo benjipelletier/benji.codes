@@ -373,16 +373,21 @@ Built on the owner's corpus alone, since that is what answers lead with:
   answer is laid out as a dictionary entry, the owner's pick of three
   layouts (mockup: https://claude.ai/artifact/4e5GTiQ9V7yNpKfZ5epxmJ; the
   first version, every point and source spelled out, was too much to read,
-  and the barest layout too little): the kind of question in small capitals,
-  the answer in one line (`gist`) with a sentence or two more under it, the
-  phrase with its gap filled by the word tapped (pairing questions), then
-  each word that fits as a numbered sense: when it's the one (`label`), the
+  and the barest layout too little). Nothing on it says what the answer is:
+  the owner wants it read off the page, not explained ("Say 得了, or 患上 in
+  writing. Not 发展." was taken out; the model still writes `gist`, unused).
+  For a gap, the phrase comes first with the best word in it, in green, and
+  every candidate under it as a chip: fitting ones solid with their tag
+  ("spoken", "written"), near misses struck through in red; a tap puts one
+  in the gap, and a near miss's reason shows under the chips (so they don't
+  move). The hint under the field shows only before an answer. Then each
+  word that fits as a numbered sense: when it's the one (`label`), the
   word, pinyin, its dictionary meaning, why, how many of the owner's
   sentences have it, one example with its translation, and "Why, and more
   examples" for the points with their sources and the rest. Close, but no:
   struck through, why, a wrong and a right sentence. Sentences the model
-  wrote, labelled; Right? ✓ ✗ (a note when wrong); how the question was read
-  and what the check changed folded away at the foot.
+  wrote, labelled; Right? ✓ ✗ (a note when wrong); how the question was read,
+  the model's summary and what the check changed folded away at the foot.
 - **The deck, from the answer**: every word says where it stands, looked up
   each time the answer is shown (cached or not, `withDeck`): "✓ In deck ·
   strong" (its Read card's stage, as on the Words wall), or + Add for a

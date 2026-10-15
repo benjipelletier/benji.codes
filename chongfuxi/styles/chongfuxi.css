@@ -6085,28 +6085,95 @@ button.cf-synclog-row {
   margin-top: 18px;
 }
 
-/* Small capitals over the answer: what kind of question it took this for. */
+/* For a gap: the phrase, and every candidate under it. Fitting ones are
+ * solid, with their tag ("spoken", "written"); near misses are struck through
+ * in red. The answer reads off the shapes, with no sentence saying it. */
+.cf-lk-head {
+  display: grid;
+  gap: 10px;
+}
+
+.cf-lk-head .cf-lk-frame {
+  margin-top: 0;
+}
+
+.cf-lk-gap.is-miss {
+  border: 0;
+  background: color-mix(in srgb, var(--cf-down) 12%, transparent);
+  color: var(--cf-down);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.cf-lk-miss-why {
+  margin-top: -2px;
+  font-size: 14px;
+  color: var(--cf-down);
+}
+
+.cf-lk-tries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cfx .cf-lk-try {
+  min-width: 64px;
+  min-height: 48px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0;
+  padding: 4px 12px;
+  border: 1.5px solid color-mix(in srgb, var(--cf-up) 45%, transparent);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  cursor: pointer;
+}
+
+.cf-lk-try b {
+  font-family: var(--cf-zh);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cf-lk-try small {
+  font-size: 11.5px;
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+}
+
+.cf-lk-try.is-fit.is-on {
+  border-color: var(--cf-up);
+  background: color-mix(in srgb, var(--cf-up) 14%, var(--cf-surface));
+}
+
+.cf-lk-try.is-miss {
+  border: 1.5px dashed var(--cf-rule-strong);
+  background: none;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-try.is-miss b {
+  text-decoration: line-through;
+  text-decoration-color: var(--cf-down);
+  text-decoration-thickness: 2px;
+}
+
+.cf-lk-try.is-miss.is-on {
+  border-color: var(--cf-down);
+  background: color-mix(in srgb, var(--cf-down) 10%, var(--cf-surface));
+}
+
+/* Small capitals over a section ("Written by the model"). */
 .cf-lk-label {
   font-size: 11.5px;
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--cf-ink-faint);
-}
-
-/* The answer in one line, then a sentence or two more. */
-.cf-lk-gist {
-  margin-top: 4px;
-  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
-  font-size: 17px;
-  font-weight: 650;
-  line-height: 1.4;
-}
-
-.cf-lk-summary {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--cf-ink-soft);
 }
 
 /* The phrase, the gap filled by the word picked. */
