@@ -68,7 +68,7 @@ export function DayStrip({ summary, kinds }: { summary: Summary; kinds: SessionK
     const box = scroller.current;
     if (!box) return;
     const first = [...box.querySelectorAll<HTMLElement>("[data-day]")].find((el) => el.offsetLeft + el.clientWidth / 2 >= box.scrollLeft);
-    if (first) setMonth(dateOf(first.dataset.day!, { month: "long" }));
+    if (first) setMonth(dateOf(first.dataset.day!, { month: "short" }));
   };
 
   const left = leftToday(summary, kinds);
