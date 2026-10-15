@@ -12,8 +12,12 @@ import { get } from "@chongfuxi/lib/client";
 import { DiffStat, SyncPage, clientName, clock } from "./SyncPage";
 import { ago, fmt, message, type Shell } from "./shared";
 
-/** A sync whose notes were all ones already handled: nothing to say about it. */
-const quiet = (s: AnkiSync) => s.processed && !s.error && s.wordsAdded + s.known + s.unreadable === 0;
+/**
+ * A sync that changed nothing in the deck: no words added (notes it hadn't
+ * seen may still have been words already known, or held no word at all).
+ * Nothing to say about it, so runs of them fold.
+ */
+const quiet = (s: AnkiSync) => s.processed && !s.error && s.wordsAdded === 0 && !s.undone;
 
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 const hour = (at: number) => new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
