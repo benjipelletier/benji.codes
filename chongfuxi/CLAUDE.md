@@ -304,9 +304,9 @@ text in any app → Share → 重复习), follow-up questions on an answer.
   phrase prompt.
 - **API key:** riddleyu's Anthropic key or a separate
   `CHONGFUXI_ANTHROPIC_API_KEY`.
-- **The test set.** Over about a month the owner is collecting what he'd
-  type, each with the situation (the sentence he meant) and what he ended
-  up using, ideally tagged with a kind from the table. Every entry gets run
+- **The test set.** Over about a month the owner is collecting what they'd
+  type, each with the situation (the sentence meant) and what was used in
+  the end, ideally tagged with a kind from the table. Every entry gets run
   through the design and marked: right part in question, right meaning,
   right word. The misses decide what is built first.
 
