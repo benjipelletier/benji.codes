@@ -143,7 +143,9 @@ side of today as a strip of bars, sliding sideways with today in the middle
 (`components/DayStrip.tsx`, route `days`): cards reviewed each day before
 (grey), cards falling due each day after (blue), today's done and still to
 go. One line beneath: the streak, the cards a day this week and those due in
-the next seven; tapping a day puts its number there instead. The owner asked
+the next seven; tapping a day puts its number there instead. It is
+elastic, at the owner's request: let go, and half a second after it comes to
+rest it glides back to today (held, it stays). The owner asked
 for it in place of three plain figures (yesterday, came due today,
 tomorrow), and then for it quieter: one colour, the date, one line.
 

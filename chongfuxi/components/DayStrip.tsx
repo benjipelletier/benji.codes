@@ -13,6 +13,9 @@ import { get, today as studyToday } from "@chongfuxi/lib/client";
 import { fmt } from "./shared";
 
 
+/** How long after the strip comes to rest it glides back to today. */
+const SPRING_BACK_MS = 500;
+
 const total = (b: Omit<DayBar, "day">) => b.read + b.recall + b.sentence + b.learn;
 
 function dateOf(day: string, opts: Intl.DateTimeFormatOptions): string {
@@ -53,15 +56,38 @@ export function DayStrip({ summary, kinds }: { summary: Summary; kinds: SessionK
       });
   }, [summary.answeredToday]);
 
-  // Today in the middle, once.
-  useLayoutEffect(() => {
+  /** Where the strip sits with today in the middle. */
+  const home = () => {
     const box = scroller.current;
     const col = todayCol.current;
-    if (!days || !box || !col || centred.current) return;
-    box.scrollLeft = col.offsetLeft - box.clientWidth / 2 + col.clientWidth / 2;
+    return box && col ? col.offsetLeft - box.clientWidth / 2 + col.clientWidth / 2 : 0;
+  };
+
+  // Today in the middle, from the start.
+  useLayoutEffect(() => {
+    const box = scroller.current;
+    if (!days || !box || !todayCol.current || centred.current) return;
+    box.scrollLeft = home();
     centred.current = true;
     showMonth();
   }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Elastic, at the owner's request: let go and, once the strip settles, it
+  // glides back to today. Held, it stays where it is.
+  const held = useRef(false);
+  const settle = useRef<number | undefined>(undefined);
+  const springBack = () => {
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => {
+      const box = scroller.current;
+      if (!box || held.current) return;
+      const left = home();
+      if (Math.abs(box.scrollLeft - left) < 2) return;
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      box.scrollTo({ left, behavior: still ? "auto" : "smooth" });
+    }, SPRING_BACK_MS);
+  };
+  useEffect(() => () => window.clearTimeout(settle.current), []);
 
   /** The month of the first day whose bar is in view. */
   const showMonth = () => {
@@ -135,7 +161,37 @@ export function DayStrip({ summary, kinds }: { summary: Summary; kinds: SessionK
   return (
     <section className="cf-strip" aria-label="Reviews by day">
       {month && <span className="cf-strip-month">{month}</span>}
-      <div className="cf-strip-days" ref={scroller} onScroll={showMonth}>
+      <div
+        className="cf-strip-days"
+        ref={scroller}
+        onScroll={() => {
+          showMonth();
+          springBack();
+        }}
+        // A finger: touch events, since the browser cancels the pointer once a swipe scrolls. A mouse: pointer events.
+        onTouchStart={() => {
+          held.current = true;
+          window.clearTimeout(settle.current);
+        }}
+        onTouchEnd={() => {
+          held.current = false;
+          springBack();
+        }}
+        onTouchCancel={() => {
+          held.current = false;
+          springBack();
+        }}
+        onPointerDown={(e) => {
+          if (e.pointerType !== "mouse") return;
+          held.current = true;
+          window.clearTimeout(settle.current);
+        }}
+        onPointerUp={(e) => {
+          if (e.pointerType !== "mouse") return;
+          held.current = false;
+          springBack();
+        }}
+      >
         {days.past.map((b) => column(b, "past"))}
         {column(days.today, "today")}
         {days.ahead.map((b) => column(b, "ahead"))}
