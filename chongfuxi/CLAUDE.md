@@ -221,13 +221,13 @@ the design was silent and are still to be confirmed.
   compounds, so tokens alone can't say). Back: pinyin, every
   definition, the translation. A word with no saved pinyin shows its
   dictionary entry's (`shownPinyin`).
-- **Tapping a word in a sentence**, on any card and either side, opens a small
-  popup with its pinyin and a short meaning (`SentenceText` in
-  `components/shared.tsx`); a tap anywhere else closes it. Not shown
-  otherwise: the owner tried pinyin over every word and preferred it on
-  demand. The front of a Read card won't open its own word. Words looked up
-  on a sentence card come already ticked in "which words tripped you" after
-  Forgot. Readings (`lib/readings.ts`, sent as `looks` with the sentence):
+- **Tapping a word in a sentence**, on any card once the answer is shown,
+  opens a small popup with its pinyin and a short meaning (`SentenceText` in
+  `components/shared.tsx`); a tap anywhere else closes it. Never on the
+  front, where it would be a free hint, and never shown unasked: the owner
+  tried pinyin over every word and preferred it on demand. Words looked up
+  on a sentence card's back come already ticked in "which words tripped
+  you" after Forgot. Readings (`lib/readings.ts`, sent as `looks` with the sentence):
   the decks' pinyin is never used. A particle takes its reading in running
   text (了 le, 得 de, 着 zhe, 还 hái, 都 dōu: `RUNNING_READINGS`), then the
   word's own row, then CC-CEDICT (`dictEntry` in

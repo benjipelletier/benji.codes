@@ -77,18 +77,18 @@ function piecesOf(sentence: SentenceInfo): Piece[] {
 
 /**
  * A sentence with one word picked out, each of its words tappable for its
- * pinyin and meaning in a small popup (`looks`, from the server). `hide` is a
- * word that can't be tapped, the answer on a card's front.
+ * pinyin and meaning in a small popup (`looks`, from the server) once
+ * `taps` is on: on a card, only after Show answer.
  */
 export function SentenceText({
   sentence,
   word = "",
-  hide,
+  taps,
   onLook,
 }: {
   sentence: SentenceInfo;
   word?: string;
-  hide?: string;
+  taps: boolean;
   onLook?: (word: string) => void;
 }) {
   const [open, setOpen] = useState<{ i: number; el: HTMLElement } | null>(null);
@@ -123,7 +123,12 @@ export function SentenceText({
     };
   }, [open]);
 
-  const pieces = sentence.looks ? piecesOf(sentence) : null;
+  // Turning the card back to its front (the next card) puts the popup away.
+  useEffect(() => {
+    if (!taps) setOpen(null);
+  }, [taps]);
+
+  const pieces = taps && sentence.looks ? piecesOf(sentence) : null;
   if (!pieces) return <Highlighted text={sentence.zh} word={word} />;
   const from = word ? sentence.zh.indexOf(word) : -1;
   const to = from + word.length;
@@ -146,7 +151,7 @@ export function SentenceText({
     <>
       {pieces.map((b) => {
         const i = b.word;
-        if (i === null || !sentence.looks?.[i] || (hide && b.zh.includes(hide))) return <span key={b.at}>{marked(b)}</span>;
+        if (i === null || !sentence.looks?.[i]) return <span key={b.at}>{marked(b)}</span>;
         const show = (el: HTMLElement) => {
           if (open?.i === i) return setOpen(null);
           setOpen({ i, el });

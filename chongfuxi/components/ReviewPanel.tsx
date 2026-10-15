@@ -659,7 +659,7 @@ function Session({
 
   const forget = () => {
     if (!card) return;
-    // Words looked up on a sentence come ticked: they are the likely culprits.
+    // Words looked up on the back of a sentence come ticked: the likely culprits.
     if (card.kind === "sentence") setTapped(new Set(looked.current));
     setWhy("");
   };
@@ -773,7 +773,7 @@ function Session({
               {card.sentence && (
                 <>
                   <p className="cf-card-zh">
-                    <SentenceText sentence={card.sentence} word={card.word.word} hide={revealed ? undefined : card.word.word} />
+                    <SentenceText sentence={card.sentence} word={card.word.word} taps={revealed} />
                   </p>
                   <SourceOf sentence={card.sentence} />
                 </>
@@ -816,7 +816,7 @@ function Session({
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">
-                        <SentenceText sentence={card.sentence} word={card.word.word} />
+                        <SentenceText sentence={card.sentence} word={card.word.word} taps />
                       </p>
                       {card.sentence.en && <p className="cf-en">{card.sentence.en}</p>}
                       <SourceOf sentence={card.sentence} />
@@ -830,7 +830,7 @@ function Session({
           {card.kind === "sentence" && card.sentence && (
             <>
               <p className="cf-card-sentence">
-                <SentenceText sentence={card.sentence} onLook={(w) => looked.current.add(w)} />
+                <SentenceText sentence={card.sentence} taps={revealed} onLook={(w) => looked.current.add(w)} />
               </p>
               {revealed && (
                 <div className="cf-back">
