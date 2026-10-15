@@ -409,6 +409,36 @@ Built on the owner's corpus alone, since that is what answers lead with:
   that built it had neither. Run a few lookups first and read "What the check
   changed".
 
+### Next: answers composed from blocks (agreed, not built)
+
+Agreed with the owner in October 2026 as the starting point (mockup:
+https://claude.ai/artifact/2QUPzy4t1sbe1NwrU9g1yP). Instead of one fixed
+layout, the model composes each answer from a closed set of blocks with
+typed fields; the app draws them, so the model never writes interface. The
+answer reads off the blocks' shapes, with no sentence saying what it is.
+
+| Block | Shows | Typical kind |
+|---|---|---|
+| Gap phrase | the phrase with the best word in it, every candidate under it, near misses struck | pairing |
+| Sense | a numbered word: when it's the one, why, an example | which meaning |
+| Contrast | 2–3 words side by side on the same rows (means, turned out, sounds, typical) | near-synonyms |
+| Scale | words placed on one line between two ends (good ↔ bad, casual ↔ formal) | tone, register |
+| Pattern | a template with slots (越 A 越 B) and fillings | patterns |
+| Family | the rule behind the answer from the owner's sentences (得 + an illness: 得感冒 · 得了癌症) | any; what makes it more than a dictionary |
+| Wrong → right | the likely mistake beside the fix | any |
+| Example | one of the owner's sentences by id, or one labelled as the model's | any |
+
+- Structured output enforces the set; the check runs per block (headwords,
+  our pinyin, real sentence ids, counts a tool returned); every word in any
+  block gets the deck mark and + Add.
+- Code keeps the order stable (the headline block first, examples last), so
+  the same kind of question looks the same each time.
+- Cost on Haiku: about $0.005 a lookup, against $0.004 now.
+- Still open from the same review: answering in the owner's own sentence
+  (and checking an attempt), keeping the phrase rather than the bare word
+  (a card's note as the bridge until phrase cards), and showing something
+  at once while the model works.
+
 ### Open questions
 
 - **The bigger corpus.** Looked at in October 2026 (from search results;
