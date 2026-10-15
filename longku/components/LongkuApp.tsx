@@ -102,11 +102,9 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
     if (!hydrated) return;
     const bank = Object.values(state.bank);
     const missing = new Set(
-      bank.filter((e) => e.ls === null || (e.f === undefined && !e.offCorpus)).map((e) => e.w),
+      bank.filter((e) => e.ls === null || e.f === undefined).map((e) => e.w),
     );
-    // Off-corpus words are left out: the corpus has no frequency for them, and
-    // its guessed bucket mustn't overwrite one that was chosen.
-    const runs = [...new Set([...missing, ...bank.filter((e) => !e.offCorpus).map((e) => e.w)])];
+    const runs = [...new Set([...missing, ...bank.map((e) => e.w)])];
     if (runs.length === 0) return;
     let cancelled = false;
     // The route takes 2,000 runs at a time.
@@ -130,14 +128,6 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
             ls: x.ls,
             f: x.f,
           })),
-          // Guesses, for words the corpus lacks: only where nothing was known.
-          ...(d?.unmatched ?? [])
-            .filter((u: { w: string }) => missing.has(u.w))
-            .map((u: { w: string; fs: string; ls: string | null }) => ({
-              w: u.w,
-              fs: u.fs,
-              ls: u.ls,
-            })),
         ]);
         if (readings.length > 0) setState(hydrate(readings));
       })
@@ -262,7 +252,6 @@ export function LongkuApp({ syllables, corpusMass, endingMass, tierMass, tierWor
             corpusSyllables={syllables.length}
             playability={playability}
             byTier={byTier}
-            offCorpusCount={tiers.offcorpus}
             stats={s}
             onOpenStats={() => setSheetOpen(true)}
           />

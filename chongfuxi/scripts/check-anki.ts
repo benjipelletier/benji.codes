@@ -273,6 +273,8 @@ main()
     await sql`delete from chongfuxi_token where owner_email = ${owner}`;
     await sql`delete from chongfuxi_sentence where owner_email = ${owner}`;
     await sql`delete from chongfuxi_word where owner_email = ${owner}`;
+    await sql`delete from longku_bank where owner_email = ${owner}`;
+    await sql`delete from longku_excluded where owner_email = ${owner}`;
     console.log(`\ncleaned up: nothing left for this owner\n\n${failed ? `${failed} checks failed.` : "All checks passed."}`);
     process.exit(failed ? 1 : 0);
   });

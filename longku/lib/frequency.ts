@@ -17,7 +17,7 @@
 // the way the language does — learning 画蛇添足 is worth more than learning a
 // variant nobody writes.
 
-export type Tier = "core" | "common" | "uncommon" | "rare" | "offcorpus";
+export type Tier = "core" | "common" | "uncommon" | "rare";
 
 export interface TierSpec {
   id: Tier;
@@ -48,43 +48,24 @@ export const FREQUENCY_TIERS: TierSpec[] = [
   },
 ];
 
-/**
- * Words the reference corpus doesn't contain.
- *
- * Not a frequency band — a word with no entry has no frequency at all, and
- * filing it under "rare" was a claim the data doesn't support: 各种各样 is one
- * of the commonest four-character expressions in Mandarin and the corpus
- * simply omits it. Its own tier says "unmeasured", which is the truth.
- */
-export const OFF_CORPUS: TierSpec = {
-  id: "offcorpus",
-  label: "off-corpus",
-  min: -1,
-  blurb: "not in the reference dictionary, so its frequency is unknown",
-};
+/** All tiers, for labelling. */
+export const TIERS: TierSpec[] = FREQUENCY_TIERS;
 
-/** All tiers, for labelling. Coverage bars use FREQUENCY_TIERS only. */
-export const TIERS: TierSpec[] = [...FREQUENCY_TIERS, OFF_CORPUS];
-
-export function tierOf(f: number | undefined, offCorpus?: boolean): Tier {
-  if (offCorpus) return "offcorpus";
-  // No frequency and not flagged: an entry that predates frequency storage, or
-  // one still waiting to be hydrated. Treated as off-corpus rather than rare
-  // for the same reason — we don't know, so don't assert.
-  if (f === undefined || f === null) return "offcorpus";
+/** A word's tier. One with no frequency yet (still being hydrated) counts as rare until it has one. */
+export function tierOf(f: number | undefined): Tier {
+  if (f === undefined || f === null) return "rare";
   return freqTierOf(f);
 }
 
 export function tierSpec(id: Tier): TierSpec {
-  return TIERS.find((t) => t.id === id) ?? OFF_CORPUS;
+  return TIERS.find((t) => t.id === id) ?? FREQUENCY_TIERS[FREQUENCY_TIERS.length - 1];
 }
 
 /**
  * Share of total chengyu usage the bank covers.
  *
- * Words added before frequencies were stored, and off-corpus words that have
- * no frequency at all, contribute nothing rather than guessing — they simply
- * don't move the bar until a reading is backfilled.
+ * Words added before frequencies were stored contribute nothing rather than
+ * guessing — they simply don't move the bar until a reading is backfilled.
  */
 export function usageCoverage(
   bank: Array<{ f?: number }>,
@@ -144,12 +125,8 @@ export function playabilityOf(
   return Math.min(1, mine / total);
 }
 
-/**
- * A tier a corpus word can hold. Off-corpus is excluded by construction: every
- * entry in the reference dictionary has a frequency, so the corpus-side totals
- * can never include it.
- */
-export type FreqTier = Exclude<Tier, "offcorpus">;
+/** A tier a corpus word can hold: every word in 龙库 is in the corpus. */
+export type FreqTier = Tier;
 
 /** Which frequency band a known frequency falls in. */
 export function freqTierOf(f: number): FreqTier {
@@ -182,7 +159,7 @@ export interface TierCoverage {
  * rare barely moves and is worth under 1% of usage between 24,500 words.
  */
 export function coverageByTier(
-  bank: Array<{ f?: number; offCorpus?: boolean }>,
+  bank: Array<{ f?: number }>,
   tierMass: TierMass,
   tierWords: TierCount,
 ): TierCoverage[] {
@@ -192,10 +169,9 @@ export function coverageByTier(
     common: { mass: 0, words: 0 },
     uncommon: { mass: 0, words: 0 },
     rare: { mass: 0, words: 0 },
-    offcorpus: { mass: 0, words: 0 },
   };
   for (const e of bank) {
-    const id = tierOf(e.f, e.offCorpus);
+    const id = tierOf(e.f);
     held[id].mass += e.f ?? 0;
     held[id].words += 1;
   }
@@ -215,15 +191,14 @@ export function coverageByTier(
 
 /** Count of bank words per tier. */
 export function tierCounts(
-  bank: Array<{ f?: number; offCorpus?: boolean }>,
+  bank: Array<{ f?: number }>,
 ): Record<Tier, number> {
   const out: Record<Tier, number> = {
     core: 0,
     common: 0,
     uncommon: 0,
     rare: 0,
-    offcorpus: 0,
   };
-  for (const e of bank) out[tierOf(e.f, e.offCorpus)] += 1;
+  for (const e of bank) out[tierOf(e.f)] += 1;
   return out;
 }

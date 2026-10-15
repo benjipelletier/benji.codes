@@ -12,8 +12,9 @@ import type { Sql } from "./db";
 import type { Addition, AnkiSync, AnkiSyncDetail } from "@chongfuxi/lib/api";
 import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfuxi/lib/dict";
 import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
-import { newSchedule } from "@chongfuxi/lib/schedule";
+import { newSchedule, type Schedule } from "@chongfuxi/lib/schedule";
 import { insertCards, recomputeUnlocks } from "./corpus";
+import { longkuWords, reconcileLongku } from "./longku";
 import { hskOf, listMissingAll, promptSenses } from "./review";
 
 /** Longest word a note may carry. Longer is a phrase or a sentence. */
@@ -66,6 +67,8 @@ export async function addWords(
   words: string[],
   dict: Dict,
   at = Date.now(),
+  /** Where a word's Read card starts, when something already knows it (龙库's record); new otherwise. */
+  seeds: Map<string, Schedule> = new Map(),
 ): Promise<{ id: number; added: string[]; unlocked: number } | null> {
   const unique = [...new Set(words)];
   if (!unique.length) return null;
@@ -94,7 +97,7 @@ export async function addWords(
   await insertCards(
     sql,
     owner,
-    fresh.map((w) => ({ kind: "read" as const, word: w, schedule: newSchedule(at) })),
+    fresh.map((w) => ({ kind: "read" as const, word: w, schedule: seeds.get(w) ?? newSchedule(at) })),
   );
   const result = await recomputeUnlocks(sql, owner, fresh, at);
   const unlocked = (await sql`
@@ -109,6 +112,8 @@ export async function addWords(
             ${unlocked.map((u) => u.id)}::bigint[])
     returning id::int as id
   `) as unknown as Array<{ id: number }>;
+  // A chengyu among them joins 龙库.
+  await reconcileLongku(sql, owner);
   return { id: made[0].id, added: fresh, unlocked: result.unlocked };
 }
 
@@ -279,6 +284,7 @@ export async function listAdditions(sql: Sql, owner: string, limit = 10, only: n
     from chongfuxi_word w where w.owner_email = ${owner} and w.word = any(${all}::text[])
   `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; lists: string[] | null; readable: number }>;
   const byWord = new Map(info.map((i) => [i.word, i]));
+  const inLongku = await longkuWords(sql, owner, all);
   const answered = (await sql`
     select distinct word from chongfuxi_card
     where owner_email = ${owner} and word = any(${all}::text[]) and kind in ('read', 'produce') and answered > 0
@@ -311,6 +317,7 @@ export async function listAdditions(sql: Sql, owner: string, limit = 10, only: n
           pinyin: i?.pinyin ?? null,
           gloss: i ? (promptSenses(i.defs).slice(0, 2).join("; ") || null) : null,
           hsk: hskOf(i?.lists ?? []),
+          longku: inLongku.has(w.word),
           was: w.was,
           readable: i?.readable ?? 0,
         };
@@ -383,6 +390,8 @@ export async function removeWord(sql: Sql, owner: string, word: string, at = Dat
     sql`update chongfuxi_anki_note set outcome = 'removed' where owner_email = ${owner} and word = ${word}`,
   ]);
   const result = await recomputeUnlocks(sql, owner, [], at);
+  // Out of the deck, out of 龙库.
+  await reconcileLongku(sql, owner);
   return { answers: answers[0].n, relocked: result.relocked };
 }
 
@@ -431,5 +440,6 @@ export async function undoAddition(sql: Sql, owner: string, id: number, at = Dat
     sql`update chongfuxi_anki_note set outcome = 'undone' where owner_email = ${owner} and addition_id = ${id}`,
   ]);
   const result = await recomputeUnlocks(sql, owner, [], at);
+  await reconcileLongku(sql, owner);
   return { relocked: result.relocked };
 }

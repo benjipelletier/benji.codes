@@ -1,7 +1,7 @@
 "use client";
 
 import type { BankStats } from "@longku/lib/chains";
-import { OFF_CORPUS, type TierCoverage } from "@longku/lib/frequency";
+import type { TierCoverage } from "@longku/lib/frequency";
 
 interface Props {
   /** Share of syllables holding at least one word, 0..1 — the headline. */
@@ -12,7 +12,6 @@ interface Props {
   /** Chance a chengyu someone plays ends where one of yours starts — see playabilityOf. */
   playability: number;
   byTier: TierCoverage[];
-  offCorpusCount: number;
   stats: BankStats;
   onOpenStats: () => void;
 }
@@ -36,7 +35,6 @@ export function ProgressStrip({
   corpusSyllables,
   playability,
   byTier,
-  offCorpusCount,
   stats,
   onOpenStats,
 }: Props) {
@@ -83,18 +81,6 @@ export function ProgressStrip({
           </div>
         ))}
 
-        {offCorpusCount > 0 && (
-          <div className="longku-strip-tier tier-offcorpus" title={OFF_CORPUS.blurb}>
-            <div className="longku-strip-tier-head">
-              <span className="longku-strip-tier-label">{OFF_CORPUS.label}</span>
-              <span className="longku-strip-tier-n">
-                <span className="longku-strip-mine">{offCorpusCount}</span>
-              </span>
-            </div>
-            {/* No bar: an unmeasured word has no share of usage to fill one. */}
-            <div className="longku-strip-track is-empty" />
-          </div>
-        )}
       </div>
     </section>
   );

@@ -63,7 +63,7 @@ export function measureAdd(
   const covBefore = coverageByTier(prev, tierMass, tierWords);
   const covAfter = coverageByTier(next, tierMass, tierWords);
   const touched = new Set(
-    words.filter((e) => !e.offCorpus && e.f !== undefined).map((e) => freqTierOf(e.f!)),
+    words.filter((e) => e.f !== undefined).map((e) => freqTierOf(e.f!)),
   );
   const tiers = covAfter
     .filter((t) => touched.has(t.id as ReturnType<typeof freqTierOf>))
@@ -201,7 +201,7 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
           ✦
         </span>
         <span className="longku-toast-word">{head?.w}</span>
-        {head && <TierPill f={head.f} offCorpus={head.offCorpus} />}
+        {head && <TierPill f={head.f} />}
         {more > 0 && <span className="longku-toast-more">+{more} more</span>}
         <button type="button" className="longku-toast-close" onClick={onClose} aria-label="Dismiss">
           ✕

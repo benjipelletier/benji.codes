@@ -6,7 +6,7 @@
 
 import type { Addition } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, fmt } from "./shared";
+import { Highlighted, LongkuTag, fmt } from "./shared";
 
 export function AdditionDetails({ addition }: { addition: Addition }) {
   const a = addition;
@@ -43,6 +43,7 @@ export function AdditionDetails({ addition }: { addition: Addition }) {
                   </span>
                 )}
                 {!w.hsk.old && !w.hsk.v3 && <span className="cf-tag cf-hsk is-none">not HSK</span>}
+                {w.longku && <LongkuTag />}
                 {w.was === "listed" && <span className="cf-tag">was on a list</span>}
                 {w.was === "name" && <span className="cf-tag">was a name</span>}
                 <span className="cf-arrival-in">

@@ -22,7 +22,7 @@ import { blankOut } from "@chongfuxi/lib/review";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { FastReview } from "./FastReview";
-import { History, SentenceText, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
+import { History, LongkuTag, SentenceText, Waiting, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -758,6 +758,7 @@ function Session({
             {card.kind === "sentence" && !card.isNew && <span className="cf-tag">{card.cleanReads} of 2 clean reads</span>}
             <span className="cf-card-tags">
               {card.word && <HskTags hsk={card.word.hsk} />}
+              {card.word?.longku && <LongkuTag />}
               {card.kind === "sentence" && card.sentence?.sources.map((s) => (
                 <span key={s} className="cf-tag">{s}</span>
               ))}

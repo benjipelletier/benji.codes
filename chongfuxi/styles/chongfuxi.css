@@ -4780,3 +4780,39 @@ button.cf-synclog-row {
     animation: none;
   }
 }
+
+/* 龙库: the chengyu the chain game plays, linked both ways. A dragon red. */
+.cf-longku {
+  --cf-longku: #c2412d;
+  color: var(--cf-longku) !important;
+  background: color-mix(in srgb, var(--cf-longku) 12%, transparent) !important;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cf-longku {
+    --cf-longku: #f07a62;
+  }
+}
+
+:root[data-theme="dark"] .cf-longku {
+  --cf-longku: #f07a62;
+}
+
+.cf-list-linked {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+  color: #c2412d;
+  background: color-mix(in srgb, #c2412d 12%, transparent);
+}
+
+.cf-list-about {
+  margin: 4px 0 8px;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}

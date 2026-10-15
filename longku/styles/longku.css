@@ -839,9 +839,6 @@
   white-space: nowrap;
 }
 
-.longku-add-row.is-off { grid-template-columns: auto 1fr; border-top: 1px dashed var(--lg-rule); margin-top: 2px; }
-.longku-add-note { font-size: 12px; color: var(--lg-warn); }
-.longku-add-note strong { font-weight: normal; font-style: italic; }
 
 /* Sits over the wall, so it needs a surface of its own — as bare text it read
    as the page glitching rather than as a panel. */
@@ -1512,21 +1509,6 @@
 .longku-stuck-line { font-size: 14px; }
 .longku-stuck-next { margin-left: auto; flex: none; }
 
-/* Off-corpus: a word the dictionary doesn't have, so its frequency is unknown
-   rather than low. Given its own neutral-violet treatment so it never reads as
-   the bottom of the frequency scale. */
-.longku-pill.tier-offcorpus.is-on {
-  border-color: var(--lg-rare-1);
-  background: color-mix(in srgb, var(--lg-rare-1) 14%, transparent);
-}
-
-.longku-pill.tier-offcorpus.is-on .longku-pill-n { color: var(--lg-rare-1); }
-
-.longku-pill.is-mini.tier-offcorpus {
-  color: var(--lg-rare-1);
-  border-color: color-mix(in srgb, var(--lg-rare-1) 55%, transparent);
-}
-
 /* ------------------------------------- main page: tier & coverage strip -- */
 .longku-progress-strip {
   display: flex;
@@ -1631,7 +1613,6 @@
 .longku-strip-tier.tier-common .longku-strip-mine { color: var(--lg-tier-common); }
 .longku-strip-tier.tier-uncommon .longku-strip-fill { background: var(--lg-tier-uncommon); }
 .longku-strip-tier.tier-uncommon .longku-strip-mine { color: var(--lg-tier-uncommon); }
-.longku-strip-tier.tier-offcorpus .longku-strip-mine { color: var(--lg-rare-1); }
 
 /* Rare keeps its shimmer here too, on the label and the fill. */
 .longku-strip-tier.tier-rare .longku-strip-fill,

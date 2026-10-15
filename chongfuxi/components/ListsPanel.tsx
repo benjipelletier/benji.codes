@@ -46,7 +46,11 @@ export function ListsPanel({ shell }: { shell: Shell }) {
 
   const byList = useMemo(() => new Map((nodes ?? []).map((n) => [n.list, n])), [nodes]);
   const children = useMemo(
-    () => (nodes ?? []).filter((n) => parentOf(n.list) === at).sort((a, b) => natural(nameOf(a.list), nameOf(b.list))),
+    () =>
+      (nodes ?? [])
+        .filter((n) => parentOf(n.list) === at)
+        // A linked list (龙库) first, then the rest by name.
+        .sort((a, b) => Number(Boolean(b.linked)) - Number(Boolean(a.linked)) || natural(nameOf(a.list), nameOf(b.list))),
     [nodes, at],
   );
   const here = byList.get(at) ?? null;
@@ -133,6 +137,12 @@ export function ListsPanel({ shell }: { shell: Shell }) {
       {here && (
         <header className="cf-list-head">
           <h2 className="cf-zh">{nameOf(at)}</h2>
+          {here.linked === "longku" && (
+            <p className="cf-list-about">
+              The chengyu <a className="cf-link" href="/longku">龙库</a> plays, kept in step with it: every chengyu in your deck is here unless
+              you removed it in 龙库, and a chengyu added in 龙库 joins the deck. 龙库 keeps its own practice schedule.
+            </p>
+          )}
           <p className="cf-muted">
             {fmt(here.inDeck)} of {fmt(here.total)} words in the deck
             {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
@@ -158,7 +168,10 @@ export function ListsPanel({ shell }: { shell: Shell }) {
           {children.map((n) => (
             <li key={n.list}>
               <button onClick={() => go(n.list)}>
-                <span className="cf-list-name cf-zh">{nameOf(n.list)}</span>
+                <span className="cf-list-name cf-zh">
+                  {nameOf(n.list)}
+                  {n.linked === "longku" && <span className="cf-list-linked">linked to 龙库</span>}
+                </span>
                 <span className="cf-list-count">
                   {n.inDeck === n.total ? "all " : `${fmt(n.inDeck)} / `}
                   {fmt(n.total)}

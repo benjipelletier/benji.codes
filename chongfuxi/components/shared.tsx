@@ -288,3 +288,12 @@ export function History({ h }: { h: CardHistory }) {
     </div>
   );
 }
+
+/** A word 龙库 plays: the chengyu are kept in step with it (app/api/chongfuxi/longku.ts). */
+export function LongkuTag() {
+  return (
+    <span className="cf-tag cf-longku" title="One of the chengyu 龙库 plays">
+      龙库
+    </span>
+  );
+}

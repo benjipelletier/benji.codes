@@ -26,7 +26,7 @@ export interface BankEntry {
   fs: string;
   /** Last syllable. Null when no reading is known — such a word ends a chain. */
   ls: string | null;
-  /** Corpus frequency, for tiering and usage coverage. Absent off-corpus. */
+  /** Corpus frequency, for tiering and usage coverage. Absent until hydrated. */
   f?: number;
   /** Times produced in play. 0 means banked but never recalled. */
   recalls: number;
@@ -50,7 +50,6 @@ export interface BankEntry {
    * since the schedule arrived — see srs.dueAt for how those are placed.
    */
   due?: number;
-  offCorpus?: boolean;
 }
 
 /**
@@ -323,7 +322,6 @@ export interface ImportWord {
   fs: string;
   ls: string | null;
   f?: number;
-  offCorpus?: boolean;
 }
 
 export interface ImportSummary {
@@ -366,7 +364,7 @@ export function importWords(words: ImportWord[]): {
   const buckets = new Set<string>();
   const now = Date.now();
 
-  for (const { w, fs, ls, f, offCorpus } of words) {
+  for (const { w, fs, ls, f } of words) {
     const existing = _state.bank[w];
     if (existing) {
       if (existing.ls === null && ls) existing.ls = ls;
@@ -383,7 +381,6 @@ export function importWords(words: ImportWord[]): {
       misses: 0,
       added: now,
       ...(f !== undefined ? { f } : {}),
-      ...(offCorpus ? { offCorpus } : {}),
     };
     added.push(w);
     buckets.add(fs);

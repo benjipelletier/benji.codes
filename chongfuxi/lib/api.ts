@@ -61,6 +61,8 @@ export interface WordInfo {
   split: Array<{ id: number; gloss: string }>;
   /** Its HSK levels, old and 3.0 ("5", "7-9"); null where it isn't in that one. */
   hsk: { old: string | null; v3: string | null };
+  /** It is one of the chengyu 龙库 plays (app/api/chongfuxi/longku.ts). */
+  longku: boolean;
 }
 
 export interface SentenceInfo {
@@ -128,6 +130,8 @@ export interface WordTile {
   /** Its Recall card has opened. */
   recall: boolean;
   hsk: { old: string | null; v3: string | null };
+  /** In 龙库. */
+  longku: boolean;
 }
 
 /** Everything about one word, for its sheet on the Words page. */
@@ -136,6 +140,8 @@ export interface WordDetail {
   pinyin: string | null;
   defs: Definition[];
   hsk: { old: string | null; v3: string | null };
+  /** In 龙库. */
+  longku: boolean;
   /** Its cards: Read, Recall, and any split-off meanings. */
   cards: Array<{
     kind: CardKind;
@@ -178,6 +184,8 @@ export interface Addition {
     pinyin: string | null;
     gloss: string | null;
     hsk: { old: string | null; v3: string | null };
+    /** In 龙库. */
+    longku: boolean;
     /** What it was before: not in the corpus, on a list, or a name. */
     was: "listed" | "name" | null;
     /** Readable sentences it is in, now. */
@@ -404,6 +412,8 @@ export interface ListNode {
   list: string;
   total: number;
   inDeck: number;
+  /** A list another app keeps: "龙库" is the chengyu 龙库 plays, linked both ways. */
+  linked?: "longku";
 }
 
 /** A word on a list, in the deck or not. */

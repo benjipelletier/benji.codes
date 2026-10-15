@@ -70,6 +70,13 @@ on the landing page. All five current projects are enabled.
   `CHONGFUXI_DATABASE_URL` store and are served read-only. That backup
   includes third-party sentence decks.
 
+## 龙库 and 重复习 share a database
+
+龙库's tables now live in `CHONGFUXI_DATABASE_URL`, and its chengyu are 重复习
+deck words, linked both ways (see chongfuxi/CLAUDE.md, "龙库 is backed by this
+app"). The `LONGKU_DATABASE_*` store is no longer read; it keeps the data as it
+was before the move.
+
 ## Per-project CLAUDE.md
 
 Each project directory has its own CLAUDE.md with project-specific details (tech stack, aesthetic, data model, etc.).
