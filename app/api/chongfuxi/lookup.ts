@@ -15,8 +15,10 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import type { LookupAnswer, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
+import { addWords } from "./additions";
 import type { Sql } from "./db";
+import { loadDict } from "./dictfile";
 import { dictEntry } from "./headwords";
 import { checkAnswer, type ModelAnswer } from "./lookup-check";
 import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, together, type Seen } from "./lookup-evidence";
@@ -65,16 +67,19 @@ Rules for the answer:
 - Every option's zh is a Chinese word or short phrase, as it would be written in the gap.
 - A point with source "corpus" must give a count exactly as a tool returned it for that word or pair; otherwise use count -1. Use "dictionary" only for what the dictionary tool showed, "deck" only for what it showed about the deck, and "model" for your own knowledge.
 - examples are ids of sentences the tools returned, never invented. If you want to show a sentence the tools didn't find, put it in written, which is labelled as yours.
-- Give the 2 to 4 options that fit (fits true) and the 2 to 4 near misses a learner would reach for (fits false). For each near miss give a wrong sentence and the right one, in Chinese.
+- Give the 2 to 4 options that fit (fits true) and the 2 to 4 near misses a learner would reach for (fits false). For each near miss give a wrong sentence and the right one, in Chinese. Any word you call a trap or warn against belongs among the near misses, not only in the summary.
+- gist is the whole answer in one short line, naming the words: "Mind 创伤, body 外伤. Not 硬伤." or "Say 得了, or 患上 in writing. Not 发展."
+- Each option's label says in at most five words when it is the one: "the mind; lasting harm", "spoken, everyday". Its verdict is one sentence of at most fifteen words.
+- Put each point under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own point with source "deck".
 - frame is the Chinese phrase with ___ for the asked part ("___抑郁症"), or "" when there is no single gap.
 - senses: only when a word has several meanings that need different words; otherwise [].
-- verdict, says, note and summary are short plain English. If the user's sentences had nothing, say so in summary.`;
+- verdict, says, note and summary are short plain English; summary adds what the gist and options don't say, in two sentences at most. If the user's sentences had nothing, say so in summary.`;
 
 /** The answer's fixed shape. Every field is required; empty means none. */
 const ANSWER_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reading", "frame", "senses", "options", "written", "summary"],
+  required: ["reading", "gist", "frame", "senses", "options", "written", "summary"],
   properties: {
     reading: {
       type: "object",
@@ -94,6 +99,7 @@ const ANSWER_SCHEMA = {
         note: { type: "string" },
       },
     },
+    gist: { type: "string" },
     frame: { type: "string" },
     senses: {
       type: "array",
@@ -109,9 +115,10 @@ const ANSWER_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["zh", "fits", "verdict", "points", "examples", "wrong", "right"],
+        required: ["zh", "label", "fits", "verdict", "points", "examples", "wrong", "right"],
         properties: {
           zh: { type: "string" },
+          label: { type: "string" },
           fits: { type: "boolean" },
           verdict: { type: "string" },
           points: {
@@ -268,7 +275,7 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     const kept = (await sql`select answer from chongfuxi_lookup where owner_email = ${owner} and query = ${q}`) as unknown as Array<{
       answer: LookupAnswer;
     }>;
-    if (kept[0]) return kept[0].answer;
+    if (kept[0]) return withDeck(sql, owner, kept[0].answer);
   }
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new LookupError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
@@ -325,7 +332,42 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     on conflict (owner_email, query) do update
       set at = now(), model = excluded.model, kind = excluded.kind, answer = excluded.answer, verdict = null, note = null
   `;
-  return answer;
+  return withDeck(sql, owner, answer);
+}
+
+/** A word's Read card, as the Words wall shades it: not answered here yet, under three weeks, under six months, beyond. */
+const stageOf = (answered: number, stability: number): LookupDeck["stage"] =>
+  answered === 0 ? "new" : stability < 21 ? "young" : stability < 180 ? "mature" : "strong";
+
+/** Each option's place in the deck as it stands now: the kept answer doesn't keep it, since the deck moves. */
+async function withDeck(sql: Sql, owner: string, answer: LookupAnswer): Promise<LookupAnswer> {
+  const words = [...new Set(answer.options.map((o) => o.zh))];
+  const rows = words.length
+    ? ((await sql`
+        select w.word, w.status, c.answered, c.stability
+        from chongfuxi_word w
+        left join chongfuxi_card c on c.owner_email = w.owner_email and c.kind = 'read' and c.meaning_id is null and c.word = w.word
+        where w.owner_email = ${owner} and w.word = any(${words}::text[])
+      `) as unknown as Array<{ word: string; status: "deck" | "listed" | "name"; answered: number | null; stability: number | null }>)
+    : [];
+  const of = new Map(rows.map((r) => [r.word, r]));
+  return {
+    ...answer,
+    options: answer.options.map((o) => {
+      const r = of.get(o.zh);
+      const deck: LookupDeck = r
+        ? { status: r.status, stage: r.status === "deck" && r.answered !== null ? stageOf(r.answered, r.stability ?? 0) : null }
+        : { status: null, stage: null };
+      return { ...o, deck };
+    }),
+  };
+}
+
+/** Put a word from an answer in the deck: one addition, source "lookup:<question>", to keep or undo like any other. */
+export async function addFromLookup(sql: Sql, owner: string, query: string, word: string) {
+  if (!/^[\u3400-\u9fff]{1,8}$/.test(word)) throw new LookupError("Only a Chinese word can go in the deck.");
+  if (!dictEntry(word)) throw new LookupError(`${word} isn't a dictionary word, so it has no definition to put on a card.`);
+  return addWords(sql, owner, `lookup:${normalise(query)}`, [word], loadDict());
 }
 
 /** Past lookups, newest first, with the owner's verdicts. */

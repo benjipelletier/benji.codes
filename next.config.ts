@@ -30,8 +30,9 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/session": ["./chongfuxi/data/cedict.txt"],
     // A sentence's words, read from the dictionary when the deck has none.
     "/api/chongfuxi/sentence": ["./chongfuxi/data/cedict.txt"],
-    // Look up: the dictionary both ways, and the readings of every option.
-    "/api/chongfuxi/lookup": ["./chongfuxi/data/cedict.txt"],
+    // Look up: the dictionary both ways, the readings of every option, and
+    // adding a word from an answer (which links a chengyu into 龙库).
+    "/api/chongfuxi/lookup": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
     // Removing a word, or undoing an addition, unlinks it from 龙库.
     "/api/chongfuxi/word": ["./longku/data/chengyu.json"],
     "/api/chongfuxi/additions/[id]": ["./longku/data/chengyu.json"],

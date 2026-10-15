@@ -18,8 +18,10 @@ export interface ModelAnswer {
   reading: { parts: Array<{ text: string; asked: boolean }>; kind: LookupKind; note: string };
   frame: string;
   senses: Array<{ label: string; words: string[] }>;
+  gist: string;
   options: Array<{
     zh: string;
+    label: string;
     fits: boolean;
     verdict: string;
     points: Array<{ point: LookupPoint; says: string; source: LookupSource; count: number }>;
@@ -118,6 +120,7 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
 
     return {
       zh,
+      label: o.label,
       pinyin,
       gloss: whole?.gloss ?? null,
       inDictionary,
@@ -134,6 +137,7 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
     reading: raw.reading,
     frame: raw.frame,
     senses: raw.senses,
+    gist: raw.gist,
     options,
     written: raw.written,
     summary: raw.summary,

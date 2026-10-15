@@ -357,8 +357,8 @@ Built on the owner's corpus alone, since that is what answers lead with:
   the evidence as tools the model picks from, the answer in a fixed shape
   (`ANSWER_SCHEMA`, structured output). Kept in `chongfuxi_lookup` (made on
   first use): a cache, and with the owner's Right / Wrong and note, the test
-  set. Route `lookup` (owner only: GET the history, POST `{ q, fresh? }` or
-  `{ q, verdict, note }`).
+  set. Route `lookup` (owner only: GET the history, POST `{ q, fresh? }`,
+  `{ q, verdict, note }`, or `{ q, add: word }`).
 - `app/api/chongfuxi/lookup-check.ts`: the check. Pinyin from our readings;
   an option must be a headword, a pattern of headwords, or split into at
   least one real word (nearly every character is a headword, so two lone
@@ -369,13 +369,27 @@ Built on the owner's corpus alone, since that is what answers lead with:
   without a database or model.
 - `components/LookupPanel.tsx`: the question (one rounded field with a
   small round arrow inside it, grey until something is typed, a spinner
-  while it looks: the owner found a plain "Look up" button clumsy); how it was read (the asked
-  part in blue) and the kind; the phrase with its gap filled by the word
-  tapped (green, or struck through red with the reason); Fits with each
-  point labelled by source (your sentences · count, dictionary, deck,
-  model); Close, but no with a wrong and a right sentence; the owner's
-  sentences as examples; sentences the model wrote, labelled; Was this
-  right?; the history with its verdicts.
+  while it looks: the owner found a plain "Look up" button clumsy). The
+  answer is laid out as a dictionary entry, the owner's pick of three
+  layouts (mockup: https://claude.ai/artifact/4e5GTiQ9V7yNpKfZ5epxmJ; the
+  first version, every point and source spelled out, was too much to read,
+  and the barest layout too little): the kind of question in small capitals,
+  the answer in one line (`gist`) with a sentence or two more under it, the
+  phrase with its gap filled by the word tapped (pairing questions), then
+  each word that fits as a numbered sense: when it's the one (`label`), the
+  word, pinyin, its dictionary meaning, why, how many of the owner's
+  sentences have it, one example with its translation, and "Why, and more
+  examples" for the points with their sources and the rest. Close, but no:
+  struck through, why, a wrong and a right sentence. Sentences the model
+  wrote, labelled; Right? ✓ ✗ (a note when wrong); how the question was read
+  and what the check changed folded away at the foot.
+- **The deck, from the answer**: every word says where it stands, looked up
+  each time the answer is shown (cached or not, `withDeck`): "✓ In deck ·
+  strong" (its Read card's stage, as on the Words wall), or + Add for a
+  dictionary word not in the deck (on a Pleco list or not). Add puts it in as
+  one addition, source `lookup:<question>` (`addFromLookup`, through
+  `addWords`), and turns into "✓ Added · Undo" (the additions route undoes
+  it). At the owner's request.
 - Owner only, at the owner's insistence (it spends their tokens): the route
   goes through `ownerOnly`, so signed out (or a forged cookie) it answers 401
   and signed in as anyone else 403, before any model call; the tab is hidden

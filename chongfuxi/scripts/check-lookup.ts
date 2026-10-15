@@ -18,9 +18,11 @@ const raw: ModelAnswer = {
   reading: { parts: [{ text: "develop", asked: true }, { text: "depression", asked: false }], kind: "pairing", note: "Asking about the verb." },
   frame: "___抑郁症",
   senses: [],
+  gist: "Say 得了, or 患上 in writing. Not 发展.",
   options: [
     {
       zh: "得了",
+      label: "",
       fits: true,
       verdict: "The everyday way to say you got an illness.",
       points: [
@@ -33,6 +35,7 @@ const raw: ModelAnswer = {
     },
     {
       zh: "患上",
+      label: "",
       fits: true,
       verdict: "More formal: news, medicine.",
       points: [{ point: "register", says: "Formal", source: "dictionary", count: -1 }],
@@ -42,6 +45,7 @@ const raw: ModelAnswer = {
     },
     {
       zh: "发展",
+      label: "",
       fits: false,
       verdict: "发展 is for things growing, not catching an illness.",
       points: [{ point: "meaning", says: "Develop as in grow", source: "model", count: -1 }],
@@ -49,7 +53,7 @@ const raw: ModelAnswer = {
       wrong: "他发展了抑郁症。",
       right: "他得了抑郁症。",
     },
-    { zh: "覅郁", fits: false, verdict: "made up", points: [], examples: [], wrong: "", right: "" },
+    { zh: "覅郁", label: "", fits: false, verdict: "made up", points: [], examples: [], wrong: "", right: "" },
   ],
   written: [{ zh: "她去年得了抑郁症。", en: "She developed depression last year." }],
   summary: "Your sentences use 得 with illnesses.",

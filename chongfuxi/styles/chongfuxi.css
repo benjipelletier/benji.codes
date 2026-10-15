@@ -552,6 +552,9 @@ body:has(.cfx) {
 
 /* ------------------------------------------------------------ sentences -- */
 
+/* Buttons below are written ".cfx .cf-…": a lone class loses to ".cfx button"
+ * (font and colour: inherit), so their sizes and colours would not show. */
+
 /* Cards' switch: Words, Sentences, Lists. Slim, and held just under the
  * header (its height is --cf-top-h, set by the shell) as the page scrolls. */
 .cf-switch-bar {
@@ -571,7 +574,7 @@ body:has(.cfx) {
   background: var(--cf-sunken);
 }
 
-.cf-switch-btn {
+.cfx .cf-switch-btn {
   min-height: 38px;
   border: 0;
   border-radius: 9px;
@@ -659,7 +662,7 @@ body:has(.cfx) {
   margin-top: 10px;
 }
 
-.cf-chip {
+.cfx .cf-chip {
   min-width: 0;
   min-height: 40px;
   display: flex;
@@ -704,7 +707,7 @@ body:has(.cfx) {
   margin-top: 10px;
 }
 
-.cf-pill {
+.cfx .cf-pill {
   max-width: 100%;
   min-height: 36px;
   display: inline-flex;
@@ -803,7 +806,7 @@ body:has(.cfx) {
   display: none;
 }
 
-.cf-uword {
+.cfx .cf-uword {
   flex: none;
   min-width: 88px;
   display: grid;
@@ -1129,7 +1132,7 @@ body:has(.cfx) {
   border-top: 1px solid var(--cf-rule);
 }
 
-.cf-opt {
+.cfx .cf-opt {
   width: 100%;
   min-height: 52px;
   display: flex;
@@ -6019,7 +6022,7 @@ button.cf-synclog-row {
   display: none;
 }
 
-.cf-lk-go {
+.cfx .cf-lk-go {
   flex: none;
   width: 38px;
   height: 38px;
@@ -6079,120 +6082,239 @@ button.cf-synclog-row {
 }
 
 .cf-lk-answer {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
+/* Small capitals over the answer: what kind of question it took this for. */
 .cf-lk-label {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 650;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--cf-ink-soft);
+  letter-spacing: 0.06em;
+  color: var(--cf-ink-faint);
 }
 
-.cf-lk-parts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 4px;
-}
-
-.cf-lk-part {
-  padding: 4px 10px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 999px;
+/* The answer in one line, then a sentence or two more. */
+.cf-lk-gist {
+  margin-top: 4px;
   font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.cf-lk-summary {
+  margin-top: 6px;
   font-size: 14px;
   color: var(--cf-ink-soft);
 }
 
-.cf-lk-part.is-asked {
-  border-color: var(--cf-accent);
-  background: var(--cf-accent-soft);
-  color: var(--cf-accent);
-  font-weight: 600;
-}
-
-/* The phrase, large, the gap filled by the word tapped. */
+/* The phrase, the gap filled by the word picked. */
 .cf-lk-frame {
-  margin-top: 18px;
+  margin-top: 16px;
   font-family: var(--cf-zh);
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .cf-lk-gap {
+  display: inline-block;
+  min-width: 2.2em;
+  min-height: 1.1em;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--cf-sunken);
-  color: var(--cf-ink-faint);
+  vertical-align: -0.1em;
+  line-height: 1.1;
+  border: 1.5px dashed var(--cf-rule-strong);
 }
 
 .cf-lk-gap.is-fit {
+  border: 0;
   background: color-mix(in srgb, var(--cf-up) 14%, transparent);
   color: var(--cf-up);
 }
 
-.cf-lk-gap.is-miss {
-  background: color-mix(in srgb, var(--cf-down) 12%, transparent);
-  color: var(--cf-down);
-  text-decoration: line-through;
-  text-decoration-thickness: 2px;
+/* The entry: each word that fits as a numbered sense. */
+.cf-lk-entry {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
 }
 
-.cf-lk-why {
-  margin-top: 4px;
-  font-size: 14px;
+.cf-lk-sense,
+.cf-lk-not {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 6px;
+  padding: 10px 8px;
+  margin: 0 -8px;
+  border-radius: 14px;
+}
+
+.cf-lk-sense.is-on {
+  background: var(--cf-sunken);
+}
+
+.cf-lk-n,
+.cf-lk-x {
+  padding-top: 2px;
+  font-weight: 700;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-lk-x {
+  color: var(--cf-down);
+}
+
+.cf-lk-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cf-lk-lab {
+  font-size: 13px;
+  font-style: italic;
   color: var(--cf-ink-soft);
 }
 
-.cf-lk-why.is-miss {
-  color: var(--cf-down);
-}
-
-.cf-lk-tries {
+.cf-lk-wordline {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
+  align-items: center;
+  gap: 4px 10px;
 }
 
-.cf-lk-try {
-  min-height: 40px;
-  padding: 4px 14px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 12px;
-  background: var(--cf-surface);
+.cfx .cf-lk-word {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--cf-ink);
   font-family: var(--cf-zh);
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.cf-lk-py {
+  color: var(--cf-read);
+  font-size: 15px;
+}
+
+.cf-lk-gloss {
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-why {
+  font-size: 14.5px;
+}
+
+.cf-lk-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cf-up);
+}
+
+/* An example: the sentence, its translation under it. */
+.cf-lk-ex {
+  display: grid;
+  margin-top: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--cf-sentence);
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-ex .cf-zh {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--cf-ink);
+}
+
+.cf-lk-ex.is-written {
+  border-left-style: dashed;
+  border-left-color: var(--cf-new);
+}
+
+.cfx .cf-lk-more {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 
-.cf-lk-try.is-miss {
-  color: var(--cf-ink-soft);
-  border-style: dashed;
+.cf-lk-detail {
+  display: grid;
+  gap: 6px;
 }
 
-.cf-lk-try.is-on {
-  border-color: var(--cf-accent);
+/* Where a word stands in the deck, and + Add. */
+.cf-lk-deck {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cf-lk-deck.is-in {
+  background: color-mix(in srgb, var(--cf-up) 14%, transparent);
+  color: var(--cf-up);
+}
+
+.cfx .cf-lk-add {
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--cf-accent);
+  border-radius: 999px;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cf-lk-add:active {
   background: var(--cf-accent-soft);
 }
 
-.cf-lk-summary {
-  margin-top: 16px;
-  font-size: 15px;
+.cfx .cf-lk-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
-.cf-lk-sec {
-  margin-top: 8px;
+.cf-lk-adderr {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12.5px;
 }
 
+/* A sense map, when a word has meanings no option covers. */
 .cf-lk-senses {
   list-style: none;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
   display: grid;
   gap: 6px;
@@ -6221,34 +6343,136 @@ button.cf-synclog-row {
   white-space: nowrap;
 }
 
-.cf-lk-opt {
+/* Close, but no: struck through, with the wrong sentence and the right one. */
+.cf-lk-nots {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--cf-rule);
   display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  font-size: 14.5px;
+  gap: 2px;
 }
 
-.cf-lk-opt-head {
+.cf-lk-not s {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cf-ink-soft);
+  text-decoration-color: var(--cf-down);
+  text-decoration-thickness: 2px;
+}
+
+.cf-lk-pair {
+  display: grid;
+  margin-top: 2px;
+  font-size: 16px;
+}
+
+.cf-lk-pair s {
+  color: var(--cf-down);
+}
+
+.cf-lk-pair span {
+  color: var(--cf-up);
+}
+
+.cf-lk-written {
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+/* Was this right? Two small round buttons, a note when wrong. */
+.cf-lk-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-rule);
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cfx .cf-lk-v {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 50%;
+  background: var(--cf-surface);
+  color: var(--cf-ink-soft);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.cf-lk-v.is-on {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+.cf-lk-note {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cf-lk-note textarea {
+  margin: 0;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+}
+
+.cf-lk-note .cf-btn {
+  justify-self: end;
+}
+
+/* The workings, folded away: how the question was read, what the check changed. */
+.cf-lk-checks {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-checks summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.cf-lk-checks > * + * {
+  margin-top: 6px;
+}
+
+.cf-lk-checks ul {
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.cf-lk-parts {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
+  gap: 6px;
 }
 
-.cf-lk-opt-head b {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.3;
+.cf-lk-part {
+  padding: 3px 10px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 999px;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
 }
 
-.cf-lk-py {
-  color: var(--cf-read);
-  font-size: 15px;
+.cf-lk-part.is-asked {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-weight: 600;
 }
 
+/* The evidence behind a sense: each point with where it came from. */
 .cf-lk-points {
   list-style: none;
-  margin: 2px 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
   gap: 4px;
@@ -6300,98 +6524,9 @@ button.cf-synclog-row {
   color: var(--cf-warn);
 }
 
-.cf-lk-examples {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.cf-lk-examples li {
-  display: grid;
-  gap: 1px;
-  padding-left: 10px;
-  border-left: 2px solid var(--cf-sentence);
-}
-
-.cf-lk-examples.is-written li {
-  border-left: 2px dashed var(--cf-new);
-}
-
-.cf-lk-examples .cf-zh {
-  font-size: 17px;
-}
-
-.cf-lk-from {
-  font-size: 11.5px;
-  color: var(--cf-ink-faint);
-}
-
-.cf-lk-pair {
-  display: grid;
-  gap: 2px;
-}
-
-.cf-lk-pair s {
-  color: var(--cf-down);
-  font-size: 17px;
-}
-
-.cf-lk-pair span {
-  color: var(--cf-up);
-  font-size: 17px;
-}
-
-.cf-lk-verdict {
-  margin-top: 20px;
-  padding: 14px 16px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 16px;
-  background: var(--cf-surface);
-}
-
-.cf-lk-verdict > p:first-child {
-  font-weight: 600;
-}
-
-.cf-lk-verdict .cf-buttons {
-  justify-content: flex-start;
-}
-
-.cf-lk-note {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.cf-lk-note textarea {
-  margin: 0;
-  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
-}
-
-.cf-lk-note .cf-btn {
-  justify-self: end;
-}
-
-.cf-lk-checks {
-  margin-top: 14px;
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-lk-checks summary {
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.cf-lk-checks ul {
-  margin: 4px 0 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 4px;
+/* Asked before: the history, with verdicts. */
+.cf-lk-sec {
+  margin-top: 8px;
 }
 
 .cf-lk-past {

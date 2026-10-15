@@ -1,12 +1,13 @@
 "use client";
 
 // Look up (查): "what do I say here", answered from the owner's own sentences
-// (app/api/chongfuxi/lookup.ts). Type what you want to say; the answer shows
-// how it was read (which part is the question), the phrase with the gap
-// filled by whichever option is tapped, what fits and why, the near misses
-// with a wrong and a right sentence, and the owner's sentences that show
-// them. Everything is labelled with where it came from: your sentences, the
-// dictionary, your deck, or the model's own knowledge.
+// (app/api/chongfuxi/lookup.ts), laid out as a dictionary entry (layout A of
+// the owner's pick): the answer in one line, then each word that fits as a
+// numbered sense (what it's for, the word and its pinyin, its dictionary
+// meaning, why, how often the owner's sentences have it, an example), with
+// the evidence behind "Why, and more examples"; the near misses struck
+// through with a wrong and a right sentence. Every word says where it stands
+// in the deck, with + Add (and Undo) for one that isn't.
 //
 // A proof of concept. Each answer asks for a verdict (Right / Wrong, and
 // what was wrong): those lookups are the test set that decides what to build.
@@ -33,24 +34,153 @@ const SOURCE: Record<LookupSource, string> = {
   model: "model",
 };
 
-/** The phrase with the gap filled by the option picked: struck through when that option doesn't fit. */
-function Frame({ frame, zh, fits }: { frame: string; zh: string | null; fits: boolean }) {
+/** The phrase with the gap filled by the word picked. */
+function Frame({ frame, zh }: { frame: string; zh: string | null }) {
   const at = frame.indexOf("___");
   if (at < 0) return <p className="cf-lk-frame">{frame}</p>;
   return (
     <p className="cf-lk-frame" lang="zh">
       {frame.slice(0, at)}
-      <span className={`cf-lk-gap${zh ? (fits ? " is-fit" : " is-miss") : ""}`}>{zh ?? "＿＿"}</span>
+      {zh ? <span className="cf-lk-gap is-fit">{zh}</span> : <span className="cf-lk-gap" aria-label="the gap" />}
       {frame.slice(at + 3)}
     </p>
   );
 }
 
-function Answer({ a, onAgain }: { a: LookupAnswer; onAgain: () => void }) {
+type Option = LookupAnswer["options"][number];
+
+const STAGE = { new: "new", young: "young", mature: "mature", strong: "strong" } as const;
+
+/**
+ * Where a word stands in the deck, at a glance, and a way to put it there:
+ * "In deck · strong", or + Add (one addition, undone here or like any other).
+ */
+function DeckMark({ o, query, shell }: { o: Option; query: string; shell: Shell }) {
+  const [added, setAdded] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inDeck = o.deck?.status === "deck";
+
+  const add = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await send<{ id: number | null; added: string[] }>("lookup", { q: query, add: o.zh });
+      if (r.id !== null) setAdded(r.id);
+      shell.refresh();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const undo = async () => {
+    if (added === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await send(`additions/${added}`, { action: "undo" });
+      setAdded(null);
+      shell.refresh();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (added !== null) {
+    return (
+      <span className="cf-lk-deck is-in">
+        ✓ Added
+        <button className="cf-lk-undo" disabled={busy} onClick={() => void undo()}>
+          Undo
+        </button>
+      </span>
+    );
+  }
+  if (inDeck) {
+    const stage = o.deck?.stage;
+    return <span className="cf-lk-deck is-in">✓ In deck{stage ? ` · ${STAGE[stage]}` : ""}</span>;
+  }
+  if (o.deck?.status === "name" || !o.inDictionary || !o.pinyin) return null;
+  return (
+    <>
+      <button className="cf-lk-add" disabled={busy} onClick={() => void add()} title={o.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
+        {busy ? "Adding…" : "+ Add"}
+      </button>
+      {error && <span className="cf-error cf-lk-adderr">{error}</span>}
+    </>
+  );
+}
+
+/** How often the owner's sentences show it, from the points the check let stand. */
+const yours = (o: Option) => o.points.find((p) => p.source === "corpus" && p.checked && p.count !== null)?.count ?? null;
+
+/** One word that fits, as a dictionary sense: what it's for, the word, its meaning, why, an example; the evidence behind More. */
+function Sense({ o, n, on, onPick, query, shell }: { o: Option; n: number; on: boolean; onPick: () => void; query: string; shell: Shell }) {
+  const [more, setMore] = useState(false);
+  const count = yours(o);
+  const [first, ...rest] = o.examples;
+  return (
+    <li className={`cf-lk-sense${on ? " is-on" : ""}`}>
+      <span className="cf-lk-n">{n}</span>
+      <div className="cf-lk-body">
+        {o.label && <p className="cf-lk-lab">{o.label}</p>}
+        <div className="cf-lk-wordline">
+          <button className="cf-lk-word" onClick={onPick} aria-pressed={on}>
+            {o.zh}
+          </button>
+          {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
+          <DeckMark o={o} query={query} shell={shell} />
+        </div>
+        {o.gloss && <p className="cf-lk-gloss">{o.gloss}</p>}
+        <p className="cf-lk-why">{o.verdict}</p>
+        {count !== null && <p className="cf-lk-count">In {count} of your sentences</p>}
+        {first && (
+          <p className="cf-lk-ex">
+            <span className="cf-zh">{first.zh}</span>
+            {first.en && <span>{first.en}</span>}
+          </p>
+        )}
+        {(o.points.length > 0 || rest.length > 0) && (
+          <button className="cf-lk-more" aria-expanded={more} onClick={() => setMore(!more)}>
+            {more ? "Less" : "Why, and more examples"}
+          </button>
+        )}
+        {more && (
+          <div className="cf-lk-detail">
+            {o.points.length > 0 && (
+              <ul className="cf-lk-points">
+                {o.points.map((p, i) => (
+                  <li key={i}>
+                    <span className="cf-lk-point">{p.point}</span>
+                    <span>{p.says}</span>
+                    <span className={`cf-lk-src is-${p.source}`}>
+                      {SOURCE[p.source]}
+                      {p.count !== null ? ` · ${p.count}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {rest.map((s) => (
+              <p key={s.id} className="cf-lk-ex">
+                <span className="cf-zh">{s.zh}</span>
+                {s.en && <span>{s.en}</span>}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; shell: Shell }) {
   const fits = a.options.filter((o) => o.fits);
   const misses = a.options.filter((o) => !o.fits);
   const [picked, setPicked] = useState<string | null>(fits[0]?.zh ?? null);
-  const shown = a.options.find((o) => o.zh === picked) ?? null;
   const [verdict, setVerdict] = useState<"right" | "wrong" | null>(null);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
@@ -67,10 +197,119 @@ function Answer({ a, onAgain }: { a: LookupAnswer; onAgain: () => void }) {
     }
   };
 
+  // Words named in a sense map but given no entry of their own.
+  const named = new Set(a.options.map((o) => o.zh));
+  const senses = a.senses.filter((s) => s.words.some((w) => !named.has(w)));
+
   return (
-    <div className="cf-lk-answer">
-      <section className="cf-lk-reading" aria-label="Reading it as">
-        <p className="cf-lk-label">{KIND[a.reading.kind]}</p>
+    <article className="cf-lk-answer">
+      <p className="cf-lk-label">{KIND[a.reading.kind]}</p>
+      <p className="cf-lk-gist">{a.gist || a.summary}</p>
+      {a.gist && a.summary && <p className="cf-lk-summary">{a.summary}</p>}
+
+      {a.frame && <Frame frame={a.frame} zh={picked} />}
+
+      {fits.length > 0 && (
+        <ol className="cf-lk-entry">
+          {fits.map((o, i) => (
+            <Sense key={o.zh} o={o} n={i + 1} on={Boolean(a.frame) && picked === o.zh} onPick={() => setPicked(o.zh)} query={a.query} shell={shell} />
+          ))}
+        </ol>
+      )}
+
+      {senses.length > 0 && (
+        <ul className="cf-lk-senses">
+          {senses.map((s) => (
+            <li key={s.label}>
+              <span>{s.label}</span>
+              <b className="cf-zh">{s.words.join("  ")}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {misses.length > 0 && (
+        <ul className="cf-lk-nots" aria-label="Close, but no">
+          {misses.map((o) => (
+            <li key={o.zh} className="cf-lk-not">
+              <span className="cf-lk-x" aria-hidden="true">
+                ✗
+              </span>
+              <div className="cf-lk-body">
+                <div className="cf-lk-wordline">
+                  <s className="cf-zh">{o.zh}</s>
+                  {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
+                  <DeckMark o={o} query={a.query} shell={shell} />
+                </div>
+                <p className="cf-lk-why">{o.verdict}</p>
+                {(o.wrong || o.right) && (
+                  <p className="cf-lk-pair">
+                    {o.wrong && <s className="cf-zh">{o.wrong}</s>}
+                    {o.right && <span className="cf-zh">{o.right}</span>}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {a.written.length > 0 && (
+        <section className="cf-lk-written">
+          <p className="cf-lk-label">Written by the model</p>
+          {a.written.map((s) => (
+            <p key={s.zh} className="cf-lk-ex is-written">
+              <span className="cf-zh">{s.zh}</span>
+              <span>{s.en}</span>
+            </p>
+          ))}
+        </section>
+      )}
+
+      <section className="cf-lk-verdict">
+        <span>Right?</span>
+        <button
+          className={`cf-lk-v${verdict === "right" ? " is-on" : ""}`}
+          aria-pressed={verdict === "right"}
+          aria-label="Right"
+          onClick={() => void judge(verdict === "right" ? null : "right")}
+        >
+          ✓
+        </button>
+        <button
+          className={`cf-lk-v${verdict === "wrong" ? " is-on" : ""}`}
+          aria-pressed={verdict === "wrong"}
+          aria-label="Wrong"
+          onClick={() => void judge(verdict === "wrong" ? null : "wrong")}
+        >
+          ✗
+        </button>
+        {saved && <span className="cf-muted">Kept for the test set.</span>}
+      </section>
+      {verdict === "wrong" && !saved && (
+        <form
+          className="cf-lk-note"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void judge("wrong", note);
+          }}
+        >
+          <textarea
+            className="cf-input"
+            rows={2}
+            placeholder="What was wrong, or what you used in the end"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button className="cf-btn" disabled={!note.trim()}>
+            Save
+          </button>
+        </form>
+      )}
+      {error && <p className="cf-error">{error}</p>}
+
+      <details className="cf-lk-checks">
+        <summary>How it was read, and what the check changed</summary>
         <p className="cf-lk-parts">
           {a.reading.parts.map((p, i) => (
             <span key={i} className={`cf-lk-part${p.asked ? " is-asked" : ""}`} title={p.asked ? "The question" : "Known"}>
@@ -78,170 +317,20 @@ function Answer({ a, onAgain }: { a: LookupAnswer; onAgain: () => void }) {
             </span>
           ))}
         </p>
-        {a.reading.note && <p className="cf-muted">{a.reading.note}</p>}
-      </section>
-
-      {a.frame && <Frame frame={a.frame} zh={shown?.zh ?? null} fits={shown?.fits ?? true} />}
-      {shown && a.frame && <p className={`cf-lk-why${shown.fits ? "" : " is-miss"}`}>{shown.verdict}</p>}
-      {a.frame && (
-        <div className="cf-lk-tries" role="group" aria-label="Try a word in the gap">
-          {a.options.map((o) => (
-            <button
-              key={o.zh}
-              className={`cf-lk-try${o.fits ? "" : " is-miss"}${picked === o.zh ? " is-on" : ""}`}
-              aria-pressed={picked === o.zh}
-              onClick={() => setPicked(o.zh)}
-            >
-              {o.zh}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {a.summary && <p className="cf-lk-summary">{a.summary}</p>}
-
-      {a.senses.length > 0 && (
-        <section className="cf-lk-sec">
-          <h3 className="cf-h3">Meanings</h3>
-          <ul className="cf-lk-senses">
-            {a.senses.map((s) => (
-              <li key={s.label}>
-                <span>{s.label}</span>
-                <b className="cf-zh">{s.words.join("  ")}</b>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {fits.length > 0 && (
-        <section className="cf-lk-sec">
-          <h3 className="cf-h3">Fits</h3>
-          <ul className="cf-slist">
-            {fits.map((o) => (
-              <li key={o.zh} className="cf-lk-opt">
-                <p className="cf-lk-opt-head">
-                  <b className="cf-zh">{o.zh}</b>
-                  {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
-                  {!o.inDictionary && <span className="cf-tag">not in the dictionary</span>}
-                </p>
-                <p>{o.verdict}</p>
-                {o.points.length > 0 && (
-                  <ul className="cf-lk-points">
-                    {o.points.map((p, i) => (
-                      <li key={i}>
-                        <span className="cf-lk-point">{p.point}</span>
-                        <span>{p.says}</span>
-                        <span className={`cf-lk-src is-${p.source}`}>
-                          {SOURCE[p.source]}
-                          {p.count !== null ? ` · ${p.count}` : ""}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {o.examples.length > 0 && (
-                  <ul className="cf-lk-examples">
-                    {o.examples.map((s) => (
-                      <li key={s.id}>
-                        <span className="cf-zh">{s.zh}</span>
-                        {s.en && <span className="cf-en">{s.en}</span>}
-                        <span className="cf-lk-from">{s.readable ? "your sentence · readable" : "your sentence · locked"}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {misses.length > 0 && (
-        <section className="cf-lk-sec">
-          <h3 className="cf-h3">Close, but no</h3>
-          <ul className="cf-slist">
-            {misses.map((o) => (
-              <li key={o.zh} className="cf-lk-opt">
-                <p className="cf-lk-opt-head">
-                  <b className="cf-zh">{o.zh}</b>
-                  {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
-                </p>
-                <p>{o.verdict}</p>
-                {(o.wrong || o.right) && (
-                  <p className="cf-lk-pair">
-                    {o.wrong && <s className="cf-zh">{o.wrong}</s>}
-                    {o.right && <span className="cf-zh">{o.right}</span>}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {a.written.length > 0 && (
-        <section className="cf-lk-sec">
-          <h3 className="cf-h3">Written by the model</h3>
-          <ul className="cf-lk-examples is-written">
-            {a.written.map((s) => (
-              <li key={s.zh}>
-                <span className="cf-zh">{s.zh}</span>
-                <span className="cf-en">{s.en}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="cf-lk-verdict">
-        <p>Was this right?</p>
-        <div className="cf-buttons">
-          <button className={`cf-btn${verdict === "right" ? "" : " cf-btn-ghost"}`} onClick={() => void judge(verdict === "right" ? null : "right")}>
-            Right
-          </button>
-          <button className={`cf-btn${verdict === "wrong" ? "" : " cf-btn-ghost"}`} onClick={() => void judge(verdict === "wrong" ? null : "wrong")}>
-            Wrong
-          </button>
-        </div>
-        {verdict === "wrong" && (
-          <form
-            className="cf-lk-note"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void judge("wrong", note);
-            }}
-          >
-            <textarea
-              className="cf-input"
-              rows={2}
-              placeholder="What was wrong, or what you used in the end"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <button className="cf-btn" disabled={!note.trim()}>
-              Save
-            </button>
-          </form>
-        )}
-        {saved && <p className="cf-muted">Kept for the test set.</p>}
-        {error && <p className="cf-error">{error}</p>}
-      </section>
-
-      <details className="cf-lk-checks">
-        <summary>
-          What the check changed ({a.checks.length}) · {a.model}
-        </summary>
+        {a.reading.note && <p>{a.reading.note}</p>}
         <ul>
           {a.checks.map((c, i) => (
             <li key={i}>{c}</li>
           ))}
         </ul>
-        <button className="cf-link" onClick={onAgain}>
-          Ask again
-        </button>
+        <p>
+          {a.model} ·{" "}
+          <button className="cf-link" onClick={onAgain}>
+            Ask again
+          </button>
+        </p>
       </details>
-    </div>
+    </article>
   );
 }
 
@@ -309,7 +398,7 @@ export function LookupPanel({ shell }: { shell: Shell }) {
 
       {busy && <p className="cf-muted cf-pad">Looking through your sentences and the dictionary… this can take a minute.</p>}
       {error && <p className="cf-error">{error}</p>}
-      {answer && <Answer key={answer.query + answer.at} a={answer} onAgain={() => void ask(answer.query, true)} />}
+      {answer && <Answer key={answer.query + answer.at} a={answer} shell={shell} onAgain={() => void ask(answer.query, true)} />}
 
       {!answer && !busy && past && past.length > 0 && (
         <section className="cf-lk-sec">

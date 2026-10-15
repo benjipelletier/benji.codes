@@ -652,8 +652,14 @@ export interface LookupAnswer {
   frame: string;
   /** For a word with several meanings: which words go with which. Empty otherwise. */
   senses: Array<{ label: string; words: string[] }>;
+  /** The answer in one line ("Mind 创伤, body 外伤. Not 硬伤."). Absent on answers kept before it was asked for. */
+  gist?: string;
   options: Array<{
     zh: string;
+    /** A few words on when it is the one ("the mind; lasting harm", "spoken, everyday"). */
+    label?: string;
+    /** Where it stands in the deck now: looked up each time the answer is shown, not kept with it. */
+    deck?: LookupDeck;
     /** From the dictionary (our readings code), never from the model. */
     pinyin: string | null;
     gloss: string | null;
@@ -674,6 +680,13 @@ export interface LookupAnswer {
   /** What the check took out or marked, and why. */
   checks: string[];
   usage: { input: number; output: number; calls: number };
+}
+
+/** Where a word in an answer stands in the deck: in it (and how strong its Read card is), on a Pleco list, a name, or not at all. */
+export interface LookupDeck {
+  status: "deck" | "listed" | "name" | null;
+  /** For a deck word: not yet answered here, under three weeks strong, under six months, or beyond. */
+  stage: "new" | "young" | "mature" | "strong" | null;
 }
 
 /** A lookup in the history, with the owner's verdict on it. */
