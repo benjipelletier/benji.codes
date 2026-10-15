@@ -101,6 +101,16 @@ export function ChongfuxiApp() {
     document.addEventListener("visibilitychange", seen);
     return () => document.removeEventListener("visibilitychange", seen);
   }, [canWrite, checkArrivals]);
+  // The header's height, for what holds itself just under it (Cards' switch).
+  const top = useRef<HTMLElement>(null);
+  const [topH, setTopH] = useState(0);
+  useEffect(() => {
+    const el = top.current;
+    if (!el) return;
+    const seen = new ResizeObserver(() => setTopH(el.offsetHeight));
+    seen.observe(el);
+    return () => seen.disconnect();
+  }, []);
   const shell: Shell = useMemo(() => ({ summary, canWrite, refresh, setFocus }), [summary, canWrite, refresh]);
   const go = (t: Tab, page?: ImportPage) => {
     setTab(t);
@@ -109,8 +119,8 @@ export function ChongfuxiApp() {
   };
 
   return (
-    <div className={`cfx${focus ? " is-focus" : ""}`}>
-      <header className="cf-top">
+    <div className={`cfx${focus ? " is-focus" : ""}`} style={{ "--cf-top-h": `${topH}px` } as React.CSSProperties}>
+      <header className="cf-top" ref={top}>
         <div className="cf-title">
           <h1>
             重复习 <span className="cf-title-py">chóngfùxí</span>

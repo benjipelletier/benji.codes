@@ -502,6 +502,19 @@ export interface SentenceRow {
   card: "new" | "reading" | "retired" | null;
 }
 
+/** One sentence in full, for its page on Cards › Sentences. */
+export interface SentenceDetail {
+  /** Its words, with each one's reading and meaning for a tap. */
+  sentence: SentenceInfo;
+  /** The words still keeping it locked; none when it is readable. */
+  blockers: string[];
+  dictionarySplit: boolean;
+  /** For each of its words, in order: how it stands, and whether it is a deck word (with a sheet of its own). */
+  words: Array<{ standing: WordStanding; inDeck: boolean }>;
+  /** Its sentence card, once it has one. */
+  card: { state: "new" | "reading" | "retired"; history: CardHistory } | null;
+}
+
 /** How much of one level of a word list is in the deck. */
 export interface LevelCoverage {
   /** The list as Pleco files it: "HSK 3.0/Level 2". */

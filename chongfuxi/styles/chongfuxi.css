@@ -486,50 +486,6 @@ body:has(.cfx) {
   line-height: 1;
 }
 
-/* ------------------------------------------------------------- previews -- */
-
-.cf-actions {
-  padding: 4px 12px 12px;
-  background: var(--cf-sunken);
-}
-
-/* Two across on a phone; with three buttons the primary takes its own row,
-   full width, nearest the thumb. */
-.cf-actions .cf-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.cf-actions .cf-buttons > :nth-child(3) {
-  grid-column: 1 / -1;
-}
-
-@media (min-width: 560px) {
-  .cf-actions .cf-buttons {
-    display: flex;
-  }
-}
-
-.cf-actions-preview {
-  padding: 6px 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.cf-examples {
-  list-style: none;
-  margin: 4px 0 8px;
-}
-
-.cf-examples li {
-  padding: 6px 0;
-  border-top: 1px solid var(--cf-rule);
-  display: flex;
-  flex-direction: column;
-}
-
 .cf-zh {
   font-family: var(--cf-zh);
   font-size: 18px;
@@ -596,27 +552,689 @@ body:has(.cfx) {
 
 /* ------------------------------------------------------------ sentences -- */
 
-/* Finding sentences by a word, above the tabs it stands in for. */
-.cf-find {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 6px 0 12px;
+/* Cards' switch: Words, Sentences, Lists. Slim, and held just under the
+ * header (its height is --cf-top-h, set by the shell) as the page scrolls. */
+.cf-switch-bar {
+  position: sticky;
+  top: var(--cf-top-h, 0px);
+  z-index: 8;
+  margin: -12px -16px 0;
+  padding: 10px 16px 8px;
+  background: var(--cf-bg);
 }
 
-.cf-find-within {
+.cf-switch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--cf-sunken);
+}
+
+.cf-switch-btn {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--cf-ink-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cf-switch-btn.is-on {
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  box-shadow: 0 1px 2px rgba(20, 24, 34, 0.08);
+}
+
+/* Cards › Sentences: search and the source button, then the three choices. */
+.cf-sents {
+  margin-top: 4px;
+}
+
+.cf-sfind {
+  display: flex;
+  gap: 8px;
+}
+
+.cf-sfind-box {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink-faint);
+}
+
+.cf-sfind-box:focus-within {
+  border-color: var(--cf-accent);
+}
+
+.cf-sfind-box svg {
+  flex: none;
+}
+
+.cf-sfind-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--cf-ink);
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+  font-size: 16px;
+}
+
+.cf-iconbtn {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink-soft);
+  cursor: pointer;
+}
+
+.cf-iconbtn.is-on {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+/* Readable, One away, Locked: equal chips that never wrap. */
+.cf-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.cf-chip {
+  min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 9px 2px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--cf-ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cf-chip small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-chip.is-on {
+  border-color: var(--cf-ink);
+  background: var(--cf-ink);
+  color: var(--cf-bg);
+}
+
+.cf-chip.is-on small {
+  color: var(--cf-bg);
+  opacity: 0.7;
+}
+
+/* What narrows the list: the source picked, and the search's own choice. */
+.cf-applied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.cf-pill {
+  max-width: 100%;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cf-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-pill i {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cf-surface);
+  font-style: normal;
+}
+
+.cf-pill.is-toggle {
+  padding-right: 12px;
+  border-color: var(--cf-rule);
+  background: none;
+  color: var(--cf-ink-soft);
+}
+
+.cf-pill.is-toggle.is-on {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+.cf-scount {
+  margin: 14px 2px 6px;
+  font-size: 12.5px;
+  color: var(--cf-ink-faint);
+}
+
+/* At the top of One away: the words that would unlock the most. */
+.cf-ustrip {
+  margin-top: 12px;
+  padding: 12px 0 12px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cf-new) 14%, transparent);
+}
+
+.cf-ustrip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 6px;
+}
+
+.cf-ustrip-head p {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cf-ustrip-head button {
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cf-ustrip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 14px 2px 0;
+  scrollbar-width: none;
+}
+
+.cf-ustrip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.cf-uword {
+  flex: none;
+  min-width: 88px;
+  display: grid;
+  gap: 1px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-uword b {
+  font-family: var(--cf-zh);
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cf-uword span {
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+  white-space: nowrap;
+}
+
+.cf-uword em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cf-up);
+}
+
+/* The sentences: one surface, a hairline between them. */
+.cf-slist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  background: var(--cf-surface);
+}
+
+.cf-slist > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-srow {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-srow:active {
+  background: var(--cf-sunken);
+}
+
+.cf-srow.is-static {
+  cursor: default;
+}
+
+.cf-srow-zh {
+  font-family: var(--cf-zh);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.cf-srow-en {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--cf-ink-soft);
+}
+
+/* One quiet line: where its card stands, and where it came from. */
+.cf-smeta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-smeta > span {
+  flex: none;
+}
+
+.cf-smeta > .cf-smeta-src {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+}
+
+/* Green in review, amber not started, a ring retired, dashed locked. */
+.cf-sdot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cf-ink-faint);
+}
+
+.cf-sdot.is-review {
+  background: var(--cf-sentence);
+}
+
+.cf-sdot.is-new {
+  background: var(--cf-new);
+}
+
+.cf-sdot.is-retired {
+  background: none;
+  border: 1.5px solid var(--cf-ink-faint);
+}
+
+.cf-sdot.is-locked {
+  background: none;
+  border: 1.5px dashed var(--cf-ink-faint);
+}
+
+/* A word keeping the sentence locked, marked where it stands in it. */
+.cf-block {
+  padding: 0 1px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cf-new) 16%, transparent);
+  box-shadow: inset 0 -2px 0 var(--cf-new);
+  color: inherit;
+}
+
+/* A sentence's page: its words with pinyin over them. */
+.cf-sstate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 44px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-ruby {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 1px;
+  margin: 10px 0 8px;
+}
+
+.cf-rgroup {
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.cf-rseg {
+  display: grid;
+  justify-items: center;
+  padding: 2px 3px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cf-rseg span {
+  min-height: 15px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--cf-read);
+  white-space: nowrap;
+}
+
+.cf-rseg b {
+  font-family: var(--cf-zh);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.cf-rseg.is-plain {
+  padding-inline: 0;
+  cursor: default;
+}
+
+.cf-rseg.is-learning b {
+  box-shadow: inset 0 -2px 0 var(--cf-read);
+}
+
+.cf-rseg.is-unknown {
+  background: color-mix(in srgb, var(--cf-new) 16%, transparent);
+}
+
+.cf-rseg.is-unknown b {
+  box-shadow: inset 0 -2px 0 var(--cf-new);
+}
+
+.cf-rseg.is-on {
+  background: var(--cf-accent-soft);
+}
+
+.cf-rseg.is-unknown.is-on {
+  outline: 2px solid var(--cf-new);
+}
+
+.cf-sheet-en {
+  font-size: 16px;
+  color: var(--cf-ink-soft);
+}
+
+/* The word tapped: its meaning and where it stands. */
+.cf-wordcard {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  font-size: 14px;
+}
+
+.cf-wordcard-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.cf-wordcard-head b {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cf-wordcard-head span {
+  color: var(--cf-read);
+}
+
+.cf-wordcard-acts {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.cf-wordcard-acts button,
+.cf-wordcard-acts a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cf-sfacts {
+  margin: 16px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-sfacts > div {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+}
+
+.cf-sfacts > div + div {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-sfacts dt {
   font-size: 13px;
   color: var(--cf-ink-soft);
 }
 
-.cf-filters {
+.cf-sfacts dd {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+}
+
+.cf-sfacts-line {
+  display: block;
+}
+
+/* The source picker: a row per source, a tick box that fills. */
+.cf-sheet-title {
+  margin: 0 44px 4px 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.cf-opts {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.cf-opts li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-opt {
+  width: 100%;
+  min-height: 52px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 6px 0 12px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-opt-tick {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--cf-rule-strong);
+  border-radius: 7px;
+}
+
+.cf-opt.is-on .cf-opt-tick {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3.2 3L15 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat;
+}
+
+.cf-opt-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-opt-n {
+  color: var(--cf-ink-faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Unlock next, and a blocking word's sheet. */
+.cf-subpage-title {
+  margin: 2px 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.cf-wrow {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-wrow.is-static {
+  cursor: default;
+}
+
+.cf-wrow b {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.cf-wrow-gloss {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wrow-gloss i {
+  margin-right: 6px;
+  font-style: normal;
+  color: var(--cf-read);
+}
+
+.cf-wrow em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--cf-up);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-bsheet-gloss {
+  margin: 6px 0 4px;
+}
+
+.cf-bsheet-n {
+  color: var(--cf-up);
+}
+
+.cf-bsheet-list {
+  margin-top: 12px;
 }
 
 .cf-seg {
@@ -643,64 +1261,6 @@ body:has(.cfx) {
   background: var(--cf-surface);
   color: var(--cf-ink);
   box-shadow: var(--cf-shadow);
-}
-
-.cf-seg-n {
-  display: block;
-  font-size: 12px;
-  color: var(--cf-ink-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-select {
-  appearance: auto;
-  background: var(--cf-surface);
-  border: 1px solid var(--cf-rule-strong);
-  border-radius: 8px;
-  min-height: 44px;
-  padding: 8px 10px;
-  max-width: 100%;
-  /* Under 16px, iOS zooms the page when a select is focused. */
-  font-size: 16px;
-}
-
-.cf-sentence {
-  padding: 10px 12px;
-}
-
-.cf-sentence-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.cf-sentence-meta:empty {
-  display: none;
-}
-
-.cf-sentence .cf-actions {
-  margin: 8px -12px -10px;
-}
-
-.cf-blocker {
-  font-family: var(--cf-zh);
-  font-size: 16px;
-  font-weight: 700;
-  min-height: 36px;
-  min-width: 40px;
-  border: 1px solid var(--cf-down);
-  color: var(--cf-down);
-  background: var(--cf-down-soft);
-  border-radius: 8px;
-  padding: 3px 10px;
-  cursor: pointer;
-}
-
-.cf-blocker.is-on {
-  background: var(--cf-down);
-  color: var(--cf-surface);
 }
 
 /* ------------------------------------------------------------------ log -- */
@@ -3008,41 +3568,6 @@ label.cf-kind {
 
 /* ---------------------------------------------------------------- cards -- */
 
-/* Words or sentences: the two sides of the Cards screen. */
-.cf-sides {
-  display: flex;
-  gap: 8px;
-  margin: 4px 0 14px;
-}
-
-.cf-side {
-  flex: 1;
-  min-height: 52px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--cf-rule);
-  border-radius: 16px;
-  background: var(--cf-surface);
-  color: var(--cf-ink-soft);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.cf-side small {
-  font-size: 12px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-side.is-on {
-  border-color: var(--cf-accent);
-  background: var(--cf-accent-soft);
-  color: var(--cf-ink);
-}
-
 /* A level of a word list: its name, how much of it is in the deck, the figures. */
 .cf-levels {
   list-style: none;
@@ -4924,43 +5449,6 @@ button.cf-synclog-row {
 
 .cf-texts-done {
   margin-top: 12px;
-}
-
-/* ---------------------------------------------------------------- sources -- */
-
-/* Which source the sentences are from: every one, or one deck or book. */
-.cf-source-pick {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-source-pick select {
-  flex: 1;
-  min-width: 0;
-  min-height: 40px;
-  padding: 0 10px;
-  border: 1px solid var(--cf-rule-strong);
-  border-radius: 10px;
-  background: var(--cf-surface);
-  color: var(--cf-ink);
-  font: inherit;
-  font-size: 16px;
-}
-
-/* A sentence's source tag: tap to see only that source. */
-.cf-tag-btn-src {
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-}
-
-.cf-tag-btn-src.is-on {
-  background: var(--cf-accent-soft);
-  color: var(--cf-accent);
 }
 
 /* A sentence's words open their pinyin and meaning when tapped

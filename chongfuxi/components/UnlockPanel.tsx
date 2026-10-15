@@ -6,39 +6,50 @@
 // that is in a Pleco list is something to learn: add it to your words in Pleco
 // and import again. The rest are mostly names and rarities; marking one as a
 // name stops it blocking, without it ever becoming a card.
+//
+// The first few lead One away on Cards › Sentences; all of them are on the
+// Unlock next page it opens. A word opens a sheet with the sentences it holds back.
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Blocker, SentenceRow } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, message, plecoHref, type Shell } from "./shared";
+import { Highlighted, Sheet, fmt, message, plecoHref, type Shell } from "./shared";
 
 const PAGE = 25;
 
-interface Blockers {
+export interface Blockers {
   learnNext: Blocker[];
   others: Blocker[];
   names: string[];
 }
 
-function Row({ b, shell, onChanged }: { b: Blocker; shell: Shell; onChanged: () => void }) {
-  const [open, setOpen] = useState(false);
+/** One blocking word: the sentences it alone holds back, Pleco, and "It's a name". */
+export function BlockerSheet({
+  blocker: b,
+  shell,
+  onClose,
+  onChanged,
+}: {
+  blocker: Blocker;
+  shell: Shell;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [examples, setExamples] = useState<SentenceRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || examples) return;
-    get<{ sentences: SentenceRow[] }>("sentences", { show: "one", blocker: b.word, limit: 3 })
+    get<{ sentences: SentenceRow[] }>("sentences", { show: "one", blocker: b.word, limit: 5 })
       .then((r) => setExamples(r.sentences))
       .catch((e) => setError(message(e)));
-  }, [open, examples, b.word]);
+  }, [b.word]);
 
   const name = async () => {
     setBusy(true);
     try {
       await send("names", { word: b.word });
-      shell.refresh();
       onChanged();
     } catch (e) {
       setError(message(e));
@@ -47,134 +58,133 @@ function Row({ b, shell, onChanged }: { b: Blocker; shell: Shell; onChanged: () 
   };
 
   return (
-    <li className={`cf-row${open ? " cf-row-open" : ""}`}>
-      <button className="cf-row-head" onClick={() => setOpen(!open)}>
-        <span className="cf-word">{b.word}</span>
-        <span className="cf-pinyin">
-          {b.pinyin ? displayPinyin(b.pinyin) : ""}
-          {b.gloss ? ` · ${b.gloss}` : ""}
-        </span>
-        <span className="cf-count" title="Sentences this word alone is blocking">
-          +{b.unlocks}
-        </span>
-      </button>
-      {open && (
-        <div className="cf-actions">
-          {error && <p className="cf-error">{error}</p>}
-          {examples === null ? (
-            <p className="cf-muted">Finding what it would unlock…</p>
-          ) : (
-            <ul className="cf-examples">
-              {examples.map((s) => (
-                <li key={s.id}>
-                  <span className="cf-zh">
-                    <Highlighted text={s.zh} word={b.word} />
-                  </span>
-                  {s.en && <span className="cf-en">{s.en}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="cf-buttons">
-            <a className="cf-btn cf-btn-ghost" href={plecoHref(b.word)}>
-              Open in Pleco
-            </a>
-            {shell.canWrite && !b.listed && (
-              <button className="cf-btn" disabled={busy} onClick={name}>
-                {busy ? "Working…" : "It's a name"}
-              </button>
-            )}
-          </div>
-        </div>
+    <Sheet label={b.word} onClose={onClose}>
+      <header className="cf-sheet-head">
+        <h2>{b.word}</h2>
+        {b.pinyin && <p className="cf-sheet-py">{displayPinyin(b.pinyin)}</p>}
+      </header>
+      <p className="cf-bsheet-gloss">{b.gloss ?? (b.listed ? "" : "Not in the dictionary: most likely a name.")}</p>
+      <p className="cf-muted">
+        The last word keeping <b className="cf-bsheet-n">{fmt(b.unlocks)}</b> {b.unlocks === 1 ? "sentence" : "sentences"} locked.
+      </p>
+      {error && <p className="cf-error">{error}</p>}
+      {examples === null && !error && <p className="cf-muted">Finding them…</p>}
+      {examples && examples.length > 0 && (
+        <ul className="cf-slist cf-bsheet-list">
+          {examples.map((s) => (
+            <li key={s.id} className="cf-srow is-static">
+              <span className="cf-srow-zh">
+                <Highlighted text={s.zh} word={b.word} />
+              </span>
+              {s.en && <span className="cf-srow-en">{s.en}</span>}
+            </li>
+          ))}
+        </ul>
       )}
-    </li>
+      <div className="cf-buttons">
+        {shell.canWrite && !b.listed && (
+          <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={name}>
+            {busy ? "Working…" : "It's a name"}
+          </button>
+        )}
+        <a className="cf-btn" href={plecoHref(b.word)}>
+          {shell.canWrite ? "Add in Pleco" : "Open in Pleco"}
+        </a>
+      </div>
+    </Sheet>
   );
 }
 
-function List({ items, shell, empty, onChanged }: { items: Blocker[]; shell: Shell; empty: string; onChanged: () => void }) {
+function Rows({ items, empty, onOpen }: { items: Blocker[]; empty: string; onOpen: (b: Blocker) => void }) {
   const [shown, setShown] = useState(PAGE);
   if (!items.length) return <p className="cf-muted cf-pad">{empty}</p>;
   return (
     <>
-      <ul className="cf-list">
+      <ul className="cf-slist">
         {items.slice(0, shown).map((b) => (
-          <Row key={b.word} b={b} shell={shell} onChanged={onChanged} />
+          <li key={b.word}>
+            <button className="cf-wrow" onClick={() => onOpen(b)}>
+              <b className="cf-zh">{b.word}</b>
+              <span className="cf-wrow-gloss">
+                {b.pinyin && <i>{displayPinyin(b.pinyin)}</i>}
+                {b.gloss ?? ""}
+              </span>
+              <em title="Sentences this word alone is blocking">+{fmt(b.unlocks)}</em>
+            </button>
+          </li>
         ))}
       </ul>
       {shown < items.length && (
         <button className="cf-more" onClick={() => setShown(shown + PAGE)}>
-          Show more ({items.length - shown} left)
+          Show more ({fmt(items.length - shown)} left)
         </button>
       )}
     </>
   );
 }
 
-export function UnlockPanel({ shell }: { shell: Shell }) {
-  const [data, setData] = useState<Blockers | null>(null);
+/** Every word standing alone in the way, and the names, on a page of its own with "‹ Sentences" above. */
+export function UnlockPage({
+  shell,
+  data,
+  onBack,
+  onOpen,
+  onChanged,
+}: {
+  shell: Shell;
+  data: Blockers | null;
+  onBack: () => void;
+  onOpen: (b: Blocker) => void;
+  onChanged: () => void;
+}) {
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    get<Blockers>("blockers")
-      .then(setData)
-      .catch((e) => setError(message(e)));
-  }, []);
-  useEffect(load, [load]);
-
   const unname = async (word: string) => {
     try {
       await send("names", { word, on: false });
-      shell.refresh();
-      load();
+      onChanged();
     } catch (e) {
       setError(message(e));
     }
   };
 
-  if (error) return <p className="cf-error">{error}</p>;
-  if (!data) return <p className="cf-muted cf-pad">Working out what to learn next…</p>;
-
   return (
-    <>
-      <section className="cf-section">
-        <h2 className="cf-h2">Learn next</h2>
-        <p className="cf-lede">
-          Words from {shell.canWrite ? "your" : "Benji's"} Pleco lists, by how many sentences each would make readable
-          on its own.{shell.canWrite && " Add one to your words in Pleco, then import again."}
-        </p>
-        <List items={data.learnNext} shell={shell} onChanged={load} empty="No listed word is blocking a sentence on its own." />
-      </section>
-
-      <section className="cf-section">
-        <h2 className="cf-h2">Also blocking</h2>
-        <p className="cf-lede">
-          Words outside the lists that are the last thing between {shell.canWrite ? "you" : "Benji"} and a sentence —
-          mostly names and rare words.
-        </p>
-        <List items={data.others} shell={shell} onChanged={load} empty="Nothing else is blocking a sentence on its own." />
-      </section>
-
-      {data.names.length > 0 && (
-        <section className="cf-section">
-          <h2 className="cf-h2">Names</h2>
-          <p className="cf-lede">Marked as names: they don&apos;t block sentences and are never reviewed.</p>
-          <ul className="cf-list">
-            {data.names.map((word) => (
-              <li key={word} className="cf-row">
-                <div className="cf-row-head">
-                  <span className="cf-word">{word}</span>
-                  <span className="cf-pinyin" />
-                  {shell.canWrite && (
-                    <button className="cf-link" onClick={() => unname(word)}>
-                      not a name
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+    <div className="cf-subpage">
+      <nav className="cf-crumbs" aria-label="Sentences">
+        <button onClick={onBack}>‹ Sentences</button>
+      </nav>
+      <h2 className="cf-subpage-title">Unlock next</h2>
+      <p className="cf-lede">
+        Each word is the only thing keeping these sentences locked.
+        {shell.canWrite ? " Add one to your words in Pleco, or mark a name." : ""}
+      </p>
+      {error && <p className="cf-error">{error}</p>}
+      {!data && <p className="cf-muted cf-pad">Working out what to learn next…</p>}
+      {data && (
+        <>
+          <h3 className="cf-h3">From {shell.canWrite ? "your" : "Benji's"} Pleco lists</h3>
+          <Rows items={data.learnNext} onOpen={onOpen} empty="No listed word is blocking a sentence on its own." />
+          <h3 className="cf-h3">Also blocking · mostly names</h3>
+          <Rows items={data.others} onOpen={onOpen} empty="Nothing else is blocking a sentence on its own." />
+          {data.names.length > 0 && (
+            <>
+              <h3 className="cf-h3">Marked as names</h3>
+              <ul className="cf-slist">
+                {data.names.map((word) => (
+                  <li key={word} className="cf-wrow is-static">
+                    <b className="cf-zh">{word}</b>
+                    <span className="cf-wrow-gloss">Never blocks, never reviewed</span>
+                    {shell.canWrite && (
+                      <button className="cf-link" onClick={() => void unname(word)}>
+                        Not a name
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
       )}
-    </>
+    </div>
   );
 }

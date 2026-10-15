@@ -18,6 +18,7 @@ import type {
   MissingWord,
   ReviewInput,
   ReviewResult,
+  SentenceDetail,
   SentenceInfo,
   SentenceRow,
   SourceCounts,
@@ -402,6 +403,19 @@ export async function fastCards(
   };
 }
 
+/** A card's own answers here (oldest first), after whatever Pleco recorded for the same thing. */
+function historyFrom(here: Array<{ grade: Grade; at: number }>, pleco: PlecoSeed | null): CardHistory {
+  // Pleco writes a digit per answer, oldest first: 6 for right, 2 for wrong.
+  const before = [...(pleco?.history ?? "")].map((d): Grade => (d >= "4" ? "good" : "forgot"));
+  const last = here[here.length - 1];
+  return {
+    pleco: before,
+    here: here.map((a) => a.grade),
+    lastAt: last ? Math.round(last.at) : pleco?.last ? pleco.last * 1000 : null,
+    lastIn: last ? "here" : pleco?.last ? "pleco" : null,
+  };
+}
+
 /** Everything a card needs to be drawn: the word, its meanings, a sentence, its words. */
 async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, at: number): Promise<SessionCard[]> {
   const wordList = [...new Set(cards.filter((c) => c.word).map((c) => c.word!))];
@@ -418,19 +432,11 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     where owner_email = ${owner} and card_id = any(${cards.map((c) => c.id)}::bigint[])
     order by seq
   `) as unknown as Array<{ card: number; grade: Grade; at: number }>;
-  /** The card's own answers here, after whatever Pleco recorded for the same thing. */
-  const historyOf = (c: CardRow, pleco: PlecoSeed | null): CardHistory => {
-    const here = answers.filter((a) => a.card === c.id);
-    // Pleco writes a digit per answer, oldest first: 6 for right, 2 for wrong.
-    const before = [...(pleco?.history ?? "")].map((d): Grade => (d >= "4" ? "good" : "forgot"));
-    const last = here[here.length - 1];
-    return {
-      pleco: before,
-      here: here.map((a) => a.grade),
-      lastAt: last ? Math.round(last.at) : pleco?.last ? pleco.last * 1000 : null,
-      lastIn: last ? "here" : pleco?.last ? "pleco" : null,
-    };
-  };
+  const historyOf = (c: CardRow, pleco: PlecoSeed | null): CardHistory =>
+    historyFrom(
+      answers.filter((a) => a.card === c.id),
+      pleco,
+    );
   const meaningRows = wordList.length
     ? ((await sql`
         select id::int as id, word, gloss from chongfuxi_meaning
@@ -1177,6 +1183,60 @@ export async function listSentences(sql: Sql, owner: string, q: SentenceQuery): 
     dictionarySplit: r.split === "dictionary",
     card: r.card,
   }));
+}
+
+/** A deck word whose Read card is new here, or under three weeks strong, is still being learnt. */
+const SETTLING_DAYS = 21;
+
+/**
+ * One sentence in full, for its page on Cards › Sentences: its words with
+ * their readings, how each stands, what still blocks it, and its card.
+ */
+export async function sentenceDetail(sql: Sql, owner: string, id: number): Promise<SentenceDetail | null> {
+  const rows = (await sql`
+    select id::int as id, zh, en, sources, blockers, split, pleco from chongfuxi_sentence
+    where owner_email = ${owner} and id = ${id}
+  `) as unknown as Array<{ id: number; zh: string; en: string | null; sources: string[]; blockers: string[]; split: string; pleco: PlecoSeed | null }>;
+  const s = rows[0];
+  if (!s) return null;
+  const sentence = (await sentenceDresser(sql, owner, [id]))(s)!;
+  const words = [...new Set(sentence.words)];
+  const deck = words.length
+    ? ((await sql`
+        select w.word, c.state::int as state, c.stability
+        from chongfuxi_word w
+        left join chongfuxi_card c on c.owner_email = w.owner_email and c.kind = 'read' and c.meaning_id is null and c.word = w.word
+        where w.owner_email = ${owner} and w.status = 'deck' and w.word = any(${words}::text[])
+      `) as unknown as Array<{ word: string; state: number | null; stability: number | null }>)
+    : [];
+  const inDeck = new Map(deck.map((d) => [d.word, d]));
+  const blocked = new Set(s.blockers);
+  const cards = (await sql.query(
+    `select ${CARD_COLUMNS} from chongfuxi_card c where c.owner_email = $1 and c.kind = 'sentence' and c.sentence_id = $2`,
+    [owner, id],
+  )) as unknown as CardRow[];
+  const c = cards[0];
+  const answers = c
+    ? ((await sql`
+        select grade, (extract(epoch from at) * 1000)::double precision as at
+        from chongfuxi_review
+        where owner_email = ${owner} and card_id = ${c.id}
+        order by seq
+      `) as unknown as Array<{ grade: Grade; at: number }>)
+    : [];
+  return {
+    sentence,
+    blockers: s.blockers,
+    dictionarySplit: s.split === "dictionary",
+    words: sentence.words.map((w) => {
+      const d = inDeck.get(w);
+      const settling = d && (d.state === null || d.state === 0 || (d.stability ?? 0) < SETTLING_DAYS);
+      return { standing: blocked.has(w) ? "unknown" : settling ? "learning" : "known", inDeck: Boolean(d) };
+    }),
+    card: c
+      ? { state: c.retired !== null ? "retired" : c.state === 0 ? "new" : "reading", history: historyFrom(answers, s.pleco) }
+      : null,
+  };
 }
 
 /** Every source the sentences came from (a deck, a book's lessons), with how many are readable, one word away and further off. */

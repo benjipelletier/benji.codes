@@ -88,8 +88,8 @@ check every screen at 360px wide first.
 - The phone's back button moves through the app (`lib/back.ts`,
   `useBackLayer` in `components/shared.tsx`): every layer that opens over
   another (a tab other than Review, Sentences or Lists in Cards, a page
-  opened from Import's menu, each level of
-  the list tree, a word's sheet, a sync's page, a review session, the step
+  opened from Import's menu, Unlock next, each level of
+  the list tree, a word's sheet, a sentence's page, a sync's page, a review session, the step
   after Forgot, the note box) puts one history entry on, and back closes the
   top one. A layer closed from the page takes its entry back off quietly.
   From Review with nothing open, back leaves the site.
@@ -165,9 +165,35 @@ at both. Each level's bar is in its HSK Standard Course cover colour (sampled
 from the covers; 7-9 a dark green the owner chose) and is split, palest to
 deepest, by where each word's Read card stands: waiting (not answered here
 yet), young (under 3 weeks), mature (to 6 months), strong (beyond). The grey
-remainder is words not in the deck. Sentences is the browser by readable / one away / locked, with
-"Unlock next" (the words blocking the most, and names) as a fourth choice.
-There is no separate Unlock tab; the owner didn't want one.
+remainder is words not in the deck.
+
+The three sides sit on one slim switch held just under the header as the page
+scrolls (`--cf-top-h`, the header's height, set by the shell). They were three
+tall boxes with counts; the owner found Sentences in particular unusable and
+ugly, and the October 2026 redesign (mockup:
+https://claude.ai/artifact/NBV7B4hUEM9JLySzvC5oib) put it right:
+
+- **Sentences** (`components/SentencesPanel.tsx`): a search box with a source
+  button beside it, then Readable / One away / Locked as three chips with
+  their counts (9.1k), never wrapping; sentences start in the top third of the
+  screen. Searching hides the chips and offers "Inside longer words too". A
+  source picked (from a sheet) shows as a chip with ×.
+- Each row is the sentence, its translation and one quiet line: a dot for its
+  card (green in review, amber not started, a ring retired, dashed locked)
+  and its sources in grey, cut short. A word keeping it locked is marked in
+  the sentence itself, in amber, not in a box below.
+- **Unlock next** is no longer a fourth choice: the first few words lead One
+  away as a strip ("Learn these to unlock the most", each with +N), and "See
+  all" opens the whole page (`UnlockPage` in `components/UnlockPanel.tsx`:
+  from your lists, also blocking, names). A word opens a sheet with the
+  sentences it alone holds back, "It's a name" and Pleco (`BlockerSheet`).
+  There is no separate Unlock tab; the owner didn't want one.
+- **A sentence's page** (tap a row; route `sentence`, `sentenceDetail` in
+  `app/api/chongfuxi/review.ts`): its words with pinyin over each (a word and
+  the punctuation after it never part), learning words underlined in blue and
+  blocking ones in amber. A tap on a word gives its meaning and where it
+  stands, with Open word (a deck word's own sheet, `WordSheet`) and Pleco.
+  Then the translation, its card's history, its sources and its length.
 
 Every card carries its history at the top: a bubble per answer, oldest first
 (filled for got it, a ring for forgot), Pleco's own record first and smaller,
@@ -648,7 +674,7 @@ earlier leaving Pleco's HSK课文 out for having no translations.
 
 Every sentence keeps the sources it came from (`chongfuxi_sentence.sources`:
 the Pleco and Anki deck names, or the name typed for a text upload). Cards ›
-Sentences filters by one (`From`, or a tap on a sentence's source tag), the
+Sentences filters by one (the source button beside the search), the
 Readable / One away / Locked counts following it (`listSources`, route
 `sources`; `source` on `sentences`). Unlock next still counts every source.
 
@@ -893,7 +919,7 @@ so scripts run the same code as routes):
 - `learn.ts` — `wordsToLearn` (the words, where each is on the ladder, and
   their teaching sentences), `recordSteps`. Route `learn` (GET the words,
   `?list=`; POST the steps taken, owner).
-- Routes: `summary`, `session`, `sentences`, `blockers`, `levels`, `stats` (public); `review`,
+- Routes: `summary`, `session`, `sentences`, `sentence`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
   `imports/[id]/ingest` (owner).
 - `next.config.ts` keeps `sql.js` external and traces its wasm and the
@@ -901,8 +927,10 @@ so scripts run the same code as routes):
 
 Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
 the session), `Learn` (the ladder: `useLadder` for the session, and a list's
-drill), `CardsPanel` (`WordsPanel`, and `SentencesPanel` with
-`UnlockPanel` inside it), `StatsPanel`, `ImportPanel`.
+drill), `CardsPanel` (`WordsPanel`, `SentencesPanel` with its sentence
+page and `UnlockPanel`'s Unlock next page and blocker sheet, `ListsPanel`),
+`StatsPanel`, `ImportPanel`. `Sheet` in `shared.tsx` is the sheet over the
+page (back, Escape, a tap outside close it).
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
 

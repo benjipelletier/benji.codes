@@ -5,6 +5,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import type { CardHistory, SentenceInfo, Summary, WordInfo } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as back from "@chongfuxi/lib/back";
@@ -50,7 +51,7 @@ export function Highlighted({ text, word }: { text: string; word: string }) {
 }
 
 /** A stretch of a sentence: one of its words, with what a tap shows, or the text between. */
-interface Piece {
+export interface Piece {
   zh: string;
   /** Where it starts in the sentence, for picking out the card's word. */
   at: number;
@@ -59,7 +60,7 @@ interface Piece {
 }
 
 /** The sentence cut at its words, as far as they can be found in it, in order. */
-function piecesOf(sentence: SentenceInfo): Piece[] {
+export function piecesOf(sentence: SentenceInfo): Piece[] {
   const { zh, words } = sentence;
   const out: Piece[] = [];
   let at = 0;
@@ -315,6 +316,45 @@ export function Word({ word }: { word: string }) {
   return (
     <div className={`cf-card-word${n > 6 ? " is-long" : ""}`} style={{ "--n": Math.min(n, 6) } as React.CSSProperties}>
       {word}
+    </div>
+  );
+}
+
+/**
+ * A sheet over the page, risen from the bottom: a tap outside, the close
+ * button, Escape or the phone's back closes it. `escape` off while another
+ * sheet is open on top of it, so Escape closes only that one.
+ */
+export function Sheet({
+  label,
+  onClose,
+  escape = true,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  escape?: boolean;
+  children: ReactNode;
+}) {
+  useBackLayer(true, onClose);
+  const latest = useRef(onClose);
+  latest.current = onClose;
+  useEffect(() => {
+    if (!escape) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && latest.current();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [escape]);
+  return (
+    <div className="cf-sheet-back" onClick={onClose}>
+      <div className="cf-sheet" role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()}>
+        <button className="cf-close cf-sheet-close" onClick={onClose} aria-label="Close">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        {children}
+      </div>
     </div>
   );
 }

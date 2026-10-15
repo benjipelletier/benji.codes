@@ -342,8 +342,8 @@ function dueText(due: number, cutoff: number): string {
   return days === 1 ? "tomorrow" : `in ${span(days)}`;
 }
 
-/** One word in full, over the page. */
-function WordSheet({
+/** One word in full, over the page. Also opened from a sentence's page (SentencesPanel). */
+export function WordSheet({
   word,
   canWrite,
   onClose,

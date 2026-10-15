@@ -54,19 +54,25 @@ export function CardsPanel({ shell }: { shell: Shell }) {
         <Learn shell={shell} list={run.list} onEnd={endRun} />
       )}
       <div className="cf-panel" hidden={run !== null}>
-        <div className="cf-sides" role="tablist">
-          {sides.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={side === t.key}
-              className={`cf-side${side === t.key ? " is-on" : ""}`}
-              onClick={() => setSide(t.key)}
-            >
-              {t.label}
-              {t.n !== null && <small>{fmt(t.n)}</small>}
-            </button>
-          ))}
+        {/* One slim switch, held under the header as the page scrolls. */}
+        <div className="cf-switch-bar">
+          <div className="cf-switch" role="tablist" aria-label="Cards">
+            {sides.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={side === t.key}
+                title={t.n !== null ? `${fmt(t.n)} ${t.label.toLowerCase()}` : undefined}
+                className={`cf-switch-btn${side === t.key ? " is-on" : ""}`}
+                onClick={() => {
+                  setSide(t.key);
+                  window.scrollTo({ top: 0 });
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         {side === "words" ? (
           <WordsPanel
