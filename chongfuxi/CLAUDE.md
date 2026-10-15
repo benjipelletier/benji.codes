@@ -127,12 +127,12 @@ rejected as too themed. Keep it that way:
 ## Status
 
 Built: import (server-side), unlocking, the review session with Read, Recall
-(the Produce card) and Sentence cards, meaning splits, card notes, the daily
-new-sentence limit, learn-next, the sentence browser and stats.
+(the Produce card) and Sentence cards, meaning splits, card notes, new
+sentences with no daily limit, learn-next, the sentence browser and stats.
 
 Review opens on Today: what is due by kind of card, with the Recall and
 Sentences rows doubling as the choice to leave them out (remembered on the
-device), the new-sentences-a-day setting, then Start. The choices only filter
+device), then Start. The choices only filter
 the queue; nothing about the schedule changes. Three figures sit either side
 of today: answers given yesterday, cards whose due date fell inside today, and
 cards joining the queue tomorrow (those falling due then, plus those held back
@@ -336,9 +336,14 @@ ignored (every one of its cards is also in the 18k deck):
 Agreed with the owner unless marked *(reading)*, which are choices made where
 the design was silent and are still to be confirmed.
 
-- **Queue**: due word cards, due sentence cards and new sentences up to the
-  day's limit (10, adjustable), mixed two words to a sentence with a new
-  sentence every fourth card. Most overdue first.
+- **Queue**: due word cards, due sentence cards and new sentences, mixed
+  two words to a sentence with a new sentence every fourth card. Most
+  overdue first. New sentences have no daily limit (there was one, 10 a day,
+  until the owner asked for the whole pool): they come one for every three
+  cards due, none once nothing is due. Then the end of the session offers
+  "Keep going with new sentences", and from there they are all new ones
+  (`more` on `session`); on a day with nothing due, Today's button starts
+  there ("Read new sentences"). Today counts only what is due.
 - **Same word never twice in a day**: a word answered today, or lapsed today,
   holds back its other cards until tomorrow.
 - **Read**: the word with one readable sentence under it, rotating each review
@@ -395,9 +400,11 @@ the design was silent and are still to be confirmed.
 - **Passing a sentence** counts an exposure for its words and moves no word's
   schedule.
 - **New sentences**: those a word just unlocked first, newest first. Then
-  the ones that give a weak word context, at the owner's request ("I'll need
-  more context to learn" a new or low-scored word): each sentence goes by its
-  weakest deck word (a Read card new here and unscored in Pleco first, then
+  the ones that test the words that need it, at the owner's request ("choose
+  the ones that test the right words but have the whole pool available"):
+  each sentence goes by the deck word that most needs it (one due today or
+  just forgotten, relearning, first; a word still waiting for Learn last),
+  then the weakest (a Read card new here and unscored in Pleco first, then
   the lowest stability, Pleco's score for a card not yet answered here),
   dealt round-robin so each weak word gets one sentence before any gets a
   second. A word never yet read in a sentence breaks ties; past that a fixed
@@ -531,7 +538,7 @@ after an answer.
 | `chongfuxi_token` | word in a sentence, in order |
 | `chongfuxi_card` | scheduled card: kind read / produce / sentence, the FSRS state, clean reads, retired, flagged, suspended |
 | `chongfuxi_review` | answer, append-only: schedule before and after, the sentence shown, tapped words, `effects` on other cards, time to answer and to reveal, and where it was given (timezone, UTC offset, device, position in the session) |
-| `chongfuxi_settings` | owner: new sentences per day |
+| `chongfuxi_settings` | owner: new sentences per day. No longer read: there is no daily limit. |
 | `chongfuxi_sentence_left_out` | sentence taken out of the corpus (cut short), as it was, same id, with why |
 | `chongfuxi_learn` | word through Learn in a session: misses, and each step with its sentence and how it went. Never touches a schedule. `chongfuxi_card.learned_at` marks a new Read card as through Learn. |
 

@@ -17,6 +17,8 @@ export interface SessionResume {
   open: boolean;
   session: string;
   kinds: SessionKinds;
+  /** Kept going with new sentences once nothing was due. */
+  more?: boolean;
   /** The cards in hand, the one showing first. */
   queue: SessionCard[];
   dealt: number;

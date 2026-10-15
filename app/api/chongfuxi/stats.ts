@@ -54,7 +54,7 @@ export async function getStats(sql: Sql, owner: string, day: StudyDay, utcOffset
       [owner],
     ) as unknown as Promise<Array<{ day: string; n: number }>>,
     // Day 0 is everything due before today ends, overdue included. A sentence
-    // not yet introduced isn't due: the daily limit decides when it comes.
+    // not yet seen isn't due: it comes when the session picks it.
     sql.query(
       `select greatest(0, ceil(extract(epoch from (c.due - to_timestamp($2::double precision / 1000))) / 86400))::int as d,
               (c.kind = 'sentence') as sentence, count(*)::int as n

@@ -33,11 +33,8 @@ export interface Summary {
   dueRead: number;
   dueRecall: number;
   dueSentences: number;
-  /** Readable sentences not yet introduced, and how many more may be today. */
+  /** Readable sentences not yet seen here: the pool new sentences come from, with no daily limit. */
   newSentences: number;
-  newLeftToday: number;
-  /** The setting: sentences introduced per day. */
-  newPerDay: number;
   retired: number;
   flagged: number;
   answeredToday: number;

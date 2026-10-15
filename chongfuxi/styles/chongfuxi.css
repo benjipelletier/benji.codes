@@ -1854,6 +1854,17 @@ label.cf-kind {
   margin-top: 12px;
 }
 
+/* Done with what was due: new sentences are there to keep going with, above the way back. */
+.cf-done .cf-keep-going {
+  display: flex;
+  width: fit-content;
+  margin: 12px auto 0;
+}
+
+.cf-done .cf-keep-going + .cf-btn {
+  margin-top: 8px;
+}
+
 /* The answer: fixed at the foot. Above the tabs on Today; on the floor in a
  * session, where there are no tabs. */
 .cf-answer {

@@ -235,23 +235,12 @@ function Today({
   onLearn: () => void;
   onImport: () => void;
 }) {
-  const { summary: s, canWrite, refresh } = shell;
-  const [busy, setBusy] = useState(false);
+  const { summary: s, canWrite } = shell;
   if (!s) return null;
   // A review left part way through today, to carry on.
   const keptSession = resume.load("session");
   const keptFast = resume.load("fast")?.marked ? resume.load("fast") : null;
   const carryOn = keptSession !== null && keptSession.answered > 0;
-
-  const pace = async (n: number) => {
-    setBusy(true);
-    try {
-      await send("settings", { newPerDay: n }, "PUT");
-      refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   if (s.words === 0) {
     return (
@@ -274,7 +263,8 @@ function Today({
   }
 
   const words = wordsDue(s, kinds);
-  const sentences = kinds.sentences ? s.dueSentences + s.newLeftToday : 0;
+  // New sentences have no daily limit: they are mixed in as the session goes, so only the due ones are counted.
+  const sentences = kinds.sentences ? s.dueSentences : 0;
   const total = words + sentences;
   const all = total + s.answeredToday;
   const share = (n: number) => `${all ? (100 * n) / all : 0}%`;
@@ -293,7 +283,6 @@ function Today({
         <i className="is-done" style={{ width: share(s.answeredToday) }} />
         <i className="is-read" style={{ width: share(words) }} />
         <i className="is-sentence" style={{ width: share(kinds.sentences ? s.dueSentences : 0) }} />
-        <i className="is-new" style={{ width: share(kinds.sentences ? s.newLeftToday : 0) }} />
       </div>
       {s.answeredToday > 0 && <p className="cf-today-done">{fmt(s.answeredToday)} done so far</p>}
 
@@ -350,30 +339,12 @@ function Today({
             <span>
               Sentences
               <small>
-                {fmt(s.dueSentences)} due again, {fmt(s.newLeftToday)} new
+                {fmt(s.dueSentences)} due again; new ones mixed in, from {fmt(s.newSentences)} readable
               </small>
             </span>
-            <b>{fmt(s.dueSentences + s.newLeftToday)}</b>
+            <b>{fmt(s.dueSentences)}</b>
           </label>
         </li>
-        {canWrite && (
-          <li className="cf-kind is-new">
-            <i className="cf-dot" />
-            <span>
-              New sentences a day
-              <small>{fmt(s.newSentences)} unlocked and waiting</small>
-            </span>
-            <div className="cf-stepper">
-              <button disabled={busy || s.newPerDay <= 0} onClick={() => pace(Math.max(0, s.newPerDay - 5))} aria-label="Five fewer">
-                −
-              </button>
-              <b>{s.newPerDay}</b>
-              <button disabled={busy || s.newPerDay >= 200} onClick={() => pace(Math.min(200, s.newPerDay + 5))} aria-label="Five more">
-                +
-              </button>
-            </div>
-          </li>
-        )}
       </ul>
 
       {/* New words wait here, out of the review, until they have been learned with sentences. */}
@@ -404,13 +375,19 @@ function Today({
             <small>{keptFast ? `${fmt(keptFast.marked)} marked, carry on` : `${fmt(s.dueRead)} to read`}</small>
           </button>
         )}
-        <button className="cf-answer-btn cf-answer-show" disabled={total === 0 && !carryOn} onClick={onStart}>
+        <button
+          className="cf-answer-btn cf-answer-show"
+          disabled={total === 0 && !carryOn && !(kinds.sentences && s.newSentences > 0)}
+          onClick={onStart}
+        >
           {carryOn
             ? `Carry on · ${fmt(keptSession.answered)} done`
             : !kinds.read && !kinds.recall && !kinds.sentences
             ? "Nothing chosen"
             : total === 0
-              ? "Nothing due"
+              ? kinds.sentences && s.newSentences > 0
+                ? "Read new sentences"
+                : "Nothing due"
               : canWrite
                 ? "Start reviewing"
                 : "Look through the cards"}
@@ -477,6 +454,13 @@ export function Session({
   // The card on its way out, and which way: answered cards slide off before the next arrives.
   const [leaving, setLeaving] = useState<Grade | "skip" | null>(null);
   const [answered, setAnswered] = useState(saved?.answered ?? 0);
+  // Kept going once nothing was due: new sentences only, from the whole pool.
+  // Started with nothing due, it begins there.
+  const [more, setMore] = useState(
+    () =>
+      saved?.more ??
+      (!list && kinds.sentences && summary !== null && wordsDue(summary, kinds) + summary.dueSentences === 0),
+  );
 
   const session = useRef(saved?.session ?? newId());
   const dealt = useRef(saved?.dealt ?? 0);
@@ -511,6 +495,7 @@ export function Session({
         recall: kinds.recall ? undefined : 0,
         sentences: kinds.sentences ? undefined : 0,
         list: list?.list,
+        more: more ? 1 : undefined,
       });
       if (!cards.length) exhausted.current = true;
       // The same card can't be in hand twice, whatever the timing.
@@ -528,7 +513,7 @@ export function Session({
     } finally {
       loading.current = false;
     }
-  }, [kinds, list?.list]);
+  }, [kinds, list?.list, more]);
 
   useEffect(() => {
     if (queue.length <= REFILL_AT) void refill();
@@ -548,8 +533,9 @@ export function Session({
       streak: streak.current,
       recentIds: recentIds.current,
       recentWords: recentWords.current,
+      more,
     });
-  }, [queue, answered, kinds, list]);
+  }, [queue, answered, kinds, list, more]);
   // Finished: nothing to carry on.
   useEffect(() => {
     if (!list && status === "empty" && !queue.length) resume.clear("session");
@@ -741,12 +727,9 @@ export function Session({
   };
 
   const words = summary ? wordsDue(summary, kinds) : 0;
-  const left = list
-    ? Math.max(0, list.due - answered)
-    : summary
-      ? words + (kinds.sentences ? summary.dueSentences + summary.newLeftToday : 0)
-      : 0;
-  const progress = answered + left ? (100 * answered) / (answered + left) : 0;
+  // New sentences aren't counted: they have no end, and come as long as the owner goes on.
+  const left = list ? Math.max(0, list.due - answered) : summary ? words + (kinds.sentences ? summary.dueSentences : 0) : 0;
+  const progress = more ? 100 : answered + left ? (100 * answered) / (answered + left) : 0;
 
   return (
     <div className="cf-review">
@@ -760,7 +743,7 @@ export function Session({
         <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
           <i style={{ width: `${progress}%` }} />
         </div>
-        <span className="cf-left">{fmt(left)}</span>
+        <span className="cf-left">{more ? "more" : fmt(left)}</span>
       </div>
 
       {error && <p className="cf-error">{error}</p>}
@@ -772,9 +755,28 @@ export function Session({
           <p className="cf-done-zh">完</p>
           <p className="cf-muted">
             {answered > 0 ? `${fmt(answered)} answered. ` : ""}
-            {left > 0 ? "That's everything in hand." : list ? "Nothing more due on this list today." : "Nothing more due today."}
+            {more
+              ? "That's every readable sentence."
+              : left > 0
+                ? "That's everything in hand."
+                : list
+                  ? "Nothing more due on this list today."
+                  : "Nothing more due today."}
           </p>
-          <button className="cf-btn" onClick={onEnd}>
+          {/* Done with what was due: new sentences are there for as long as the owner wants them. */}
+          {!list && !more && kinds.sentences && (summary?.newSentences ?? 0) > 0 && (
+            <button
+              className="cf-btn cf-keep-going"
+              onClick={() => {
+                exhausted.current = false;
+                setMore(true);
+                setStatus("loading");
+              }}
+            >
+              Keep going with new sentences
+            </button>
+          )}
+          <button className={`cf-btn${!list && !more && kinds.sentences ? " cf-btn-ghost" : ""}`} onClick={onEnd}>
             Back to today
           </button>
         </div>

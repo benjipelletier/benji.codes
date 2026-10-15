@@ -176,7 +176,13 @@ async function main() {
   let q = await queue(1);
   const fresh = q.filter((c) => c.kind === "sentence" && c.isNew);
   check("the queue mixes words and sentences", q.some((c) => c.kind === "read") && fresh.length > 0, q.map((c) => c.kind[0]).join(""));
-  check("no more than ten new sentences in a day, though twelve are waiting", fresh.length === 10);
+  const dueNow = q.length - fresh.length;
+  check("new sentences come one for every three cards due, with no daily limit", fresh.length === Math.min(12, Math.ceil(dueNow / 3)), `${fresh.length} new, ${dueNow} due`);
+  const allDue = q.filter((c) => !(c.kind === "sentence" && c.isNew)).map((c) => c.id);
+  const nothingDue = await nextCards(sql, owner, dayN(1), { limit: 30, position: 0, exclude: allDue, skipWords: [], at: noon(1) });
+  check("with nothing due, no new sentence comes unasked", nothingDue.length === 0, nothingDue.map((c) => c.kind).join());
+  const keepGoing = await nextCards(sql, owner, dayN(1), { limit: 30, position: 0, exclude: allDue, skipWords: [], at: noon(1), more: true });
+  check("kept going, new sentences come from the whole pool, all twelve", keepGoing.length === 12 && keepGoing.every((c) => c.kind === "sentence" && c.isNew), keepGoing.length);
   check("one card per word in a batch", new Set(q.filter((c) => c.word).map((c) => c.word!.word)).size === q.filter((c) => c.word).length);
   const chaCard = q.find((c) => c.word?.word === "茶")!;
   check("a Read card comes with a readable sentence that has the word", Boolean(chaCard?.sentence?.words.includes("茶")), chaCard?.sentence?.zh);

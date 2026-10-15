@@ -172,8 +172,6 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
        (select count(*) from active a
           where a.kind = 'sentence' and a.state <> 0 and a.due <= to_timestamp($3::double precision / 1000))::int as due_sentences,
        (select count(*) from active a where a.kind = 'sentence' and a.state = 0)::int as new_sentences,
-       (select count(*) from today t
-          where t.kind = 'sentence' and t.cause = 'answer' and (t.before->>'state')::int = 0)::int as introduced,
        (select count(*) from chongfuxi_card where owner_email = $1 and retired is not null)::int as retired,
        (select count(*) from chongfuxi_card where owner_email = $1 and flagged is not null)::int as flagged,
        (select count(*) from today t where t.cause = 'answer')::int as answered_today,
@@ -190,8 +188,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
               or (a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
                   and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
        (select count(*) from chongfuxi_card c
-          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn,
-       coalesce((select new_sentences from chongfuxi_settings where owner_email = $1), 10)::int as new_per_day`,
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn`,
     [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
@@ -210,8 +207,6 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     dueRecall: r.due_recall,
     dueSentences: r.due_sentences,
     newSentences: r.new_sentences,
-    newLeftToday: Math.max(0, Math.min(r.new_sentences, r.new_per_day - r.introduced)),
-    newPerDay: r.new_per_day,
     retired: r.retired,
     flagged: r.flagged,
     answeredToday: r.answered_today,
@@ -240,6 +235,8 @@ export interface QueueOptions {
   sentences?: boolean;
   /** Only the word cards of this list (and the lists under it, or 龙库); no sentences. */
   list?: string;
+  /** Keep going once nothing is due: new sentences only, from the whole pool. */
+  more?: boolean;
   at?: number;
 }
 
@@ -298,25 +295,18 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
     [owner, cutoff, o.exclude, o.limit],
   )) as unknown as CardRow[];
 
-  // New sentences: what the day still allows, less the new ones the device is holding.
-  const allowance = (await sql.query(
-    `select coalesce((select new_sentences from chongfuxi_settings where owner_email = $1), 10)
-          - (select count(*) from chongfuxi_review
-             where owner_email = $1 and day = $2::date and kind = 'sentence' and cause = 'answer'
-               and (before->>'state')::int = 0)
-          - (select count(*) from chongfuxi_card
-             where owner_email = $1 and kind = 'sentence' and state = 0 and id = any($3::bigint[])) as n`,
-    [owner, day.day, o.exclude],
-  )) as unknown as Array<{ n: string }>;
-  const left = withSentences ? Math.min(o.limit, Math.max(0, Number(allowance[0].n))) : 0;
-  // First the ones a word just unlocked, newest first. Then the ones that give
-  // a weak word context: each sentence goes by its weakest deck word (a Read
-  // card never answered here and never scored in Pleco is weakest of all, then
-  // the lowest stability, which for a card not yet answered here is Pleco's
-  // score), dealt round-robin, one sentence per word before any word gets a
-  // second, so a day's few go to as many weak words as they can. A word never
-  // yet read in a sentence breaks a tie; past that, a fixed shuffle, so
-  // sources and lengths are mixed rather than the shortest scraps first.
+  // New sentences, from the whole readable pool: no daily limit. While cards
+  // are due they come one in four among them (the mix); once nothing is due,
+  // none, until the owner asks to keep going (`more`), and then only they.
+  // First the ones a word just unlocked, newest first. Then one for each
+  // word before any word gets a second, each sentence going by the deck word
+  // that most needs it: one due today or just forgotten (relearning) first,
+  // then the weakest (a Read card new here and unscored in Pleco, then the
+  // lowest stability, Pleco's score for a card not yet answered here), a
+  // word still waiting for Learn last. A word never yet read in a sentence
+  // breaks a tie; past that a fixed shuffle, so sources and lengths are mixed.
+  const due = wordCards.length + dueSentences.length;
+  const left = !withSentences ? 0 : o.more ? o.limit : Math.min(o.limit, Math.ceil(due / 3));
   const fresh = left
     ? ((await sql.query(
         `with cand as (
@@ -328,30 +318,33 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
          ),
          weakest as (
            select distinct on (t.sentence_id) t.sentence_id as sid, w.word, w.exposures,
-                  case when r.state = 0 then 0 else r.stability end as strength
+                  case when r.state = 0 then 0 else r.stability end as strength,
+                  case when ${WAITING_TO_LEARN.replaceAll("c.", "r.")} then 2
+                       when r.due <= to_timestamp($4::double precision / 1000) or r.state = 3 then 0
+                       else 1 end as need
            from chongfuxi_token t
            join cand on cand.sid = t.sentence_id
            join chongfuxi_word w on w.owner_email = t.owner_email and w.word = t.word and w.status = 'deck'
            join chongfuxi_card r on r.owner_email = w.owner_email and r.word = w.word and r.kind = 'read' and r.meaning_id is null
            where t.owner_email = $1
-           order by t.sentence_id, strength, w.exposures, w.word
+           order by t.sentence_id, need, strength, w.exposures, w.word
          ),
          ranked as (
-           select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.strength, k.exposures,
-                  row_number() over (partition by coalesce(k.word, cand.key) order by md5(cand.key), cand.sid) as turn
+           select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.need, k.strength, k.exposures,
+                  row_number() over (partition by coalesce(k.word, cand.key) order by k.need, md5(cand.key), cand.sid) as turn
            from cand left join weakest k on k.sid = cand.sid
          )
          select ${CARD_COLUMNS}
          from ranked x join chongfuxi_card c on c.owner_email = $1 and c.id = x.id
          order by (x.unlocked_by is not null) desc,
                   case when x.unlocked_by is not null then x.unlocked_at end desc nulls last,
-                  x.turn, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
+                  x.turn, x.need nulls last, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
          limit $3`,
-        [owner, o.exclude, left],
+        [owner, o.exclude, left, cutoff],
       )) as unknown as CardRow[])
     : [];
 
-  const picked = interleave({ word: wordCards, sentence: dueSentences, new: fresh }, o.position, o.limit);
+  const picked = o.more ? fresh.slice(0, o.limit) : interleave({ word: wordCards, sentence: dueSentences, new: fresh }, o.position, o.limit);
   if (!picked.length) return [];
   return dress(sql, owner, picked, day, at);
 }
@@ -1127,13 +1120,6 @@ export async function setNote(sql: Sql, owner: string, cardId: number, note: str
   await sql`
     update chongfuxi_card set note = ${note.trim() || null}
     where owner_email = ${owner} and id = ${cardId}
-  `;
-}
-
-export async function setNewPerDay(sql: Sql, owner: string, n: number): Promise<void> {
-  await sql`
-    insert into chongfuxi_settings (owner_email, new_sentences) values (${owner}, ${n})
-    on conflict (owner_email) do update set new_sentences = excluded.new_sentences, updated = now()
   `;
 }
 

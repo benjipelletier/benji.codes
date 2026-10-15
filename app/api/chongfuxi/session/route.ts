@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     recall: p.get("recall") !== "0",
     sentences: p.get("sentences") !== "0",
     list: p.get("list") || undefined,
+    more: p.get("more") === "1",
   });
   return NextResponse.json({ cards });
 }
