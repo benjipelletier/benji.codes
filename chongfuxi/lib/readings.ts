@@ -6,13 +6,13 @@
 // takes, in order: the reading a particle has in running text (了 le, not
 // liǎo; 着 zhe, not zháo), the reading on the word's own row (from the
 // owner's Pleco card, or CC-CEDICT when it was added), CC-CEDICT's
-// (`loadReadings` in app/api/chongfuxi/headwords.ts), and failing all those
+// (`dictEntry` in app/api/chongfuxi/headwords.ts), and failing all those
 // the readings of the pieces it splits into (孩子们 → 孩子 + 们). The meaning
 // comes with the reading it was found under. Pure, so a script can check it.
 
 /**
  * Single characters whose dictionary reading (the one most of their compounds
- * use, `loadReadings`) is not the one they nearly always have as a word on
+ * use, `dictEntry`) is not the one they nearly always have as a word on
  * their own in a sentence, and particles whose deck row may hold another.
  */
 export const RUNNING_READINGS: Record<string, string> = {
