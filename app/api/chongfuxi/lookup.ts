@@ -33,9 +33,9 @@ const WITH_FALLBACK = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable
 
 /**
  * Dollars per million tokens: input, output, cache read, cache write. Estimates,
- * for the cost line under an answer. Haiku's are for prompts of 100K tokens or
- * fewer (each call of a lookup is), and its cache rates are guesses at a tenth
- * and 1.25 times input: they aren't published where this was written.
+ * for the cost line under an answer. Haiku's are its published rates for
+ * prompts of 100K tokens or fewer (each call of a lookup is; above that they
+ * are five times as much), with the 5-minute cache write. Checked October 2026.
  */
 const PRICES: Record<string, [number, number, number, number]> = {
   "claude-opus-5-5": [4, 20, 0.2, 5],
