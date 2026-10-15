@@ -8,7 +8,7 @@
 
 import assert from "node:assert/strict";
 import type { LookupAnswerV1 } from "@chongfuxi/lib/api";
-import { checkAnswer, fromV1, type ModelAnswer } from "../../app/api/chongfuxi/lookup-check";
+import { checkAnswer, fromV1, normaliseAnswer, type ModelAnswer } from "../../app/api/chongfuxi/lookup-check";
 import { newSeen } from "../../app/api/chongfuxi/lookup-evidence";
 import { dictEntry } from "../../app/api/chongfuxi/headwords";
 
@@ -107,6 +107,28 @@ assert.deepEqual(
   ["gap", "sense", "wrong-right", "example"],
   "an answer kept as options comes back as blocks",
 );
+
+// The answer as handed in through the tool, nothing enforcing its schema:
+// a list sent as JSON text, "false" and "7" as strings, a block of no known
+// type, fields missing.
+const handed = normaliseAnswer({
+  reading: { parts: [{ text: "develop", asked: "true" }], kind: "nonsense" },
+  blocks: JSON.stringify([
+    { type: "gap", frame: "___抑郁症", options: [{ zh: "发展", fits: "false" }] },
+    { type: "mystery" },
+    { type: "family", head: "得", members: [{ zh: "得感冒", count: "7" }] },
+    "not a block",
+  ]),
+  summary: null,
+});
+assert.deepEqual(handed.blocks.map((b) => b.type), ["gap", "family"], "unknown blocks dropped, a list in JSON text read");
+assert.deepEqual(handed.blocks[0], { type: "gap", frame: "___抑郁症", options: [{ zh: "发展", label: "", fits: false, why: "" }] });
+assert.deepEqual(handed.blocks[1], { type: "family", head: "得", rule: "", members: [{ zh: "得感冒", count: 7 }] });
+assert.deepEqual(handed.reading, { parts: [{ text: "develop", asked: true }], kind: "meaning", note: "" });
+assert.equal(handed.summary, "");
+for (const junk of [null, undefined, 3, "x", [], { blocks: 5 }, { blocks: [null, 1, []] }]) {
+  assert.deepEqual(normaliseAnswer(junk).blocks, [], "junk gives no blocks, never a crash");
+}
 
 console.log(out.checks.join("\n"));
 console.log("ok");

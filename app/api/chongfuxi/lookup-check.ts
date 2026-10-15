@@ -54,6 +54,108 @@ export interface ModelAnswer {
   summary: string;
 }
 
+/**
+ * The answer as the model handed it in, made into a ModelAnswer: the model
+ * fills in the answer tool's input with nothing enforcing its schema (an
+ * enforced one compiles to a grammar too large for the API), so every field
+ * is taken only when it has the right type, a missing one gets its empty
+ * value, a list sent as JSON text is read, and a block of no known type is
+ * dropped.
+ */
+export function normaliseAnswer(input: unknown): ModelAnswer {
+  const parsed = (v: unknown): unknown => {
+    if (typeof v !== "string" || !/^\s*[[{]/.test(v)) return v;
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  };
+  const o = (v: unknown): Record<string, unknown> => {
+    const x = parsed(v);
+    return x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : {};
+  };
+  const s = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+  const n = (v: unknown) => {
+    const x = typeof v === "string" ? Number(v) : v;
+    return typeof x === "number" && Number.isFinite(x) ? Math.round(x) : -1;
+  };
+  const f = (v: unknown) => {
+    const x = typeof v === "string" ? Number(v) : v;
+    return typeof x === "number" && Number.isFinite(x) ? x : 0.5;
+  };
+  const b = (v: unknown) => v === true || v === "true";
+  const l = <T>(v: unknown, each: (x: unknown) => T): T[] => {
+    const x = parsed(v);
+    return Array.isArray(x) ? x.map(each) : [];
+  };
+  const one = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T =>
+    allowed.includes(v as T) ? (v as T) : fallback;
+
+  const POINTS = ["meaning", "pairing", "grammar", "register", "tone", "frequency"] as const;
+  const SOURCES = ["corpus", "dictionary", "deck", "model"] as const;
+  const KINDS = ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading"] as const;
+
+  const block = (v: unknown): ModelBlock | null => {
+    const x = o(v);
+    switch (x.type) {
+      case "gap":
+        return { type: "gap", frame: s(x.frame), options: l(x.options, (y) => ({ zh: s(o(y).zh), label: s(o(y).label), fits: b(o(y).fits), why: s(o(y).why) })) };
+      case "sense":
+        return {
+          type: "sense",
+          items: l(x.items, (y) => {
+            const i = o(y);
+            return {
+              zh: s(i.zh),
+              label: s(i.label),
+              why: s(i.why),
+              points: l(i.points, (z) => {
+                const p = o(z);
+                return { point: one(p.point, POINTS, "meaning"), says: s(p.says), source: one(p.source, SOURCES, "model"), count: n(p.count) };
+              }),
+              examples: l(i.examples, n),
+            };
+          }),
+        };
+      case "contrast":
+        return {
+          type: "contrast",
+          words: l(x.words, s),
+          rows: l(x.rows, (y) => ({
+            aspect: s(o(y).aspect),
+            cells: l(o(y).cells, (z) => ({ text: s(o(z).text), mark: one(o(z).mark, ["yes", "no", "none"] as const, "none") })),
+          })),
+        };
+      case "scale":
+        return { type: "scale", left: s(x.left), middle: s(x.middle), right: s(x.right), points: l(x.points, (y) => ({ zh: s(o(y).zh), gloss: s(o(y).gloss), at: f(o(y).at) })) };
+      case "pattern":
+        return {
+          type: "pattern",
+          template: s(x.template),
+          slots: l(x.slots, (y) => ({ name: s(o(y).name), note: s(o(y).note) })),
+          fillings: l(x.fillings, (y) => ({ id: n(o(y).id), zh: s(o(y).zh), en: s(o(y).en), marks: l(o(y).marks, s) })),
+        };
+      case "family":
+        return { type: "family", head: s(x.head), rule: s(x.rule), members: l(x.members, (y) => ({ zh: s(o(y).zh), count: n(o(y).count) })) };
+      case "wrong-right":
+        return { type: "wrong-right", wrong: s(x.wrong), right: s(x.right), why: s(x.why) };
+      case "example":
+        return { type: "example", id: n(x.id), zh: s(x.zh), en: s(x.en) };
+      default:
+        return null;
+    }
+  };
+
+  const a = o(input);
+  const r = o(a.reading);
+  return {
+    reading: { parts: l(r.parts, (y) => ({ text: s(o(y).text), asked: b(o(y).asked) })), kind: one(r.kind, KINDS, "meaning"), note: s(r.note) },
+    blocks: l(a.blocks, block).filter((x): x is ModelBlock => x !== null),
+    summary: s(a.summary),
+  };
+}
+
 export interface CheckDeps {
   /** A headword's usual reading and short meaning, or undefined when it isn't one. */
   entry(word: string): { p: string; gloss: string | null } | undefined;

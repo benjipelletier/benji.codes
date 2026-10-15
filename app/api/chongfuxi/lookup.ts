@@ -21,7 +21,7 @@ import { addWords } from "./additions";
 import type { Sql } from "./db";
 import { loadDict } from "./dictfile";
 import { dictEntry } from "./headwords";
-import { checkAnswer, citedIds, fromV1, type ModelAnswer } from "./lookup-check";
+import { checkAnswer, citedIds, fromV1, normaliseAnswer, type ModelAnswer } from "./lookup-check";
 import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, together, type Seen } from "./lookup-evidence";
 
 export class LookupError extends Error {}
@@ -77,7 +77,8 @@ Rules:
 - Never write pinyin; the app adds it from its own dictionary.
 - A judgment with source "corpus" gives a count exactly as a tool returned it for that word or pair; otherwise count -1. "dictionary" is only for what the dictionary tool showed, "deck" only for what it showed about the deck, "model" for your own knowledge.
 - Put each judgment under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own judgment with source "deck".
-- No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences of anything the blocks don't show, and says so if the user's sentences had nothing.`;
+- No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences of anything the blocks don't show, and says so if the user's sentences had nothing.
+- When you have the evidence, hand in the answer by calling the answer tool, once, following its schema exactly. Write nothing else.`;
 
 const POINT = {
   type: "object",
@@ -102,7 +103,12 @@ const str = { type: "string" } as const;
 const int = { type: "integer" } as const;
 const list = (items: unknown) => ({ type: "array", items });
 
-/** The answer: how the query was read, the blocks it is composed of, and a sentence or two more. */
+/**
+ * The answer: how the query was read, the blocks it is composed of, and a
+ * sentence or two more. The answer tool's input, not an enforced output
+ * format: enforced, eight kinds of block compile to a grammar the API refuses
+ * as too large. normaliseAnswer makes up for it.
+ */
 const ANSWER_SCHEMA = obj({
   reading: obj({
     parts: list(obj({ text: str, asked: { type: "boolean" } })),
@@ -137,6 +143,13 @@ const ANSWER_SCHEMA = obj({
 function tools(sql: Sql, owner: string, seen: Seen) {
   const json = (v: unknown) => JSON.stringify(v);
   return [
+    betaTool({
+      name: "answer",
+      description: "Hand in the finished answer, once, after gathering the evidence. Nothing comes back: the answer is drawn for the user.",
+      // Cast: inferring a type from the whole schema is slow and unused.
+      inputSchema: ANSWER_SCHEMA as unknown as { type: "object" },
+      run: () => "Kept.",
+    }),
     betaTool({
       name: "english_candidates",
       description:
@@ -267,37 +280,51 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     max_tokens: 16000,
     max_iterations: 12,
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-    output_config: { effort: EFFORT, format: { type: "json_schema", schema: ANSWER_SCHEMA as unknown as Record<string, unknown> } },
+    output_config: { effort: EFFORT },
     tools: tools(sql, owner, seen),
     messages: [{ role: "user", content: query.trim() }],
     ...(WITH_FALLBACK.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
   });
 
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, calls: 0 };
+  let handedIn: unknown = undefined;
+  let last: Anthropic.Beta.BetaMessage | null = null;
   for await (const message of runner) {
     usage.calls++;
     usage.input += message.usage.input_tokens;
     usage.output += message.usage.output_tokens;
     usage.cacheRead += message.usage.cache_read_input_tokens ?? 0;
     usage.cacheWrite += message.usage.cache_creation_input_tokens ?? 0;
+    last = message;
+    const call = message.content.find((c) => c.type === "tool_use" && c.name === "answer");
+    // Handed in: stop here rather than send "Kept." back for another call.
+    if (call && call.type === "tool_use") {
+      handedIn = call.input;
+      break;
+    }
   }
-  const final = await runner.done();
-  if (final.stop_reason === "refusal") throw new LookupError("The model declined this one.");
-  if (final.stop_reason === "max_tokens") throw new LookupError("The answer ran out of room; try a shorter question.");
-  const text = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-  let raw: ModelAnswer;
-  try {
-    raw = JSON.parse(text) as ModelAnswer;
-  } catch {
-    throw new LookupError(final.stop_reason === "tool_use" ? "The lookup took too many steps; try again." : "The answer came back malformed.");
+  if (!last) throw new LookupError("The model didn't answer.");
+  if (handedIn === undefined) {
+    if (last.stop_reason === "refusal") throw new LookupError("The model declined this one.");
+    if (last.stop_reason === "max_tokens") throw new LookupError("The answer ran out of room; try a shorter question.");
+    if (last.stop_reason === "tool_use") throw new LookupError("The lookup took too many steps; try again.");
+    // Answered in text instead of through the tool: take it if it's the answer.
+    const text = last.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
+    try {
+      handedIn = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    } catch {
+      throw new LookupError("The answer came back malformed.");
+    }
   }
+  const raw: ModelAnswer = normaliseAnswer(handedIn);
+  if (!raw.blocks.length) throw new LookupError("The answer came back empty; try again.");
 
   const cited = citedIds(raw).filter((id) => seen.sentences.has(id));
   const checked = checkAnswer(raw, seen, { entry: (w) => dictEntry(w), sentences: await sentencesById(sql, owner, cited) });
   const answer: LookupAnswer = {
     ...checked,
     query: q,
-    model: final.model,
+    model: last.model,
     at: Date.now(),
     usage: { input: usage.input + usage.cacheRead + usage.cacheWrite, output: usage.output, calls: usage.calls },
   };
