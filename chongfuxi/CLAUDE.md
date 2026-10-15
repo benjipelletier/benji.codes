@@ -140,6 +140,13 @@ rejected as too themed. Keep it that way:
 
 ## Status
 
+**Version.** The header shows `v0.1.N` (`lib/version.ts`), so the owner can
+tell production releases apart. N counts the commits on main that touch
+重复习 (`chongfuxi/`, `app/chongfuxi/`, `app/api/chongfuxi/`), the release's
+own included: bump it in the commit that goes to main (how to count is in
+the file). Hovering it shows the commit, where Vercel exposes it. 0.1.67 was
+the first, with Look up's answer blocks.
+
 Built: import (server-side), unlocking, the review session with Read, Recall
 (the Produce card) and Sentence cards, meaning splits, card notes, new
 sentences with no daily limit, learn-next, the sentence browser and stats.
