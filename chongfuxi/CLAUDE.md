@@ -144,11 +144,14 @@ rejected as too themed. Keep it that way:
 releases apart: N counts the commits that touch 重复习 (`chongfuxi/`,
 `app/chongfuxi/`, `app/api/chongfuxi/`), so it goes up by one with every
 release that changes it, with nothing to bump by hand. Counted at build time
-in `next.config.ts` (`chongfuxiVersion`): Vercel clones only the last few
-commits, so it fetches the full history first (the repo is public), and
-failing that asks GitHub's API (which counts `chongfuxi/` alone, a few
-short). Hovering it shows the commit. 0.1.67 was the first, with Look up's
-answer blocks.
+in `next.config.ts` (`chongfuxiVersion`), by the first of: the checkout, if
+it has the whole history; a clone of the history alone (no file contents)
+from GitHub, since Vercel's checkout has only the last few commits (the
+repo is public); GitHub's API, each path's commits counted once. The build
+log says which ("重复习 v0.1.N, counted by …"). Hovering it shows the
+commit. 0.1.67 was the first, with Look up's answer blocks. (0.1.69 showed
+as 0.1.68: fetching the rest of Vercel's checkout failed, and the API
+fallback then counted `chongfuxi/` alone.)
 
 Built: import (server-side), unlocking, the review session with Read, Recall
 (the Produce card) and Sentence cards, meaning splits, card notes, new
@@ -367,7 +370,8 @@ Built on the owner's corpus alone, since that is what answers lead with:
   ranked by corpus count). Each records what it returned (`Seen`).
 - `app/api/chongfuxi/lookup.ts`: one call through the SDK's tool runner,
   the evidence as tools the model picks from, the answer as typed blocks
-  (`ANSWER_SCHEMA`, structured output; see Answers composed from blocks). Kept in `chongfuxi_lookup` (made on
+  (`ANSWER_SCHEMA`, handed in through an `answer` tool; see Answers composed
+  from blocks). Kept in `chongfuxi_lookup` (made on
   first use): a cache, and with the owner's Right / Wrong and note, the test
   set. Route `lookup` (owner only: GET the history, POST `{ q, fresh? }`,
   `{ q, verdict, note }`, or `{ q, add: word }`).
@@ -436,10 +440,18 @@ the blocks' shapes, with no sentence saying what it is.
 | Wrong → right | the likely mistake beside the fix | any |
 | Example | one of the owner's sentences by id, or one labelled as the model's | any |
 
-- Structured output enforces the set (`blocks` is an `anyOf` of eight
-  objects, each told apart by a `const` `type`). The model cites sentences
-  by id (-1 for one it wrote) and gives counts as -1 when no tool returned
-  one.
+- The model hands the answer in by calling an `answer` tool whose input
+  schema is `ANSWER_SCHEMA` (`blocks` an `anyOf` of eight objects, each told
+  apart by a `const` `type`); the loop stops at that call. It was first an
+  enforced output format (structured output), but the API refused it in
+  production: "The compiled grammar is too large". Eight kinds of block with
+  nested lists are past its limit (the fixed shape before them was not). A
+  tool that isn't `strict` compiles no grammar, so nothing enforces the
+  schema: `normaliseAnswer` takes each field only when it has the right type,
+  reads a list sent as JSON text, and drops blocks of no known type, before
+  the check. An answer written as text instead is taken if it parses. The
+  model cites sentences by id (-1 for one it wrote) and gives counts as -1
+  when no tool returned one.
 - The check runs per block (`checkAnswer`): our pinyin and the dictionary
   test for every word a block names; a sense's examples only if a tool
   returned them; a pattern filling or example block shown as stored when
