@@ -14,8 +14,8 @@
 // A proof of concept. Each answer asks for a verdict (Right / Wrong, and
 // what was wrong): those lookups are the test set that decides what to build.
 
-import { useEffect, useState } from "react";
-import type { LookupAnswer, LookupListed, LookupSource } from "@chongfuxi/lib/api";
+import { Fragment, useEffect, useState } from "react";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { message, type Shell } from "./shared";
 
@@ -53,27 +53,34 @@ function Frame({ frame, zh, fits }: { frame: string; zh: string | null; fits: bo
   );
 }
 
-type Option = LookupAnswer["options"][number];
+type Block<T extends LookupBlock["type"]> = Extract<LookupBlock, { type: T }>;
 
 const STAGE = { new: "new", young: "young", mature: "mature", strong: "strong" } as const;
+
+/** What a block needs besides itself: the words map, and the question and shell for adding a word. */
+interface Ctx {
+  words: Record<string, LookupWord>;
+  query: string;
+  shell: Shell;
+}
 
 /**
  * Where a word stands in the deck, at a glance, and a way to put it there:
  * "In deck · strong", or + Add (one addition, undone here or like any other).
  */
-function DeckMark({ o, query, shell }: { o: Option; query: string; shell: Shell }) {
+function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
   const [added, setAdded] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inDeck = o.deck?.status === "deck";
+  const info = ctx.words[zh];
 
   const add = async () => {
     setBusy(true);
     setError(null);
     try {
-      const r = await send<{ id: number | null; added: string[] }>("lookup", { q: query, add: o.zh });
+      const r = await send<{ id: number | null; added: string[] }>("lookup", { q: ctx.query, add: zh });
       if (r.id !== null) setAdded(r.id);
-      shell.refresh();
+      ctx.shell.refresh();
     } catch (e) {
       setError(message(e));
     } finally {
@@ -87,7 +94,7 @@ function DeckMark({ o, query, shell }: { o: Option; query: string; shell: Shell 
     try {
       await send(`additions/${added}`, { action: "undo" });
       setAdded(null);
-      shell.refresh();
+      ctx.shell.refresh();
     } catch (e) {
       setError(message(e));
     } finally {
@@ -105,14 +112,15 @@ function DeckMark({ o, query, shell }: { o: Option; query: string; shell: Shell 
       </span>
     );
   }
-  if (inDeck) {
-    const stage = o.deck?.stage;
+  if (!info) return null;
+  if (info.deck?.status === "deck") {
+    const stage = info.deck.stage;
     return <span className="cf-lk-deck is-in">✓ In deck{stage ? ` · ${STAGE[stage]}` : ""}</span>;
   }
-  if (o.deck?.status === "name" || !o.inDictionary || !o.pinyin) return null;
+  if (info.deck?.status === "name" || !info.inDictionary || !info.pinyin) return null;
   return (
     <>
-      <button className="cf-lk-add" disabled={busy} onClick={() => void add()} title={o.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
+      <button className="cf-lk-add" disabled={busy} onClick={() => void add()} title={info.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
         {busy ? "Adding…" : "+ Add"}
       </button>
       {error && <span className="cf-error cf-lk-adderr">{error}</span>}
@@ -120,45 +128,80 @@ function DeckMark({ o, query, shell }: { o: Option; query: string; shell: Shell 
   );
 }
 
-/** How often the owner's sentences show it, from the points the check let stand. */
-const yours = (o: Option) => o.points.find((p) => p.source === "corpus" && p.checked && p.count !== null)?.count ?? null;
+/** The gap phrase: the best word in it, every candidate under it; a tap tries one. */
+function GapBlock({ b, picked, onPick }: { b: Block<"gap">; picked: string | null; onPick: (zh: string) => void }) {
+  const shown = b.options.find((o) => o.zh === picked) ?? b.options.find((o) => o.fits) ?? null;
+  return (
+    <div className="cf-lk-head">
+      <Frame frame={b.frame} zh={shown?.zh ?? null} fits={shown?.fits ?? true} />
+      <div className="cf-lk-tries" role="group" aria-label="Words for the gap">
+        {b.options.map((o) => (
+          <button
+            key={o.zh}
+            className={`cf-lk-try ${o.fits ? "is-fit" : "is-miss"}${shown?.zh === o.zh ? " is-on" : ""}`}
+            aria-pressed={shown?.zh === o.zh}
+            aria-label={`${o.zh}${o.fits ? (o.label ? `, ${o.label}` : "") : ", doesn't fit"}`}
+            onClick={() => onPick(o.zh)}
+          >
+            <b>{o.zh}</b>
+            {o.fits && o.label && <small>{o.label}</small>}
+          </button>
+        ))}
+      </div>
+      {/* Under the words, so tapping one never moves them. */}
+      {shown && !shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
+    </div>
+  );
+}
 
-/** One word that fits, as a dictionary sense: what it's for, the word, its meaning, why, an example; the evidence behind More. */
-function Sense({ o, n, on, onPick, query, shell }: { o: Option; n: number; on: boolean; onPick: () => void; query: string; shell: Shell }) {
+/** One numbered word, as a dictionary sense: when it's the one, the word, its meaning, why, an example; the evidence behind More. */
+function SenseItem({
+  it,
+  n,
+  on,
+  onPick,
+  ctx,
+}: {
+  it: Block<"sense">["items"][number];
+  n: number;
+  on: boolean;
+  onPick: () => void;
+  ctx: Ctx;
+}) {
   const [more, setMore] = useState(false);
-  const count = yours(o);
-  const [first, ...rest] = o.examples;
+  const info = ctx.words[it.zh];
+  const [first, ...rest] = it.examples;
   return (
     <li className={`cf-lk-sense${on ? " is-on" : ""}`}>
       <span className="cf-lk-n">{n}</span>
       <div className="cf-lk-body">
-        {o.label && <p className="cf-lk-lab">{o.label}</p>}
+        {it.label && <p className="cf-lk-lab">{it.label}</p>}
         <div className="cf-lk-wordline">
           <button className="cf-lk-word" onClick={onPick} aria-pressed={on}>
-            {o.zh}
+            {it.zh}
           </button>
-          {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
-          <DeckMark o={o} query={query} shell={shell} />
+          {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
+          <DeckMark zh={it.zh} ctx={ctx} />
         </div>
-        {o.gloss && <p className="cf-lk-gloss">{o.gloss}</p>}
-        <p className="cf-lk-why">{o.verdict}</p>
-        {count !== null && <p className="cf-lk-count">In {count} of your sentences</p>}
+        {info?.gloss && <p className="cf-lk-gloss">{info.gloss}</p>}
+        {it.why && <p className="cf-lk-why">{it.why}</p>}
+        {it.count !== null && <p className="cf-lk-count">In {it.count} of your sentences</p>}
         {first && (
           <p className="cf-lk-ex">
             <span className="cf-zh">{first.zh}</span>
             {first.en && <span>{first.en}</span>}
           </p>
         )}
-        {(o.points.length > 0 || rest.length > 0) && (
+        {(it.points.length > 0 || rest.length > 0) && (
           <button className="cf-lk-more" aria-expanded={more} onClick={() => setMore(!more)}>
             {more ? "Less" : "Why, and more examples"}
           </button>
         )}
         {more && (
           <div className="cf-lk-detail">
-            {o.points.length > 0 && (
+            {it.points.length > 0 && (
               <ul className="cf-lk-points">
-                {o.points.map((p, i) => (
+                {it.points.map((p, i) => (
                   <li key={i}>
                     <span className="cf-lk-point">{p.point}</span>
                     <span>{p.says}</span>
@@ -183,14 +226,168 @@ function Sense({ o, n, on, onPick, query, shell }: { o: Option; n: number; on: b
   );
 }
 
+/** Two or three words side by side, compared on the same rows. */
+function ContrastBlock({ b, ctx }: { b: Block<"contrast">; ctx: Ctx }) {
+  return (
+    <div className="cf-lk-contrast" style={{ "--n": b.words.length } as React.CSSProperties} role="table">
+      <div className="cf-lk-ct-corner" role="columnheader" />
+      {b.words.map((w) => (
+        <div key={w} className="cf-lk-ct-head" role="columnheader">
+          <span className="cf-zh">{w}</span>
+          {ctx.words[w]?.pinyin && <span className="cf-lk-py">{ctx.words[w].pinyin}</span>}
+          <span>
+            <DeckMark zh={w} ctx={ctx} />
+          </span>
+        </div>
+      ))}
+      {b.rows.map((r) => (
+        <Fragment key={r.aspect}>
+          <div className="cf-lk-ct-aspect" role="rowheader">
+            {r.aspect}
+          </div>
+          {r.cells.map((c, i) => (
+            <div key={i} className={`cf-lk-ct-cell is-${c.mark}`} role="cell">
+              {c.mark === "yes" && <b aria-label="yes">✓ </b>}
+              {c.mark === "no" && <b aria-label="no">✗ </b>}
+              {c.text}
+            </div>
+          ))}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+/** Words placed along one line between two ends. */
+function ScaleBlock({ b, ctx }: { b: Block<"scale">; ctx: Ctx }) {
+  return (
+    <div className="cf-lk-scale">
+      <div className="cf-lk-sc-ends">
+        <span>{b.left}</span>
+        <span>{b.middle}</span>
+        <span>{b.right}</span>
+      </div>
+      <div className="cf-lk-sc-line" aria-hidden="true" />
+      <ol className="cf-lk-sc-points">
+        {b.points.map((p) => (
+          // Placed by where it sits on the line, kept clear of the edges.
+          <li key={p.zh} style={{ "--at": p.at } as React.CSSProperties}>
+            <i aria-hidden="true" />
+            <span className="cf-zh">{p.zh}</span>
+            {ctx.words[p.zh]?.pinyin && <span className="cf-lk-py">{ctx.words[p.zh].pinyin}</span>}
+            <small>{p.gloss}</small>
+            <DeckMark zh={p.zh} ctx={ctx} />
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** A sentence with the given words marked, the first time each appears. */
+function MarkedText({ zh, marks }: { zh: string; marks: string[] }) {
+  const spans: Array<{ from: number; to: number }> = [];
+  for (const m of marks) {
+    const at = m ? zh.indexOf(m) : -1;
+    if (at >= 0 && !spans.some((s) => at < s.to && at + m.length > s.from)) spans.push({ from: at, to: at + m.length });
+  }
+  spans.sort((x, y) => x.from - y.from);
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  for (const s of spans) {
+    if (s.from > at) out.push(zh.slice(at, s.from));
+    out.push(<mark key={s.from}>{zh.slice(s.from, s.to)}</mark>);
+    at = s.to;
+  }
+  if (at < zh.length) out.push(zh.slice(at));
+  return <>{out}</>;
+}
+
+/** A template with slots, what each takes, and fillings with the slot words marked. */
+function PatternBlock({ b }: { b: Block<"pattern"> }) {
+  const notes = new Map(b.slots.map((s) => [s.name, s.note]));
+  const pieces = b.template.split(/\{([^}]+)\}/);
+  return (
+    <div className="cf-lk-pattern">
+      <p className="cf-lk-pt-tmpl" lang="zh">
+        {pieces.map((piece, i) =>
+          i % 2 === 1 ? (
+            <span key={i} className="cf-lk-pt-slot">
+              <span>{piece}</span>
+              {notes.get(piece) && <small>{notes.get(piece)}</small>}
+            </span>
+          ) : (
+            piece && <span key={i}>{piece}</span>
+          ),
+        )}
+      </p>
+      {b.fillings.length > 0 && (
+        <ul className="cf-lk-pt-fills">
+          {b.fillings.map((f, i) => (
+            <li key={i} className={f.mine ? "" : "is-written"}>
+              <span className="cf-zh">
+                <MarkedText zh={f.zh} marks={f.marks} />
+              </span>
+              {f.en && <span>{f.en}</span>}
+              {!f.mine && <span className="cf-lk-from">written by the model</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** The rule behind the answer, and what it combines with in the owner's sentences. */
+function FamilyBlock({ b }: { b: Block<"family"> }) {
+  return (
+    <div className="cf-lk-family">
+      <p className="cf-lk-fm-rule">
+        <span className="cf-zh">{b.head}</span>
+        <span>{b.rule}</span>
+      </p>
+      <ul className="cf-lk-fm-members">
+        {b.members.map((m) => (
+          <li key={m.zh}>
+            <span className="cf-zh">{m.zh}</span>
+            {m.count !== null && <small title="In your sentences">{m.count}×</small>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The likely mistake beside the fix. */
+function WrongRightBlock({ b }: { b: Block<"wrong-right"> }) {
+  return (
+    <div className="cf-lk-wr">
+      <s className="cf-zh">{b.wrong}</s>
+      <span className="cf-zh">{b.right}</span>
+      {b.why && <small>{b.why}</small>}
+    </div>
+  );
+}
+
+/** One sentence: the owner's, or labelled as the model's. */
+function ExampleBlock({ b }: { b: Block<"example"> }) {
+  return (
+    <p className={`cf-lk-ex${b.mine ? "" : " is-written"}`}>
+      <span className="cf-zh">{b.zh}</span>
+      {b.en && <span>{b.en}</span>}
+      <span className="cf-lk-from">{b.mine ? (b.readable ? "your sentence" : "your sentence · locked") : "written by the model"}</span>
+    </p>
+  );
+}
+
 function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; shell: Shell }) {
-  const fits = a.options.filter((o) => o.fits);
-  const misses = a.options.filter((o) => !o.fits);
-  const [picked, setPicked] = useState<string | null>(fits[0]?.zh ?? null);
+  const gap = a.blocks.find((b): b is Block<"gap"> => b.type === "gap") ?? null;
+  const [picked, setPicked] = useState<string | null>(gap?.options.find((o) => o.fits)?.zh ?? null);
   const [verdict, setVerdict] = useState<"right" | "wrong" | null>(null);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ctx: Ctx = { words: a.words, query: a.query, shell };
 
   const judge = async (v: "right" | "wrong" | null, n = "") => {
     setError(null);
@@ -203,93 +400,44 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
     }
   };
 
-  // Words named in a sense map but given no entry of their own.
-  const named = new Set(a.options.map((o) => o.zh));
-  const senses = a.senses.filter((s) => s.words.some((w) => !named.has(w)));
-
-  const shown = a.options.find((o) => o.zh === picked) ?? null;
-
+  // Senses are numbered through the whole answer, as in a dictionary entry.
+  let n = 0;
   return (
     <article className="cf-lk-answer">
-      {/* No sentence saying what the answer is: the phrase and the words under it show it. */}
-      {a.frame && (
-        <div className="cf-lk-head">
-          <Frame frame={a.frame} zh={picked} fits={shown?.fits ?? true} />
-          <div className="cf-lk-tries" role="group" aria-label="Words for the gap">
-            {a.options.map((o) => (
-              <button
-                key={o.zh}
-                className={`cf-lk-try ${o.fits ? "is-fit" : "is-miss"}${picked === o.zh ? " is-on" : ""}`}
-                aria-pressed={picked === o.zh}
-                aria-label={`${o.zh}${o.fits ? (o.label ? `, ${o.label}` : "") : ", doesn't fit"}`}
-                onClick={() => setPicked(o.zh)}
-              >
-                <b>{o.zh}</b>
-                {o.fits && o.label && <small>{o.label}</small>}
-              </button>
-            ))}
-          </div>
-          {/* Under the words, so tapping one never moves them. */}
-          {shown && !shown.fits && <p className="cf-lk-miss-why">{shown.verdict}</p>}
-        </div>
-      )}
-
-      {fits.length > 0 && (
-        <ol className="cf-lk-entry">
-          {fits.map((o, i) => (
-            <Sense key={o.zh} o={o} n={i + 1} on={Boolean(a.frame) && picked === o.zh} onPick={() => setPicked(o.zh)} query={a.query} shell={shell} />
-          ))}
-        </ol>
-      )}
-
-      {senses.length > 0 && (
-        <ul className="cf-lk-senses">
-          {senses.map((s) => (
-            <li key={s.label}>
-              <span>{s.label}</span>
-              <b className="cf-zh">{s.words.join("  ")}</b>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {misses.length > 0 && (
-        <ul className="cf-lk-nots" aria-label="Close, but no">
-          {misses.map((o) => (
-            <li key={o.zh} className="cf-lk-not">
-              <span className="cf-lk-x" aria-hidden="true">
-                ✗
-              </span>
-              <div className="cf-lk-body">
-                <div className="cf-lk-wordline">
-                  <s className="cf-zh">{o.zh}</s>
-                  {o.pinyin && <span className="cf-lk-py">{o.pinyin}</span>}
-                  <DeckMark o={o} query={a.query} shell={shell} />
-                </div>
-                <p className="cf-lk-why">{o.verdict}</p>
-                {(o.wrong || o.right) && (
-                  <p className="cf-lk-pair">
-                    {o.wrong && <s className="cf-zh">{o.wrong}</s>}
-                    {o.right && <span className="cf-zh">{o.right}</span>}
-                  </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {a.written.length > 0 && (
-        <section className="cf-lk-written">
-          <p className="cf-lk-label">Written by the model</p>
-          {a.written.map((s) => (
-            <p key={s.zh} className="cf-lk-ex is-written">
-              <span className="cf-zh">{s.zh}</span>
-              <span>{s.en}</span>
-            </p>
-          ))}
-        </section>
-      )}
+      {/* Nothing says what the answer is: the blocks show it. */}
+      {a.blocks.map((b, i) => {
+        switch (b.type) {
+          case "gap":
+            return <GapBlock key={i} b={b} picked={picked} onPick={setPicked} />;
+          case "sense":
+            return (
+              <ol key={i} className="cf-lk-entry">
+                {b.items.map((it) => (
+                  <SenseItem
+                    key={it.zh}
+                    it={it}
+                    n={++n}
+                    on={Boolean(gap) && picked === it.zh}
+                    onPick={() => setPicked(it.zh)}
+                    ctx={ctx}
+                  />
+                ))}
+              </ol>
+            );
+          case "contrast":
+            return <ContrastBlock key={i} b={b} ctx={ctx} />;
+          case "scale":
+            return <ScaleBlock key={i} b={b} ctx={ctx} />;
+          case "pattern":
+            return <PatternBlock key={i} b={b} />;
+          case "family":
+            return <FamilyBlock key={i} b={b} />;
+          case "wrong-right":
+            return <WrongRightBlock key={i} b={b} />;
+          case "example":
+            return <ExampleBlock key={i} b={b} />;
+        }
+      })}
 
       <section className="cf-lk-verdict">
         <span>Right?</span>

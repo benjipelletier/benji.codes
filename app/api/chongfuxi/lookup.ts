@@ -1,11 +1,12 @@
 // Look up: "what do I say here", answered from the owner's own sentences.
 //
-// One model call that reads the query and judges the options, with the
+// One model call that reads the query and composes the answer, with the
 // evidence as tools it chooses from (lookup-evidence.ts): the owner's
 // sentences searched on either side, the words that pair with a word in
-// them, CC-CEDICT (both ways) and the deck. The answer has a fixed shape
-// (ANSWER_SCHEMA), and the check after it (lookup-check.ts) keeps only what
-// the evidence backs. Each lookup is kept (chongfuxi_lookup), which caches it
+// them, CC-CEDICT (both ways) and the deck. The answer is a list of blocks
+// from a closed set the app draws (ANSWER_SCHEMA: gap phrase, sense,
+// contrast, scale, pattern, family, wrong-right, example), and the check
+// after it (lookup-check.ts) keeps only what the evidence backs. Each lookup is kept (chongfuxi_lookup), which caches it
 // and, with the owner's Right / Wrong, is the test set the plan asks for.
 //
 // The model is CHONGFUXI_LOOKUP_MODEL (default claude-haiku-5-5, the owner's
@@ -15,12 +16,12 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import type { LookupAnswer, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupAnswerV1, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
 import { addWords } from "./additions";
 import type { Sql } from "./db";
 import { loadDict } from "./dictfile";
 import { dictEntry } from "./headwords";
-import { checkAnswer, type ModelAnswer } from "./lookup-check";
+import { checkAnswer, citedIds, fromV1, type ModelAnswer } from "./lookup-check";
 import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, together, type Seen } from "./lookup-evidence";
 
 export class LookupError extends Error {}
@@ -42,117 +43,95 @@ const PRICES: Record<string, [number, number, number, number]> = {
   "claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125],
 };
 
-const SYSTEM = `You are the Look up screen of 重复习, a Mandarin review app with one user: an English speaker at about HSK 5 who studies from their own sentences (Pleco, textbooks, Anki decks), most of which have English translations. They type what they want to say, in English, Chinese, pinyin or a mix, and you tell them what a Chinese speaker would say, and why the near misses are wrong. It is a dictionary, not a chat: the answer is data in a fixed shape, not prose.
+const SYSTEM = `You are the Look up screen of 重复习, a Mandarin review app with one user: an English speaker at about HSK 5 who studies from their own sentences (Pleco, textbooks, Anki decks), most of which have English translations. They type what they want to say, in English, Chinese, pinyin or a mix, and you answer with what a Chinese speaker would say. It is a dictionary, not a chat: you compose the answer from blocks the app draws, and the blocks' shapes must carry the answer. The user should see it, not read an explanation of it.
 
 Kinds of question:
 - pairing: which word goes with another ("develop depression": 得了 / 患上 抑郁症, not 发展).
-- meaning: a word with several meanings; say which applies ("trauma": 创伤 of the mind vs 外伤 of the body).
+- meaning: a word with several meanings; which applies ("trauma": 创伤 of the mind vs 外伤 of the body).
 - synonyms: near-synonyms told apart by meaning or grammar (以为 means you were wrong; 帮忙 takes no object).
-- tone: connotation (后果 is always bad).
+- tone: connotation or register (后果 is always bad; 结果 is neutral).
 - pattern: a sentence pattern with slots (越…越…).
 - expression: a whole-sentence equivalent ("I'm not in the mood": 没心情).
 - reading: what something means in context (你真行).
 
 Which part is the question. Split the query into parts and mark which are asked. In a pair, the noun (base) translates on its own and the verb or adjective (collocate) depends on it, so the collocate is usually the question. A part the user wrote in Chinese is known, not asked. A part that fans out to many words is more likely asked than one that is nearly always the same word. If the dictionary tool shows a strong deck card for a word, the user knows it.
 
-Evidence. Gather it before judging, with the tools:
+Evidence. Gather it before answering, with the tools:
 - english_candidates for an English part: dictionary headwords, with how often each is in the user's sentences.
 - dictionary for Chinese words: entries, whether the user has it in their deck (and how strong), and how often it is in their sentences.
-- neighbours and together for pairing: which words come before or after a word in the user's sentences, and how often two words appear together.
+- neighbours and together: which words come before or after a word in the user's sentences, and how often two words appear together. Use them for pairing, and to find the family a word belongs to (the illnesses that come after 得).
 - search_sentences to find the user's sentences by their English translation or by Chinese words; the English side often finds the Chinese the user wants.
 Pair counts mislead on their own: 有 is common before 抑郁症 but means having it, not getting it; a pair can be split (帮了我一个忙); a small corpus has few examples. Weigh them with meaning and grammar.
 
-Rules for the answer:
-- Never write pinyin; the app adds it from its own dictionary.
-- Every option's zh is a Chinese word or short phrase, as it would be written in the gap.
-- A point with source "corpus" must give a count exactly as a tool returned it for that word or pair; otherwise use count -1. Use "dictionary" only for what the dictionary tool showed, "deck" only for what it showed about the deck, and "model" for your own knowledge.
-- examples are ids of sentences the tools returned, never invented. If you want to show a sentence the tools didn't find, put it in written, which is labelled as yours.
-- Give the 2 to 4 options that fit (fits true) and the 2 to 4 near misses a learner would reach for (fits false). For each near miss give a wrong sentence and the right one, in Chinese. Any word you call a trap or warn against belongs among the near misses, not only in the summary.
-- gist is the whole answer in one short line, naming the words: "Mind 创伤, body 外伤. Not 硬伤." or "Say 得了, or 患上 in writing. Not 发展."
-- Each option's label says in at most five words when it is the one: "the mind; lasting harm", "spoken, everyday". Its verdict is one sentence of at most fifteen words.
-- Put each point under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own point with source "deck".
-- frame is the Chinese phrase with ___ for the asked part ("___抑郁症"), or "" when there is no single gap.
-- senses: only when a word has several meanings that need different words; otherwise [].
-- verdict, says, note and summary are short plain English; summary adds what the gist and options don't say, in two sentences at most. If the user's sentences had nothing, say so in summary.`;
+The blocks. Use the ones the question needs, usually two to four, one of them a headline:
+- gap (headline for pairing): frame is the Chinese phrase with ___ for the asked part ("他去年___抑郁症。"); options are every candidate, fitting ones with a label of at most five words ("spoken, everyday"), near misses with fits false. why is one short sentence.
+- sense (headline for which meaning; or the entries behind a gap): the words that fit, numbered. label is when it's the one ("the mind; lasting harm"), why one sentence; points are judgments on it with their source; examples are ids of the user's sentences the tools returned.
+- contrast (headline for near-synonyms): two or three words, and rows that compare them on the same aspect ("means", "turned out true?", "sounds", "takes an object?"). Keep cells to a few words; mark a cell yes or no where the row is a yes/no question.
+- scale (headline for tone or register): words placed along one line, at from 0 (left) to 1 (right), with left, middle and right naming the ends ("good", "neutral", "bad" or "casual", "", "formal"). gloss is a few words of meaning.
+- pattern (headline for patterns): template with slots in braces ("越{A}越{B}"), what each slot takes, and fillings: a sentence id from the tools (or -1 for one you write), its text and translation, and the words that fill the slots (marks).
+- family: the rule behind the answer, so it carries to other cases: head ("得"), rule ("+ an illness"), and members from the user's sentences ("得感冒", "得了癌症") with their counts as the tools returned them (-1 when you have none). Include it whenever the answer follows a rule the user can reuse.
+- wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses.
+- example: one sentence, by id from the tools, or id -1 for one you write (it is labelled as yours).
 
-/** The answer's fixed shape. Every field is required; empty means none. */
-const ANSWER_SCHEMA = {
+Rules:
+- Never write pinyin; the app adds it from its own dictionary.
+- A judgment with source "corpus" gives a count exactly as a tool returned it for that word or pair; otherwise count -1. "dictionary" is only for what the dictionary tool showed, "deck" only for what it showed about the deck, "model" for your own knowledge.
+- Put each judgment under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own judgment with source "deck".
+- No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences of anything the blocks don't show, and says so if the user's sentences had nothing.`;
+
+const POINT = {
   type: "object",
   additionalProperties: false,
-  required: ["reading", "gist", "frame", "senses", "options", "written", "summary"],
+  required: ["point", "says", "source", "count"],
   properties: {
-    reading: {
-      type: "object",
-      additionalProperties: false,
-      required: ["parts", "kind", "note"],
-      properties: {
-        parts: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["text", "asked"],
-            properties: { text: { type: "string" }, asked: { type: "boolean" } },
-          },
-        },
-        kind: { type: "string", enum: ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading"] },
-        note: { type: "string" },
-      },
-    },
-    gist: { type: "string" },
-    frame: { type: "string" },
-    senses: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["label", "words"],
-        properties: { label: { type: "string" }, words: { type: "array", items: { type: "string" } } },
-      },
-    },
-    options: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["zh", "label", "fits", "verdict", "points", "examples", "wrong", "right"],
-        properties: {
-          zh: { type: "string" },
-          label: { type: "string" },
-          fits: { type: "boolean" },
-          verdict: { type: "string" },
-          points: {
-            type: "array",
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["point", "says", "source", "count"],
-              properties: {
-                point: { type: "string", enum: ["meaning", "pairing", "grammar", "register", "tone", "frequency"] },
-                says: { type: "string" },
-                source: { type: "string", enum: ["corpus", "dictionary", "deck", "model"] },
-                count: { type: "integer" },
-              },
-            },
-          },
-          examples: { type: "array", items: { type: "integer" } },
-          wrong: { type: "string" },
-          right: { type: "string" },
-        },
-      },
-    },
-    written: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["zh", "en"],
-        properties: { zh: { type: "string" }, en: { type: "string" } },
-      },
-    },
-    summary: { type: "string" },
+    point: { type: "string", enum: ["meaning", "pairing", "grammar", "register", "tone", "frequency"] },
+    says: { type: "string" },
+    source: { type: "string", enum: ["corpus", "dictionary", "deck", "model"] },
+    count: { type: "integer" },
   },
 } as const;
+
+/** An object of these string, integer, boolean or array properties, every one required, nothing else allowed. */
+const obj = (properties: Record<string, unknown>) => ({
+  type: "object",
+  additionalProperties: false,
+  required: Object.keys(properties),
+  properties,
+});
+const str = { type: "string" } as const;
+const int = { type: "integer" } as const;
+const list = (items: unknown) => ({ type: "array", items });
+
+/** The answer: how the query was read, the blocks it is composed of, and a sentence or two more. */
+const ANSWER_SCHEMA = obj({
+  reading: obj({
+    parts: list(obj({ text: str, asked: { type: "boolean" } })),
+    kind: { type: "string", enum: ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading"] },
+    note: str,
+  }),
+  blocks: list({
+    anyOf: [
+      obj({ type: { const: "gap" }, frame: str, options: list(obj({ zh: str, label: str, fits: { type: "boolean" }, why: str })) }),
+      obj({ type: { const: "sense" }, items: list(obj({ zh: str, label: str, why: str, points: list(POINT), examples: list(int) })) }),
+      obj({
+        type: { const: "contrast" },
+        words: list(str),
+        rows: list(obj({ aspect: str, cells: list(obj({ text: str, mark: { type: "string", enum: ["yes", "no", "none"] } })) })),
+      }),
+      obj({ type: { const: "scale" }, left: str, middle: str, right: str, points: list(obj({ zh: str, gloss: str, at: { type: "number" } })) }),
+      obj({
+        type: { const: "pattern" },
+        template: str,
+        slots: list(obj({ name: str, note: str })),
+        fillings: list(obj({ id: int, zh: str, en: str, marks: list(str) })),
+      }),
+      obj({ type: { const: "family" }, head: str, rule: str, members: list(obj({ zh: str, count: int })) }),
+      obj({ type: { const: "wrong-right" }, wrong: str, right: str, why: str }),
+      obj({ type: { const: "example" }, id: int, zh: str, en: str }),
+    ],
+  }),
+  summary: str,
+});
 
 /** The evidence, as tools for this lookup. Each records what it returned in `seen`. */
 function tools(sql: Sql, owner: string, seen: Seen) {
@@ -273,9 +252,10 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
   await ensure(sql);
   if (!fresh) {
     const kept = (await sql`select answer from chongfuxi_lookup where owner_email = ${owner} and query = ${q}`) as unknown as Array<{
-      answer: LookupAnswer;
+      answer: LookupAnswer | LookupAnswerV1;
     }>;
-    if (kept[0]) return withDeck(sql, owner, kept[0].answer);
+    // Kept before blocks: drawn as blocks all the same.
+    if (kept[0]) return withDeck(sql, owner, "blocks" in kept[0].answer ? kept[0].answer : fromV1(kept[0].answer));
   }
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new LookupError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
@@ -312,7 +292,7 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     throw new LookupError(final.stop_reason === "tool_use" ? "The lookup took too many steps; try again." : "The answer came back malformed.");
   }
 
-  const cited = [...new Set(raw.options.flatMap((o) => o.examples))].filter((id) => seen.sentences.has(id));
+  const cited = citedIds(raw).filter((id) => seen.sentences.has(id));
   const checked = checkAnswer(raw, seen, { entry: (w) => dictEntry(w), sentences: await sentencesById(sql, owner, cited) });
   const answer: LookupAnswer = {
     ...checked,
@@ -339,9 +319,9 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
 const stageOf = (answered: number, stability: number): LookupDeck["stage"] =>
   answered === 0 ? "new" : stability < 21 ? "young" : stability < 180 ? "mature" : "strong";
 
-/** Each option's place in the deck as it stands now: the kept answer doesn't keep it, since the deck moves. */
+/** Each word's place in the deck as it stands now: the kept answer doesn't keep it, since the deck moves. */
 async function withDeck(sql: Sql, owner: string, answer: LookupAnswer): Promise<LookupAnswer> {
-  const words = [...new Set(answer.options.map((o) => o.zh))];
+  const words = Object.keys(answer.words);
   const rows = words.length
     ? ((await sql`
         select w.word, w.status, c.answered, c.stability
@@ -353,13 +333,15 @@ async function withDeck(sql: Sql, owner: string, answer: LookupAnswer): Promise<
   const of = new Map(rows.map((r) => [r.word, r]));
   return {
     ...answer,
-    options: answer.options.map((o) => {
-      const r = of.get(o.zh);
-      const deck: LookupDeck = r
-        ? { status: r.status, stage: r.status === "deck" && r.answered !== null ? stageOf(r.answered, r.stability ?? 0) : null }
-        : { status: null, stage: null };
-      return { ...o, deck };
-    }),
+    words: Object.fromEntries(
+      Object.entries(answer.words).map(([w, info]) => {
+        const r = of.get(w);
+        const deck: LookupDeck = r
+          ? { status: r.status, stage: r.status === "deck" && r.answered !== null ? stageOf(r.answered, r.stability ?? 0) : null }
+          : { status: null, stage: null };
+        return [w, { ...info, deck }];
+      }),
+    ),
   };
 }
 

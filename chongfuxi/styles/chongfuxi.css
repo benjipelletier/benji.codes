@@ -6085,6 +6085,15 @@ button.cf-synclog-row {
   margin-top: 18px;
 }
 
+/* Blocks stack with room between them; the verdict and details set their own. */
+.cf-lk-answer > * + * {
+  margin-top: 20px;
+}
+
+.cf-lk-answer > :first-child {
+  margin-top: 0;
+}
+
 /* For a gap: the phrase, and every candidate under it. Fitting ones are
  * solid, with their tag ("spoken", "written"); near misses are struck through
  * in red. The answer reads off the shapes, with no sentence saying it. */
@@ -6167,15 +6176,6 @@ button.cf-synclog-row {
   background: color-mix(in srgb, var(--cf-down) 10%, var(--cf-surface));
 }
 
-/* Small capitals over a section ("Written by the model"). */
-.cf-lk-label {
-  font-size: 11.5px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--cf-ink-faint);
-}
-
 /* The phrase, the gap filled by the word picked. */
 .cf-lk-frame {
   margin-top: 16px;
@@ -6205,14 +6205,14 @@ button.cf-synclog-row {
 /* The entry: each word that fits as a numbered sense. */
 .cf-lk-entry {
   list-style: none;
-  margin: 14px 0 0;
+  margin-inline: 0;
+  margin-bottom: 0;
   padding: 0;
   display: grid;
   gap: 4px;
 }
 
-.cf-lk-sense,
-.cf-lk-not {
+.cf-lk-sense {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   column-gap: 6px;
@@ -6225,16 +6225,11 @@ button.cf-synclog-row {
   background: var(--cf-sunken);
 }
 
-.cf-lk-n,
-.cf-lk-x {
+.cf-lk-n {
   padding-top: 2px;
   font-weight: 700;
   color: var(--cf-ink-faint);
   font-variant-numeric: tabular-nums;
-}
-
-.cf-lk-x {
-  color: var(--cf-down);
 }
 
 .cf-lk-body {
@@ -6309,6 +6304,14 @@ button.cf-synclog-row {
   border-left-color: var(--cf-new);
 }
 
+.cf-lk-answer > .cf-lk-ex {
+  margin-top: 20px;
+}
+
+.cf-lk-answer > .cf-lk-ex + .cf-lk-ex {
+  margin-top: 10px;
+}
+
 .cfx .cf-lk-more {
   justify-self: start;
   min-height: 34px;
@@ -6378,74 +6381,285 @@ button.cf-synclog-row {
   font-size: 12.5px;
 }
 
-/* A sense map, when a word has meanings no option covers. */
-.cf-lk-senses {
+/* Two or three words side by side, compared row by row. */
+.cf-lk-contrast {
+  display: grid;
+  grid-template-columns: 68px repeat(var(--n), minmax(0, 1fr));
+  border: 1px solid var(--cf-rule);
+  border-radius: 16px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-lk-contrast > div {
+  min-width: 0;
+  padding: 10px 8px;
+  border-top: 1px solid var(--cf-rule);
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.cf-lk-contrast > .cf-lk-ct-corner,
+.cf-lk-contrast > .cf-lk-ct-head {
+  border-top: 0;
+}
+
+.cf-lk-ct-head {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  justify-items: start;
+}
+
+.cf-lk-ct-head .cf-zh {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cf-lk-ct-aspect {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-faint);
+}
+
+.cf-lk-ct-cell.is-yes b {
+  color: var(--cf-up);
+}
+
+.cf-lk-ct-cell.is-no b {
+  color: var(--cf-down);
+}
+
+/* Words along one line between two ends. */
+.cf-lk-scale {
+  padding: 4px 0 0;
+}
+
+.cf-lk-sc-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-faint);
+}
+
+.cf-lk-sc-line {
+  height: 4px;
+  margin: 8px 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--cf-up), var(--cf-rule-strong) 50%, var(--cf-down));
+}
+
+/* Each word hangs from its dot, kept clear of the edges. */
+.cf-lk-sc-points {
+  position: relative;
   list-style: none;
-  margin: 10px 0 0;
+  margin: 0;
+  padding: 0;
+  min-height: 128px;
+}
+
+.cf-lk-sc-points li {
+  position: absolute;
+  top: -9px;
+  left: clamp(46px, calc(var(--at) * 100%), calc(100% - 46px));
+  width: 92px;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.cf-lk-sc-points i {
+  width: 14px;
+  height: 14px;
+  margin-bottom: 6px;
+  border: 3px solid var(--cf-surface);
+  border-radius: 50%;
+  background: var(--cf-ink);
+  box-shadow: 0 0 0 1px var(--cf-rule-strong);
+}
+
+.cf-lk-sc-points .cf-zh {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cf-lk-sc-points small {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-sc-points .cf-lk-deck,
+.cf-lk-sc-points .cf-lk-add {
+  margin-top: 4px;
+}
+
+/* A template, its slots, and fillings with the slot words marked. */
+.cf-lk-pattern {
+  padding: 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 16px;
+  background: var(--cf-surface);
+}
+
+.cf-lk-pt-tmpl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--cf-zh);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.cf-lk-pt-slot {
+  display: grid;
+  justify-items: center;
+}
+
+.cf-lk-pt-slot span {
+  min-width: 60px;
+  padding: 0 10px;
+  border: 2px dashed var(--cf-accent);
+  border-radius: 10px;
+  color: var(--cf-accent);
+  font-family: inherit;
+  font-size: 20px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.cf-lk-pt-slot small {
+  max-width: 120px;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-pt-fills {
+  list-style: none;
+  margin: 12px 0 0;
   padding: 0;
   display: grid;
+  gap: 8px;
+}
+
+.cf-lk-pt-fills li {
+  display: grid;
+  padding-left: 10px;
+  border-left: 2px solid var(--cf-sentence);
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-pt-fills li.is-written {
+  border-left-style: dashed;
+  border-left-color: var(--cf-new);
+}
+
+.cf-lk-pt-fills .cf-zh {
+  font-size: 18px;
+  color: var(--cf-ink);
+}
+
+.cf-lk-pt-fills mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+/* Where a sentence came from, small, after it. */
+.cf-lk-from {
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+/* The rule behind the answer, and what it goes with. */
+.cf-lk-family {
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--cf-up);
+}
+
+.cf-lk-fm-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cf-lk-fm-rule .cf-zh {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.cf-lk-fm-members {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
-.cf-lk-senses li {
-  display: flex;
+.cf-lk-fm-members li {
+  display: inline-flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 4px 10px;
   border: 1px solid var(--cf-rule);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--cf-surface);
-  font-size: 14px;
 }
 
-.cf-lk-senses span {
-  min-width: 0;
+.cf-lk-fm-members .cf-zh {
+  font-size: 17px;
+  font-weight: 600;
 }
 
-/* The words never wrap: the label beside them does. */
-.cf-lk-senses b {
-  flex: none;
-  font-size: 18px;
-  white-space: nowrap;
+.cf-lk-fm-members small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--cf-up);
 }
 
-/* Close, but no: struck through, with the wrong sentence and the right one. */
-.cf-lk-nots {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 10px 0 0;
-  border-top: 1px solid var(--cf-rule);
+/* The likely mistake struck through, the fix under it. */
+.cf-lk-wr {
   display: grid;
   gap: 2px;
 }
 
-.cf-lk-not s {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--cf-ink-soft);
-  text-decoration-color: var(--cf-down);
+.cf-lk-wr s {
+  font-size: 18px;
+  color: var(--cf-down);
   text-decoration-thickness: 2px;
 }
 
-.cf-lk-pair {
-  display: grid;
-  margin-top: 2px;
-  font-size: 16px;
-}
-
-.cf-lk-pair s {
-  color: var(--cf-down);
-}
-
-.cf-lk-pair span {
+.cf-lk-wr span {
+  font-size: 18px;
   color: var(--cf-up);
 }
 
-.cf-lk-written {
-  display: grid;
-  gap: 4px;
-  margin-top: 16px;
+.cf-lk-wr small {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
 }
 
 /* Was this right? Two small round buttons, a note when wrong. */

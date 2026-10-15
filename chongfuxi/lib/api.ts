@@ -640,7 +640,56 @@ export interface LookupSentence {
   readable: boolean;
 }
 
-/** One answer to "what do I say here", after the check: every fact in it traced to the evidence. */
+/** One judgment on a word, and where it came from; checked against the evidence. */
+export interface LookupJudgment {
+  point: LookupPoint;
+  says: string;
+  source: LookupSource;
+  count: number | null;
+  checked: boolean;
+}
+
+/**
+ * A piece of an answer. The model composes each answer from these (lookup.ts,
+ * ANSWER_SCHEMA); the app draws them, and the check has been over each.
+ */
+export type LookupBlock =
+  /** The phrase with ___ for the asked part, and every candidate for it: those that fit with a tag, near misses with why not. */
+  | { type: "gap"; frame: string; options: Array<{ zh: string; label: string; fits: boolean; why: string }> }
+  /** Numbered words that fit: when each is the one, why, the evidence, the owner's sentences. */
+  | {
+      type: "sense";
+      items: Array<{ zh: string; label: string; why: string; count: number | null; points: LookupJudgment[]; examples: LookupSentence[] }>;
+    }
+  /** Two or three words side by side on the same rows. A cell may be marked yes or no. */
+  | { type: "contrast"; words: string[]; rows: Array<{ aspect: string; cells: Array<{ text: string; mark: "yes" | "no" | "none" }> }> }
+  /** Words placed along one line between two ends (good ↔ bad), 0 at the left, 1 at the right. */
+  | { type: "scale"; left: string; middle: string; right: string; points: Array<{ zh: string; gloss: string; at: number }> }
+  /** A template with {A}-style slots, what each slot takes, and fillings with the slot words marked. */
+  | {
+      type: "pattern";
+      template: string;
+      slots: Array<{ name: string; note: string }>;
+      fillings: Array<{ zh: string; en: string | null; marks: string[]; mine: boolean }>;
+    }
+  /** The rule behind the answer: a head word and what it combines with, from the owner's sentences where counted. */
+  | { type: "family"; head: string; rule: string; members: Array<{ zh: string; count: number | null }> }
+  /** The likely mistake beside the fix. */
+  | { type: "wrong-right"; wrong: string; right: string; why: string }
+  /** One sentence: the owner's (by id, as stored), or labelled as written by the model. */
+  | { type: "example"; zh: string; en: string | null; mine: boolean; readable: boolean };
+
+/** What the app knows about a word shown in an answer: our reading and meaning, and where it stands in the deck. */
+export interface LookupWord {
+  /** From our readings code, never the model. */
+  pinyin: string | null;
+  gloss: string | null;
+  inDictionary: boolean;
+  /** Looked up each time the answer is shown, not kept with it. */
+  deck?: LookupDeck;
+}
+
+/** One answer to "what do I say here", after the check: blocks, each fact in them traced to the evidence. */
 export interface LookupAnswer {
   query: string;
   /** The model that answered, and when. */
@@ -648,36 +697,41 @@ export interface LookupAnswer {
   at: number;
   /** How the query was read: its parts, which of them is the question, and what kind of question it is. */
   reading: { parts: Array<{ text: string; asked: boolean }>; kind: LookupKind; note: string };
-  /** The Chinese phrase with ___ where the asked part goes; empty when the question has no single gap. */
+  /** In the order drawn: the headline block first, examples last (`orderBlocks`). */
+  blocks: LookupBlock[];
+  /** Every word a block names as a candidate, an entry or a point on a scale. */
+  words: Record<string, LookupWord>;
+  /** A sentence or two the blocks don't show; folded away under the answer. */
+  summary: string;
+  /** What the check took out or marked, and why. */
+  checks: string[];
+  usage: { input: number; output: number; calls: number };
+}
+
+/** The first shape of an answer (options rather than blocks), as kept before October 2026's blocks. Converted on read. */
+export interface LookupAnswerV1 {
+  query: string;
+  model: string;
+  at: number;
+  reading: LookupAnswer["reading"];
   frame: string;
-  /** For a word with several meanings: which words go with which. Empty otherwise. */
   senses: Array<{ label: string; words: string[] }>;
-  /** The answer in one line ("Mind 创伤, body 外伤. Not 硬伤."). Absent on answers kept before it was asked for. */
   gist?: string;
   options: Array<{
     zh: string;
-    /** A few words on when it is the one ("the mind; lasting harm", "spoken, everyday"). */
     label?: string;
-    /** Where it stands in the deck now: looked up each time the answer is shown, not kept with it. */
-    deck?: LookupDeck;
-    /** From the dictionary (our readings code), never from the model. */
     pinyin: string | null;
     gloss: string | null;
     inDictionary: boolean;
     fits: boolean;
-    /** One line: why it fits, or why not. */
     verdict: string;
-    points: Array<{ point: LookupPoint; says: string; source: LookupSource; count: number | null; checked: boolean }>;
-    /** The owner's sentences that show it, as the tools returned them. */
+    points: LookupJudgment[];
     examples: LookupSentence[];
-    /** For one that doesn't fit: the wrong sentence and the right one. */
     wrong: string;
     right: string;
   }>;
-  /** Example sentences the model wrote itself, labelled as such. */
   written: Array<{ zh: string; en: string }>;
   summary: string;
-  /** What the check took out or marked, and why. */
   checks: string[];
   usage: { input: number; output: number; calls: number };
 }

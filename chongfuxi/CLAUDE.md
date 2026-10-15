@@ -281,6 +281,8 @@ Not one prompt around the whole thing, and not one rigid pipeline either:
    judgment saying where it came from. The screen draws the points an answer
    uses: the gap-filling phrase for pairing questions, side by side for
    near-synonyms, a pattern with slots for patterns.
+   (Now a closed set of typed blocks the model composes: see Answers
+   composed from blocks.)
 2. **Evidence as tools the model chooses from**, our own functions:
    - the owner's sentences, searched on the Chinese or the English side
      (most of the 39k have translations, so they are already a parallel
@@ -354,13 +356,14 @@ Built on the owner's corpus alone, since that is what answers lead with:
   whose senses say the English, `englishToChinese` in `headwords.ts`,
   ranked by corpus count). Each records what it returned (`Seen`).
 - `app/api/chongfuxi/lookup.ts`: one call through the SDK's tool runner,
-  the evidence as tools the model picks from, the answer in a fixed shape
-  (`ANSWER_SCHEMA`, structured output). Kept in `chongfuxi_lookup` (made on
+  the evidence as tools the model picks from, the answer as typed blocks
+  (`ANSWER_SCHEMA`, structured output; see Answers composed from blocks). Kept in `chongfuxi_lookup` (made on
   first use): a cache, and with the owner's Right / Wrong and note, the test
   set. Route `lookup` (owner only: GET the history, POST `{ q, fresh? }`,
   `{ q, verdict, note }`, or `{ q, add: word }`).
-- `app/api/chongfuxi/lookup-check.ts`: the check. Pinyin from our readings;
-  an option must be a headword, a pattern of headwords, or split into at
+- `app/api/chongfuxi/lookup-check.ts`: the check, block by block. Pinyin
+  from our readings, for every word a block names (the answer's `words`
+  map); such a word must be a headword, a pattern of headwords, or split into at
   least one real word (nearly every character is a headword, so two lone
   ones don't count); a cited count must be one a tool returned for that word,
   a pair with it, or part of it (得 for 得了); an example must be a sentence a
@@ -370,27 +373,21 @@ Built on the owner's corpus alone, since that is what answers lead with:
 - `components/LookupPanel.tsx`: the question (one rounded field with a
   small round arrow inside it, grey until something is typed, a spinner
   while it looks: the owner found a plain "Look up" button clumsy). The
-  answer is laid out as a dictionary entry, the owner's pick of three
-  layouts (mockup: https://claude.ai/artifact/4e5GTiQ9V7yNpKfZ5epxmJ; the
-  first version, every point and source spelled out, was too much to read,
-  and the barest layout too little). Nothing on it says what the answer is:
-  the owner wants it read off the page, not explained ("Say 得了, or 患上 in
-  writing. Not 发展." was taken out; the model still writes `gist`, unused).
-  For a gap, the phrase comes first with the best word in it, in green, and
-  every candidate under it as a chip: fitting ones solid with their tag
-  ("spoken", "written"), near misses struck through in red; a tap puts one
-  in the gap, and a near miss's reason shows under the chips (so they don't
-  move). The hint under the field shows only before an answer. Then each
-  word that fits as a numbered sense: when it's the one (`label`), the
-  word, pinyin, its dictionary meaning, why, how many of the owner's
-  sentences have it, one example with its translation, and "Why, and more
-  examples" for the points with their sources and the rest. Close, but no:
-  struck through, why, a wrong and a right sentence. Sentences the model
-  wrote, labelled; Right? ✓ ✗ (a note when wrong); how the question was read,
-  the model's summary and what the check changed folded away at the foot.
+  answer is drawn from its blocks (below), one small component each. The
+  sense block keeps the dictionary-entry layout, the owner's pick of three
+  (mockup: https://claude.ai/artifact/4e5GTiQ9V7yNpKfZ5epxmJ; the first
+  version, every point and source spelled out, was too much to read, and the
+  barest layout too little). Nothing on it says what the answer is: the
+  owner wants it read off the page, not explained (a one-line gist, "Say
+  得了, or 患上 in writing. Not 发展.", was taken out, and the model no
+  longer writes one). The hint under the field shows only before an answer.
+  After the blocks: Right? ✓ ✗ (a note when wrong); how the question was
+  read, the model's summary and what the check changed folded away at the
+  foot.
 - **The deck, from the answer**: every word says where it stands, looked up
   each time the answer is shown (cached or not, `withDeck`): "✓ In deck ·
-  strong" (its Read card's stage, as on the Words wall), or + Add for a
+  strong" (its Read card's stage, as on the Words wall; on words in the
+  gap, sense, contrast and scale blocks), or + Add for a
   dictionary word not in the deck (on a Pleco list or not). Add puts it in as
   one addition, source `lookup:<question>` (`addFromLookup`, through
   `addWords`), and turns into "✓ Added · Undo" (the additions route undoes
@@ -409,13 +406,14 @@ Built on the owner's corpus alone, since that is what answers lead with:
   that built it had neither. Run a few lookups first and read "What the check
   changed".
 
-### Next: answers composed from blocks (agreed, not built)
+### Answers composed from blocks
 
-Agreed with the owner in October 2026 as the starting point (mockup:
-https://claude.ai/artifact/2QUPzy4t1sbe1NwrU9g1yP). Instead of one fixed
-layout, the model composes each answer from a closed set of blocks with
-typed fields; the app draws them, so the model never writes interface. The
-answer reads off the blocks' shapes, with no sentence saying what it is.
+Agreed with the owner in October 2026 (mockup:
+https://claude.ai/artifact/2QUPzy4t1sbe1NwrU9g1yP) and built the same
+month. Instead of one fixed layout, the model composes each answer from a
+closed set of blocks with typed fields (`LookupBlock` in `lib/api.ts`); the
+app draws them, so the model never writes interface. The answer reads off
+the blocks' shapes, with no sentence saying what it is.
 
 | Block | Shows | Typical kind |
 |---|---|---|
@@ -428,12 +426,32 @@ answer reads off the blocks' shapes, with no sentence saying what it is.
 | Wrong → right | the likely mistake beside the fix | any |
 | Example | one of the owner's sentences by id, or one labelled as the model's | any |
 
-- Structured output enforces the set; the check runs per block (headwords,
-  our pinyin, real sentence ids, counts a tool returned); every word in any
-  block gets the deck mark and + Add.
-- Code keeps the order stable (the headline block first, examples last), so
-  the same kind of question looks the same each time.
-- Cost on Haiku: about $0.005 a lookup, against $0.004 now.
+- Structured output enforces the set (`blocks` is an `anyOf` of eight
+  objects, each told apart by a `const` `type`). The model cites sentences
+  by id (-1 for one it wrote) and gives counts as -1 when no tool returned
+  one.
+- The check runs per block (`checkAnswer`): our pinyin and the dictionary
+  test for every word a block names; a sense's examples only if a tool
+  returned them; a pattern filling or example block shown as stored when
+  its id was returned, else as the model's (`mine: false`, labelled
+  "written by the model"); a family member's count nulled unless a search
+  returned it; scale points clamped to the line and sorted; a gap phrase
+  without `___` dropped; a contrast cut to three words.
+- Code keeps the order stable (`orderBlocks`: gap, contrast, scale and
+  pattern first, then senses, family, wrong → right, examples last), so the
+  same kind of question looks the same each time.
+- Answers kept in the first shape (options, frame, written) are turned into
+  blocks when read back (`fromV1`), so the cache and test set stay usable.
+- On screen (`LookupPanel.tsx`): `GapBlock` (tapping a chip tries it; a
+  sense's word does too), `SenseItem` (numbered through the whole answer),
+  `ContrastBlock` (a grid, ✓/✗ cells), `ScaleBlock` (dots on a gradient
+  line, kept clear of the edges), `PatternBlock` (`{A}` slots drawn dashed,
+  the slot words marked in each filling), `FamilyBlock`, `WrongRightBlock`,
+  `ExampleBlock`.
+- Cost on Haiku: about $0.005 a lookup, against $0.004 for the fixed shape.
+- Not yet run against a real model: the session that built it had no key
+  or database. Ask a few questions of each kind and see which blocks the
+  model picks.
 - Still open from the same review: answering in the owner's own sentence
   (and checking an attempt), keeping the phrase rather than the bare word
   (a card's note as the bridge until phrase cards), and showing something
