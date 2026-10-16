@@ -1108,8 +1108,12 @@ day's own session; its answers go through the outbox as any others.
 Cards › Lists opens on the lists themselves, no title: first the study lists
 (龙库, the HSK lists, the textbooks), then "From your content", lists made
 from what the owner reads or listens to. The first such source is Spotify
-(`ListNode.source`), with a song per list ("Spotify/<title>"); more sources
-(other integrations) are meant to join it there.
+(`ListNode.source`), with a song per list ("Spotify/<title>"). Planned next,
+at the owner's word: websites, YouTube and other sources, each its own
+top-level list beside Spotify. Most of the reading exists already, for the
+text analyser: `fetchPage` (fetchtext.ts) and `fetchCaptions` (youtube.ts)
+give a page's or a video's text, and `songWords`' splitting works on any
+text; a new source needs its reader, a `source` value and its add form.
 
 - **Pleco's 歌词 lists are songs**, so they live under Spotify: `songListOf`
   files 歌词/… as Spotify/… on import, and `moveSongLists` moved the rows
