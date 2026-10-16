@@ -171,5 +171,30 @@ assert.deepEqual(pb.chars.map((c) => [c.zh, c.pinyin, c.gloss]), [["不", "bù",
 assert.ok(parts.checks.some((c) => c.includes("龙")), "the stray character is reported");
 assert.equal(normaliseAnswer({ blocks: [{ type: "parts", word: "畅销", chars: "[{\"zh\":\"畅\",\"gloss\":\"freely\"}]" }] }).blocks.length, 1, "a parts block handed in survives the shape check");
 
+// A sense's example where the word is only part of a longer one says so.
+const inside = checkAnswer(
+  {
+    reading: { parts: [{ text: "县", asked: true }], kind: "meaning", note: "" },
+    blocks: [{ type: "sense", items: [{ zh: "县", label: "county", why: "", points: [], examples: [7, 8] }] }],
+    summary: "",
+  },
+  (() => {
+    const s = newSeen();
+    s.sentences.add(7);
+    s.sentences.add(8);
+    return s;
+  })(),
+  {
+    entry: (w) => dictEntry(w),
+    sentences: new Map([
+      [7, { id: 7, zh: "县城离这有百儿八十里。", en: null, readable: false, words: ["县城", "离", "这", "有", "百儿八十", "里", "。"] }],
+      [8, { id: 8, zh: "这个县很大。", en: null, readable: true, words: ["这个", "县", "很", "大", "。"] }],
+    ]),
+  },
+);
+const ex = inside.blocks[0]?.type === "sense" ? inside.blocks[0].items[0].examples : [];
+assert.deepEqual(ex.map((e) => [e.id, e.within, e.readable]), [[7, "县城", false], [8, null, true]], "in 县城, locked; a word of its own");
+assert.ok(!ex.some((e) => "words" in e), "the word list isn't kept with the answer");
+
 console.log(out.checks.join("\n"));
 console.log("ok");

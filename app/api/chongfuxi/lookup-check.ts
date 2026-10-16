@@ -195,8 +195,8 @@ export function mistakeKey(wrong: string, right: string): string | null {
 export interface CheckDeps {
   /** A headword's usual reading and short meaning, or undefined when it isn't one. */
   entry(word: string): { p: string; gloss: string | null } | undefined;
-  /** The owner's sentences the answer cites, fetched by id. */
-  sentences: Map<number, LookupSentence>;
+  /** The owner's sentences the answer cites, fetched by id, with their words in order when known. */
+  sentences: Map<number, LookupSentence & { words?: string[] }>;
 }
 
 const HAN = /[㐀-鿿]/;
@@ -335,8 +335,14 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
             const examples: LookupSentence[] = [];
             for (const id of it.examples) {
               const s = seen.sentences.has(id) ? deps.sentences.get(id) : undefined;
-              if (s) examples.push(s);
-              else checks.push(`${zh}: example #${id} was not among the sentences found, so it was left out.`);
+              if (!s) {
+                checks.push(`${zh}: example #${id} was not among the sentences found, so it was left out.`);
+                continue;
+              }
+              const { words, ...sentence } = s;
+              // Only inside a longer word here (县 in 县城): said, since a card wouldn't count it.
+              const within = words && !words.includes(zh) ? (words.find((w) => w.includes(zh)) ?? null) : null;
+              examples.push({ ...sentence, within });
             }
             const count = points.find((p) => p.source === "corpus" && p.checked && p.count !== null)?.count ?? null;
             return { zh, label: it.label, why: it.why, count, points, examples };

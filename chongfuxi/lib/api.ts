@@ -642,6 +642,12 @@ export interface LookupSentence {
   zh: string;
   en: string | null;
   readable: boolean;
+  /**
+   * On a sense's example: the longer word the sense's word is only part of
+   * here (县 in 县城), so it isn't a sentence of the word as its card counts
+   * them. Null when it stands as a word of its own.
+   */
+  within?: string | null;
 }
 
 /** One judgment on a word, and where it came from; checked against the evidence. */

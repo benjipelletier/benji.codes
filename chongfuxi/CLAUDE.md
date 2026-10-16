@@ -533,6 +533,10 @@ the blocks' shapes, with no sentence saying what it is.
 - A chip whose word is in the deck has a small ✓ in its corner, so what is
   known shows at a glance (the owner couldn't tell from the first real
   answer, which had no sense block to carry the deck marks).
+- A sense's examples say how its card would see them: "in 县城" when the
+  word is only part of a longer one there (from the sentence's words,
+  fetched with it), "locked" when it isn't readable yet. A card wouldn't
+  show either; without the note the two screens seemed to disagree.
 - **Warnings are tested against the owner's sentences** (`withUsage` in
   `lookup.ts`, each time an answer is shown, so kept answers get it too; a
   database search, no model call). Haiku told the owner 哪个站 "is not a set
@@ -654,7 +658,10 @@ the design was silent and are still to be confirmed.
   longer. After those, sentences where the word is only part of a longer
   CC-CEDICT headword around it (手 in 住手, 日 in 周日), since they show the
   compound, not the word (`contextFit`; the decks' word breaks often split
-  compounds, so tokens alone can't say). Back: pinyin, every
+  compounds, so tokens alone can't say). A word with no readable sentence of its own at all
+  (县, only ever met in 县城 and 县长) is shown in one where it is part of a
+  longer word, the word marked in it, rather than alone: the owner found
+  sentences for it in Look up while its card showed none. Back: pinyin, every
   definition, and the translation right under the sentence (the owner
   wanted it closer than the foot of the back). A word with no saved pinyin shows its
   dictionary entry's (`shownPinyin`).

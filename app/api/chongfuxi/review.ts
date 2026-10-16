@@ -489,6 +489,28 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
         where x.rn <= ${CONTEXT_CANDIDATES} and (x.whole = 0 or x.rn <= x.whole)
       `) as unknown as Array<{ word: string; id: number; zh: string; en: string | null; sources: string[]; rn: number; n: number }>)
     : [];
+  // A word with no readable sentence of its own (县, only ever met in 县城)
+  // is shown in one where it is part of a longer word, the word marked in it,
+  // rather than alone: the owner asked, having found it in Look up.
+  const without = wordList.filter((w) => !contexts.some((x) => x.word === w));
+  if (without.length) {
+    const inside = (await sql`
+      select x.word, x.id, x.zh, x.en, x.sources, x.rn::int as rn, x.n::int as n
+      from (
+        select w.word, s.id::int as id, s.zh, s.en, s.sources,
+               row_number() over (
+                 partition by w.word
+                 order by (char_length(s.key) < ${CONTEXT_MIN_HAN}), (s.zh ~ '^\s*【'), cardinality(s.sources) desc,
+                          abs(char_length(s.key) - ${CONTEXT_IDEAL_HAN}), s.id
+               ) as rn,
+               count(*) over (partition by w.word) as n
+        from unnest(${without}::text[]) w(word)
+        join chongfuxi_sentence s on s.owner_email = ${owner} and cardinality(s.blockers) = 0 and strpos(s.key, w.word) > 0
+      ) x
+      where x.rn <= ${CONTEXT_CANDIDATES}
+    `) as unknown as typeof contexts;
+    contexts.push(...inside);
+  }
 
   const chosen = new Map<number, { id: number; zh: string; en: string | null; sources: string[] }>();
   for (const c of cards) {

@@ -15,7 +15,7 @@
 // what was wrong): those lookups are the test set that decides what to build.
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import type { LookupAnswer, LookupBlock, LookupListed, LookupSource, LookupWord } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { message, type Shell } from "./shared";
 
@@ -280,12 +280,7 @@ function SenseItem({
         {info?.gloss && <p className="cf-lk-gloss">{info.gloss}</p>}
         {it.why && <p className="cf-lk-why">{it.why}</p>}
         {it.count !== null && <p className="cf-lk-count">In {it.count} of your sentences</p>}
-        {first && (
-          <p className="cf-lk-ex">
-            <span className="cf-zh">{first.zh}</span>
-            {first.en && <span>{first.en}</span>}
-          </p>
-        )}
+        {first && <SenseExample s={first} />}
         {(it.points.length > 0 || rest.length > 0) && (
           <button className="cf-lk-more" aria-expanded={more} onClick={() => setMore(!more)}>
             {more ? "Less" : "Why, and more examples"}
@@ -308,15 +303,28 @@ function SenseItem({
               </ul>
             )}
             {rest.map((s) => (
-              <p key={s.id} className="cf-lk-ex">
-                <span className="cf-zh">{s.zh}</span>
-                {s.en && <span>{s.en}</span>}
-              </p>
+              <SenseExample key={s.id} s={s} />
             ))}
           </div>
         )}
       </div>
     </li>
+  );
+}
+
+/**
+ * One of the owner's sentences under a sense, said as its card would see it:
+ * "in 县城" when the word is only part of a longer one there, "locked" when
+ * a word in it isn't known yet. Either way a card wouldn't show it.
+ */
+function SenseExample({ s }: { s: LookupSentence }) {
+  const notes = [s.within ? `in ${s.within}` : null, s.readable ? null : "locked"].filter(Boolean);
+  return (
+    <p className="cf-lk-ex">
+      <span className="cf-zh">{s.zh}</span>
+      {s.en && <span>{s.en}</span>}
+      {notes.length > 0 && <span className="cf-lk-from">{notes.join(" · ")}</span>}
+    </p>
   );
 }
 

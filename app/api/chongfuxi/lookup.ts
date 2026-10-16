@@ -329,13 +329,16 @@ async function ensure(sql: Sql) {
 }
 
 /** The owner's sentences these answers cite, by id. */
-async function sentencesById(sql: Sql, owner: string, ids: number[]): Promise<Map<number, LookupSentence>> {
+async function sentencesById(sql: Sql, owner: string, ids: number[]): Promise<Map<number, LookupSentence & { words: string[] }>> {
   if (!ids.length) return new Map();
   const rows = (await sql`
-    select id::int as id, zh, en, blockers from chongfuxi_sentence
-    where owner_email = ${owner} and id = any(${ids}::bigint[])
-  `) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[] }>;
-  return new Map(rows.map((r) => [r.id, { id: r.id, zh: r.zh, en: r.en, readable: r.blockers.length === 0 }]));
+    select s.id::int as id, s.zh, s.en, s.blockers,
+           coalesce((select array_agg(t.word order by t.pos) from chongfuxi_token t
+                     where t.owner_email = s.owner_email and t.sentence_id = s.id), '{}') as words
+    from chongfuxi_sentence s
+    where s.owner_email = ${owner} and s.id = any(${ids}::bigint[])
+  `) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[]; words: string[] }>;
+  return new Map(rows.map((r) => [r.id, { id: r.id, zh: r.zh, en: r.en, readable: r.blockers.length === 0, words: r.words }]));
 }
 
 /** Answer a query: the kept answer, unless `fresh`; otherwise ask the model, check, keep. */
