@@ -12,7 +12,7 @@ import type { Addition, TextAnalysis, TextListed, TextToken } from "@chongfuxi/l
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Added } from "./ListsPanel";
-import { fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
+import { PlecoTile, fmt, message, useBackLayer, type Shell } from "./shared";
 
 /** Paragraphs shown before "Show the whole text". */
 const PARAGRAPHS_SHOWN = 12;
@@ -312,9 +312,7 @@ function Analysis({ a, shell, onClose, onChanged }: { a: TextAnalysis; shell: Sh
                   {ticked.has(picked) ? "Don't add" : "Add to the deck"}
                 </button>
               )}
-              <a className="cf-link" href={plecoHref(picked)}>
-                Open in Pleco
-              </a>
+              <PlecoTile word={picked} inline />
             </div>
           </div>
         )}

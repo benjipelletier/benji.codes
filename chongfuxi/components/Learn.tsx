@@ -17,7 +17,7 @@ import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { afterStep, isLearned, pickNext, progressOf, sentencesFor, startItems, stepDone, stepOf, type LearnItem } from "@chongfuxi/lib/learn";
 import { newId } from "@chongfuxi/lib/upload";
-import { HskTags, LongkuTag, SentenceText, Word, fmt, message, plecoHref, type Shell } from "./shared";
+import { HskTags, LongkuTag, PlecoTile, SentenceText, Word, fmt, message, type Shell } from "./shared";
 
 const STEP_NAME: Record<LearnStep, string> = {
   meet: "New word",
@@ -170,9 +170,7 @@ export function LearnCard({ ladder }: { ladder: Ladder }) {
 
       {revealed && (
         <div className="cf-card-foot">
-          <a className="cf-link" href={plecoHref(item.word.word)}>
-            Open in Pleco
-          </a>
+          <PlecoTile word={item.word.word} />
         </div>
       )}
     </article>

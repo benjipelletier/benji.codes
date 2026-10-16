@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AdditionError, removeWord } from "../additions";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { wordDetail } from "../words";
+import { WordError, setAside, wordDetail } from "../words";
 
 export const dynamic = "force-dynamic";
 // Removing a word re-checks every sentence.
@@ -18,17 +18,25 @@ export async function GET(req: NextRequest) {
   return detail ? NextResponse.json(detail) : bad("not a word in the corpus", 404);
 }
 
-/** Take a word out of the deck: { word, action: "remove" }. */
+/**
+ * { word, action: "remove" }: take a word out of the deck, its cards and answers with it.
+ * { word, action: "aside" | "back" }: set it aside (its cards kept, not dealt) or bring it back.
+ */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
   const input = await body<{ word?: string; action?: string }>(req);
   const word = input?.word?.trim();
-  if (!word || word.length > 20 || input?.action !== "remove") return bad("expected a word and action: remove");
+  const action = input?.action;
+  if (!word || word.length > 20 || (action !== "remove" && action !== "aside" && action !== "back")) {
+    return bad("expected a word and action: remove, aside or back");
+  }
   try {
-    return NextResponse.json(await removeWord(gate.sql, gate.owner, word));
+    if (action === "remove") return NextResponse.json(await removeWord(gate.sql, gate.owner, word));
+    return NextResponse.json(await setAside(gate.sql, gate.owner, word, action === "aside"));
   } catch (e) {
     if (e instanceof AdditionError) return bad(e.message, 409);
+    if (e instanceof WordError) return bad(e.message, 409);
     throw e;
   }
 }

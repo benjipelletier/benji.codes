@@ -12,7 +12,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainSenses } from "@chongfuxi/lib/senses";
-import { Highlighted, History, LongkuTag, fmt, message, plecoHref, span, useBackLayer } from "./shared";
+import { Highlighted, History, LongkuTag, PlecoTile, fmt, message, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -163,16 +163,27 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         // Without the sizes the bars show the deck's words alone.
       });
   }, [by, totals.size]);
-  const groups = useMemo(() => groupWords(found, by, cutoff, totals), [found, by, cutoff, totals]);
+  // Set-aside words leave every grouping for one of their own, first.
+  const groups = useMemo(() => {
+    const set = found.filter((w) => w.aside);
+    const rest = groupWords(
+      found.filter((w) => !w.aside),
+      by,
+      cutoff,
+      totals,
+    );
+    return set.length ? [{ key: "aside", label: "Set aside, not in review", words: set }, ...rest] : rest;
+  }, [found, by, cutoff, totals]);
 
   if (error) return <p className="cf-error">{error}</p>;
   if (!words) return <p className="cf-muted cf-pad">Laying out the words…</p>;
 
-  const counts = Object.fromEntries(STAGES.map((s) => [s.key, words.filter((w) => stageOf(w) === s.key).length])) as Record<
+  const inReview = words.filter((w) => !w.aside);
+  const counts = Object.fromEntries(STAGES.map((s) => [s.key, inReview.filter((w) => stageOf(w) === s.key).length])) as Record<
     Stage,
     number
   >;
-  const dueToday = words.filter((w) => w.due <= cutoff).length;
+  const dueToday = inReview.filter((w) => w.due <= cutoff).length;
 
   return (
     <section className="cf-wall">
@@ -282,14 +293,14 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
                   {shown.map((w) => {
                     const stage = stageOf(w);
                     // Grouped by when due, the group says it; elsewhere a dot does.
-                    const due = by !== "due" && w.due <= cutoff;
+                    const due = by !== "due" && w.due <= cutoff && !w.aside;
                     return (
                       <li key={w.word}>
                         <button
-                          className={`cf-tile-word is-${stage}${due ? " is-due" : ""}`}
+                          className={`cf-tile-word is-${stage}${due ? " is-due" : ""}${w.aside ? " is-aside" : ""}`}
                           style={{ "--n": Math.min(Math.max([...w.word].length, 2), 5) } as React.CSSProperties}
                           onClick={() => setOpen(w.word)}
-                          aria-label={`${w.word}: ${stage}${due ? ", due today" : ""}`}
+                          aria-label={`${w.word}: ${w.aside ? "set aside" : stage}${due ? ", due today" : ""}`}
                         >
                           {w.word}
                         </button>
@@ -318,6 +329,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
             setOpen(null);
             setWords((list) => list?.filter((x) => x.word !== w) ?? null);
           }}
+          onBack={(w) => setWords((list) => list?.map((x) => (x.word === w ? { ...x, aside: false } : x)) ?? null)}
           onFindSentences={(w) => {
             setOpen(null);
             onFindSentences(w);
@@ -348,15 +360,32 @@ export function WordSheet({
   canWrite,
   onClose,
   onRemoved,
+  onBack,
   onFindSentences,
 }: {
   word: string;
   canWrite: boolean;
   onClose: () => void;
   onRemoved: (word: string) => void;
+  /** Brought back from being set aside. */
+  onBack?: (word: string) => void;
   onFindSentences: (word: string) => void;
 }) {
   const [d, setD] = useState<WordDetail | null>(null);
+  const [bringing, setBringing] = useState(false);
+  const bringBack = async () => {
+    setBringing(true);
+    setError(null);
+    try {
+      await send("word", { word, action: "back" });
+      setD((x) => (x ? { ...x, aside: false } : x));
+      onBack?.(word);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBringing(false);
+    }
+  };
   const [error, setError] = useState<string | null>(null);
   // Removing it from the deck: asked once, then done.
   const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
@@ -407,9 +436,7 @@ export function WordSheet({
               )}
               {!d.hsk.old && !d.hsk.v3 && <span className="cf-tag cf-hsk is-none">not HSK</span>}
               {d.longku && <LongkuTag />}
-              <a className="cf-link" href={plecoHref(word)}>
-                Open in Pleco
-              </a>
+              <PlecoTile word={word} inline />
             </p>
           )}
         </header>
@@ -525,6 +552,14 @@ export function WordSheet({
               )}
             </section>
             {!canWrite && <p className="cf-muted cf-sheet-aside">This is Benji&apos;s deck, shown read-only.</p>}
+            {canWrite && d.aside && (
+              <section className="cf-sheet-aside-back">
+                <p>Set aside: its cards and their history are kept, but nothing deals them.</p>
+                <button className="cf-btn" disabled={bringing} onClick={() => void bringBack()}>
+                  {bringing ? "Bringing it back…" : "Bring back into review"}
+                </button>
+              </section>
+            )}
             {canWrite && (
               <section className="cf-sheet-remove">
                 {removing === "ask" && (

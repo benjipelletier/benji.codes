@@ -322,7 +322,7 @@ body:has(.cfx) {
 }
 
 .cf-ti-zh {
-  /* Only 复卡查统入 and the card foot's 魚记 are loaded in this face (app/chongfuxi/layout.tsx). */
+  /* Only 复卡查统入 and the card foot's 魚记搁 are loaded in this face (app/chongfuxi/layout.tsx). */
   font-family: "LXGW WenKai TC", var(--cf-zh);
   font-weight: 700;
   fill: currentColor;
@@ -2430,7 +2430,7 @@ label.cf-kind {
 .cf-card-foot {
   display: flex;
   justify-content: center;
-  gap: 28px;
+  gap: 18px;
   margin-top: auto;
   padding-top: 16px;
 }
@@ -2485,6 +2485,46 @@ label.cf-kind {
 
 .cfx .cf-foot-btn.is-look {
   --hue: var(--cf-recall);
+}
+
+/* Inline, in a popup or a row of tags: a smaller round, the name beside it. */
+.cfx .cf-foot-btn.is-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.cf-foot-btn.is-inline .cf-foot-zh {
+  width: 30px;
+  height: 30px;
+  font-size: 17px;
+}
+
+.cf-foot-btn.is-inline small {
+  font-size: 13px;
+}
+
+.cfx .cf-foot-btn.is-aside {
+  --hue: var(--cf-ink-soft);
+}
+
+/* A word just set aside, under the next card, with the way back. */
+.cf-aside-note {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-aside-note .cf-zh {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--cf-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4908,6 +4948,25 @@ button.cf-synclog-row {
 }
 
 /* Taking a word out of the deck: quiet until asked, red once it is. */
+/* A set-aside word's tile: faded, out of review. */
+.cfx .cf-tile-word.is-aside {
+  opacity: 0.5;
+}
+
+/* A set-aside word's sheet: what that means, and the way back. */
+.cf-sheet-aside-back {
+  margin-top: 22px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--cf-sunken);
+}
+
+.cf-sheet-aside-back p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
 .cf-sheet-remove {
   margin-top: 22px;
   padding-top: 14px;

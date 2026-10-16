@@ -26,7 +26,7 @@ import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
-import { History, HskTags, LongkuTag, SentenceText, Sheet, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
+import { History, HskTags, LongkuTag, PlecoTile, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -410,6 +410,9 @@ export function Session({
   const [revealed, setRevealed] = useState(false);
   // Look up over the card, filled with its word (or sentence): back or × returns to the same card.
   const [looking, setLooking] = useState<string | null>(null);
+  // A word just set aside, and its cards that were in the queue, for Bring back.
+  const [aside, setAside] = useState<{ word: string; cards: SessionCard[] } | null>(null);
+  const [asideBusy, setAsideBusy] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
   /** Words of this card's sentence tapped for their meaning. */
@@ -579,6 +582,7 @@ export function Session({
 
   const answer = (grade: Grade, words: string[] = [], comment?: string) => {
     if (!card || leaving) return;
+    setAside(null);
     const now = performance.now();
     const input: ReviewInput = {
       id: newId(),
@@ -688,6 +692,41 @@ export function Session({
       );
     } catch (e) {
       setError(message(e));
+    }
+  };
+
+  // Too hard for now: the word's cards leave the session (and every session, until brought back), history kept.
+  const setWordAside = async () => {
+    const w = card?.word?.word;
+    if (!w || asideBusy) return;
+    setAsideBusy(true);
+    try {
+      await send("word", { word: w, action: "aside" });
+      const its = (c: SessionCard) => c.kind !== "sentence" && c.word?.word === w;
+      setAside({ word: w, cards: queue.filter(its) });
+      setQueue((q) => q.filter((c) => !its(c)));
+      refresh();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setAsideBusy(false);
+    }
+  };
+  const bringBack = async () => {
+    if (!aside || asideBusy) return;
+    setAsideBusy(true);
+    try {
+      await send("word", { word: aside.word, action: "back" });
+      // Back on top, answer showing, as Undo brings a card back.
+      if (aside.cards[0]) undone.current = aside.cards[0].id;
+      setQueue((q) => [...aside.cards, ...q.filter((c) => !aside.cards.some((a) => a.id === c.id))]);
+      setStatus("ready");
+      setAside(null);
+      refresh();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setAsideBusy(false);
     }
   };
 
@@ -896,12 +935,7 @@ export function Session({
             // Three character tiles, in the tab icons' face: 魚 for Pleco (its fish), 记 for a note, 查 for Look up.
             <div className="cf-card-foot">
               {card.word && (
-                <a className="cf-foot-btn is-pleco" href={plecoHref(card.word.word)} aria-label="Open in Pleco">
-                  <span className="cf-foot-zh" aria-hidden="true">
-                    魚
-                  </span>
-                  <small>Pleco</small>
-                </a>
+                <PlecoTile word={card.word.word} />
               )}
               {canWrite && noting === null && (
                 <button className="cf-foot-btn is-note" onClick={() => setNoting(card.note ?? "")} aria-label={card.note ? "Edit note" : "Add a note"}>
@@ -909,6 +943,15 @@ export function Session({
                     记
                   </span>
                   <small>{card.note ? "Edit note" : "Note"}</small>
+                </button>
+              )}
+              {/* Too hard for now: out of review, history kept; brought back from here or the Words tab. */}
+              {canWrite && card.word && card.kind !== "sentence" && (
+                <button className="cf-foot-btn is-aside" onClick={() => void setWordAside()} disabled={asideBusy} aria-label="Set aside">
+                  <span className="cf-foot-zh" aria-hidden="true">
+                    搁
+                  </span>
+                  <small>Set aside</small>
                 </button>
               )}
               {/* The owner's only, like the tab: a lookup costs money. Filled in, not asked, so it can be edited first. */}
@@ -954,8 +997,18 @@ export function Session({
         </Sheet>
       )}
 
+      {/* A word just set aside, with the way back. */}
+      {aside && (
+        <p className="cf-aside-note">
+          <span className="cf-zh">{aside.word}</span> set aside
+          <button className="cf-link" onClick={() => void bringBack()} disabled={asideBusy}>
+            Bring back
+          </button>
+        </p>
+      )}
+
       {/* What the last answer changed. */}
-      {last && (
+      {last && !aside && (
         <ReceiptStrip r={last} undoing={undoing} onUndo={canWrite && latest.current?.id === last.id ? undo : undefined} />
       )}
 

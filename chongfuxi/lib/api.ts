@@ -254,6 +254,8 @@ export interface WordTile {
   hsk: { old: string | null; v3: string | null };
   /** In 龙库. */
   longku: boolean;
+  /** Set aside: still in the deck, its cards kept but not dealt (app/api/chongfuxi/words.ts). */
+  aside: boolean;
 }
 
 /** Everything about one word, for its sheet on the Words page. */
@@ -264,6 +266,8 @@ export interface WordDetail {
   hsk: { old: string | null; v3: string | null };
   /** In 龙库. */
   longku: boolean;
+  /** Set aside: its cards kept but not dealt, until brought back. */
+  aside: boolean;
   /** Its cards: Read, Recall, and any split-off meanings. */
   cards: Array<{
     kind: CardKind;

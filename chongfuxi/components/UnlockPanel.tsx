@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import type { Blocker, SentenceRow } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, Sheet, fmt, message, plecoHref, type Shell } from "./shared";
+import { Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
 
 const PAGE = 25;
 
@@ -87,9 +87,7 @@ export function BlockerSheet({
             {busy ? "Working…" : "It's a name"}
           </button>
         )}
-        <a className="cf-btn" href={plecoHref(b.word)}>
-          {shell.canWrite ? "Add in Pleco" : "Open in Pleco"}
-        </a>
+        <PlecoTile word={b.word} label={shell.canWrite ? "Add in Pleco" : "Pleco"} inline />
       </div>
     </Sheet>
   );

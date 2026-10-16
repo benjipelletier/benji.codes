@@ -26,6 +26,23 @@ export function plecoHref(word: string): string {
   return `plecoapi://x-callback-url/s?q=${encodeURIComponent(word)}`;
 }
 
+/**
+ * Pleco, as a character tile: 魚 (traditional; Pleco's fish) on a soft blue
+ * round, in the tab icons' face, its name small under it. Inline, for a
+ * popup or a row of tags: a smaller round with the name beside it. Every
+ * "Open in Pleco" is one of these, at the owner's request.
+ */
+export function PlecoTile({ word, label = "Pleco", inline = false }: { word: string; label?: string; inline?: boolean }) {
+  return (
+    <a className={`cf-foot-btn is-pleco${inline ? " is-inline" : ""}`} href={plecoHref(word)} aria-label={`${label === "Pleco" ? "Open" : label} ${word} in Pleco`}>
+      <span className="cf-foot-zh" aria-hidden="true">
+        魚
+      </span>
+      <small>{label}</small>
+    </a>
+  );
+}
+
 export const fmt = (n: number) => n.toLocaleString("en-US");
 
 /** How long until a card comes back, as the buttons say it: 3d, 5w, 4mo, 2.5y. */

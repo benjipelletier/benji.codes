@@ -130,10 +130,14 @@ rejected as too themed. Keep it that way:
   the card foot's 魚记, are fetched, so a new character must be added to the
   URL in the layout), and the English small beneath; the current tab sits on
   a pill.
-- A revealed card's foot is three character tiles in the same face, each a
+- A revealed card's foot is character tiles in the same face, each a
   character on a soft round in its own hue with its name under it: 魚
-  (traditional, the owner's pick) for Pleco, 记 (to note down, a verb like 查; 笔, the brush, was tried) for a note, 查 for Look up.
-  The owner asked for them cuter than the three text links they replaced.
+  (traditional, the owner's pick) for Pleco, 记 (to note down, a verb like
+  查; 笔, the brush, was tried) for a note, 搁 for Set aside (word cards
+  only), 查 for Look up. The owner asked for them cuter than the text links
+  they replaced. Every "Open in Pleco" in the app is the 魚 tile
+  (`PlecoTile` in `shared.tsx`), inline (a smaller round, the name beside
+  it) in popups and a word sheet's tags.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
 - Motion only answers the owner: the answer rises on reveal, an answered card
@@ -702,6 +706,20 @@ the design was silent and are still to be confirmed.
   Recall cards opening) and sends them on confirm, 40 to a request, through
   the same answer code as a session. Split-off meanings are left out. Its
   answers carry a `fast:` session id.
+- **Set aside**: a word too hard for now leaves review without losing
+  anything (the owner's request). 搁 on a revealed word card, or nothing
+  else: Bring back is under the next card and on the word's sheet. It
+  suspends the word's Read and Recall cards (and live split meanings),
+  history and schedule kept (`setAside` in `words.ts`, route `word`
+  `{ action: "aside" | "back" }`). No new column: the word's main Read card
+  being suspended is the mark (`SET_ASIDE` in `review.ts`), since the other
+  suspended cards are a merged meaning's and a locked sentence's, and
+  Bring back wakes only the cards whose meaning isn't merged. The word stays
+  'deck', so a Pleco re-import, a list, an Anki sync or 龙库 never brings
+  it back by itself, and it still counts as known for sentences (the
+  owner's default for now; locking its sentences was offered). It leaves
+  the header's 词 and 字, and on the Words tab it is in its own first group,
+  "Set aside, not in review", faded, out of the stage bar and due count.
 - **Words tab**: every deck word as a tile, shaded by its Read card's stage
   (waiting, young, mature, strong, as on the HSK bars), grouped by when due,
   strength, HSK level (old HSK, then 3.0, each level badged in its textbook
@@ -937,7 +955,8 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   its Read and Recall cards go with their answers, it goes back on its list
   if it has one (out of the corpus otherwise), the sentences that needed it
   lock again, and an Anki note for it is marked `removed`, so the next sync
-  doesn't bring it back. A Pleco re-import would.
+  doesn't bring it back. A Pleco re-import would. To take a word out of
+  review without losing it, set it aside instead (Review rules).
 - The Sync URL needs its last slash (`…/anki/`): without it Anki's client
   joins `sync/` one level up. `/api/chongfuxi/sync/*` and `msync/*` answer
   too, so either works; the bare address shows instructions.
