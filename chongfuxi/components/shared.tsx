@@ -281,6 +281,24 @@ export function Waiting() {
   );
 }
 
+/**
+ * Something on its way: a little stack of cards, the top one dealt off and
+ * tucked under again and again (词 字 句 in the header's colours), with what is being done under it. `small` sits beside its words,
+ * for inside a sheet or a list.
+ */
+export function Loading({ label, small = false }: { label: string; small?: boolean }) {
+  return (
+    <div className={`cf-loading${small ? " is-small" : ""}`} role="status" aria-live="polite">
+      <span className="cf-deal" aria-hidden="true">
+        <i className="cf-deal-card is-read">词</i>
+        <i className="cf-deal-card is-produce">字</i>
+        <i className="cf-deal-card is-sentence">句</i>
+      </span>
+      <span className="cf-loading-label">{label}</span>
+    </div>
+  );
+}
+
 /** Bubbles shown at most: the latest answers, here first and Pleco's before them. */
 const BUBBLES = 16;
 

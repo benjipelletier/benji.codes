@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import type { Blocker, SentenceRow } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { AiPill, Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
+import { Loading, AiPill, Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
 
 const PAGE = 25;
 
@@ -76,7 +76,7 @@ export function BlockerSheet({
         The last word keeping <b className="cf-bsheet-n">{fmt(b.unlocks)}</b> {b.unlocks === 1 ? "sentence" : "sentences"} locked.
       </p>
       {error && <p className="cf-error">{error}</p>}
-      {examples === null && !error && <p className="cf-muted">Finding them…</p>}
+      {examples === null && !error && <Loading small label="Finding them…" />}
       {examples && examples.length > 0 && (
         <ul className="cf-slist cf-bsheet-list">
           {examples.map((s) => (
@@ -170,7 +170,7 @@ export function UnlockPage({
         {shell.canWrite ? " Add one to your words in Pleco, or mark a name." : ""}
       </p>
       {error && <p className="cf-error">{error}</p>}
-      {!data && <p className="cf-muted cf-pad">Working out what to learn next…</p>}
+      {!data && <Loading label="Working out what to learn next…" />}
       {data && (
         <>
           <h3 className="cf-h3">From {shell.canWrite ? "your" : "Benji's"} Pleco lists</h3>

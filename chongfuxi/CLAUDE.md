@@ -142,6 +142,12 @@ rejected as too themed. Keep it that way:
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
 - Motion only answers the owner: the answer rises on reveal, an answered card
   slides right for Got it and left for Forgot. Reduced motion turns it off.
+  The one exception is waiting: anything loading shows a little stack of
+  three cards (词 字 句, in the header's colours, in the tab icons' WenKai),
+  the top one dealt off and tucked under again and again, with what is being
+  done beneath it (`Loading` in `shared.tsx`; `small` beside its words inside
+  a sheet or list). Reduced motion holds the stack still and lets the words
+  breathe. Buttons keep their own "Adding…" words.
 - No iOS-style switches. A choice in a list is a row with a tick box that
   fills with the row's colour.
 - Light and dark are both designed; tokens are at the top of
@@ -633,8 +639,8 @@ none for the word keeps it; one that brings one replaces it.
 
 Wherever a definition is shown (the card's back and Recall prompt, the word
 sheet, Look up, a word tapped in a sentence, Learn, lists, new words, Fast
-review, Unlock next), one the model wrote has a small **AI** pill beside it
-(`AiPill`). Which words those are comes from one shared fetch (`lib/aidefs.ts`,
+review, Unlock next), one the model wrote has a small **AI** pill beside it,
+on every one of its senses (`AiPill`). Which words those are comes from one shared fetch (`lib/aidefs.ts`,
 GET `define`, public), not from each API. Tapped, the pill says "Written by
 AI" and, for the owner, offers Undo (POST `define` with `undo`): the word has
 no definition again (nor its reading, if the model gave that too, marked

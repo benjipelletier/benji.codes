@@ -21,7 +21,7 @@ import { StatsPanel } from "./StatsPanel";
 import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
-import { Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
+import { Loading, Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
 type Tab = "review" | "cards" | "lookup" | "stats" | "import";
 
@@ -146,7 +146,7 @@ export function ChongfuxiApp() {
         {/* Offline with answers waiting, the waiting line says it all. */}
         {error && !(error === OFFLINE && pending) && <p className="cf-error">{error}</p>}
         {!focus && <Waiting />}
-        {!summary && !error && <p className="cf-muted cf-pad">Loading…</p>}
+        {!summary && !error && <Loading label="Shuffling the deck…" />}
         {summary && !summary.viewer.configured && tab !== "import" && (
           <p className="cf-muted cf-pad">This deployment has no database set up, so there is nothing to show.</p>
         )}

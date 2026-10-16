@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send } from "@chongfuxi/lib/client";
 import type { BugContext, BugReport, BugStatus } from "@chongfuxi/lib/api";
-import { message, useBackLayer } from "./shared";
+import { Loading, message, useBackLayer } from "./shared";
 
 export function BugButton({ screen }: { screen: string }) {
   const [draft, setDraft] = useState<{ context: BugContext; shot: Promise<string | null> } | null>(null);
@@ -197,7 +197,7 @@ export function BugList({ canWrite, onCount }: { canWrite: boolean; onCount?: (o
         Filed with the bug tab on the right edge. A Claude session pulls them in with <code>chongfuxi/scripts/bugs.ts</code>.
       </p>
       {error && <p className="cf-error">{error}</p>}
-      {list === null && !error && <p className="cf-muted">Loading…</p>}
+      {list === null && !error && <Loading small label="Loading…" />}
       {list?.length === 0 && <p className="cf-muted">{all ? "No bugs filed yet." : "No open bugs."}</p>}
       {list && list.length > 0 && (
         <ul className="cf-bugs">

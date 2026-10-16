@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AnkiSync } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { DiffStat, SyncPage, clientName, clock } from "./SyncPage";
-import { ago, fmt, message, type Shell } from "./shared";
+import { Loading, ago, fmt, message, type Shell } from "./shared";
 
 /**
  * A sync that changed nothing in the deck: no words added (notes it hadn't
@@ -66,7 +66,7 @@ export function SyncLog({ shell }: { shell: Shell }) {
         note, <b className="cf-diff-key is-unlock">↑</b> sentences unlocked.
       </p>
       {error && <p className="cf-error">{error}</p>}
-      {syncs === null && !error && <p className="cf-muted">Loading…</p>}
+      {syncs === null && !error && <Loading small label="Loading…" />}
       {syncs?.length === 0 && <p className="cf-muted">No syncs yet.</p>}
       {lines && lines.length > 0 && (
         <ul className="cf-synclog">

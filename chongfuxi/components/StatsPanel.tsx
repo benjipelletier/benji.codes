@@ -11,7 +11,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Maturity, Stats } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { HskLevels } from "./HskLevels";
-import { fmt, message, type Shell } from "./shared";
+import { Loading, fmt, message, type Shell } from "./shared";
 
 const DAY = 86_400_000;
 const utc = (day: string) => Date.parse(`${day}T00:00:00Z`);
@@ -269,7 +269,7 @@ export function StatsPanel({ shell }: { shell: Shell }) {
   }, [now]);
 
   if (error) return <p className="cf-error">{error}</p>;
-  if (!stats) return <p className="cf-muted cf-pad">Adding it up…</p>;
+  if (!stats) return <Loading label="Adding it up…" />;
 
   const whose = shell.canWrite ? "You" : "Benji";
   const todayStats = stats.days.find((d) => d.day === now.day);

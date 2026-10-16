@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import type { AnkiSync, AnkiSyncDetail } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { AdditionDetails } from "./NewWords";
-import { ago, fmt, message, useBackLayer } from "./shared";
+import { Loading, ago, fmt, message, useBackLayer } from "./shared";
 
 /** "26.05,e64c6b1a,android" → "AnkiDroid 26.05". */
 export function clientName(client: string | null): string {
@@ -112,7 +112,7 @@ export function SyncPage({ syncId, canWrite, onDone }: { syncId: number; canWrit
         aria-labelledby="cf-sync-title"
         onClick={(e) => e.stopPropagation()}
       >
-        {!d && !error && <p className="cf-muted">Loading the sync…</p>}
+        {!d && !error && <Loading small label="Loading the sync…" />}
         {d && (
           <>
             <p className="cf-arrival-from">

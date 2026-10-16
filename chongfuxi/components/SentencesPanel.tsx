@@ -13,7 +13,7 @@ import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { BlockerSheet, UnlockPage, type Blockers } from "./UnlockPanel";
 import { WordSheet } from "./WordWall";
-import { AiPill, BackStep, History, PlecoTile, Sheet, fmt, message, piecesOf, useBackLayer, type Piece, type Shell } from "./shared";
+import { Loading, AiPill, BackStep, History, PlecoTile, Sheet, fmt, message, piecesOf, useBackLayer, type Piece, type Shell } from "./shared";
 
 type Show = "readable" | "one" | "locked";
 const PAGE = 40;
@@ -343,7 +343,7 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
           })}
         </ul>
       )}
-      {loading && <p className="cf-muted cf-pad">Loading…</p>}
+      {loading && <Loading label="Finding sentences…" />}
       {!loading && more && rows.length > 0 && (
         <button className="cf-more" onClick={() => load(rows.length)}>
           Show more
@@ -405,7 +405,7 @@ function SentenceSheet({
     <>
       <Sheet label="Sentence" onClose={onClose} escape={wordOpen === null}>
         {error && <p className="cf-error">{error}</p>}
-        {!d && !error && <p className="cf-muted">Opening it…</p>}
+        {!d && !error && <Loading small label="Opening it…" />}
         {d && st && (
           <>
             <p className="cf-sstate">

@@ -17,7 +17,7 @@ import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { afterStep, isLearned, pickNext, progressOf, sentencesFor, startItems, stepDone, stepOf, type LearnItem } from "@chongfuxi/lib/learn";
 import { newId } from "@chongfuxi/lib/upload";
-import { AiPill, HskTags, LongkuTag, PlecoTile, SentenceText, Word, fmt, message, type Shell } from "./shared";
+import { Loading, AiPill, HskTags, LongkuTag, PlecoTile, SentenceText, Word, fmt, message, type Shell } from "./shared";
 
 const STEP_NAME: Record<LearnStep, string> = {
   meet: "New word",
@@ -249,7 +249,7 @@ export function Learn({ shell, list, onEnd }: { shell: Shell; list: string; onEn
 
       {ladder.error && <p className="cf-error">{ladder.error}</p>}
       {ladder.saveError && <p className="cf-error">{ladder.saveError}</p>}
-      {!items && !ladder.error && <p className="cf-muted cf-pad">Finding sentences for your new words…</p>}
+      {!items && !ladder.error && <Loading label="Finding sentences for your new words…" />}
 
       {items && items.length === 0 && (
         <div className="cf-done">

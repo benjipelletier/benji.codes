@@ -7298,3 +7298,168 @@ button.cf-synclog-row {
 .cf-lk-mark.is-wrong {
   color: var(--cf-down);
 }
+
+/* ---- Loading: a stack of cards, the top one dealt off and tucked under.
+ * Each card runs the same cycle a third apart: in front, lifted off to the
+ * right, slipped in at the back, then forward to the middle and the front. */
+.cf-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 48px 16px 40px;
+  color: var(--cf-ink-faint);
+  font-size: 14px;
+  text-align: center;
+}
+
+.cf-loading.is-small {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 10px 0;
+  text-align: left;
+}
+
+.cf-deal {
+  --deal-w: 46px;
+  --deal-h: 60px;
+  --deal-t: 2.7s;
+  position: relative;
+  display: block;
+  flex: none;
+  width: calc(var(--deal-w) + 30px);
+  height: calc(var(--deal-h) + 22px);
+  perspective: 400px;
+}
+
+.is-small .cf-deal {
+  --deal-w: 22px;
+  --deal-h: 29px;
+  width: calc(var(--deal-w) + 16px);
+  height: calc(var(--deal-h) + 12px);
+}
+
+.cf-deal-card {
+  --hue: var(--cf-read);
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  display: grid;
+  place-items: center;
+  width: var(--deal-w);
+  height: var(--deal-h);
+  border-radius: 9px;
+  background: var(--cf-surface);
+  border: 1.5px solid color-mix(in srgb, var(--hue) 55%, var(--cf-rule));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 14px rgba(0, 0, 0, 0.1);
+  font-family: "LXGW WenKai TC", var(--cf-zh);
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(var(--deal-w) * 0.52);
+  line-height: 1;
+  color: var(--hue);
+  transform-origin: 50% 90%;
+  animation: cf-deal var(--deal-t) cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+/* A coloured band along the top, as the review cards' kind pill. */
+.cf-deal-card::before {
+  content: "";
+  position: absolute;
+  inset: 4px 5px auto;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--hue);
+  opacity: 0.7;
+}
+
+.is-small .cf-deal-card {
+  left: 6px;
+  top: 7px;
+  border-radius: 5px;
+  border-width: 1px;
+}
+
+.is-small .cf-deal-card::before {
+  inset: 2.5px 3px auto;
+  height: 2px;
+}
+
+.cf-deal-card.is-produce {
+  --hue: var(--cf-recall);
+  animation-delay: calc(var(--deal-t) / -3 * 2);
+}
+
+.cf-deal-card.is-sentence {
+  --hue: var(--cf-sentence);
+  animation-delay: calc(var(--deal-t) / -3);
+}
+
+@keyframes cf-deal {
+  /* In front. */
+  0%,
+  18% {
+    z-index: 3;
+    transform: translate(0, 0) rotate(-3deg);
+  }
+  /* Dealt off: lifted up and to the right, turning. */
+  26% {
+    z-index: 3;
+    transform: translate(62%, -30%) rotate(16deg) rotateY(-18deg);
+  }
+  /* Tucked in at the back. */
+  29% {
+    z-index: 0;
+    transform: translate(58%, -12%) rotate(12deg);
+  }
+  33.3%,
+  52% {
+    z-index: 1;
+    transform: translate(26%, -14%) rotate(9deg) scale(0.92);
+  }
+  /* Up to the middle. */
+  66.6%,
+  85% {
+    z-index: 2;
+    transform: translate(13%, -7%) rotate(3deg) scale(0.96);
+  }
+  100% {
+    z-index: 3;
+    transform: translate(0, 0) rotate(-3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-deal-card {
+    animation: none;
+  }
+
+  .cf-deal-card.is-read {
+    z-index: 3;
+    transform: rotate(-3deg);
+  }
+
+  .cf-deal-card.is-produce {
+    z-index: 1;
+    transform: translate(26%, -14%) rotate(9deg) scale(0.92);
+  }
+
+  .cf-deal-card.is-sentence {
+    z-index: 2;
+    transform: translate(13%, -7%) rotate(3deg) scale(0.96);
+  }
+
+  .cf-loading-label {
+    animation: cf-loading-breathe 1.6s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes cf-loading-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}

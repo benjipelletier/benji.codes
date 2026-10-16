@@ -17,7 +17,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { newId } from "@chongfuxi/lib/upload";
-import { AiPill, fmt, message, span, useBackLayer, type Shell } from "./shared";
+import { Loading, AiPill, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 150;
 /** Fetch more when fewer than this many cards are left below what has been uncovered. */
@@ -413,7 +413,7 @@ export function FastReview({
           </ul>
           {/* Room to bring the last rows up far enough to count. */}
           <div className="cf-fast-tail">
-            {exhausted.current && cards.length > 0 ? "That's every Read card due." : "Loading more…"}
+            {exhausted.current && cards.length > 0 ? "That's every Read card due." : <Loading small label="Loading more…" />}
           </div>
         </div>
         {/* Over the grey cards, while there are any below: they aren't part of this. */}

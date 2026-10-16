@@ -27,7 +27,7 @@ import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
-import { AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
+import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -795,7 +795,7 @@ export function Session({
       {error && <p className="cf-error">{error}</p>}
       <Waiting />
 
-      {status === "loading" && !card && !step && <p className="cf-muted cf-pad">Getting your cards…</p>}
+      {status === "loading" && !card && !step && <Loading label="Getting your cards…" />}
       {ladder.saveError && <p className="cf-error">{ladder.saveError}</p>}
       {status === "empty" && !card && !step && (ladder.items !== null || !kinds.learn || list) && (
         <div className="cf-done">
@@ -889,10 +889,10 @@ export function Session({
           {card.kind === "produce" && card.word && (
             <>
               <ul className="cf-prompt">
-                {promptOf(card).map((s, i) => (
+                {promptOf(card).map((s) => (
                   <li key={s}>
                     {s}
-                    {i === 0 && aiDefined(card.word!.defs) && (
+                    {aiDefined(card.word!.defs) && (
                       <>
                         {" "}
                         <AiPill word={card.word!.word} onUndone={() => redefine(card.word!.word, null, [])} />
@@ -1170,10 +1170,10 @@ function Definitions({
         <div key={i} className="cf-def">
           {!d.own && d.p && d.p !== word.pinyin && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
           <ul>
-            {d.senses.map((s, j) => (
+            {d.senses.map((s) => (
               <li
                 key={s}
-                className={[card.meaning?.gloss === s && "is-target", d.ai && j === 0 && "has-ai"].filter(Boolean).join(" ") || undefined}
+                className={[card.meaning?.gloss === s && "is-target", d.ai && "has-ai"].filter(Boolean).join(" ") || undefined}
               >
                 {canSplit && !d.own && !split.has(s) ? (
                   <button className="cf-sense" onClick={() => onPick(splitting === s ? null : s)}>
@@ -1182,7 +1182,7 @@ function Definitions({
                 ) : (
                   <span className="cf-sense-text">{s}</span>
                 )}
-                {d.ai && j === 0 && (
+                {d.ai && (
                   <>
                     {" "}
                     <AiPill word={word.word} onUndone={onUndone} />

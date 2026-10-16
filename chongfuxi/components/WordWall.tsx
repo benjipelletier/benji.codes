@@ -12,7 +12,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainSenses } from "@chongfuxi/lib/senses";
-import { AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
+import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -176,7 +176,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
   }, [found, by, cutoff, totals]);
 
   if (error) return <p className="cf-error">{error}</p>;
-  if (!words) return <p className="cf-muted cf-pad">Laying out the words…</p>;
+  if (!words) return <Loading label="Laying out the words…" />;
 
   const inReview = words.filter((w) => !w.suspended);
   const counts = Object.fromEntries(STAGES.map((s) => [s.key, inReview.filter((w) => stageOf(w) === s.key).length])) as Record<
@@ -443,16 +443,16 @@ export function WordSheet({
         </header>
 
         {error && <p className="cf-error">{error}</p>}
-        {!d && !error && <p className="cf-muted">Looking it up…</p>}
+        {!d && !error && <Loading small label="Looking it up…" />}
 
         {d && (
           <>
             {senses.length > 0 ? (
               <ul className="cf-sheet-senses">
-                {senses.slice(0, 4).map((s, i) => (
+                {senses.slice(0, 4).map((s) => (
                   <li key={s}>
                     {s}
-                    {i === 0 && aiDefined(d.defs) && (
+                    {aiDefined(d.defs) && (
                       <>
                         {" "}
                         <AiPill

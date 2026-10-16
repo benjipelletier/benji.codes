@@ -19,7 +19,7 @@ const SENTENCES = 6;
 const MAX_SENSES = 4;
 const MAX_SENSE = 120;
 
-const SYSTEM = `You write entries for a Chinese–English learner's dictionary in the style of CC-CEDICT. Given a Chinese word, give its meanings in English: one to four senses, each a few words, the commonest first ("to feel proud and elated", "to hold one's head high"). Begin a chengyu's first sense with "(idiom) ". Mark a sense with its register only where it matters ("(literary)", "(slang)"). No pinyin and no examples in the senses. Some of the user's own sentences that use the word may come with it: let them show which senses matter, but define the word, not the sentence. Give pinyin as numbered syllables separated by spaces ("yang2 mei2 tu3 qi4"). If you don't know the word, give no senses.`;
+const SYSTEM = `You write entries for a Chinese–English learner's dictionary in the style of CC-CEDICT. Given a Chinese word, give its meanings in English: one to four senses, each a few words, the commonest first ("to feel proud and elated", "to hold one's head high"). Begin a chengyu's first sense, and only that one, with "(idiom) ". Mark a sense with its register only where it matters ("(literary)", "(slang)"). No pinyin and no examples in the senses. Some of the user's own sentences that use the word may come with it: let them show which senses matter, but define the word, not the sentence. Give pinyin as numbered syllables separated by spaces ("yang2 mei2 tu3 qi4"). If you don't know the word, give no senses.`;
 
 const SCHEMA = {
   type: "object",
@@ -121,6 +121,8 @@ export async function defineWord(sql: Sql, owner: string, word: string): Promise
         .filter((s) => s && s.length <= MAX_SENSE),
     ),
   ].slice(0, MAX_SENSES);
+  // "(idiom)" once, on the first, as CC-CEDICT writes it; the model tends to repeat it on each.
+  for (let i = 1; i < senses.length; i++) senses[i] = senses[i].replace(/^\(idiom\)\s*/i, "") || senses[i];
   if (!senses.length) throw new DefineError(`The model doesn't know ${word}.`);
 
   // Its own reading where it has one: the model's only fills a gap, and only when the dictionary agrees with each syllable.

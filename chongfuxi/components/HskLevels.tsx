@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { Coverage, LevelCoverage, MissingWord } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { AiPill, fmt, message, plecoHref, type Shell } from "./shared";
+import { Loading, AiPill, fmt, message, plecoHref, type Shell } from "./shared";
 
 const PAGE = 60;
 const share = (n: number, of: number) => (of ? Math.round((100 * n) / of) : 0);
@@ -93,7 +93,7 @@ function Level({ level }: { level: LevelCoverage }) {
             ))}
           </dl>
           {error && <p className="cf-error">{error}</p>}
-          {missing > 0 && words === null && !error && <p className="cf-muted">Finding the missing ones…</p>}
+          {missing > 0 && words === null && !error && <Loading small label="Finding the missing ones…" />}
           {words && (
             <>
               <p className="cf-muted">{fmt(missing)} not in the deck yet. Tap one to open it in Pleco.</p>
@@ -139,7 +139,7 @@ export function HskLevels({ shell }: { shell: Shell }) {
   }, []);
 
   if (error) return <p className="cf-error">{error}</p>;
-  if (!coverage) return <p className="cf-muted cf-pad">Counting the lists…</p>;
+  if (!coverage) return <Loading label="Counting the lists…" />;
 
   return (
     <>

@@ -16,7 +16,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { AdditionDetails } from "./NewWords";
 import type { ListReview } from "./ReviewPanel";
-import { AiPill, BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
+import { Loading, AiPill, BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
 /** As the server allows (LIST_ADD_MAX). */
@@ -118,7 +118,7 @@ export function ListsPanel({
     }
   };
 
-  if (!nodes && !error) return <p className="cf-muted cf-pad">Reading the lists…</p>;
+  if (!nodes && !error) return <Loading label="Reading the lists…" />;
 
   return (
     <div className="cf-lists">
@@ -222,7 +222,7 @@ export function ListsPanel({
         </ul>
       )}
 
-      {leaf && words === null && !error && <p className="cf-muted">Reading the words…</p>}
+      {leaf && words === null && !error && <Loading small label="Reading the words…" />}
       {leaf && words && (
         <>
           {canWrite && missing > 0 && <p className="cf-muted">Untick any to leave them out.</p>}

@@ -17,7 +17,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
-import { AiPill, message, type Shell } from "./shared";
+import { Loading, AiPill, message, type Shell } from "./shared";
 
 const KIND = {
   pairing: "Which word goes with it",
@@ -899,7 +899,7 @@ export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: strin
         <p className="cf-muted cf-lk-hint">English, Chinese or both: heavy rain · 拍 a photo · the more… the more</p>
       )}
 
-      {busy && <p className="cf-muted cf-pad">Looking through your sentences and the dictionary… this can take a minute.</p>}
+      {busy && <Loading label="Looking through your sentences and the dictionary… this can take a minute." />}
       {error && <p className="cf-error">{error}</p>}
       {answer && <Answer key={answer.query + answer.at} a={answer} shell={shell} onAgain={() => void ask(answer.query, true)} />}
 
