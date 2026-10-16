@@ -143,7 +143,8 @@ rejected as too themed. Keep it that way:
 - Motion only answers the owner: the answer rises on reveal, an answered card
   slides right for Got it and left for Forgot. Reduced motion turns it off.
   The one exception is waiting: anything loading shows a little stack of
-  three cards (词 字 句, in the header's colours, in the tab icons' WenKai),
+  three cards (重 复 习, coming to the front in that order, in the Read,
+  Recall and Sentence colours and the tab icons' WenKai),
   the top one dealt off and tucked under again and again, with what is being
   done beneath it (`Loading` in `shared.tsx`; `small` beside its words inside
   a sheet or list). Reduced motion holds the stack still and lets the words
