@@ -6469,7 +6469,7 @@ button.cf-synclog-row {
 /* Two or three words side by side, compared row by row. */
 .cf-lk-contrast {
   display: grid;
-  grid-template-columns: 68px repeat(var(--n), minmax(0, 1fr));
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
   border: 1px solid var(--cf-rule);
   border-radius: 16px;
   background: var(--cf-surface);
@@ -6484,9 +6484,25 @@ button.cf-synclog-row {
   overflow-wrap: anywhere;
 }
 
-.cf-lk-contrast > .cf-lk-ct-corner,
+/* Each row's label across the whole width, its cells side by side under it:
+ * a narrow label column broke words mid-word at phone width. */
+.cf-lk-contrast > .cf-lk-ct-corner {
+  display: none;
+}
+
 .cf-lk-contrast > .cf-lk-ct-head {
   border-top: 0;
+}
+
+.cf-lk-contrast > .cf-lk-ct-aspect {
+  grid-column: 1 / -1;
+  padding-bottom: 0;
+  overflow-wrap: normal;
+}
+
+.cf-lk-contrast > .cf-lk-ct-cell {
+  border-top: 0;
+  padding-top: 4px;
 }
 
 .cf-lk-ct-head {

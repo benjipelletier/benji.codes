@@ -476,7 +476,7 @@ the blocks' shapes, with no sentence saying what it is.
   (登记酒店 → 入住酒店, 登记 already struck) is folded into it, its reason shown
   when the chip is tapped (`foldIntoGap`, when drawn, so kept answers too;
   the owner found it redundant); one the owner's sentences contradict stays. `SenseItem` (numbered through the whole answer),
-  `ContrastBlock` (a grid, ✓/✗ cells), `ScaleBlock` (dots on a gradient
+  `ContrastBlock` (the words side by side, each row's label across the full width with its cells under it, since a narrow label column broke words mid-word on the phone; ✓/✗ cells), `ScaleBlock` (dots on a gradient
   line, kept clear of the edges), `PatternBlock` (`{A}` slots drawn dashed,
   the slot words marked in each filling), `FamilyBlock` (a tap on a member shows its words, each with pinyin
   and + Add: members and the headwords they split into are in the answer's
