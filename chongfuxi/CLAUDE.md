@@ -588,6 +588,16 @@ the blocks' shapes, with no sentence saying what it is.
   server-side fallback on a refusal; the screen says the model declined. A Chinese-first
   model would mean a second SDK; worth it only if Claude misses on
   collocation nuance the evidence can't fix.
+  Looked at again in October 2026 at the owner's request, and not taken
+  up for now: Meta's Muse Spark ($1.25 / $4.25, about ten times Haiku a
+  lookup) and Muse Wonder ($4 / $20, about Opus's), with no independent
+  Mandarin results; and Chinese-first models, of which Qwen 3.8 Flash
+  ($0.15 / $0.47, top of C-Eval and SuperCLUE among them, an international
+  region, no training on API data without consent) is the one to try
+  first. DeepSeek stores API data in mainland China and trains on it by
+  default. All of these offer an Anthropic-format endpoint, so a trial is
+  a base URL, a key and a model name. Decide on the test set, not
+  leaderboards. The owner said no to Qwen for now.
 - **The test set.** Over about a month the owner is collecting what they'd
   type, each with the situation (the sentence meant) and what was used in
   the end, ideally tagged with a kind from the table. Every entry gets run
