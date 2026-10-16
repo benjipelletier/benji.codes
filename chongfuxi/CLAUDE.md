@@ -1103,6 +1103,45 @@ list's word cards, Read and Recall whatever Today's choices, no sentences
 onto the same list. It isn't kept to carry on from, so it never replaces the
 day's own session; its answers go through the outbox as any others.
 
+## Lists from the owner's content: Spotify
+
+Cards › Lists opens on the lists themselves, no title: first the study lists
+(龙库, the HSK lists, the textbooks), then "From your content", lists made
+from what the owner reads or listens to. The first such source is Spotify
+(`ListNode.source`), with a song per list ("Spotify/<title>"); more sources
+(other integrations) are meant to join it there.
+
+- **Pleco's 歌词 lists are songs**, so they live under Spotify: `songListOf`
+  files 歌词/… as Spotify/… on import, and `moveSongLists` moved the rows
+  already there (once per server start, from `listTree`; nothing is written
+  once done). A re-import keeps every Spotify/… list a word is on and takes
+  Pleco's other lists as Pleco has them.
+- **Adding a song** (`app/api/chongfuxi/spotify.ts`, route `lists/spotify`,
+  owner; the form is on Spotify's page): a track link
+  (open.spotify.com/track/…, intl-xx/ or spotify:track:). Its title and
+  artist come from the track's public page (the page title "<title> - song
+  and lyrics by <artist> | Spotify", else og:title and og:description, else
+  oEmbed's title). The lyrics come from [LRCLIB](https://lrclib.net) (open,
+  no key; Spotify gives its lyrics to no one), by title and artist, else
+  title alone; when none are found the reply asks for them and the form
+  takes them pasted. Traditional characters become simplified through
+  CC-CEDICT's single-character pairs, leaving any that are simplified
+  characters too (著, 乾). Credit lines (作词：…) are skipped, and the lines
+  are split into words by the same dictionary matching as a text; every
+  dictionary or corpus word is kept, in order, at most 600.
+- The words are filed as the Pleco lists' are (`chongfuxi_word.lists`): new
+  ones come in as list words with CC-CEDICT's definitions, deck words just
+  get the list too, so the song's page browses, adds, learns and reviews
+  like any list. A second song with the same title takes " · <artist>".
+- Only the words are kept, with the song's title, artist and link
+  (`chongfuxi_song`, made on first use): lists are readable by anyone and
+  lyrics aren't ours to publish. A song's row shows its singer; its page,
+  "Open in Spotify".
+- Neither Spotify nor LRCLIB is reachable from the cloud sessions that build
+  this (the network policy refuses them), so the fetching was tested against
+  stand-ins: the page reading, simplifying and splitting on their own, the
+  writes against a local Postgres.
+
 ## Bug reports
 
 The owner files bugs from any screen: a slim tab on the right edge (owner
@@ -1266,6 +1305,7 @@ so scripts run the same code as routes):
 - `learn.ts` — `wordsToLearn` (the words, where each is on the ladder, and
   their teaching sentences), `recordSteps`. Route `learn` (GET the words,
   `?list=`; POST the steps taken, owner).
+- `spotify.ts` — songs as word lists: `addSong`, `moveSongLists`, `songListOf`, `songsOf`. Route `lists/spotify` (owner).
 - Routes: `summary`, `session`, `sentences`, `sentence`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
   `imports/[id]/ingest`, `lookup`, `define` (owner).

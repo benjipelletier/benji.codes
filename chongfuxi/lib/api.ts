@@ -559,6 +559,10 @@ export interface ListNode {
   toLearn: number;
   /** A list another app keeps: "龙库" is the chengyu 龙库 plays, linked both ways. */
   linked?: "longku";
+  /** A list made from the owner's own content ("Spotify" and its songs), not a study list. */
+  source?: "spotify";
+  /** A song's: what Spotify calls it, who sings it, and its link (none for songs Pleco brought). */
+  song?: { title: string; artist: string | null; url: string | null };
 }
 
 /** A word on a list, in the deck or not. */

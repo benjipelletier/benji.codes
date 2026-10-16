@@ -8,6 +8,10 @@
 // The lists came in with the Pleco backup: each word row knows the lists it
 // is filed under. Adding is one addition, shown at once with Keep and Undo,
 // as a sync's new words are. A list with words due can be reviewed on its own.
+//
+// Two sections: the study lists (龙库, the HSK lists, the textbooks), then
+// lists made from the owner's own content, the first of which is Spotify:
+// a song's link files the words of its lyrics as a list (spotify.ts).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
@@ -19,6 +23,8 @@ import type { ListReview } from "./ReviewPanel";
 import { Loading, AiPill, BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
+/** Where songs go (spotify.ts, SPOTIFY_LIST). */
+const SPOTIFY = "Spotify";
 /** As the server allows (LIST_ADD_MAX). */
 const ADD_MAX = 500;
 
@@ -58,15 +64,26 @@ export function ListsPanel({
   }, []);
   useEffect(loadTree, [loadTree, reviewed]);
 
-  const byList = useMemo(() => new Map((nodes ?? []).map((n) => [n.list, n])), [nodes]);
+  // Spotify is there to add the first song to, before it has any.
+  const all = useMemo(
+    () =>
+      nodes && canWrite && !nodes.some((n) => n.list === SPOTIFY)
+        ? [...nodes, { list: SPOTIFY, total: 0, inDeck: 0, due: 0, toLearn: 0, source: "spotify" as const }]
+        : (nodes ?? []),
+    [nodes, canWrite],
+  );
+  const byList = useMemo(() => new Map(all.map((n) => [n.list, n])), [all]);
   const children = useMemo(
     () =>
-      (nodes ?? [])
+      all
         .filter((n) => parentOf(n.list) === at)
         // A linked list (龙库) first, then the rest by name.
         .sort((a, b) => Number(Boolean(b.linked)) - Number(Boolean(a.linked)) || natural(nameOf(a.list), nameOf(b.list))),
-    [nodes, at],
+    [all, at],
   );
+  // At the top: the study lists, then those made from the owner's content.
+  const study = at ? children : children.filter((n) => !n.source);
+  const content = at ? [] : children.filter((n) => n.source);
   const here = byList.get(at) ?? null;
   const leaf = here !== null && children.length === 0;
 
@@ -130,38 +147,63 @@ export function ListsPanel({
           const path = all.slice(0, i + 1).join("/");
           return <BackStep key={path} onBack={() => go(parentOf(path))} />;
         })}
-      {/* Where in the tree: every step back is a tap. */}
-      <nav className="cf-crumbs" aria-label="Lists">
-        <button className={at ? "" : "is-here"} onClick={() => go("")}>
-          Lists
-        </button>
-        {at.split("/").filter(Boolean).map((part, i, all) => {
-          const path = all.slice(0, i + 1).join("/");
-          return (
-            <span key={path}>
-              <i aria-hidden="true">›</i>
-              <button className={path === at ? "is-here" : ""} onClick={() => go(path)}>
-                {part}
-              </button>
-            </span>
-          );
-        })}
-      </nav>
+      {/* Where in the tree: every step back is a tap. None at the top, where the lists speak for themselves. */}
+      {at && (
+        <nav className="cf-crumbs" aria-label="Lists">
+          <button onClick={() => go("")}>Lists</button>
+          {at.split("/").map((part, i, steps) => {
+            const path = steps.slice(0, i + 1).join("/");
+            return (
+              <span key={path}>
+                <i aria-hidden="true">›</i>
+                <button className={path === at ? "is-here" : ""} onClick={() => go(path)}>
+                  {byList.get(path)?.song?.title ?? part}
+                </button>
+              </span>
+            );
+          })}
+        </nav>
+      )}
 
       {here && (
         <header className="cf-list-head">
-          <h2 className="cf-zh">{nameOf(at)}</h2>
+          <h2 className="cf-zh">{here.song?.title ?? nameOf(at)}</h2>
+          {here.song && (
+            <p className="cf-list-song">
+              {here.song.artist}
+              {here.song.url && (
+                <a className="cf-link" href={here.song.url} target="_blank" rel="noreferrer">
+                  Open in Spotify
+                </a>
+              )}
+            </p>
+          )}
+          {at === SPOTIFY && (
+            <p className="cf-list-about">Songs you listen to, as word lists: paste a song&apos;s Spotify link and the words of its lyrics become a list here.</p>
+          )}
+          {at === SPOTIFY && canWrite && (
+            <AddSong
+              onAdded={(list) => {
+                loadTree();
+                go(list);
+              }}
+            />
+          )}
           {here.linked === "longku" && (
             <p className="cf-list-about">
               The chengyu <a className="cf-link" href="/longku">龙库</a> plays, kept in step with it: every chengyu in your deck is here unless
               you removed it in 龙库, and a chengyu added in 龙库 joins the deck. 龙库 keeps its own practice schedule.
             </p>
           )}
-          <p className="cf-muted">
-            {fmt(here.inDeck)} of {fmt(here.total)} words in the deck
-            {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
-          </p>
-          <Bar node={here} />
+          {here.total > 0 && (
+            <>
+              <p className="cf-muted">
+                {fmt(here.inDeck)} of {fmt(here.total)} words in the deck
+                {missing > 0 ? `, ${fmt(missing)} not yet` : ", all of them"}.
+              </p>
+              <Bar node={here} />
+            </>
+          )}
           {/* Learn its new words and review its due ones, side by side, the counts beneath. */}
           {canWrite && ((onLearn && here.toLearn > 0) || (onReview && here.due > 0)) && (
             <div className="cf-list-actions">
@@ -198,28 +240,12 @@ export function ListsPanel({
 
       {error && <p className="cf-error">{error}</p>}
 
-      {children.length > 0 && (
-        <ul className="cf-list-rows">
-          {children.map((n) => (
-            <li key={n.list}>
-              <button className={n.due > 0 ? "has-due" : undefined} onClick={() => go(n.list)}>
-                <span className="cf-list-name cf-zh">
-                  {nameOf(n.list)}
-                  {n.linked === "longku" && <span className="cf-list-linked">linked to 龙库</span>}
-                </span>
-                <span className="cf-list-count">
-                  {n.inDeck === n.total ? "all " : `${fmt(n.inDeck)} / `}
-                  {fmt(n.total)}
-                </span>
-                <Bar node={n} />
-                {n.due > 0 && <b className="cf-list-due">{fmt(n.due)} due</b>}
-                <i className="cf-list-go" aria-hidden="true">
-                  ›
-                </i>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {study.length > 0 && <Rows nodes={study} go={go} />}
+      {content.length > 0 && (
+        <>
+          <h3 className="cf-list-section">From your content</h3>
+          <Rows nodes={content} go={go} />
+        </>
       )}
 
       {leaf && words === null && !error && <Loading small label="Reading the words…" />}
@@ -280,6 +306,103 @@ export function ListsPanel({
     </div>
   );
 }
+
+/** Lists side by side, each with how much is in the deck and what is due; a song with its singer. */
+function Rows({ nodes, go }: { nodes: ListNode[]; go: (list: string) => void }) {
+  return (
+    <ul className="cf-list-rows">
+      {nodes.map((n) => (
+        <li key={n.list}>
+          <button className={n.due > 0 ? "has-due" : undefined} onClick={() => go(n.list)}>
+            <span className="cf-list-name cf-zh">
+              {n.song?.title ?? nameOf(n.list)}
+              {n.linked === "longku" && <span className="cf-list-linked">linked to 龙库</span>}
+              {n.song?.artist && <small className="cf-list-artist">{n.song.artist}</small>}
+            </span>
+            <span className="cf-list-count">
+              {n.total === 0 ? "add a song" : n.inDeck === n.total ? `all ${fmt(n.total)}` : `${fmt(n.inDeck)} / ${fmt(n.total)}`}
+            </span>
+            <Bar node={n} />
+            {n.due > 0 && <b className="cf-list-due">{fmt(n.due)} due</b>}
+            <i className="cf-list-go" aria-hidden="true">
+              ›
+            </i>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * A song's Spotify link in; its lyrics' words out, as a list. When no lyrics
+ * are found for it, they can be pasted.
+ */
+function AddSong({ onAdded }: { onAdded: (list: string) => void }) {
+  const [link, setLink] = useState("");
+  const [asked, setAsked] = useState<{ title: string; artist: string | null } | null>(null);
+  const [lyrics, setLyrics] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async () => {
+    if (busy || !link.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await send<SongReply>("lists/spotify", { link: link.trim(), ...(asked ? { lyrics } : {}) });
+      if ("needLyrics" in r) return setAsked({ title: r.title, artist: r.artist });
+      setLink("");
+      setAsked(null);
+      setLyrics("");
+      onAdded(r.list);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form
+      className="cf-song-add"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <div className="cf-song-row">
+        <input
+          className="cf-input"
+          type="url"
+          inputMode="url"
+          placeholder="Paste a Spotify song link"
+          value={link}
+          onChange={(e) => {
+            setLink(e.target.value);
+            setAsked(null);
+          }}
+        />
+        <button className="cf-btn" disabled={busy || !link.trim() || (asked !== null && !lyrics.trim())}>
+          {busy ? "Adding…" : "Add song"}
+        </button>
+      </div>
+      {asked && (
+        <>
+          <p className="cf-muted">
+            No lyrics found for <b className="cf-zh">{asked.title}</b>
+            {asked.artist ? ` by ${asked.artist}` : ""}. Paste them here to use them instead (only the words are kept).
+          </p>
+          <textarea className="cf-input" rows={6} value={lyrics} onChange={(e) => setLyrics(e.target.value)} placeholder="The lyrics" />
+        </>
+      )}
+      {busy && <Loading small label={asked ? "Reading the lyrics…" : "Finding the song and its lyrics…"} />}
+      {error && <p className="cf-error">{error}</p>}
+    </form>
+  );
+}
+
+type SongReply =
+  | { list: string; title: string; artist: string | null; words: number; fresh: number }
+  | { needLyrics: true; title: string; artist: string | null };
 
 function Word({ w }: { w: ListWord }) {
   return (

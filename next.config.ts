@@ -122,6 +122,10 @@ const nextConfig: NextConfig = {
     // Look up: the dictionary both ways, the readings of every option, and
     // adding a word from an answer (which links a chengyu into 龙库).
     "/api/chongfuxi/lookup": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
+    // A song's lyrics split into words, traditional turned simplified, the new words defined.
+    "/api/chongfuxi/lists/spotify": ["./chongfuxi/data/cedict.txt"],
+    // Checking the model's pinyin for a word that has none, character by character.
+    "/api/chongfuxi/define": ["./chongfuxi/data/cedict.txt"],
     // Removing a word, or undoing an addition, unlinks it from 龙库.
     "/api/chongfuxi/word": ["./longku/data/chengyu.json"],
     "/api/chongfuxi/additions/[id]": ["./longku/data/chengyu.json"],

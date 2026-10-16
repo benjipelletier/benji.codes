@@ -22,6 +22,7 @@ import { segmentByDictionary } from "@chongfuxi/lib/segment";
 import { makeUnlock } from "@chongfuxi/lib/unlock";
 import { orderStoredDefs } from "./defs";
 import { reconcileLongku } from "./longku";
+import { SPOTIFY_LIST, songListOf } from "./spotify";
 
 const BATCH = 1000;
 const TOKEN_BATCH = 2500;
@@ -133,7 +134,8 @@ function wordRows(corpus: Corpus, dict: Dict): WordRow[] {
       d: defs,
       g: w.known ? glossesOf(defs) : [],
       k: w.pleco,
-      l: w.lists,
+      // Pleco's 歌词 lists are filed under Spotify, with the songs added here.
+      l: w.lists.map(songListOf),
     });
   }
   return rows;
@@ -363,7 +365,12 @@ export async function ingest(
         glosses   = case when jsonb_array_length(excluded.defs) = 0 and chongfuxi_word.defs @> '[{"ai": true}]'
                          then chongfuxi_word.glosses else excluded.glosses end,
         pleco     = coalesce(excluded.pleco, chongfuxi_word.pleco),
-        lists     = excluded.lists,
+        -- Pleco's lists as Pleco has them now, and the songs added here kept.
+        lists     = array(
+          select distinct x from unnest(excluded.lists || array(
+            select l from unnest(chongfuxi_word.lists) l where l like ${`${SPOTIFY_LIST}/%`}
+          )) x
+        ),
         import_id = excluded.import_id
     `;
   }

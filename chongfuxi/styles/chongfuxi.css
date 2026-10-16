@@ -5768,6 +5768,76 @@ button.cf-synclog-row {
   color: var(--cf-ink-soft);
 }
 
+/* The second section of lists: those made from the owner's content (Spotify). */
+.cf-list-section {
+  margin: 26px 2px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cf-ink-faint);
+}
+
+/* A song's singer, beside its title in a row. */
+.cf-list-artist {
+  margin-left: 8px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--cf-ink-faint);
+}
+
+/* A song's page: who sings it, and the way back to it in Spotify. */
+.cf-list-song {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 2px 0 8px;
+  font-size: 14.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-song-add {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+
+.cf-song-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cf-song-add .cf-input {
+  margin: 0;
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.cf-song-add textarea.cf-input {
+  font-family: var(--cf-zh);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.cf-song-row .cf-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-song-row .cf-btn {
+  flex: none;
+  min-height: 46px;
+  margin: 0;
+}
+
+.cf-song-add .cf-muted,
+.cf-song-add .cf-error {
+  margin: 0;
+}
+
 /* ---------------------------------------------------------------- learn -- */
 
 /* Learn on a list, in the new-card amber, beside the blue Review. */

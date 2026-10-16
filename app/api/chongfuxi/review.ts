@@ -31,6 +31,7 @@ import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { longkuWords } from "./longku";
+import { SPOTIFY_LIST, moveSongLists, songsOf } from "./spotify";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import { mainSenses } from "@chongfuxi/lib/senses";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
@@ -1404,6 +1405,7 @@ const TO_LEARN_WORDS = `
  * two lessons of a book counts once in the book.
  */
 export async function listTree(sql: Sql, owner: string, day: StudyDay | null = null): Promise<ListNode[]> {
+  await moveSongLists(sql, owner);
   // Without a day, nothing counts as due.
   const dayParams = [owner, day?.cutoff ?? 0, day?.day ?? "1970-01-01"];
   const rows = (await sql.query(
@@ -1432,12 +1434,24 @@ export async function listTree(sql: Sql, owner: string, day: StudyDay | null = n
     dayParams,
   )) as unknown as Array<{ n: number; due: number; to_learn: number }>;
   const l = longku[0];
+  const songs = await songsOf(sql, owner);
   return [
     // 龙库's chengyu: every one a deck word, kept in step with 龙库 (longku.ts).
     ...(l.n ? [{ list: LONGKU_LIST, total: l.n, inDeck: l.n, due: l.due, toLearn: l.to_learn, linked: "longku" as const }] : []),
     ...rows
       .filter((r) => !LISTS_HIDDEN.test(r.list.split("/")[0]))
-      .map((r) => ({ list: r.list, total: r.total, inDeck: r.in_deck, due: r.due, toLearn: r.to_learn })),
+      .map((r) => {
+        const song = songs.get(r.list);
+        return {
+          list: r.list,
+          total: r.total,
+          inDeck: r.in_deck,
+          due: r.due,
+          toLearn: r.to_learn,
+          ...(r.list === SPOTIFY_LIST || r.list.startsWith(`${SPOTIFY_LIST}/`) ? { source: "spotify" as const } : {}),
+          ...(song ? { song } : {}),
+        };
+      }),
   ];
 }
 

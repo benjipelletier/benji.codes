@@ -445,3 +445,21 @@ create table if not exists chongfuxi_lookup (
   note        text,
   primary key (owner_email, query)
 );
+
+-- --------------------------------------------------------------- songs --
+
+-- Songs added from a Spotify link (app/api/chongfuxi/spotify.ts): the list
+-- their words are filed under ("Spotify/<title>"), and what Spotify calls
+-- them. The lyrics aren't kept, only the words. Also made on first use.
+create table if not exists chongfuxi_song (
+  owner_email text        not null,
+  list        text        not null,
+  track_id    text,
+  url         text,
+  title       text        not null,
+  artist      text,
+  lyrics_from text        not null,
+  words       integer     not null,
+  added       timestamptz not null default now(),
+  primary key (owner_email, list)
+);

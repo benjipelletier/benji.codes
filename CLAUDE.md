@@ -70,6 +70,10 @@ on the landing page. All five current projects are enabled.
   `CHONGFUXI_DATABASE_URL` store and are served read-only. That backup
   includes third-party sentence decks.
 
+- **chongfuxi** fetches song lyrics from [LRCLIB](https://lrclib.net) when a
+  Spotify link is added (`app/api/chongfuxi/spotify.ts`), splits them into
+  words and keeps only the words; the lyrics themselves aren't stored.
+
 ## 龙库 and 重复习 share a database
 
 龙库's tables now live in `CHONGFUXI_DATABASE_URL`, and its chengyu are 重复习
