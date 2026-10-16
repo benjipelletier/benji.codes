@@ -198,6 +198,7 @@ function lookWord(zh: string, deps: CheckDeps): LookupWord {
     pinyin: parts ? parts.map((w) => displayPinyin(deps.entry(w)!.p)).join(" ") : null,
     gloss: whole?.gloss ?? null,
     inDictionary,
+    ...(!whole && parts && parts.length > 1 ? { parts } : {}),
   };
 }
 
@@ -248,6 +249,8 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
     if (w && !words[w]) {
       words[w] = lookWord(w, deps);
       if (!words[w].inDictionary && HAN.test(w)) checks.push(`${w} is not a CC-CEDICT word, nor made of one.`);
+      // A phrase's words get their own entries: each can be in the deck or added.
+      for (const part of words[w].parts ?? []) words[part] ??= lookWord(part, deps);
     }
     return w;
   };
@@ -328,6 +331,7 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
         const members = b.members
           .filter((m) => m.zh.trim())
           .map((m) => {
+            word(m.zh);
             const n = m.count >= 0 ? m.count : null;
             if (n !== null && !countSeen(seen, m.zh, n)) {
               checks.push(`${m.zh}: ${n} in your sentences, which no search returned; the count is left off.`);

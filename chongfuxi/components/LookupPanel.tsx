@@ -117,7 +117,7 @@ function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
     const stage = info.deck.stage;
     return <span className="cf-lk-deck is-in">✓ In deck{stage ? ` · ${STAGE[stage]}` : ""}</span>;
   }
-  if (info.deck?.status === "name" || !info.inDictionary || !info.pinyin) return null;
+  if (info.deck?.status === "name" || !info.inDictionary || !info.pinyin || info.parts) return null;
   return (
     <>
       <button className="cf-lk-add" disabled={busy} onClick={() => void add()} title={info.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
@@ -128,8 +128,62 @@ function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
   );
 }
 
-/** The gap phrase: the best word in it, every candidate under it; a tap tries one. */
-function GapBlock({ b, picked, onPick }: { b: Block<"gap">; picked: string | null; onPick: (zh: string) => void }) {
+const inDeck = (ctx: Ctx, zh: string) => ctx.words[zh]?.deck?.status === "deck";
+
+/**
+ * A word as a dictionary line: the word, our pinyin, where it stands in the
+ * deck (or + Add), its meaning. A phrase that isn't a headword shows a line
+ * for each word in it instead.
+ */
+function WordLine({ zh, ctx }: { zh: string; ctx: Ctx }) {
+  const info = ctx.words[zh];
+  if (info?.parts) {
+    return (
+      <>
+        {info.parts.map((w) => (
+          <WordLine key={w} zh={w} ctx={ctx} />
+        ))}
+      </>
+    );
+  }
+  return (
+    <div className="cf-lk-wl">
+      <div className="cf-lk-wordline">
+        <span className="cf-zh cf-lk-wl-zh">{zh}</span>
+        {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
+        <DeckMark zh={zh} ctx={ctx} />
+      </div>
+      {info?.gloss && <p className="cf-lk-gloss">{info.gloss}</p>}
+    </div>
+  );
+}
+
+/** A small tick on a chip whose word is already in the deck. */
+const DeckTick = ({ on }: { on: boolean }) =>
+  on ? (
+    <i className="cf-lk-tick" aria-hidden="true" title="In your deck">
+      ✓
+    </i>
+  ) : null;
+
+/**
+ * The gap phrase: the best word in it, every candidate under it; a tap tries
+ * one, and under the chips shows it as a dictionary line (unless a sense
+ * below already does).
+ */
+function GapBlock({
+  b,
+  picked,
+  onPick,
+  ctx,
+  sensed,
+}: {
+  b: Block<"gap">;
+  picked: string | null;
+  onPick: (zh: string) => void;
+  ctx: Ctx;
+  sensed: Set<string>;
+}) {
   const shown = b.options.find((o) => o.zh === picked) ?? b.options.find((o) => o.fits) ?? null;
   return (
     <div className="cf-lk-head">
@@ -140,16 +194,22 @@ function GapBlock({ b, picked, onPick }: { b: Block<"gap">; picked: string | nul
             key={o.zh}
             className={`cf-lk-try ${o.fits ? "is-fit" : "is-miss"}${shown?.zh === o.zh ? " is-on" : ""}`}
             aria-pressed={shown?.zh === o.zh}
-            aria-label={`${o.zh}${o.fits ? (o.label ? `, ${o.label}` : "") : ", doesn't fit"}`}
+            aria-label={`${o.zh}${o.fits ? (o.label ? `, ${o.label}` : "") : ", doesn't fit"}${inDeck(ctx, o.zh) ? ", in your deck" : ""}`}
             onClick={() => onPick(o.zh)}
           >
             <b>{o.zh}</b>
             {o.fits && o.label && <small>{o.label}</small>}
+            <DeckTick on={inDeck(ctx, o.zh)} />
           </button>
         ))}
       </div>
       {/* Under the words, so tapping one never moves them. */}
-      {shown && !shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
+      {shown && (!sensed.has(shown.zh) || !shown.fits) && (
+        <div className="cf-lk-pick">
+          <WordLine zh={shown.zh} ctx={ctx} />
+          {!shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -338,8 +398,9 @@ function PatternBlock({ b }: { b: Block<"pattern"> }) {
   );
 }
 
-/** The rule behind the answer, and what it combines with in the owner's sentences. */
-function FamilyBlock({ b }: { b: Block<"family"> }) {
+/** The rule behind the answer, and what it combines with in the owner's sentences; a tap shows a member's words. */
+function FamilyBlock({ b, ctx }: { b: Block<"family">; ctx: Ctx }) {
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <div className="cf-lk-family">
       <p className="cf-lk-fm-rule">
@@ -349,11 +410,23 @@ function FamilyBlock({ b }: { b: Block<"family"> }) {
       <ul className="cf-lk-fm-members">
         {b.members.map((m) => (
           <li key={m.zh}>
-            <span className="cf-zh">{m.zh}</span>
-            {m.count !== null && <small title="In your sentences">{m.count}×</small>}
+            <button
+              className={`cf-lk-member${open === m.zh ? " is-on" : ""}`}
+              aria-pressed={open === m.zh}
+              onClick={() => setOpen(open === m.zh ? null : m.zh)}
+            >
+              <span className="cf-zh">{m.zh}</span>
+              {m.count !== null && <small title="In your sentences">{m.count}×</small>}
+              <DeckTick on={inDeck(ctx, m.zh)} />
+            </button>
           </li>
         ))}
       </ul>
+      {open && (
+        <div className="cf-lk-pick">
+          <WordLine zh={open} ctx={ctx} />
+        </div>
+      )}
     </div>
   );
 }
@@ -400,15 +473,29 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
     }
   };
 
+  const sensed = new Set(a.blocks.flatMap((b) => (b.type === "sense" ? b.items.map((it) => it.zh) : [])));
   // Senses are numbered through the whole answer, as in a dictionary entry.
   let n = 0;
   return (
     <article className="cf-lk-answer">
-      {/* Nothing says what the answer is: the blocks show it. */}
+      {/* How the question was read, the asked part in bold; the blocks show the answer. */}
+      <p className="cf-lk-read">
+        <span>{KIND[a.reading.kind]}</span>
+        {a.reading.parts.length > 0 && (
+          <span>
+            {a.reading.parts.map((p, i) => (
+              <Fragment key={i}>
+                {i > 0 && " "}
+                {p.asked ? <b>{p.text}</b> : p.text}
+              </Fragment>
+            ))}
+          </span>
+        )}
+      </p>
       {a.blocks.map((b, i) => {
         switch (b.type) {
           case "gap":
-            return <GapBlock key={i} b={b} picked={picked} onPick={setPicked} />;
+            return <GapBlock key={i} b={b} picked={picked} onPick={setPicked} ctx={ctx} sensed={sensed} />;
           case "sense":
             return (
               <ol key={i} className="cf-lk-entry">
@@ -431,7 +518,7 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
           case "pattern":
             return <PatternBlock key={i} b={b} />;
           case "family":
-            return <FamilyBlock key={i} b={b} />;
+            return <FamilyBlock key={i} b={b} ctx={ctx} />;
           case "wrong-right":
             return <WrongRightBlock key={i} b={b} />;
           case "example":
@@ -484,13 +571,6 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
       <details className="cf-lk-checks">
         <summary>How it was read, and what the check changed</summary>
         {a.summary && <p>{a.summary}</p>}
-        <p className="cf-lk-parts">
-          {a.reading.parts.map((p, i) => (
-            <span key={i} className={`cf-lk-part${p.asked ? " is-asked" : ""}`} title={p.asked ? "The question" : "Known"}>
-              {p.text}
-            </span>
-          ))}
-        </p>
         {a.reading.note && <p>{a.reading.note}</p>}
         <ul>
           {a.checks.map((c, i) => (

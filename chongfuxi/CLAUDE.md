@@ -464,12 +464,22 @@ the blocks' shapes, with no sentence saying what it is.
   same kind of question looks the same each time.
 - Answers kept in the first shape (options, frame, written) are turned into
   blocks when read back (`fromV1`), so the cache and test set stay usable.
-- On screen (`LookupPanel.tsx`): `GapBlock` (tapping a chip tries it; a
-  sense's word does too), `SenseItem` (numbered through the whole answer),
+- On screen (`LookupPanel.tsx`): first a line saying how the question was
+  read (its kind, the query with the asked part in bold: the owner asked for
+  it back). `GapBlock` (tapping a chip tries it and shows it under the chips
+  as a dictionary line, `WordLine`: pinyin, meaning, deck mark or + Add,
+  unless a sense below already does; a sense's word tries it too), `SenseItem` (numbered through the whole answer),
   `ContrastBlock` (a grid, ✓/✗ cells), `ScaleBlock` (dots on a gradient
   line, kept clear of the edges), `PatternBlock` (`{A}` slots drawn dashed,
-  the slot words marked in each filling), `FamilyBlock`, `WrongRightBlock`,
+  the slot words marked in each filling), `FamilyBlock` (a tap on a member shows its words, each with pinyin
+  and + Add: members and the headwords they split into are in the answer's
+  words map, `parts`), `WrongRightBlock`,
   `ExampleBlock`.
+- A chip whose word is in the deck has a small ✓ in its corner, so what is
+  known shows at a glance (the owner couldn't tell from the first real
+  answer, which had no sense block to carry the deck marks).
+- Known gap: 得了 in a gap is 得 + 了 (got), but the dictionary line shows the
+  headword 得了 ("all right!; that's enough!"), and + Add would add that.
 - Cost on Haiku: about $0.005 a lookup, against $0.004 for the fixed shape.
 - Not yet run against a real model: the session that built it had no key
   or database. Ask a few questions of each kind and see which blocks the

@@ -78,6 +78,9 @@ assert.equal(out.words["覅郁"].inDictionary, false, "two lone characters are n
 const family = out.blocks.find((b) => b.type === "family")!;
 assert.ok(family.type === "family");
 assert.deepEqual(family.members.map((m) => m.count), [7, null], "a member's count stands only if a search returned it");
+assert.deepEqual(out.words["得了癌症"].parts, ["得了", "癌症"], "a member phrase is shown as the words it splits into");
+assert.equal(out.words["癌症"].pinyin, "áizhèng", "and each of those words has its own entry, to add");
+assert.equal(out.words["得了"].parts, undefined, "a headword is not split");
 const scale = out.blocks.find((b) => b.type === "scale")!;
 assert.ok(scale.type === "scale");
 assert.deepEqual(scale.points.map((p) => [p.zh, p.at]), [["结果", 0.5], ["后果", 1]], "points sorted, kept on the line");

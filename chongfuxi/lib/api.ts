@@ -685,6 +685,8 @@ export interface LookupWord {
   pinyin: string | null;
   gloss: string | null;
   inDictionary: boolean;
+  /** For a phrase that isn't a headword (得了心脏病): the headwords it splits into, each in the words map too. */
+  parts?: string[];
   /** Looked up each time the answer is shown, not kept with it. */
   deck?: LookupDeck;
 }
