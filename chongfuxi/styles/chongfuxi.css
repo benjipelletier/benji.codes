@@ -322,7 +322,7 @@ body:has(.cfx) {
 }
 
 .cf-ti-zh {
-  /* Only 复卡查统入 and the card foot's 魚笔 are loaded in this face (app/chongfuxi/layout.tsx). */
+  /* Only 复卡查统入 and the card foot's 魚记 are loaded in this face (app/chongfuxi/layout.tsx). */
   font-family: "LXGW WenKai TC", var(--cf-zh);
   font-weight: 700;
   fill: currentColor;
