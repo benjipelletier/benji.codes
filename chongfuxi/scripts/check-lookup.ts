@@ -8,7 +8,7 @@
 
 import assert from "node:assert/strict";
 import type { LookupAnswerV1 } from "@chongfuxi/lib/api";
-import { checkAnswer, fromV1, normaliseAnswer, type ModelAnswer } from "../../app/api/chongfuxi/lookup-check";
+import { checkAnswer, fromV1, mistakeKey, normaliseAnswer, type ModelAnswer } from "../../app/api/chongfuxi/lookup-check";
 import { newSeen } from "../../app/api/chongfuxi/lookup-evidence";
 import { dictEntry } from "../../app/api/chongfuxi/headwords";
 
@@ -132,6 +132,15 @@ assert.equal(handed.summary, "");
 for (const junk of [null, undefined, 3, "x", [], { blocks: 5 }, { blocks: [null, 1, []] }]) {
   assert.deepEqual(normaliseAnswer(junk).blocks, [], "junk gives no blocks, never a crash");
 }
+
+// What a warning is tested with in the owner's sentences: where the wrong
+// version differs, a character either side.
+assert.equal(mistakeKey("哪个站", "哪个车站"), "个站", "an insertion: the characters around it");
+assert.equal(mistakeKey("发展抑郁症", "得了抑郁症 / 患上抑郁症"), "发展抑");
+assert.equal(mistakeKey("越多越很好", "越多越好"), "越很好");
+assert.equal(mistakeKey("他发展了抑郁症。", "他得了抑郁症。"), "他发展了");
+assert.equal(mistakeKey("站", "车站"), null, "one character is too little to look for");
+assert.equal(mistakeKey("哪个站", "哪个站"), null, "nothing differs");
 
 console.log(out.checks.join("\n"));
 console.log("ok");

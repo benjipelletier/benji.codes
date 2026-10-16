@@ -156,6 +156,39 @@ export function normaliseAnswer(input: unknown): ModelAnswer {
   };
 }
 
+/**
+ * What to look for in the owner's sentences to test a warning: where the
+ * wrong version differs from the right one, with a character either side
+ * (哪个站 against 哪个车站: 个站; 发展抑郁症 against 得了抑郁症: 发展抑). Of
+ * several right versions ("得了抑郁症 / 患上抑郁症") the closest is used.
+ * Null when there is nothing distinctive to look for.
+ */
+export function mistakeKey(wrong: string, right: string): string | null {
+  const han = (x: string) => [...x.replace(/[^\u3400-\u9fff]/g, "")];
+  const w = han(wrong);
+  if (w.length < 2) return null;
+  let best: string | null = null;
+  let bestShared = -1;
+  for (const alt of right.split(/[/／|｜;；]|\bor\b/)) {
+    const r = han(alt);
+    if (!r.length || r.join("") === w.join("")) continue;
+    let p = 0;
+    while (p < w.length && p < r.length && w[p] === r[p]) p++;
+    let s = 0;
+    while (s < w.length - p && s < r.length - p && w[w.length - 1 - s] === r[r.length - 1 - s]) s++;
+    const from = Math.max(0, p - 1);
+    const to = Math.min(w.length, w.length - s + 1);
+    let key = w.slice(from, to);
+    // Too short to mean anything: widen to the whole wrong version.
+    if (key.length < 2) key = w;
+    if (p + s > bestShared) {
+      bestShared = p + s;
+      best = key.join("");
+    }
+  }
+  return best;
+}
+
 export interface CheckDeps {
   /** A headword's usual reading and short meaning, or undefined when it isn't one. */
   entry(word: string): { p: string; gloss: string | null } | undefined;

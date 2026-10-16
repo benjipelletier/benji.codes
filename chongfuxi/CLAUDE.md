@@ -478,6 +478,16 @@ the blocks' shapes, with no sentence saying what it is.
 - A chip whose word is in the deck has a small ✓ in its corner, so what is
   known shows at a glance (the owner couldn't tell from the first real
   answer, which had no sense block to carry the deck marks).
+- **Warnings are tested against the owner's sentences** (`withUsage` in
+  `lookup.ts`, each time an answer is shown, so kept answers get it too; a
+  database search, no model call). Haiku told the owner 哪个站 "is not a set
+  phrase", which is false. For each wrong → right block, `mistakeKey` takes
+  where the wrong version differs from the right one, with a character
+  either side (哪个站 / 哪个车站: 个站), and if the owner's sentences have it,
+  the block shows as in doubt: amber, the wrong side not struck, how many of
+  their sentences have it with one of them, the model's reason struck
+  instead. The prompt also tells the model to search before warning. Not
+  yet tested: a gap's near misses (a key like 在站 would also match 在站台).
 - Known gap: 得了 in a gap is 得 + 了 (got), but the dictionary line shows the
   headword 得了 ("all right!; that's enough!"), and + Add would add that.
 - Cost on Haiku: about $0.005 a lookup, against $0.004 for the fixed shape.

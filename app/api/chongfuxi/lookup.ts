@@ -21,7 +21,7 @@ import { addWords } from "./additions";
 import type { Sql } from "./db";
 import { loadDict } from "./dictfile";
 import { dictEntry } from "./headwords";
-import { checkAnswer, citedIds, fromV1, normaliseAnswer, type ModelAnswer } from "./lookup-check";
+import { checkAnswer, citedIds, fromV1, mistakeKey, normaliseAnswer, type ModelAnswer } from "./lookup-check";
 import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, together, type Seen } from "./lookup-evidence";
 
 export class LookupError extends Error {}
@@ -70,7 +70,7 @@ The blocks. Use the ones the question needs, usually two to four, one of them a 
 - scale (headline for tone or register): words placed along one line, at from 0 (left) to 1 (right), with left, middle and right naming the ends ("good", "neutral", "bad" or "casual", "", "formal"). gloss is a few words of meaning.
 - pattern (headline for patterns): template with slots in braces ("越{A}越{B}"), what each slot takes, and fillings: a sentence id from the tools (or -1 for one you write), its text and translation, and the words that fill the slots (marks).
 - family: the rule behind the answer, so it carries to other cases: head ("得"), rule ("+ an illness"), and members from the user's sentences ("得感冒", "得了癌症") with their counts as the tools returned them (-1 when you have none). Include it whenever the answer follows a rule the user can reuse.
-- wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses.
+- wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses. Warn only against what is really wrong, not what is merely less explicit: search_sentences for the wrong phrase first, and if the user's sentences use it, it is not a mistake (哪个站 is everyday Chinese). The app tests every warning against their sentences and shows the ones they contradict as in doubt.
 - example: one sentence, by id from the tools, or id -1 for one you write (it is labelled as yours).
 
 Rules:
@@ -268,7 +268,7 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
       answer: LookupAnswer | LookupAnswerV1;
     }>;
     // Kept before blocks: drawn as blocks all the same.
-    if (kept[0]) return withDeck(sql, owner, "blocks" in kept[0].answer ? kept[0].answer : fromV1(kept[0].answer));
+    if (kept[0]) return withDeck(sql, owner, await withUsage(sql, owner, "blocks" in kept[0].answer ? kept[0].answer : fromV1(kept[0].answer)));
   }
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new LookupError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
@@ -339,7 +339,40 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     on conflict (owner_email, query) do update
       set at = now(), model = excluded.model, kind = excluded.kind, answer = excluded.answer, verdict = null, note = null
   `;
-  return withDeck(sql, owner, answer);
+  return withDeck(sql, owner, await withUsage(sql, owner, answer));
+}
+
+/**
+ * Each warning tested against the owner's sentences: when the "wrong" part
+ * is in them, the model's rule is in doubt (哪个站 is everyday Chinese,
+ * whatever Haiku said), and the block shows those sentences instead of a
+ * strike. A database search, no model call; done each time the answer is
+ * shown, so kept answers get it too.
+ */
+async function withUsage(sql: Sql, owner: string, answer: LookupAnswer): Promise<LookupAnswer> {
+  const checks = answer.checks.filter((c) => !c.startsWith("Warned against "));
+  const blocks = await Promise.all(
+    answer.blocks.map(async (b) => {
+      if (b.type !== "wrong-right") return b;
+      const { used: _, ...plain } = b;
+      const key = mistakeKey(b.wrong, b.right);
+      if (!key) return plain;
+      const rows = (await sql`
+        select id::int as id, zh, en, blockers, count(*) over ()::int as total
+        from chongfuxi_sentence
+        where owner_email = ${owner} and strpos(zh, ${key}) > 0
+        order by cardinality(blockers) = 0 desc, length(zh)
+        limit 2
+      `) as unknown as Array<{ id: number; zh: string; en: string | null; blockers: string[]; total: number }>;
+      if (!rows.length) return plain;
+      checks.push(`Warned against ${key}, which is in ${rows[0].total} of your sentences: shown as in doubt.`);
+      return {
+        ...plain,
+        used: { key, count: rows[0].total, examples: rows.map((r) => ({ id: r.id, zh: r.zh, en: r.en, readable: r.blockers.length === 0 })) },
+      };
+    }),
+  );
+  return { ...answer, blocks, checks };
 }
 
 /** A word's Read card, as the Words wall shades it: not answered here yet, under three weeks, under six months, beyond. */

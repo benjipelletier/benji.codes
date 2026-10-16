@@ -6740,13 +6740,13 @@ button.cf-synclog-row {
   gap: 2px;
 }
 
-.cf-lk-wr s {
+.cf-lk-wr > s {
   font-size: 18px;
   color: var(--cf-down);
   text-decoration-thickness: 2px;
 }
 
-.cf-lk-wr span {
+.cf-lk-wr > span {
   font-size: 18px;
   color: var(--cf-up);
 }
@@ -6754,6 +6754,38 @@ button.cf-synclog-row {
 .cf-lk-wr small {
   font-size: 13px;
   color: var(--cf-ink-soft);
+}
+
+/* A warning the owner's sentences contradict: amber, not struck. */
+.cf-lk-wr.is-used {
+  padding-left: 10px;
+  border-left: 3px solid var(--cf-warn);
+}
+
+.cf-lk-wr > .cf-lk-wr-also {
+  font-size: 18px;
+  color: var(--cf-ink);
+}
+
+.cf-lk-wr mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cf-warn) 22%, transparent);
+  color: inherit;
+}
+
+.cf-lk-wr > .cf-lk-wr-count {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--cf-warn);
+}
+
+.cf-lk-wr.is-used .cf-lk-ex {
+  margin-top: 2px;
+}
+
+.cf-lk-wr.is-used small s {
+  text-decoration-color: var(--cf-ink-faint);
 }
 
 /* Was this right? Two small round buttons, a note when wrong. */

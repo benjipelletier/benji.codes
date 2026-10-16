@@ -431,13 +431,45 @@ function FamilyBlock({ b, ctx }: { b: Block<"family">; ctx: Ctx }) {
   );
 }
 
-/** The likely mistake beside the fix. */
+/**
+ * The likely mistake beside the fix. When the owner's own sentences use the
+ * "wrong" part, the warning is in doubt: the wrong side isn't struck, the
+ * model's reason is, and one of those sentences shows it in use.
+ */
 function WrongRightBlock({ b }: { b: Block<"wrong-right"> }) {
+  const used = b.used;
+  if (!used) {
+    return (
+      <div className="cf-lk-wr">
+        <s className="cf-zh">{b.wrong}</s>
+        <span className="cf-zh">{b.right}</span>
+        {b.why && <small>{b.why}</small>}
+      </div>
+    );
+  }
+  const [first] = used.examples;
   return (
-    <div className="cf-lk-wr">
-      <s className="cf-zh">{b.wrong}</s>
+    <div className="cf-lk-wr is-used">
+      <span className="cf-zh cf-lk-wr-also">
+        <MarkedText zh={b.wrong} marks={[used.key]} />
+      </span>
       <span className="cf-zh">{b.right}</span>
-      {b.why && <small>{b.why}</small>}
+      <span className="cf-lk-wr-count">
+        {used.key} is in {used.count} of your sentences
+      </span>
+      {first && (
+        <p className="cf-lk-ex">
+          <span className="cf-zh">
+            <MarkedText zh={first.zh} marks={[used.key]} />
+          </span>
+          {first.en && <span>{first.en}</span>}
+        </p>
+      )}
+      {b.why && (
+        <small>
+          <s>{b.why}</s>
+        </small>
+      )}
     </div>
   );
 }

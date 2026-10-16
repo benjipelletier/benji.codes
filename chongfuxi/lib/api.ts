@@ -675,7 +675,18 @@ export type LookupBlock =
   /** The rule behind the answer: a head word and what it combines with, from the owner's sentences where counted. */
   | { type: "family"; head: string; rule: string; members: Array<{ zh: string; count: number | null }> }
   /** The likely mistake beside the fix. */
-  | { type: "wrong-right"; wrong: string; right: string; why: string }
+  | {
+      type: "wrong-right";
+      wrong: string;
+      right: string;
+      why: string;
+      /**
+       * The owner's sentences that say the "wrong" part after all (`key`, the
+       * part that differs and a character either side), when any do: then the
+       * model's warning is in doubt and the block shows them, not a strike.
+       */
+      used?: { key: string; count: number; examples: LookupSentence[] };
+    }
   /** One sentence: the owner's (by id, as stored), or labelled as written by the model. */
   | { type: "example"; zh: string; en: string | null; mine: boolean; readable: boolean };
 
