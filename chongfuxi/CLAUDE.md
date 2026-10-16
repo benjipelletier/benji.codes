@@ -406,6 +406,10 @@ Built on the owner's corpus alone, since that is what answers lead with:
   longer writes one). The hint under the field shows only before an answer,
   with History under it: each question on one line, the kind it was read as
   under it, the verdict at the end (it was "Asked before", in large type).
+  First those sharing Chinese with what is in the field ("With 表达": one
+  run of characters holding the other, so 表达式 finds "表达 vs 表示" too),
+  as it is typed or filled from a review card; then Recent, the latest six,
+  the rest behind "Show all" (the owner's request; it was every question).
   After the blocks: Right? ✓ ✗ (a note when wrong); how the question was
   read, the model's summary and what the check changed folded away at the
   foot.

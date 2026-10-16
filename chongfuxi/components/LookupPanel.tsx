@@ -721,6 +721,58 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
   );
 }
 
+const RECENT = 6;
+const hanRuns = (text: string) => text.match(/[\u3400-\u9fff]+/g) ?? [];
+
+/**
+ * Past questions: first those sharing Chinese with what is in the field (one
+ * holding the other: 表达 finds "表达 vs 表示", and so does 表达式), then the
+ * most recent, the rest a tap away. At the owner's request; it was every
+ * question, newest first.
+ */
+function History({ past, typed, onPick }: { past: LookupListed[]; typed: string; onPick: (q: string) => void }) {
+  const [all, setAll] = useState(false);
+  const wanted = hanRuns(typed);
+  const related = wanted.length
+    ? past.filter((l) => hanRuns(l.query).some((r) => wanted.some((w) => r.includes(w) || w.includes(r))))
+    : [];
+  const rest = past.filter((l) => !related.includes(l));
+  const recent = all ? rest : rest.slice(0, RECENT);
+  const row = (l: LookupListed) => (
+    <li key={l.query}>
+      {/* The question on one line, the kind it was read as under it, the verdict at the end. */}
+      <button className="cf-lk-hist" onClick={() => onPick(l.query)}>
+        <span className="cf-lk-hist-q">{l.query}</span>
+        {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
+        <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
+      </button>
+    </li>
+  );
+  return (
+    <>
+      {related.length > 0 && (
+        <section className="cf-lk-sec">
+          <h3 className="cf-h3">
+            With <span className="cf-zh">{wanted.join(" ")}</span>
+          </h3>
+          <ul className="cf-slist">{related.map(row)}</ul>
+        </section>
+      )}
+      {recent.length > 0 && (
+        <section className="cf-lk-sec">
+          <h3 className="cf-h3">{related.length ? "Recent" : "History"}</h3>
+          <ul className="cf-slist">{recent.map(row)}</ul>
+          {!all && rest.length > RECENT && (
+            <button className="cf-more" onClick={() => setAll(true)}>
+              Show all {rest.length}
+            </button>
+          )}
+        </section>
+      )}
+    </>
+  );
+}
+
 /** `start` fills the field, as from a review card's Look up; nothing is asked until the arrow is tapped. */
 export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: string }) {
   const [typed, setTyped] = useState(start);
@@ -802,27 +854,14 @@ export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: strin
       {answer && <Answer key={answer.query + answer.at} a={answer} shell={shell} onAgain={() => void ask(answer.query, true)} />}
 
       {!answer && !busy && past && past.length > 0 && (
-        <section className="cf-lk-sec">
-          <h3 className="cf-h3">History</h3>
-          <ul className="cf-slist">
-            {past.map((l) => (
-              <li key={l.query}>
-                {/* The question on one line, the kind it was read as under it, the verdict at the end. */}
-                <button
-                  className="cf-lk-hist"
-                  onClick={() => {
-                    setTyped(l.query);
-                    void ask(l.query);
-                  }}
-                >
-                  <span className="cf-lk-hist-q">{l.query}</span>
-                  {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
-                  <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <History
+          past={past}
+          typed={typed}
+          onPick={(q) => {
+            setTyped(q);
+            void ask(q);
+          }}
+        />
       )}
     </div>
   );
