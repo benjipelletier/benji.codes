@@ -6932,6 +6932,11 @@ button.cf-synclog-row {
   margin-top: 8px;
 }
 
+/* Look up over a review card: room above the field for the sheet's close button. */
+.cf-lk-sheet {
+  padding-top: 40px;
+}
+
 /* History: a question a row, the kind under it, the verdict at the end. */
 .cfx .cf-lk-hist {
   width: 100%;

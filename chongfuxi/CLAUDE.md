@@ -408,6 +408,13 @@ Built on the owner's corpus alone, since that is what answers lead with:
   one addition, source `lookup:<question>` (`addFromLookup`, through
   `addWords`), and turns into "✓ Added · Undo" (the additions route undoes
   it). At the owner's request.
+- **From a review card**: once the answer is shown, the card's foot has
+  Look up (beside Open in Pleco and Add a note; the owner's only). It opens
+  Look up in a sheet over the card, the field filled with the word (or a
+  sentence card's sentence) but not asked, since asking costs money and the
+  owner may edit it first ("幻觉 vs 幻想"). Back or × returns to the same
+  card: a sheet rather than the Look up tab, so a long session keeps its
+  place. The owner asked for it.
 - Owner only, at the owner's insistence (it spends their tokens): the route
   goes through `ownerOnly`, so signed out (or a forged cookie) it answers 401
   and signed in as anyone else 403, before any model call; the tab is hidden

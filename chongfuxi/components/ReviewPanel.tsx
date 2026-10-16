@@ -25,7 +25,8 @@ import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
-import { History, HskTags, LongkuTag, SentenceText, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
+import { LookupPanel } from "./LookupPanel";
+import { History, HskTags, LongkuTag, SentenceText, Sheet, Waiting, Word, fmt, message, plecoHref, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -407,6 +408,8 @@ export function Session({
   const [status, setStatus] = useState<"loading" | "ready" | "empty">("loading");
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // Look up over the card, filled with its word (or sentence): back or × returns to the same card.
+  const [looking, setLooking] = useState<string | null>(null);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
   /** Words of this card's sentence tapped for their meaning. */
@@ -895,6 +898,12 @@ export function Session({
                   {card.note ? "Edit note" : "Add a note"}
                 </button>
               )}
+              {/* The owner's only, like the tab: a lookup costs money. Filled in, not asked, so it can be edited first. */}
+              {canWrite && (card.word?.word ?? card.sentence?.zh) && (
+                <button className="cf-link" onClick={() => setLooking(card.word?.word ?? card.sentence?.zh ?? "")}>
+                  Look up
+                </button>
+              )}
             </div>
           )}
           {noting !== null && (
@@ -919,6 +928,14 @@ export function Session({
             </div>
           )}
         </article>
+      )}
+
+      {looking !== null && (
+        <Sheet label="Look up" onClose={() => setLooking(null)}>
+          <div className="cf-lk-sheet">
+            <LookupPanel shell={shell} start={looking} />
+          </div>
+        </Sheet>
       )}
 
       {/* What the last answer changed. */}

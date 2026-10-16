@@ -646,8 +646,9 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
   );
 }
 
-export function LookupPanel({ shell }: { shell: Shell }) {
-  const [typed, setTyped] = useState("");
+/** `start` fills the field, as from a review card's Look up; nothing is asked until the arrow is tapped. */
+export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: string }) {
+  const [typed, setTyped] = useState(start);
   const [answer, setAnswer] = useState<LookupAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
