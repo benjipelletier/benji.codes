@@ -30,18 +30,23 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ words });
 }
 
-/** Add a list's missing words to the deck, but those in `skip`. The reply names the addition, to keep or undo. */
+/**
+ * Add a list's missing words to the deck, but those in `skip`; or, given
+ * `only`, just those. The reply names the addition, to keep or undo.
+ */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = await body<{ list?: string; skip?: string[] }>(req);
+  const input = await body<{ list?: string; skip?: string[]; only?: string[] }>(req);
   const list = input?.list;
   const skip = input?.skip ?? [];
-  if (typeof list !== "string" || !list || !Array.isArray(skip) || !skip.every((w) => typeof w === "string")) {
-    return bad("expected a list, and the words to skip");
+  const only = input?.only ?? null;
+  const words = (v: unknown) => Array.isArray(v) && v.every((w) => typeof w === "string");
+  if (typeof list !== "string" || !list || !words(skip) || (only !== null && !words(only))) {
+    return bad("expected a list, and the words to skip or the only ones to add");
   }
   try {
-    const made = await addList(gate.sql, gate.owner, list, skip, loadDict());
+    const made = await addList(gate.sql, gate.owner, list, skip, loadDict(), Date.now(), only);
     return NextResponse.json(made ? { id: made.id, added: made.added.length, unlocked: made.unlocked } : { id: null, added: 0, unlocked: 0 });
   } catch (e) {
     if (e instanceof AdditionError) return bad(e.message, 409);

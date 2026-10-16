@@ -344,7 +344,8 @@ export const LIST_ADD_MAX = 500;
 /**
  * Put a Pleco word list's missing words in the deck, as one addition, the way
  * Pleco's own flashcards took a lesson at a time. `skip` are words of it the
- * owner unticked. Null if there was nothing to add.
+ * owner unticked; `only`, when given, the only ones ticked (after Untick all).
+ * Null if there was nothing to add.
  */
 export async function addList(
   sql: Sql,
@@ -353,9 +354,11 @@ export async function addList(
   skip: string[],
   dict: Dict,
   at = Date.now(),
+  only: string[] | null = null,
 ): Promise<{ id: number; added: string[]; unlocked: number } | null> {
   const left = new Set(skip);
-  const words = (await listMissingAll(sql, owner, list)).filter((w) => !left.has(w));
+  const picked = only && new Set(only);
+  const words = (await listMissingAll(sql, owner, list)).filter((w) => (picked ? picked.has(w) : !left.has(w)));
   if (words.length > LIST_ADD_MAX) {
     throw new AdditionError(`${words.length} words is more than ${LIST_ADD_MAX} at once. Open a smaller list inside it.`);
   }

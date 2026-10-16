@@ -1086,7 +1086,9 @@ where the owner took the HSK lists a lesson at a time, is gone. Cards › Lists
 (`chongfuxi_word.lists`, full paths such as `HSK标准教程/HSK标准教程5/第24课`)
 browsed as Pleco's tree, each with how much is in the deck (a word filed
 under two lessons counts once in the book). A list with nothing under it
-shows its words, those missing ticked; "Add N words" adds the ticked ones as
+shows its words, those missing ticked (Untick all / Tick all beside them,
+asked for by the owner: Untick all leaves out every missing word, those not
+loaded yet too, and sends the ticked ones as `only`); "Add N words" adds the ticked ones as
 one addition (`addList`, source `list:<path>`), which opens at once with
 Keep and Undo, as a sync's do. NPCR and 成语 are left off the screen
 (`LISTS_HIDDEN`): the owner doesn't study from them. At most 500 at once (`LIST_ADD_MAX`), so a

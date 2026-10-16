@@ -51,8 +51,21 @@ export function ListsPanel({
   const [nodes, setNodes] = useState<ListNode[] | null>(null);
   const [at, setAt] = useState("");
   const [words, setWords] = useState<ListWord[] | null>(null);
-  // Missing words unticked, so left out of the add.
+  // Missing words unticked, so left out of the add; after Untick all, instead
+  // the only ones ticked (the rest, loaded or not, left out).
   const [skip, setSkip] = useState<Set<string>>(new Set());
+  const [only, setOnly] = useState<Set<string> | null>(null);
+  const ticked = (w: string) => (only ? only.has(w) : !skip.has(w));
+  const tick = (w: string, on: boolean) => {
+    const flip = (s: Set<string>, add: boolean) => {
+      const next = new Set(s);
+      if (add) next.add(w);
+      else next.delete(w);
+      return next;
+    };
+    if (only) setOnly(flip(only, on));
+    else setSkip(flip(skip, !on));
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState<Addition | null>(null);
@@ -99,6 +112,7 @@ export function ListsPanel({
   useEffect(() => {
     setWords(null);
     setSkip(new Set());
+    setOnly(null);
     setError(null);
     if (leaf) loadWords(0);
   }, [at, leaf, loadWords]);
@@ -112,14 +126,14 @@ export function ListsPanel({
   };
 
   const missing = here ? here.total - here.inDeck : 0;
-  const toAdd = missing - skip.size;
+  const toAdd = only ? only.size : missing - skip.size;
 
   const add = async () => {
     if (!here || toAdd <= 0) return;
     setBusy(true);
     setError(null);
     try {
-      const r = await send<{ id: number | null }>("lists", { list: at, skip: [...skip] });
+      const r = await send<{ id: number | null }>("lists", only ? { list: at, only: [...only] } : { list: at, skip: [...skip] });
       if (r.id !== null) {
         const { additions } = await get<{ additions: Addition[] }>("additions", { id: r.id });
         setAdded(additions[0] ?? null);
@@ -127,6 +141,7 @@ export function ListsPanel({
       loadTree();
       if (leaf) loadWords(0);
       setSkip(new Set());
+      setOnly(null);
       refresh();
     } catch (e) {
       setError(message(e));
@@ -251,7 +266,21 @@ export function ListsPanel({
       {leaf && words === null && !error && <Loading small label="Reading the words…" />}
       {leaf && words && (
         <>
-          {canWrite && missing > 0 && <p className="cf-muted">Untick any to leave them out.</p>}
+          {canWrite && missing > 0 && (
+            <p className="cf-muted cf-list-ticks">
+              {toAdd > 0 ? "Untick any to leave them out." : "Tick the ones to add."}
+              {/* Every word not in the deck at once, those not loaded yet too. */}
+              <button
+                className="cf-link"
+                onClick={() => {
+                  setSkip(new Set());
+                  setOnly(toAdd > 0 ? new Set() : null);
+                }}
+              >
+                {toAdd > 0 ? "Untick all" : "Tick all"}
+              </button>
+            </p>
+          )}
           <ul className="cf-kinds cf-list-words">
             {words.map((w) => (
               <li key={w.word}>
@@ -262,19 +291,8 @@ export function ListsPanel({
                     <b>{w.inDeck ? "in deck" : ""}</b>
                   </a>
                 ) : (
-                  <label className={`cf-kind is-read${skip.has(w.word) ? " is-off" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={!skip.has(w.word)}
-                      onChange={(e) =>
-                        setSkip((s) => {
-                          const next = new Set(s);
-                          if (e.target.checked) next.delete(w.word);
-                          else next.add(w.word);
-                          return next;
-                        })
-                      }
-                    />
+                  <label className={`cf-kind is-read${ticked(w.word) ? "" : " is-off"}`}>
+                    <input type="checkbox" checked={ticked(w.word)} onChange={(e) => tick(w.word, e.target.checked)} />
                     <i className="cf-tick" />
                     <Word w={w} />
                   </label>

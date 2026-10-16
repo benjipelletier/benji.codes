@@ -5158,6 +5158,15 @@ button.cf-synclog-row {
   color: var(--cf-ink-faint);
 }
 
+/* "Untick any…" with Untick all / Tick all at its end. */
+.cf-list-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
 .cf-list-words {
   margin-top: 8px;
 }
