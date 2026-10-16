@@ -7631,9 +7631,9 @@ button.cf-synclog-row {
   margin-bottom: 4px;
 }
 
-/* A grammar point in the question (Look up's note block): the structure as
- * a title, the question's words with the structure in colour and its inside
- * boxed, then what it does. */
+/* Look up's note block, of any kind: its label, the Chinese it is about as
+ * a title, a structure's shape (its characters in colour, its inside boxed),
+ * then the point. */
 .cf-lk-gram {
   display: grid;
   gap: 8px;

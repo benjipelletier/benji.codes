@@ -47,7 +47,7 @@ export type ModelBlock =
   | { type: "wrong-right"; wrong: string; right: string; why: string }
   | { type: "example"; id: number; zh: string; en: string }
   | { type: "parts"; word: string; chars: Array<{ zh: string; gloss: string }>; literal: string }
-  | { type: "note"; title: string; shape: string; text: string };
+  | { type: "note"; label: string; title: string; shape: string; text: string };
 
 /** The answer as the model gives it. */
 export interface ModelAnswer {
@@ -147,7 +147,7 @@ export function normaliseAnswer(input: unknown): ModelAnswer {
       case "parts":
         return { type: "parts", word: s(x.word), chars: l(x.chars, (y) => ({ zh: s(o(y).zh), gloss: s(o(y).gloss) })), literal: s(x.literal) };
       case "note":
-        return { type: "note", title: s(x.title), shape: s(x.shape), text: s(x.text) };
+        return { type: "note", label: s(x.label), title: s(x.title), shape: s(x.shape), text: s(x.text) };
       default:
         return null;
     }
@@ -363,16 +363,18 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
         break;
       }
       case "note": {
-        // One, naming a Chinese structure, saying something. The shape only when it is the words with one part in braces.
-        const title = b.title.trim();
+        // One, saying something. A title only when it is Chinese; a shape only
+        // when it is Chinese with one part in braces; a short label, or a plain one.
         const text = b.text.trim();
-        if (!HAN.test(title) || !text) break;
+        if (!text) break;
         if (blocks.some((x) => x.type === "note")) {
-          checks.push(`A second grammar note (${title}) left out.`);
+          checks.push(`A second note (${b.label.trim() || text.slice(0, 30)}) left out.`);
           break;
         }
-        const shape = /^[^{}]*\{[^{}]+\}[^{}]*$/.test(b.shape.trim()) ? b.shape.trim() : "";
-        blocks.push({ type: "note", title, shape, text });
+        const title = HAN.test(b.title) ? b.title.trim() : "";
+        const shape = /^[^{}]*\{[^{}]+\}[^{}]*$/.test(b.shape.trim()) && HAN.test(b.shape) ? b.shape.trim() : "";
+        const label = b.label.trim();
+        blocks.push({ type: "note", label: label && label.length <= 40 ? label : "Worth knowing", title, shape, text });
         break;
       }
       case "parts": {

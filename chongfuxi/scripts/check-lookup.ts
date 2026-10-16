@@ -196,29 +196,28 @@ const ex = inside.blocks[0]?.type === "sense" ? inside.blocks[0].items[0].exampl
 assert.deepEqual(ex.map((e) => [e.id, e.within, e.readable]), [[7, "县城", false], [8, null, true]], "in 县城, locked; a word of its own");
 assert.ok(!ex.some((e) => "words" in e), "the word list isn't kept with the answer");
 
-// A grammar note: kept when it names a Chinese structure; its shape only when well formed; one at most.
+// A note: any kind, one at most; a title and shape only when Chinese and well formed; a label always.
 const noted = checkAnswer(
   {
     reading: { parts: [{ text: "是围绕X转的", asked: true }], kind: "reading", note: "" },
     blocks: [
-      { type: "note", title: "是…的", shape: "是{围绕X转}的", text: "是…的 marks how things are." },
-      { type: "note", title: "把", shape: "", text: "A second one." },
-      { type: "note", title: "frame", shape: "", text: "No Chinese in the title." },
+      { type: "note", label: "Grammar in your question", title: "是…的", shape: "是{围绕X转}的", text: "是…的 marks how things are." },
+      { type: "note", label: "Culture", title: "送钟", shape: "", text: "A second one." },
     ],
     summary: "",
   },
   newSeen(),
   { entry: (w) => dictEntry(w), sentences: new Map() },
 );
-assert.deepEqual(noted.blocks, [{ type: "note", title: "是…的", shape: "是{围绕X转}的", text: "是…的 marks how things are." }]);
-assert.ok(noted.checks.some((c) => c.includes("把")), "the second note is reported");
-const badShape = checkAnswer(
-  { reading: { parts: [], kind: "reading", note: "" }, blocks: [{ type: "note", title: "是…的", shape: "是{围绕{X}转的", text: "t" }], summary: "" },
+assert.deepEqual(noted.blocks, [{ type: "note", label: "Grammar in your question", title: "是…的", shape: "是{围绕X转}的", text: "是…的 marks how things are." }]);
+assert.ok(noted.checks.some((c) => c.includes("Culture")), "the second note is reported");
+const plain = checkAnswer(
+  { reading: { parts: [], kind: "tone", note: "" }, blocks: [{ type: "note", label: "", title: "politeness", shape: "是{围绕{X}转的", text: "t" }], summary: "" },
   newSeen(),
   { entry: (w) => dictEntry(w), sentences: new Map() },
 );
-assert.equal(badShape.blocks[0]?.type === "note" && badShape.blocks[0].shape, "", "a malformed shape is dropped, the note kept");
-assert.equal(normaliseAnswer({ blocks: [{ type: "note", title: "是…的", text: "x" }] }).blocks[0]?.type, "note", "a note handed in survives the shape check");
+assert.deepEqual(plain.blocks[0], { type: "note", label: "Worth knowing", title: "", shape: "", text: "t" }, "no Chinese title, a malformed shape and no label: the point kept, plainly");
+assert.equal(normaliseAnswer({ blocks: [{ type: "note", text: "x" }] }).blocks[0]?.type, "note", "a note handed in survives the shape check");
 
 console.log(out.checks.join("\n"));
 console.log("ok");

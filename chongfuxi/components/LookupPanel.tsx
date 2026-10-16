@@ -641,16 +641,18 @@ function HanText({ text }: { text: string }) {
 }
 
 /**
- * A grammar point in the question that isn't what was asked but helps read
- * it: the structure as a title, the question's words with the structure's
- * own characters in colour and what sits inside it boxed, then what it does.
+ * The one thing worth knowing the other blocks don't show, of any kind, under
+ * the label the model gives it ("Grammar in your question", "Culture"): the
+ * Chinese it is about as a title, for a structure the question's words with
+ * the structure's own characters in colour and its inside boxed, then the
+ * point itself.
  */
 function NoteBlock({ b }: { b: Block<"note"> }) {
   const shape = b.shape.match(/^([^{}]*)\{([^{}]+)\}([^{}]*)$/);
   return (
     <aside className="cf-lk-gram">
-      <span className="cf-lk-gram-label">Grammar in your question</span>
-      <p className="cf-zh cf-lk-gram-title">{b.title}</p>
+      <span className="cf-lk-gram-label">{b.label}</span>
+      {b.title && <p className="cf-zh cf-lk-gram-title">{b.title}</p>}
       {shape && (
         <p className="cf-zh cf-lk-gram-shape" aria-label={b.shape.replace(/[{}]/g, "")}>
           {shape[1] && <b>{shape[1]}</b>}

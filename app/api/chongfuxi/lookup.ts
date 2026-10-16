@@ -74,13 +74,13 @@ The blocks. Use the ones the question needs, usually two to four, one of them a 
 - wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses. Warn only against what is really wrong, not what is merely less explicit: search_sentences for the wrong phrase first, and if the user's sentences use it, it is not a mistake (哪个站 is everyday Chinese). The app tests every warning against their sentences and shows the ones they contradict as in doubt.
 - example: one sentence, by id from the tools, or id -1 for one you write (it is labelled as yours).
 - parts (headline for breakdown): the word, and each of its characters in order with what it means in this word, a few words ("着: to touch, to reach"); then literal, the characters' sense put together and how it comes to mean what the word means ("not touching any mark or trace, so: seamlessly"). Never pinyin: the app reads each character as the word reads it. Follow it with a sense block for the word itself when its meaning needs saying.
-- note: a grammar point in the question that isn't what is asked but helps the user read it: 是…的 around "围绕X转" (it marks the whole as an explanation of how things are, not the asked words), 把 bringing the object forward, 连…都. title is the structure with … for its gaps ("是…的"); shape is the question's own words with the part inside the structure in braces ("是{围绕X转}的"), or "" when that doesn't fit; text is one or two plain sentences on what it does there. At most one, and only when the question has such a structure; it is what the summary would otherwise say about it.
+- note: the one thing worth knowing that the other blocks don't show, of whatever kind: a structure in the question that isn't what is asked but helps read it (是…的 around "围绕X转" presents it as how things are), a cultural point (why 送钟 is a bad gift), why something sounds formal or rude, a common confusion. label names the kind in a few words ("Grammar in your question", "Culture", "Why it sounds stiff"); title is the Chinese it is about ("是…的", "送钟"), or ""; shape, only for a structure, is the question's own words with the part inside it in braces ("是{围绕X转}的"), else ""; text is one or two plain sentences. At most one, and only when there is something worth saying; an explanation goes here, not in the summary.
 
 Rules:
 - Never write pinyin; the app adds it from its own dictionary.
 - A judgment with source "corpus" gives a count exactly as a tool returned it for that word or pair; otherwise count -1. "dictionary" is only for what the dictionary tool showed, "deck" only for what it showed about the deck, "model" for your own knowledge.
 - Put each judgment under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own judgment with source "deck".
-- No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences of anything the blocks don't show, and says so if the user's sentences had nothing.
+- No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences on the evidence the blocks don't show, and says so if the user's sentences had nothing; an explanation worth reading goes in a note block instead.
 - Evidence for the question's own words may come with it, in <evidence_already_gathered> (the same as those tools return, already counted): use it, and don't fetch it again.
 - Each step costs the user a wait. When you need more evidence, ask for all of it at once, several tool calls in one turn, rather than one at a time.
 - When you have the evidence, hand in the answer by calling the answer tool, once, following its schema exactly. Write nothing else.`;
@@ -140,7 +140,7 @@ const ANSWER_SCHEMA = obj({
       obj({ type: { const: "wrong-right" }, wrong: str, right: str, why: str }),
       obj({ type: { const: "example" }, id: int, zh: str, en: str }),
       obj({ type: { const: "parts" }, word: str, chars: list(obj({ zh: str, gloss: str })), literal: str }),
-      obj({ type: { const: "note" }, title: str, shape: str, text: str }),
+      obj({ type: { const: "note" }, label: str, title: str, shape: str, text: str }),
     ],
   }),
   summary: str,

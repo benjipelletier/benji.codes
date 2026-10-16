@@ -713,12 +713,15 @@ export type LookupBlock =
     }
   | {
       /**
-       * A grammar point in the question that isn't what is asked but helps
-       * read it (是…的 around 围绕X转): the structure ("是…的"), the
-       * question's words with the part inside it in braces ("是{围绕X转}的",
-       * or ""), and what it does there. The model's own, at most one.
+       * The one thing worth knowing that the other blocks don't show, of any
+       * kind: a structure in the question (是…的 around 围绕X转), a cultural
+       * point, why something sounds formal. `label` names the kind ("Grammar
+       * in your question"); `title` the Chinese it is about, or ""; `shape`,
+       * for a structure, the question's words with its inside in braces
+       * ("是{围绕X转}的"), or "". The model's own, at most one.
        */
       type: "note";
+      label: string;
       title: string;
       shape: string;
       text: string;
