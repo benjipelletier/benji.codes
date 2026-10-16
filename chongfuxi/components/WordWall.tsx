@@ -2,12 +2,12 @@
 
 // Every word in the deck as a tile, shaded by how strong its Read card is,
 // with a dot on the ones due today. Grouped by when they're due, how strong
-// they are, their HSK level, or the trouble they've given; found by word,
+// they are, or the trouble they've given (HSK levels are on Stats); found by word,
 // pinyin or meaning. A tile opens the word's sheet: its cards and how they
 // stand, Pleco's record, and the sentences it is in.
 
 import { useEffect, useMemo, useState } from "react";
-import type { Coverage, WordDetail, WordTile } from "@chongfuxi/lib/api";
+import type { WordDetail, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
@@ -30,11 +30,10 @@ type Stage = (typeof STAGES)[number]["key"];
 const stageOf = (w: { answered: number; stability: number }): Stage =>
   w.answered === 0 ? "waiting" : w.stability < 21 ? "young" : w.stability < 180 ? "mature" : "strong";
 
-type GroupBy = "due" | "strength" | "hsk" | "trouble";
+type GroupBy = "due" | "strength" | "trouble";
 const GROUPINGS: Array<{ key: GroupBy; label: string }> = [
   { key: "due", label: "When due" },
   { key: "strength", label: "Strength" },
-  { key: "hsk", label: "HSK" },
   { key: "trouble", label: "Trouble" },
 ];
 
@@ -42,18 +41,9 @@ interface Group {
   key: string;
   label: string;
   words: WordTile[];
-  /** An HSK level: its number ("7-9"), for the textbook colour and the badge. */
-  level?: string;
-  /** A heading above this group, where a new list of groups begins. */
-  heading?: string;
-  /** For an HSK level: how many words the level has in all, in the deck or not. */
-  total?: number;
 }
 
-/** HSK list sizes by scheme and level ("v3:7-9"), from the coverage the Stats page shows. */
-type Totals = Map<string, number>;
-
-function groupWords(words: WordTile[], by: GroupBy, cutoff: number, totals: Totals): Group[] {
+function groupWords(words: WordTile[], by: GroupBy, cutoff: number): Group[] {
   const make = (pairs: Array<[string, string, (w: WordTile) => boolean]>, order: (a: WordTile, b: WordTile) => number) =>
     pairs.map(([key, label, test]) => ({ key, label, words: words.filter(test).sort(order) })).filter((g) => g.words.length > 0);
   const strongest = (a: WordTile, b: WordTile) => b.stability - a.stability || a.word.localeCompare(b.word);
@@ -76,27 +66,6 @@ function groupWords(words: WordTile[], by: GroupBy, cutoff: number, totals: Tota
       STAGES.map((s) => [s.key, `${s.label}, ${s.note}`, (w: WordTile) => stageOf(w) === s.key]),
       strongest,
     );
-  }
-  if (by === "hsk") {
-    // Old HSK first, then 3.0: a word sits in one level of each.
-    const schemes = [
-      { key: "old", heading: "HSK (old)", levels: ["1", "2", "3", "4", "5", "6"], of: (w: WordTile) => w.hsk.old },
-      { key: "v3", heading: "HSK 3.0", levels: ["1", "2", "3", "4", "5", "6", "7-9"], of: (w: WordTile) => w.hsk.v3 },
-    ];
-    return schemes.flatMap((sc) => {
-      const groups: Group[] = [
-        ...sc.levels.map((l) => ({
-          key: `${sc.key}-${l}`,
-          label: `Level ${l.replace("-", "–")}`,
-          level: l,
-          total: totals.get(`${sc.key}:${l}`),
-          words: words.filter((w) => sc.of(w) === l).sort(strongest),
-        })),
-        { key: `${sc.key}-none`, label: "Not on this list", words: words.filter((w) => sc.of(w) === null).sort(strongest) },
-      ].filter((g) => g.words.length > 0);
-      if (groups[0]) groups[0].heading = sc.heading;
-      return groups;
-    });
   }
   return make(
     [
@@ -144,25 +113,6 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
       (w) => w.word.includes(q) || (qp && plain(w.pinyin).startsWith(qp)) || w.gloss?.toLowerCase().includes(q),
     );
   }, [words, query]);
-  // How big each HSK level is, so its bar can show what isn't in the deck yet.
-  const [totals, setTotals] = useState<Totals>(new Map());
-  useEffect(() => {
-    if (by !== "hsk" || totals.size) return;
-    get<Coverage>("levels")
-      .then((c) => {
-        const scheme = (label: string) => (label.includes("3.0") ? "v3" : "old");
-        setTotals(
-          new Map(
-            c.groups.flatMap((g) =>
-              g.levels.map((l): [string, number] => [`${scheme(g.label)}:${l.name.match(/\d+(-\d+)?/)?.[0]}`, l.total]),
-            ),
-          ),
-        );
-      })
-      .catch(() => {
-        // Without the sizes the bars show the deck's words alone.
-      });
-  }, [by, totals.size]);
   // Suspended words leave every grouping for one of their own, first.
   const groups = useMemo(() => {
     const set = found.filter((w) => w.suspended);
@@ -170,10 +120,9 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
       found.filter((w) => !w.suspended),
       by,
       cutoff,
-      totals,
     );
     return set.length ? [{ key: "suspended", label: "Suspended", words: set }, ...rest] : rest;
-  }, [found, by, cutoff, totals]);
+  }, [found, by, cutoff]);
 
   if (error) return <p className="cf-error">{error}</p>;
   if (!words) return <Loading label="Laying out the words…" />;
@@ -253,7 +202,6 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         const mix = STAGES.map((st) => ({ key: st.key, n: g.words.filter((w) => stageOf(w) === st.key).length }));
         return (
           <div key={g.key} className={`cf-wall-group${isOpen ? " is-open" : ""}`}>
-            {g.heading && <h3 className="cf-wall-scheme">{g.heading}</h3>}
             <button className="cf-wall-head" aria-expanded={isOpen} onClick={() => flip(id)}>
               <svg className="cf-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
                 <path
@@ -265,27 +213,12 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
                   strokeLinejoin="round"
                 />
               </svg>
-              {g.level && (
-                <span className={`cf-wall-pill cf-level is-l${g.level.split("-")[0]}`}>{g.level.replace("-", "–")}</span>
-              )}
               <span className="cf-wall-label">{g.label}</span>
-              {/* The group's own mix of strengths, small; in an HSK level, in its textbook colour. */}
-              <span className={`cf-wall-mix${g.level ? ` cf-level is-l${g.level.split("-")[0]}` : ""}`} aria-hidden="true">
-                {/* Out of the whole level where its size is known: what's left over is words not in the deck. */}
-                {mix.map((m) =>
-                  m.n ? (
-                    <i
-                      key={m.key}
-                      className={`is-${m.key}`}
-                      style={g.total ? { flex: `0 0 ${(100 * m.n) / g.total}%` } : { flexGrow: m.n }}
-                    />
-                  ) : null,
-                )}
+              {/* The group's own mix of strengths, small. */}
+              <span className="cf-wall-mix" aria-hidden="true">
+                {mix.map((m) => (m.n ? <i key={m.key} className={`is-${m.key}`} style={{ flexGrow: m.n }} /> : null))}
               </span>
-              <b>
-                {fmt(g.words.length)}
-                {g.total !== undefined && <small> of {fmt(g.total)}</small>}
-              </b>
+              <b>{fmt(g.words.length)}</b>
             </button>
             {isOpen && (
               <>

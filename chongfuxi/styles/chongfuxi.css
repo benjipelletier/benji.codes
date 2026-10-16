@@ -4164,55 +4164,6 @@ label.cf-kind {
   background: var(--cf-rule-strong);
 }
 
-/* An HSK level's group: a badge in the textbook colour, and its bar in that colour's shades. */
-.cf-wall-pill {
-  flex: none;
-  min-width: 26px;
-  padding: 2px 7px;
-  border-radius: 7px;
-  background: var(--cf-level);
-  color: #ffffff;
-  font-size: 12.5px;
-  font-weight: 700;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The yellow of level 1 needs dark type. */
-.cf-wall-pill.is-l1 {
-  color: #2a1d00;
-}
-
-.cf-wall-mix.cf-level .is-waiting {
-  background: color-mix(in srgb, var(--cf-level) 26%, var(--cf-surface));
-}
-
-.cf-wall-mix.cf-level .is-young {
-  background: color-mix(in srgb, var(--cf-level) 52%, var(--cf-surface));
-}
-
-.cf-wall-mix.cf-level .is-mature {
-  background: color-mix(in srgb, var(--cf-level) 78%, var(--cf-surface));
-}
-
-.cf-wall-mix.cf-level .is-strong {
-  background: var(--cf-level);
-}
-
-/* Where the old list ends and HSK 3.0 begins. */
-.cf-wall-scheme {
-  margin: 20px 0 2px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--cf-ink-faint);
-}
-
-.cf-wall-head b small {
-  font-size: 11.5px;
-  font-weight: 400;
-  color: var(--cf-ink-faint);
-}
-
 .cf-wall-head b {
   flex: none;
   min-width: 3.2em;

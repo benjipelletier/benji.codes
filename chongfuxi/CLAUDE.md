@@ -837,8 +837,8 @@ the design was silent and are still to be confirmed.
   faded, out of the stage bar and due count.
 - **Words tab**: every deck word as a tile, shaded by its Read card's stage
   (waiting, young, mature, strong, as on the HSK bars), grouped by when due,
-  strength, HSK level (old HSK, then 3.0, each level badged in its textbook
-  colour) or trouble (Forgot here, or FSRS difficulty 7+),
+  strength or trouble (Forgot here, or FSRS difficulty 7+); grouping by HSK
+  level was taken out as redundant with Stats and Cards › Lists,
   and found by characters, toneless pinyin or meaning. A tile opens a sheet:
   definitions, each card's due date, strength, recall odds now, difficulty and
   history, Pleco's record, and the sentences the word is in, with a jump to
