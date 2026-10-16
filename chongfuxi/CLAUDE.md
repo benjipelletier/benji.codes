@@ -127,12 +127,12 @@ rejected as too themed. Keep it that way:
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
   character of the tab's Chinese name set over it on a halo, in LXGW WenKai
   (a modern regular script, the one exception to the sans: only 复卡查统入, and
-  the card foot's 魚筆, are fetched, so a new character must be added to the
+  the card foot's 魚笔, are fetched, so a new character must be added to the
   URL in the layout), and the English small beneath; the current tab sits on
   a pill.
 - A revealed card's foot is three character tiles in the same face, each a
   character on a soft round in its own hue with its name under it: 魚
-  (traditional, the owner's pick) for Pleco, 筆 for a note, 查 for Look up.
+  (traditional, the owner's pick) for Pleco, 笔 for a note, 查 for Look up.
   The owner asked for them cuter than the three text links they replaced.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.

@@ -893,7 +893,7 @@ export function Session({
           )}
 
           {revealed && (
-            // Three character tiles, in the tab icons' face: 魚 for Pleco (its fish), 筆 for a note, 查 for Look up.
+            // Three character tiles, in the tab icons' face: 魚 for Pleco (its fish), 笔 for a note, 查 for Look up.
             <div className="cf-card-foot">
               {card.word && (
                 <a className="cf-foot-btn is-pleco" href={plecoHref(card.word.word)} aria-label="Open in Pleco">
@@ -906,7 +906,7 @@ export function Session({
               {canWrite && noting === null && (
                 <button className="cf-foot-btn is-note" onClick={() => setNoting(card.note ?? "")} aria-label={card.note ? "Edit note" : "Add a note"}>
                   <span className="cf-foot-zh" aria-hidden="true">
-                    筆
+                    笔
                   </span>
                   <small>{card.note ? "Edit note" : "Note"}</small>
                 </button>
