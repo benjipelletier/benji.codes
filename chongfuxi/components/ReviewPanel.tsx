@@ -788,6 +788,8 @@ export function Session({
                   <p className="cf-card-zh">
                     <SentenceText sentence={card.sentence} word={card.word.word} taps={revealed} />
                   </p>
+                  {/* Its translation right under it, once the answer shows. */}
+                  {revealed && card.sentence.en && <p className="cf-en cf-card-en-near">{card.sentence.en}</p>}
                   <SourceOf sentence={card.sentence} />
                 </>
               )}
@@ -803,7 +805,6 @@ export function Session({
                     onSplit={split}
                     onMerge={merge}
                   />
-                  {card.sentence?.en && <p className="cf-en">{card.sentence.en}</p>}
                 </div>
               )}
             </>
@@ -892,21 +893,31 @@ export function Session({
           )}
 
           {revealed && (
+            // Three character tiles, in the tab icons' face: 魚 for Pleco (its fish), 筆 for a note, 查 for Look up.
             <div className="cf-card-foot">
               {card.word && (
-                <a className="cf-link" href={plecoHref(card.word.word)}>
-                  Open in Pleco
+                <a className="cf-foot-btn is-pleco" href={plecoHref(card.word.word)} aria-label="Open in Pleco">
+                  <span className="cf-foot-zh" aria-hidden="true">
+                    魚
+                  </span>
+                  <small>Pleco</small>
                 </a>
               )}
               {canWrite && noting === null && (
-                <button className="cf-link" onClick={() => setNoting(card.note ?? "")}>
-                  {card.note ? "Edit note" : "Add a note"}
+                <button className="cf-foot-btn is-note" onClick={() => setNoting(card.note ?? "")} aria-label={card.note ? "Edit note" : "Add a note"}>
+                  <span className="cf-foot-zh" aria-hidden="true">
+                    筆
+                  </span>
+                  <small>{card.note ? "Edit note" : "Note"}</small>
                 </button>
               )}
               {/* The owner's only, like the tab: a lookup costs money. Filled in, not asked, so it can be edited first. */}
               {canWrite && (card.word?.word ?? card.sentence?.zh) && (
-                <button className="cf-link" onClick={() => setLooking(card.word?.word ?? card.sentence?.zh ?? "")}>
-                  Look up
+                <button className="cf-foot-btn is-look" onClick={() => setLooking(card.word?.word ?? card.sentence?.zh ?? "")} aria-label="Look up">
+                  <span className="cf-foot-zh" aria-hidden="true">
+                    查
+                  </span>
+                  <small>Look up</small>
                 </button>
               )}
             </div>

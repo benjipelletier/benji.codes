@@ -322,7 +322,7 @@ body:has(.cfx) {
 }
 
 .cf-ti-zh {
-  /* Only 复卡查统入 are loaded in this face (app/chongfuxi/layout.tsx). */
+  /* Only 复卡查统入 and the card foot's 魚筆 are loaded in this face (app/chongfuxi/layout.tsx). */
   font-family: "LXGW WenKai TC", var(--cf-zh);
   font-weight: 700;
   fill: currentColor;
@@ -2429,11 +2429,75 @@ label.cf-kind {
 
 .cf-card-foot {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 28px;
   margin-top: auto;
   padding-top: 16px;
-  font-size: 13px;
+}
+
+/* A character tile: the character on a soft round in its own hue, in the
+ * tab icons' face, its name small under it. */
+.cfx .cf-foot-btn {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 52px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink-soft);
+  text-decoration: none;
+  cursor: pointer;
+  --hue: var(--cf-accent);
+}
+
+.cf-foot-zh {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--hue) 16%, transparent);
+  color: var(--hue);
+  font-family: "LXGW WenKai TC", var(--cf-zh);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.12s ease;
+}
+
+.cf-foot-btn:active .cf-foot-zh {
+  transform: scale(0.92) rotate(-6deg);
+}
+
+.cf-foot-btn small {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.cfx .cf-foot-btn.is-pleco {
+  --hue: var(--cf-read);
+}
+
+.cfx .cf-foot-btn.is-note {
+  --hue: var(--cf-new);
+}
+
+.cfx .cf-foot-btn.is-look {
+  --hue: var(--cf-recall);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-foot-zh {
+    transition: none;
+  }
+}
+
+/* A Read card's translation, right under its sentence. */
+.cf-card-en-near {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 14px;
 }
 
 .cf-fix {
