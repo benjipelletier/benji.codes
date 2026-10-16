@@ -527,17 +527,21 @@ export function Session({
     return () => window.removeEventListener("online", back);
   }, [refill]);
 
-  // A new card: face down, and the clock starts.
+  // A new card: face down, and the clock starts. One brought back by Undo
+  // comes back as it was left, answer showing, so it can be answered again.
+  const undone = useRef<number | null>(null);
   useEffect(() => {
-    setRevealed(false);
+    const back = card !== null && undone.current === card.id;
+    undone.current = null;
+    setRevealed(back);
     setTapped(null);
     setWhy(null);
     setNoting(null);
     setSplitting(null);
     setLeaving(null);
     shownAt.current = performance.now();
-    revealedAt.current = null;
-  }, [card?.id]);
+    revealedAt.current = back ? shownAt.current : null;
+  }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const post = useCallback(
     async (input: ReviewInput, shown: SessionCard, run: number) => {
@@ -610,6 +614,7 @@ export function Session({
     try {
       await send("review/undo", { id: back.id });
       latest.current = null;
+      undone.current = back.card.id;
       recentIds.current = recentIds.current.filter((id) => id !== back.card.id);
       if (back.card.word) {
         const at = recentWords.current.lastIndexOf(back.card.word.word);

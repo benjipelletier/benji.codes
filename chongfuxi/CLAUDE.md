@@ -677,7 +677,9 @@ the design was silent and are still to be confirmed.
   the answer moved (each answer stores them as they were, in
   `effects.prior`), removes a Recall card it opened, takes back the reading it
   counted, and deletes the answer and its lapse rows: the one place a review
-  row is removed. Only the latest answer; older ones are refused.
+  row is removed. Only the latest answer; older ones are refused. The
+  card comes back as it was left, answer showing, to be answered again
+  (the owner asked; it used to come back face down).
 - **Why it was forgotten**: Forgot opens a step with an optional line, "what
   tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
   words, for reading the mistakes back later.
