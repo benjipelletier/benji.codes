@@ -569,7 +569,7 @@ export function LookupPanel({ shell }: { shell: Shell }) {
         </button>
       </form>
       {!answer && !busy && (
-        <p className="cf-muted cf-lk-hint">English, Chinese or both: develop depression · 得了 depression · the more… the more</p>
+        <p className="cf-muted cf-lk-hint">English, Chinese or both: heavy rain · 拍 a photo · the more… the more</p>
       )}
 
       {busy && <p className="cf-muted cf-pad">Looking through your sentences and the dictionary… this can take a minute.</p>}
