@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useEffect, useRef, useState } from "react";
 import type { BankEntry } from "@longku/lib/store";
 import {
@@ -225,7 +226,7 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
               {pct(playability.after, places(playability.after, playability.after))} —{" "}
               {unlock
                 ? `nothing in the corpus ends on ${added.unlocked.map((u) => u.syl).join(", ")}`
-                : `you already start on ${more > 0 ? "these syllables" : head?.fs}`}
+                : `you already start on ${more > 0 ? "these syllables" : showSyl(head?.fs)}`}
             </span>
           </div>
         )}
@@ -246,11 +247,11 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
       {added.unlocked.map((u) => (
         <div key={u.syl} className="longku-toast-unlock">
           <div className="longku-toast-unlock-head">
-            unlocked <strong>{u.syl}</strong>
+            unlocked <strong>{showSyl(u.syl)}</strong>
           </div>
           {u.arriving.length > 0 ? (
             <div className="longku-toast-unlock-body">
-              <b>{u.arriving.length}</b> of yours end on {u.syl} and can chain on now
+              <b>{u.arriving.length}</b> of yours end on {showSyl(u.syl)} and can chain on now
               <div className="longku-toast-arriving">
                 {u.arriving.slice(0, 6).map((w) => (
                   <span key={w}>{w}</span>
@@ -260,7 +261,7 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
             </div>
           ) : (
             <div className="longku-toast-unlock-body">
-              none of yours end on {u.syl} yet — {u.ending} idioms do
+              none of yours end on {showSyl(u.syl)} yet — {u.ending} idioms do
             </div>
           )}
         </div>
@@ -268,7 +269,7 @@ export function AddedToast({ added, onClose }: { added: Added; onClose: () => vo
 
       {added.onward && (
         <div className={`longku-toast-onward ${added.onward.count > 0 ? "is-on" : ""}`}>
-          leads to {added.onward.syl} —{" "}
+          leads to {showSyl(added.onward.syl)} —{" "}
           {added.onward.count > 0
             ? `${added.onward.count} of yours carry on from there`
             : "nothing of yours starts there yet"}

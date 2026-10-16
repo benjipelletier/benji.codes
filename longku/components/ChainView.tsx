@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type State } from "@longku/lib/store";
@@ -194,7 +195,7 @@ export function ChainView({ state }: Props) {
             // back to it. Frame the whole graph once it stops moving.
             onEngineStop={() => fgRef.current?.zoomToFit(400, 24)}
             backgroundColor={palette.bg}
-            nodeLabel={(n: any) => `${n.label} (${n.fs} → ${n.ls})`}
+            nodeLabel={(n: any) => `${n.label} (${showSyl(n.fs)} → ${showSyl(n.ls)})`}
             linkColor={() => palette.link}
             linkDirectionalArrowLength={4}
             linkDirectionalArrowRelPos={0.85}

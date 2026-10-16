@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import React, { useEffect, useMemo, useState } from "react";
 import type { State } from "@longku/lib/store";
 import { formatShare } from "@longku/lib/frequency";
@@ -241,7 +242,7 @@ function Cell({
       role="gridcell"
       tabIndex={0}
       aria-label={
-        `${s.syl}: ${have} of yours start with it out of ${s.count}; ` +
+        `${showSyl(s.syl)}: ${have} of yours start with it out of ${s.count}; ` +
         `${arrive} of yours end on it out of ${s.ending}; comes up ${odds} of the time` +
         (deadEnd
           ? "; a dead end, nothing of yours starts here"
@@ -250,7 +251,7 @@ function Cell({
             : "")
       }
     >
-      <span className="longku-cell-syl">{s.syl}</span>
+      <span className="longku-cell-syl">{showSyl(s.syl)}</span>
       <span className="longku-cell-count">
         {order === "comesUp" ? (
           <span className="longku-cell-mine">{odds}</span>
@@ -267,7 +268,7 @@ function Cell({
 
       <div className="longku-cell-pop">
         <div className="longku-pop-head">
-          <span className="longku-pop-syl">{s.syl}</span>
+          <span className="longku-pop-syl">{showSyl(s.syl)}</span>
           {have > 0 && (
             <button
               type="button"
@@ -276,8 +277,8 @@ function Cell({
                 e.stopPropagation();
                 onStartChain(s.syl);
               }}
-              aria-label={`Start chain from ${s.syl}`}
-              title={`Break the chain and carry on from ${s.syl}`}
+              aria-label={`Start chain from ${showSyl(s.syl)}`}
+              title={`Break the chain and carry on from ${showSyl(s.syl)}`}
             >
               ▸ chain
             </button>

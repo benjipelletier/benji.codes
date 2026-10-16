@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getState,
@@ -383,7 +384,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
       return;
     }
     if (entry.fs !== need) {
-      setMsg({ kind: "error", text: `"${word}" starts with ${entry.fs}, not ${need}.` });
+      setMsg({ kind: "error", text: `"${word}" starts with ${showSyl(entry.fs)}, not ${showSyl(need)}.` });
       return;
     }
     // Practice covers each word once. A due pass goes by the schedule: a word
@@ -653,7 +654,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
               <label className="longku-play-prompt" htmlFor="longku-chain-input">
                 {need ? (
                   <>
-                    starting with <strong>{need}</strong>
+                    starting with <strong>{showSyl(need)}</strong>
                   </>
                 ) : (
                   <span className="longku-hint">{bridging ? "bridging…" : "…"}</span>
@@ -683,7 +684,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                   setDraft(e.target.value);
                   setMsg(null);
                 }}
-                placeholder={need}
+                placeholder={showSyl(need)}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -727,8 +728,8 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
             <div className="longku-peek">
               <span className="longku-peek-label">
                 {offered.length === 1
-                  ? `your ${need} word means`
-                  : `your ${need} words mean`}
+                  ? `your ${showSyl(need)} word means`
+                  : `your ${showSyl(need)} words mean`}
               </span>
               {!hints ? (
                 <span className="longku-hint">looking…</span>
@@ -737,7 +738,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                   {offered.map((e) => (
                     <li key={e.w}>
                       {hints[e.w] || (
-                        <span className="longku-hint">no definition — {e.fs} → {e.ls ?? "?"}</span>
+                        <span className="longku-hint">no definition — {showSyl(e.fs)} → {showSyl(e.ls) ?? "?"}</span>
                       )}
                     </li>
                   ))}
@@ -748,7 +749,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           {peek && need && (
             <div className="longku-peek">
               <span className="longku-peek-label">
-                {practice ? "in your bank" : "due in your bank"}, starting with {need}
+                {practice ? "in your bank" : "due in your bank"}, starting with {showSyl(need)}
               </span>
               <div className="longku-peek-words">
                 {offered.map((e) => (
@@ -757,7 +758,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                     type="button"
                     className="longku-peek-word"
                     onClick={() => play(e)}
-                    title={`${e.fs} → ${e.ls ?? "?"} · ${e.recalls} recall${e.recalls === 1 ? "" : "s"}`}
+                    title={`${showSyl(e.fs)} → ${showSyl(e.ls) ?? "?"} · ${e.recalls} recall${e.recalls === 1 ? "" : "s"}`}
                   >
                     {e.w}
                   </button>
@@ -768,7 +769,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                   playing: a word you were just shown hasn't been recalled, and
                   counting it as one would make the recall number a lie. */}
               <div className="longku-peek-add">
-                <span className="longku-peek-label">worth learning for {need}</span>
+                <span className="longku-peek-label">worth learning for {showSyl(need)}</span>
                 {loadingTeach && <span className="longku-hint">looking…</span>}
                 {teach && teach.length > 0 && (
                   <div className="longku-peek-words">
@@ -782,7 +783,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
                         title={
                           armed === sg.w
                             ? `Click again to add ${sg.w} to your bank`
-                            : `${sg.p} · ${sg.fs} → ${sg.ls} · not in your bank — click twice to add`
+                            : `${sg.p} · ${showSyl(sg.fs)} → ${showSyl(sg.ls)} · not in your bank — click twice to add`
                         }
                       >
                         {sg.w}
@@ -806,7 +807,7 @@ export function ChainPlay({ state, onChange, startAt, onCollapse }: Props) {
           ) : (
             need && (
               <p className="longku-play-sub" style={{ marginTop: 6 }}>
-                {offered.length} {practice ? "" : "due "}in your bank start with {need}
+                {offered.length} {practice ? "" : "due "}in your bank start with {showSyl(need)}
               </p>
             )
           )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { importWords, removeWord, type State } from "@longku/lib/store";
 import { tierOf, tierSpec } from "@longku/lib/frequency";
@@ -184,7 +185,7 @@ export function AddChengyu({ state, onChange, autoFocus = false }: Props) {
                       "in bank"
                     ) : (
                       <span className="longku-add-route">
-                        {h.fs} → {h.ls}
+                        {showSyl(h.fs)} → {showSyl(h.ls)}
                       </span>
                     )}
                   </span>

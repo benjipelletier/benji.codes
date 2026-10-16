@@ -8,6 +8,17 @@ const TONE_MAP: Record<string, string> = {
   ń: "n", ň: "n", ǹ: "n",
 };
 
+/**
+ * A toneless syllable as shown: ü written ü (lü, nüe), as 重复习 writes it.
+ * Inside, 龙库 keeps ü as v (lv, nve): the data files, the bank's first and
+ * last syllables and links all use it, so only what is shown changes.
+ */
+export function showSyl(syl: string): string;
+export function showSyl(syl: string | null | undefined): string | null | undefined;
+export function showSyl(syl: string | null | undefined) {
+  return syl ? syl.replace(/^([ln])v/, "$1ü") : syl;
+}
+
 export function stripTones(syl: string): string {
   let out = "";
   for (const ch of syl) {

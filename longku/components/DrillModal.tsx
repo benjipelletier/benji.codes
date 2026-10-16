@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useEffect, useMemo, useState } from "react";
 import { importWords, removeWord, type State } from "@longku/lib/store";
 import { TierPill } from "./AddChengyu";
@@ -118,10 +119,10 @@ export function DrillModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={`Bucket ${syllable}`}
+        aria-label={`Bucket ${showSyl(syllable)}`}
       >
         <header className="longku-modal-head">
-          <h2 className="longku-modal-syllable">{syllable}</h2>
+          <h2 className="longku-modal-syllable">{showSyl(syllable)}</h2>
           <span className="longku-modal-sub">
             {corpus ? (
               <>
@@ -129,7 +130,7 @@ export function DrillModal({
                 {" · "}
                 ends <b className="longku-modal-n">{arriving.length}</b>/{corpus.ending}
                 {" · "}
-                <span title={`The share of chengyu usage that ends on ${syllable}: how often a game lands you here`}>
+                <span title={`The share of chengyu usage that ends on ${showSyl(syllable)}: how often a game lands you here`}>
                   comes up <b className="longku-modal-n">{formatShare(comesUp)}</b>
                 </span>
               </>
@@ -163,7 +164,7 @@ export function DrillModal({
                   <span className="longku-bucket-word">{e.w}</span>
                   <TierPill f={e.f} />
                   <span className="longku-bucket-meta">
-                    {e.fs} → {e.ls ?? "?"}
+                    {showSyl(e.fs)} → {showSyl(e.ls) ?? "?"}
                   </span>
                   <span className="longku-bucket-stats">
                     <span className="longku-bucket-stat" title="times produced in play">
@@ -218,7 +219,7 @@ export function DrillModal({
         {arriving.length > 0 && (
           <section className="longku-modal-section">
             <h3 className="longku-subhead">
-              Ending on {syllable}
+              Ending on {showSyl(syllable)}
               {arriving.length > mine.length && (
                 <span className="longku-arrive-note">
                   {" "}
@@ -229,7 +230,7 @@ export function DrillModal({
             </h3>
             <div className="longku-arrive-words">
               {arriving.map((e) => (
-                <span key={e.w} className="longku-arrive-word" title={`${e.fs} → ${e.ls}`}>
+                <span key={e.w} className="longku-arrive-word" title={`${showSyl(e.fs)} → ${showSyl(e.ls)}`}>
                   {e.w}
                 </span>
               ))}
@@ -256,11 +257,11 @@ export function DrillModal({
                       className={`longku-top-leads ${onward > 0 ? "is-on" : ""}`}
                       title={
                         onward > 0
-                          ? `${onward} of yours start with ${c.ls} — a chain carries on from it`
-                          : `none of yours start with ${c.ls} — a chain would stop there`
+                          ? `${onward} of yours start with ${showSyl(c.ls)} — a chain carries on from it`
+                          : `none of yours start with ${showSyl(c.ls)} — a chain would stop there`
                       }
                     >
-                      → {c.ls}
+                      → {showSyl(c.ls)}
                       {onward > 0 && ` · ${onward}`}
                     </span>
                     {c.e && <span className="longku-top-gloss">{gloss(c.e, 2)}</span>}
@@ -292,7 +293,7 @@ export function DrillModal({
                   key={c.w}
                   className="longku-chip"
                   onClick={() => add(c)}
-                  title={`${c.p} · ${c.fs} → ${c.ls}`}
+                  title={`${c.p} · ${showSyl(c.fs)} → ${showSyl(c.ls)}`}
                 >
                   <span className="longku-chip-word">{c.w}</span>
                   <span className="longku-chip-syl">+</span>

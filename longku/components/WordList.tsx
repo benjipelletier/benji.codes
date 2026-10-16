@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useMemo, useState } from "react";
 import { removeWord, type BankEntry, type State } from "@longku/lib/store";
 import { TierPill } from "./AddChengyu";
@@ -209,20 +210,20 @@ export function WordList({ state, onChange, onPickSyllable, readOnly = false }: 
               <button
                 className="longku-words-syl"
                 onClick={() => onPickSyllable(r.fs)}
-                title={`${r.into} of your words end on ${r.fs}`}
+                title={`${r.into} of your words end on ${showSyl(r.fs)}`}
               >
-                {r.into} → {r.fs}
+                {r.into} → {showSyl(r.fs)}
               </button>
               <button
                 className="longku-words-syl"
                 onClick={() => r.ls && onPickSyllable(r.ls)}
                 title={
                   r.ls
-                    ? `${r.onward} of your words start with ${r.ls}`
+                    ? `${r.onward} of your words start with ${showSyl(r.ls)}`
                     : "no ending syllable — it can only close a chain"
                 }
               >
-                {r.ls ?? "?"} → {r.onward}
+                {showSyl(r.ls) ?? "?"} → {r.onward}
               </button>
             </div>
 

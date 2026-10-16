@@ -1,5 +1,6 @@
 "use client";
 
+import { showSyl } from "@longku/lib/pinyin";
 import { useEffect, useMemo, useState } from "react";
 import { importWords, type BankEntry, type State } from "@longku/lib/store";
 import { minChains, stats as bankStats } from "@longku/lib/chains";
@@ -135,7 +136,7 @@ export function LearnNext({ state, onChange, readOnly = false }: Props) {
             <div className="longku-learn-foot">
               <TierPill f={c.f} />
               <span className="longku-learn-join">
-                {c.fs} → {c.ls}
+                {showSyl(c.fs)} → {showSyl(c.ls)}
               </span>
               <span className="longku-learn-saves">
                 −{c.saves} chain{c.saves === 1 ? "" : "s"}
