@@ -6751,57 +6751,46 @@ button.cf-synclog-row {
 }
 
 /* The likely mistake struck through, the fix under it. */
+/* The likely mistake, as a proofreader marks it: the sentence white, the
+ * right word green, the wrong one struck in red above it. */
 .cf-lk-wr {
   display: grid;
-  gap: 2px;
+  gap: 6px;
 }
 
-.cf-lk-wr > s {
-  font-size: 18px;
-  color: var(--cf-down);
-  text-decoration-thickness: 2px;
-}
-
-.cf-lk-wr > span {
-  font-size: 18px;
-  color: var(--cf-up);
-}
-
-.cf-lk-wr small {
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-/* A warning the owner's sentences contradict: amber, not struck. */
-.cf-lk-wr.is-used {
-  padding-left: 10px;
-  border-left: 3px solid var(--cf-warn);
-}
-
-.cf-lk-wr > .cf-lk-wr-also {
-  font-size: 18px;
+.cf-lk-wr-line {
+  margin: 0;
+  padding-top: 8px;
+  font-size: 20px;
+  line-height: 1.8;
   color: var(--cf-ink);
 }
 
-.cf-lk-wr mark {
-  padding: 0 2px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--cf-warn) 22%, transparent);
-  color: inherit;
+.cf-lk-fix {
+  ruby-position: over;
 }
 
-.cf-lk-wr > .cf-lk-wr-count {
+.cf-lk-fix b,
+.cf-lk-ok {
+  font-weight: inherit;
+  color: var(--cf-up);
+}
+
+.cf-lk-fix rt {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--cf-down);
+}
+
+.cf-lk-fix rt s,
+.cf-lk-wr-was {
+  color: var(--cf-down);
+  text-decoration-thickness: 1.5px;
+}
+
+.cf-lk-wr-count {
   font-size: 12.5px;
-  font-weight: 650;
-  color: var(--cf-warn);
-}
-
-.cf-lk-wr.is-used .cf-lk-ex {
-  margin-top: 2px;
-}
-
-.cf-lk-wr.is-used small s {
-  text-decoration-color: var(--cf-ink-faint);
+  color: var(--cf-ink-faint);
 }
 
 /* Was this right? Two small round buttons, a note when wrong. */

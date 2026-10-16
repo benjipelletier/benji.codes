@@ -487,7 +487,7 @@ the blocks' shapes, with no sentence saying what it is.
   line, kept clear of the edges), `PatternBlock` (`{A}` slots drawn dashed,
   the slot words marked in each filling), `FamilyBlock` (a tap on a member shows its words, each with pinyin
   and + Add: members and the headwords they split into are in the answer's
-  words map, `parts`), `WrongRightBlock`,
+  words map, `parts`), `WrongRightBlock` (marked as a proofreader would, at the owner's request after two coloured sentences and a reason were too busy: the right sentence in white, the right word in green, the wrong word struck in red over it as ruby, widened to a whole word the answer knows, 幻觉 under 幻想, not 觉 under 想; one the owner's sentences contradict shows one of them, the part in green, and the count),
   `ExampleBlock`.
 - A chip whose word is in the deck has a small ✓ in its corner, so what is
   known shows at a glance (the owner couldn't tell from the first real
@@ -499,8 +499,7 @@ the blocks' shapes, with no sentence saying what it is.
   where the wrong version differs from the right one, with a character
   either side (哪个站 / 哪个车站: 个站), and if the owner's sentences have it,
   the block shows as in doubt: amber, the wrong side not struck, how many of
-  their sentences have it with one of them, the model's reason struck
-  instead. The prompt also tells the model to search before warning. Not
+  their sentences have it with one of them. The prompt also tells the model to search before warning. Not
   yet tested: a gap's near misses (a key like 在站 would also match 在站台).
 - Known gap: 得了 in a gap is 得 + 了 (got), but the dictionary line shows the
   headword 得了 ("all right!; that's enough!"), and + Add would add that.

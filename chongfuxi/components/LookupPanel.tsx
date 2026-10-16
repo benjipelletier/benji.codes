@@ -457,45 +457,112 @@ function FamilyBlock({ b, ctx }: { b: Block<"family">; ctx: Ctx }) {
 }
 
 /**
- * The likely mistake beside the fix. When the owner's own sentences use the
- * "wrong" part, the warning is in doubt: the wrong side isn't struck, the
- * model's reason is, and one of those sentences shows it in use.
+ * Where a right version differs from the wrong one: what comes before, the
+ * right part, the wrong part, what comes after (他去年得了抑郁症 against
+ * 他去年发展了抑郁症: 他去年 · 得 · 发展 · 了抑郁症). Where one side adds
+ * nothing (哪个车站 against 哪个站), a character either side is taken in.
  */
-function WrongRightBlock({ b }: { b: Block<"wrong-right"> }) {
+function differ(wrong: string, right: string, words: string[] = []): { before: string; fix: string; was: string; after: string } {
+  const w = [...wrong];
+  const r = [...right];
+  let p = 0;
+  while (p < w.length && p < r.length && w[p] === r[p]) p++;
+  let e = 0;
+  while (e < w.length - p && e < r.length - p && w[w.length - 1 - e] === r[r.length - 1 - e]) e++;
+  if (p + e >= w.length || p + e >= r.length) {
+    if (p > 0) p--;
+    else if (e > 0) e--;
+  }
+  // Out to the whole word, where the answer knows one covering the change
+  // (幻觉 over 幻想, not 觉 over 想); the wrong side widens by as much, into
+  // the part both share.
+  for (const word of words) {
+    const len = [...word].length;
+    if (len < 2) continue;
+    for (let start = 0; start + len <= r.length; start++) {
+      if (r.slice(start, start + len).join("") !== word) continue;
+      if (start <= p && start + len >= r.length - e) {
+        e -= start + len - (r.length - e);
+        p = start;
+      }
+    }
+  }
+  return {
+    before: r.slice(0, p).join(""),
+    fix: r.slice(p, r.length - e).join(""),
+    was: w.slice(p, w.length - e).join(""),
+    after: r.slice(r.length - e).join(""),
+  };
+}
+
+/**
+ * The likely mistake, marked as a proofreader would: the right sentence in
+ * white with the right word in green, and the wrong word struck in red over
+ * it. Nothing else, at the owner's request (two coloured sentences and a
+ * reason were too busy). Several right versions ("得了抑郁症 / 患上抑郁症")
+ * each get their own mark. When the owner's own sentences use the "wrong"
+ * part, the warning is in doubt: one of them, the part in green, and how
+ * many there are.
+ */
+function WrongRightBlock({ b, words }: { b: Block<"wrong-right">; words: string[] }) {
   const used = b.used;
-  if (!used) {
+  if (used) {
+    const [first] = used.examples;
     return (
-      <div className="cf-lk-wr">
-        <s className="cf-zh">{b.wrong}</s>
-        <span className="cf-zh">{b.right}</span>
-        {b.why && <small>{b.why}</small>}
+      <div className="cf-lk-wr is-used">
+        {first && (
+          <p className="cf-zh cf-lk-wr-line">
+            <GreenText zh={first.zh} mark={used.key} />
+          </p>
+        )}
+        <small className="cf-lk-wr-count">
+          {used.key} is in {used.count} of your sentences
+        </small>
       </div>
     );
   }
-  const [first] = used.examples;
+  const rights = b.right.split(/\s*[/／|｜]\s*/).filter((x) => x.trim());
   return (
-    <div className="cf-lk-wr is-used">
-      <span className="cf-zh cf-lk-wr-also">
-        <MarkedText zh={b.wrong} marks={[used.key]} />
-      </span>
-      <span className="cf-zh">{b.right}</span>
-      <span className="cf-lk-wr-count">
-        {used.key} is in {used.count} of your sentences
-      </span>
-      {first && (
-        <p className="cf-lk-ex">
-          <span className="cf-zh">
-            <MarkedText zh={first.zh} marks={[used.key]} />
-          </span>
-          {first.en && <span>{first.en}</span>}
-        </p>
-      )}
-      {b.why && (
-        <small>
-          <s>{b.why}</s>
-        </small>
-      )}
+    <div className="cf-lk-wr">
+      {rights.map((right, i) => {
+        const d = differ(b.wrong.trim(), right.trim(), words);
+        // Too different to mark one word: the wrong version struck, the right one under it.
+        if (!d.fix || [...d.was].length > 8) {
+          return (
+            <p key={i} className="cf-zh cf-lk-wr-line">
+              <s className="cf-lk-wr-was">{b.wrong}</s>
+              <br />
+              {right}
+            </p>
+          );
+        }
+        return (
+          <p key={i} className="cf-zh cf-lk-wr-line">
+            {d.before}
+            <ruby className="cf-lk-fix">
+              <b>{d.fix}</b>
+              <rt>
+                <s>{d.was}</s>
+              </rt>
+            </ruby>
+            {d.after}
+          </p>
+        );
+      })}
     </div>
+  );
+}
+
+/** A sentence in white with one part of it in green. */
+function GreenText({ zh, mark }: { zh: string; mark: string }) {
+  const at = mark ? zh.indexOf(mark) : -1;
+  if (at < 0) return <>{zh}</>;
+  return (
+    <>
+      {zh.slice(0, at)}
+      <b className="cf-lk-ok">{mark}</b>
+      {zh.slice(at + mark.length)}
+    </>
   );
 }
 
@@ -578,7 +645,7 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
           case "family":
             return <FamilyBlock key={i} b={b} ctx={ctx} />;
           case "wrong-right":
-            return <WrongRightBlock key={i} b={b} />;
+            return <WrongRightBlock key={i} b={b} words={Object.keys(a.words)} />;
           case "example":
             return <ExampleBlock key={i} b={b} />;
         }
