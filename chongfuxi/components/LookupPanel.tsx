@@ -167,10 +167,9 @@ const DeckTick = ({ on }: { on: boolean }) =>
   ) : null;
 
 /**
- * The gap phrase, led by its answer: the word picked as the headword (big,
- * green if it fits, struck in red if not), its pinyin, deck mark and meaning;
- * the phrase under it as context, the word in place; every candidate as a
- * chip, a tap making it the headword.
+ * The gap phrase: the best word in it, every candidate under it; a tap tries
+ * one, and under the chips shows it as a dictionary line (unless a sense
+ * below already does).
  */
 function GapBlock({
   b,
@@ -186,28 +185,8 @@ function GapBlock({
   sensed: Set<string>;
 }) {
   const shown = b.options.find((o) => o.zh === picked) ?? b.options.find((o) => o.fits) ?? null;
-  const info = shown ? ctx.words[shown.zh] : undefined;
   return (
     <div className="cf-lk-head">
-      {shown && (
-        <div className={`cf-lk-hero ${shown.fits ? "is-fit" : "is-miss"}`}>
-          <p className="cf-zh cf-lk-hero-zh" lang="zh">
-            {shown.fits ? shown.zh : <s>{shown.zh}</s>}
-          </p>
-          <div className="cf-lk-wordline">
-            {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
-            <DeckMark zh={shown.zh} ctx={ctx} />
-          </div>
-          {!shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
-          {/* A sense below gives the meaning; a phrase gives each of its words. */}
-          {info?.gloss && !sensed.has(shown.zh) && <p className="cf-lk-gloss">{info.gloss}</p>}
-          {info?.parts && (
-            <div className="cf-lk-hero-parts">
-              <WordLine zh={shown.zh} ctx={ctx} />
-            </div>
-          )}
-        </div>
-      )}
       <Frame frame={b.frame} zh={shown?.zh ?? null} fits={shown?.fits ?? true} />
       <div className="cf-lk-tries" role="group" aria-label="Words for the gap">
         {b.options.map((o) => (
@@ -224,6 +203,13 @@ function GapBlock({
           </button>
         ))}
       </div>
+      {/* Under the words, so tapping one never moves them. */}
+      {shown && (!sensed.has(shown.zh) || !shown.fits) && (
+        <div className="cf-lk-pick">
+          <WordLine zh={shown.zh} ctx={ctx} />
+          {!shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
+        </div>
+      )}
     </div>
   );
 }

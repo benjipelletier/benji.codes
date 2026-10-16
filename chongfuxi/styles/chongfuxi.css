@@ -6113,57 +6113,8 @@ button.cf-synclog-row {
   gap: 10px;
 }
 
-/* The answer as the headword, the phrase under it as context. */
-.cf-lk-hero {
-  display: grid;
-  gap: 2px;
-}
-
-.cf-lk-hero-zh {
-  margin: 0;
-  font-size: 56px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
-  color: var(--cf-up);
-}
-
-/* Grey, struck in red, like its chip: a red line on red characters vanishes into their strokes. */
-.cf-lk-hero.is-miss .cf-lk-hero-zh {
-  color: var(--cf-ink-soft);
-}
-
-.cf-lk-hero-zh s {
-  text-decoration-color: var(--cf-down);
-  text-decoration-thickness: 5px;
-}
-
-.cf-lk-hero .cf-lk-py {
-  font-size: 18px;
-}
-
-.cf-lk-hero .cf-lk-miss-why {
-  margin: 2px 0 0;
-}
-
-.cf-lk-hero-parts {
-  display: grid;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--cf-sunken);
-}
-
 .cf-lk-head .cf-lk-frame {
-  margin-top: 4px;
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--cf-ink-soft);
-}
-
-.cf-lk-head .cf-lk-gap {
-  min-width: 0;
+  margin-top: 0;
 }
 
 .cf-lk-gap.is-miss {

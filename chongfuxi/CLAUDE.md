@@ -468,13 +468,11 @@ the blocks' shapes, with no sentence saying what it is.
   blocks when read back (`fromV1`), so the cache and test set stay usable.
 - On screen (`LookupPanel.tsx`): first a line saying how the question was
   read (its kind, the query with the asked part in bold: the owner asked for
-  it back). `GapBlock`, led by its answer as the headword, at the owner's
-  request ("I wish 入住 was the visual hero"): the picked word large (green
-  if it fits; grey struck in red if not, since a red line on red characters
-  vanishes into their strokes), its pinyin, deck mark or + Add and meaning,
-  a phrase's words each as a `WordLine`; then the phrase as smaller context,
-  the word in place; then the chips, a tap making one the headword (a
-  sense's word too). A wrong → right block that only repeats a struck chip
+  it back). `GapBlock` (tapping a chip tries it and shows it under the chips
+  as a dictionary line, `WordLine`: pinyin, meaning, deck mark or + Add,
+  unless a sense below already does; a sense's word tries it too). The
+  answer word as a large headword above the phrase was tried and taken out:
+  the owner found it too big and obtrusive. A wrong → right block that only repeats a struck chip
   (登记酒店 → 入住酒店, 登记 already struck) is folded into it, its reason shown
   when the chip is tapped (`foldIntoGap`, when drawn, so kept answers too;
   the owner found it redundant); one the owner's sentences contradict stays. `SenseItem` (numbered through the whole answer),
