@@ -167,9 +167,10 @@ const DeckTick = ({ on }: { on: boolean }) =>
   ) : null;
 
 /**
- * The gap phrase: the best word in it, every candidate under it; a tap tries
- * one, and under the chips shows it as a dictionary line (unless a sense
- * below already does).
+ * The gap phrase, led by its answer: the word picked as the headword (big,
+ * green if it fits, struck in red if not), its pinyin, deck mark and meaning;
+ * the phrase under it as context, the word in place; every candidate as a
+ * chip, a tap making it the headword.
  */
 function GapBlock({
   b,
@@ -185,8 +186,28 @@ function GapBlock({
   sensed: Set<string>;
 }) {
   const shown = b.options.find((o) => o.zh === picked) ?? b.options.find((o) => o.fits) ?? null;
+  const info = shown ? ctx.words[shown.zh] : undefined;
   return (
     <div className="cf-lk-head">
+      {shown && (
+        <div className={`cf-lk-hero ${shown.fits ? "is-fit" : "is-miss"}`}>
+          <p className="cf-zh cf-lk-hero-zh" lang="zh">
+            {shown.fits ? shown.zh : <s>{shown.zh}</s>}
+          </p>
+          <div className="cf-lk-wordline">
+            {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
+            <DeckMark zh={shown.zh} ctx={ctx} />
+          </div>
+          {!shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
+          {/* A sense below gives the meaning; a phrase gives each of its words. */}
+          {info?.gloss && !sensed.has(shown.zh) && <p className="cf-lk-gloss">{info.gloss}</p>}
+          {info?.parts && (
+            <div className="cf-lk-hero-parts">
+              <WordLine zh={shown.zh} ctx={ctx} />
+            </div>
+          )}
+        </div>
+      )}
       <Frame frame={b.frame} zh={shown?.zh ?? null} fits={shown?.fits ?? true} />
       <div className="cf-lk-tries" role="group" aria-label="Words for the gap">
         {b.options.map((o) => (
@@ -203,14 +224,32 @@ function GapBlock({
           </button>
         ))}
       </div>
-      {/* Under the words, so tapping one never moves them. */}
-      {shown && (!sensed.has(shown.zh) || !shown.fits) && (
-        <div className="cf-lk-pick">
-          <WordLine zh={shown.zh} ctx={ctx} />
-          {!shown.fits && shown.why && <p className="cf-lk-miss-why">{shown.why}</p>}
-        </div>
-      )}
     </div>
+  );
+}
+
+/**
+ * A wrong → right block that only says again what a struck chip in the gap
+ * says (登记酒店 → 入住酒店, with 登记 already struck): folded into that chip,
+ * its reason shown when the chip is tapped. One the owner's sentences
+ * contradict stays, since it shows something new.
+ */
+function foldIntoGap(blocks: LookupBlock[]): LookupBlock[] {
+  const gap = blocks.find((x): x is Block<"gap"> => x.type === "gap");
+  if (!gap) return blocks;
+  const misses = gap.options.filter((o) => !o.fits);
+  const fits = gap.options.filter((o) => o.fits);
+  const why = new Map<string, string>();
+  const kept = blocks.filter((x) => {
+    if (x.type !== "wrong-right" || x.used) return true;
+    const miss = misses.find((o) => x.wrong.includes(o.zh) && !x.right.includes(o.zh));
+    if (!miss || !fits.some((o) => x.right.includes(o.zh))) return true;
+    if (x.why && !miss.why) why.set(miss.zh, x.why);
+    return false;
+  });
+  if (!why.size) return kept;
+  return kept.map((x) =>
+    x === gap ? { ...gap, options: gap.options.map((o) => (why.has(o.zh) ? { ...o, why: why.get(o.zh)! } : o)) } : x,
   );
 }
 
@@ -505,7 +544,8 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
     }
   };
 
-  const sensed = new Set(a.blocks.flatMap((b) => (b.type === "sense" ? b.items.map((it) => it.zh) : [])));
+  const blocks = foldIntoGap(a.blocks);
+  const sensed = new Set(blocks.flatMap((b) => (b.type === "sense" ? b.items.map((it) => it.zh) : [])));
   // Senses are numbered through the whole answer, as in a dictionary entry.
   let n = 0;
   return (
@@ -524,7 +564,7 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
           </span>
         )}
       </p>
-      {a.blocks.map((b, i) => {
+      {blocks.map((b, i) => {
         switch (b.type) {
           case "gap":
             return <GapBlock key={i} b={b} picked={picked} onPick={setPicked} ctx={ctx} sensed={sensed} />;
@@ -690,19 +730,20 @@ export function LookupPanel({ shell }: { shell: Shell }) {
 
       {!answer && !busy && past && past.length > 0 && (
         <section className="cf-lk-sec">
-          <h3 className="cf-h3">Asked before</h3>
+          <h3 className="cf-h3">History</h3>
           <ul className="cf-slist">
             {past.map((l) => (
               <li key={l.query}>
+                {/* The question on one line, the kind it was read as under it, the verdict at the end. */}
                 <button
-                  className="cf-wrow"
+                  className="cf-lk-hist"
                   onClick={() => {
                     setTyped(l.query);
                     void ask(l.query);
                   }}
                 >
-                  <b className="cf-lk-past">{l.query}</b>
-                  <span className="cf-wrow-gloss">{l.kind ? KIND[l.kind] : ""}</span>
+                  <span className="cf-lk-hist-q">{l.query}</span>
+                  {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
                   <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
                 </button>
               </li>
