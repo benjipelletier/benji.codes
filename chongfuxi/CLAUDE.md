@@ -615,6 +615,22 @@ the blocks' shapes, with no sentence saying what it is.
   through the design and marked: right part in question, right meaning,
   right word. The misses decide what is built first.
 
+## Definitions the model writes
+
+A word CC-CEDICT lacks whose Pleco card brought no definition (扬眉吐气)
+shows "No definition on file". For the owner it also shows "Write one with
+AI", on the Read card's back and on the word's sheet (`DefineButton` in
+`components/shared.tsx`). It asks Look up's model, at Look up's effort
+(`app/api/chongfuxi/define.ts`, route `define`, owner only), for one to four
+CC-CEDICT-style senses, given the word's reading and up to six of the
+owner's sentences that use it, through a small enforced JSON format. The
+result is the word's `defs`, one entry marked `ai: true` (and its
+`glosses`), and every card and sheet of the word shows an **AI** tag beside
+龙库's (`AiTag`), in Look up's colour. The model's pinyin is used only when
+the word has none, and only when each syllable is one CC-CEDICT gives that
+character. Refused for a word that has a definition. An import that brings
+none for the word keeps it; one that brings one replaces it.
+
 ## The owner's corpus
 
 From `flashbackup-2610131958.pqb` (35,974 cards), with `hsk1-4 sentences`
@@ -1208,7 +1224,7 @@ so scripts run the same code as routes):
   `?list=`; POST the steps taken, owner).
 - Routes: `summary`, `session`, `sentences`, `sentence`, `blockers`, `levels`, `stats` (public); `review`,
   `meaning`, `note`, `names`, `settings`, `imports`, `imports/[id]/[idx]`,
-  `imports/[id]/ingest`, `lookup` (owner).
+  `imports/[id]/ingest`, `lookup`, `define` (owner).
 - `next.config.ts` keeps `sql.js` external and traces its wasm and the
   dictionary into the ingest route.
 

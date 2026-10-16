@@ -26,8 +26,8 @@ import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, to
 
 export class LookupError extends Error {}
 
-const MODEL = process.env.CHONGFUXI_LOOKUP_MODEL || "claude-haiku-5-5";
-const EFFORT = (process.env.CHONGFUXI_LOOKUP_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max";
+export const MODEL = process.env.CHONGFUXI_LOOKUP_MODEL || "claude-haiku-5-5";
+export const EFFORT = (process.env.CHONGFUXI_LOOKUP_EFFORT || "medium") as "low" | "medium" | "high" | "xhigh" | "max";
 /** Models the server-side fallback on a refusal is offered for. Haiku has none: a refusal there is shown as such. */
 const WITH_FALLBACK = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"]);
 
@@ -37,7 +37,7 @@ const WITH_FALLBACK = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable
  * prompts of 100K tokens or fewer (each call of a lookup is; above that they
  * are five times as much), with the 5-minute cache write. Checked October 2026.
  */
-const PRICES: Record<string, [number, number, number, number]> = {
+export const PRICES: Record<string, [number, number, number, number]> = {
   "claude-opus-5-5": [4, 20, 0.2, 5],
   "claude-sonnet-5-5": [2, 10, 0.2, 2.5],
   "claude-haiku-5-5": [0.1, 0.5, 0.01, 0.125],

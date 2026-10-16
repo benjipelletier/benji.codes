@@ -7,6 +7,8 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import type { CardHistory, SentenceInfo, Summary, WordInfo } from "@chongfuxi/lib/api";
+import { send } from "@chongfuxi/lib/client";
+import type { Definition } from "@chongfuxi/lib/dict";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
@@ -313,6 +315,55 @@ export function LongkuTag() {
     <span className="cf-tag cf-longku" title="One of the chengyu 龙库 plays">
       龙库
     </span>
+  );
+}
+
+/** A word whose definition the model wrote (app/api/chongfuxi/define.ts), not a dictionary. */
+export function AiTag() {
+  return (
+    <span className="cf-tag cf-ai-tag" title="Its definition was written by AI, not taken from a dictionary">
+      AI
+    </span>
+  );
+}
+
+/** Whether a word's definition is the model's. */
+export const aiDefined = (defs: Definition[]) => defs.some((d) => d.ai);
+
+/**
+ * For a word with no definition: has the model write one, which is kept and
+ * tagged AI. The owner only; the result goes to `onDefined` to redraw with.
+ */
+export function DefineButton({
+  word,
+  onDefined,
+}: {
+  word: string;
+  onDefined: (r: { pinyin: string | null; defs: Definition[] }) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const define = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onDefined(await send<{ pinyin: string | null; defs: Definition[] }>("define", { word }));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="cf-define">
+      <button className="cf-btn cf-btn-ghost cf-define-btn" onClick={() => void define()} disabled={busy}>
+        <span className="cf-ai-tag cf-tag" aria-hidden="true">
+          AI
+        </span>
+        {busy ? "Writing a definition…" : "Write one with AI"}
+      </button>
+      {error && <p className="cf-error">{error}</p>}
+    </div>
   );
 }
 

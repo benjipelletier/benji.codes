@@ -20,13 +20,14 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { blankOut } from "@chongfuxi/lib/review";
 import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
+import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
-import { History, HskTags, LongkuTag, PlecoTile, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
+import { AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -833,6 +834,7 @@ export function Session({
             <span className="cf-card-tags">
               {card.word && <HskTags hsk={card.word.hsk} />}
               {card.word?.longku && <LongkuTag />}
+              {card.word && aiDefined(card.word.defs) && <AiTag />}
               {card.kind === "sentence" && card.sentence?.sources.map((s) => (
                 <span key={s} className="cf-tag">{s}</span>
               ))}
@@ -861,6 +863,12 @@ export function Session({
                   {card.meaning && <p className="cf-card-meaning">{card.meaning.gloss}</p>}
                   <Definitions
                     card={card}
+                    canDefine={canWrite}
+                    onDefined={(r) =>
+                      setQueue((q) =>
+                        q.map((c) => (c.word?.word === card.word!.word ? { ...c, word: { ...c.word!, pinyin: c.word!.pinyin ?? r.pinyin, defs: r.defs } } : c)),
+                      )
+                    }
                     canSplit={canWrite && !card.meaning}
                     splitting={splitting}
                     onPick={setSplitting}
@@ -1113,6 +1121,8 @@ export function Session({
 /** Everything the word means. On a word's own card each sense can be split off onto a card of its own. */
 function Definitions({
   card,
+  canDefine,
+  onDefined,
   canSplit,
   splitting,
   onPick,
@@ -1120,6 +1130,8 @@ function Definitions({
   onMerge,
 }: {
   card: SessionCard;
+  canDefine: boolean;
+  onDefined: (r: { pinyin: string | null; defs: Definition[] }) => void;
   canSplit: boolean;
   splitting: string | null;
   onPick: (gloss: string | null) => void;
@@ -1128,7 +1140,14 @@ function Definitions({
 }) {
   const word = card.word!;
   const split = new Map(word.split.map((m) => [m.gloss, m.id]));
-  if (!word.defs.length) return <p className="cf-muted">No definition on file. Look it up in Pleco.</p>;
+  if (!word.defs.length) {
+    return (
+      <>
+        <p className="cf-muted">No definition on file. Look it up in Pleco.</p>
+        {canDefine && <DefineButton word={word.word} onDefined={onDefined} />}
+      </>
+    );
+  }
   return (
     <div className="cf-defs">
       {mainFirst(word.defs, word.pinyin).map((d, i) => (

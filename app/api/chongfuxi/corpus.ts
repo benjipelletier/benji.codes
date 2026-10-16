@@ -357,8 +357,11 @@ export async function ingest(
           else excluded.status
         end,
         pinyin    = coalesce(excluded.pinyin, chongfuxi_word.pinyin),
-        defs      = excluded.defs,
-        glosses   = excluded.glosses,
+        -- A definition the model wrote stays until the import brings one.
+        defs      = case when jsonb_array_length(excluded.defs) = 0 and chongfuxi_word.defs @> '[{"ai": true}]'
+                         then chongfuxi_word.defs else excluded.defs end,
+        glosses   = case when jsonb_array_length(excluded.defs) = 0 and chongfuxi_word.defs @> '[{"ai": true}]'
+                         then chongfuxi_word.glosses else excluded.glosses end,
         pleco     = coalesce(excluded.pleco, chongfuxi_word.pleco),
         lists     = excluded.lists,
         import_id = excluded.import_id

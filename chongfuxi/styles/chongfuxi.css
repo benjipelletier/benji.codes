@@ -5707,6 +5707,28 @@ button.cf-synclog-row {
   --cf-longku: #f07a62;
 }
 
+/* A definition the model wrote: tagged in Look up's colour, beside 龙库's. */
+.cf-ai-tag {
+  color: var(--cf-recall) !important;
+  background: color-mix(in srgb, var(--cf-recall) 14%, transparent) !important;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cf-define {
+  margin-top: 10px;
+}
+
+.cfx .cf-define-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cf-define .cf-error {
+  margin: 8px 0 0;
+}
+
 .cf-list-linked {
   margin-left: 8px;
   padding: 1px 7px;

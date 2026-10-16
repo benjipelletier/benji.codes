@@ -16,6 +16,8 @@ export interface Definition {
   senses: string[];
   /** The definition typed into the owner's own Pleco card, not a dictionary's. */
   own?: boolean;
+  /** Written by the model for a word with no definition (app/api/chongfuxi/define.ts); shown with an AI tag. */
+  ai?: boolean;
 }
 
 export interface Dict {

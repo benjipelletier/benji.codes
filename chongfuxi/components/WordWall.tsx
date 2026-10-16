@@ -12,7 +12,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainSenses } from "@chongfuxi/lib/senses";
-import { Highlighted, History, LongkuTag, PlecoTile, fmt, message, span, useBackLayer } from "./shared";
+import { AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -436,6 +436,7 @@ export function WordSheet({
               )}
               {!d.hsk.old && !d.hsk.v3 && <span className="cf-tag cf-hsk is-none">not HSK</span>}
               {d.longku && <LongkuTag />}
+              {aiDefined(d.defs) && <AiTag />}
               <PlecoTile word={word} inline />
             </p>
           )}
@@ -453,7 +454,10 @@ export function WordSheet({
                 ))}
               </ul>
             ) : (
-              <p className="cf-muted">No definition on file.</p>
+              <>
+                <p className="cf-muted">No definition on file.</p>
+                {canWrite && <DefineButton word={word} onDefined={(r) => setD({ ...d, pinyin: d.pinyin ?? r.pinyin, defs: r.defs })} />}
+              </>
             )}
 
             {d.cards.map((c, i) => (
