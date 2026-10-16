@@ -6500,6 +6500,23 @@ button.cf-synclog-row {
   white-space: nowrap;
 }
 
+/* In a narrow column: smaller, and free to wrap rather than run out of it. */
+.cf-lk-deck.is-compact {
+  flex-wrap: wrap;
+  gap: 0 6px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  white-space: normal;
+}
+
+.cfx .cf-lk-add.is-compact {
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: 12.5px;
+}
+
 .cf-lk-deck.is-in {
   background: color-mix(in srgb, var(--cf-up) 14%, transparent);
   color: var(--cf-up);
@@ -6913,6 +6930,8 @@ button.cf-synclog-row {
 
 .cf-lk-fix {
   ruby-position: over;
+  /* The struck word kept together over the right one, not spread to its width. */
+  ruby-align: center;
 }
 
 .cf-lk-fix b,

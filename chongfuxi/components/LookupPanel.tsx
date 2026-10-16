@@ -68,7 +68,7 @@ interface Ctx {
  * Where a word stands in the deck, at a glance, and a way to put it there:
  * "In deck · strong", or + Add (one addition, undone here or like any other).
  */
-function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
+function DeckMark({ zh, ctx, compact = false }: { zh: string; ctx: Ctx; compact?: boolean }) {
   const [added, setAdded] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +104,7 @@ function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
 
   if (added !== null) {
     return (
-      <span className="cf-lk-deck is-in">
+      <span className={`cf-lk-deck is-in${compact ? " is-compact" : ""}`}>
         ✓ Added
         <button className="cf-lk-undo" disabled={busy} onClick={() => void undo()}>
           Undo
@@ -115,12 +115,20 @@ function DeckMark({ zh, ctx }: { zh: string; ctx: Ctx }) {
   if (!info) return null;
   if (info.deck?.status === "deck") {
     const stage = info.deck.stage;
+    // In a narrow column (a comparison, a scale) the stage alone says it: "✓ strong".
+    if (compact) {
+      return (
+        <span className="cf-lk-deck is-in is-compact" title="In your deck">
+          ✓ {stage ? STAGE[stage] : "in deck"}
+        </span>
+      );
+    }
     return <span className="cf-lk-deck is-in">✓ In deck{stage ? ` · ${STAGE[stage]}` : ""}</span>;
   }
   if (info.deck?.status === "name" || !info.inDictionary || !info.pinyin || info.parts) return null;
   return (
     <>
-      <button className="cf-lk-add" disabled={busy} onClick={() => void add()} title={info.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
+      <button className={`cf-lk-add${compact ? " is-compact" : ""}`} disabled={busy} onClick={() => void add()} title={info.deck?.status === "listed" ? "On one of your Pleco lists" : undefined}>
         {busy ? "Adding…" : "+ Add"}
       </button>
       {error && <span className="cf-error cf-lk-adderr">{error}</span>}
@@ -321,7 +329,7 @@ function ContrastBlock({ b, ctx }: { b: Block<"contrast">; ctx: Ctx }) {
           <span className="cf-zh">{w}</span>
           {ctx.words[w]?.pinyin && <span className="cf-lk-py">{ctx.words[w].pinyin}</span>}
           <span>
-            <DeckMark zh={w} ctx={ctx} />
+            <DeckMark zh={w} ctx={ctx} compact />
           </span>
         </div>
       ))}
@@ -361,7 +369,7 @@ function ScaleBlock({ b, ctx }: { b: Block<"scale">; ctx: Ctx }) {
             <span className="cf-zh">{p.zh}</span>
             {ctx.words[p.zh]?.pinyin && <span className="cf-lk-py">{ctx.words[p.zh].pinyin}</span>}
             <small>{p.gloss}</small>
-            <DeckMark zh={p.zh} ctx={ctx} />
+            <DeckMark zh={p.zh} ctx={ctx} compact />
           </li>
         ))}
       </ol>
