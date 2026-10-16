@@ -142,5 +142,34 @@ assert.equal(mistakeKey("他发展了抑郁症。", "他得了抑郁症。"), "�
 assert.equal(mistakeKey("站", "车站"), null, "one character is too little to look for");
 assert.equal(mistakeKey("哪个站", "哪个站"), null, "nothing differs");
 
+// A word taken apart: its own characters only, each read as the word reads it.
+const parts = checkAnswer(
+  {
+    reading: { parts: [{ text: "不着痕迹", asked: false }, { text: "character breakdown", asked: true }], kind: "breakdown", note: "" },
+    blocks: [
+      {
+        type: "parts",
+        word: "不着痕迹",
+        chars: [
+          { zh: "不", gloss: "not" },
+          { zh: "着", gloss: "to touch" },
+          { zh: "痕", gloss: "mark" },
+          { zh: "迹", gloss: "trace" },
+          { zh: "龙", gloss: "dragon" },
+        ],
+        literal: "not touching any mark or trace",
+      },
+    ],
+    summary: "",
+  },
+  newSeen(),
+  { entry: (w) => dictEntry(w), sentences: new Map() },
+);
+const pb = parts.blocks[0];
+assert.ok(pb?.type === "parts");
+assert.deepEqual(pb.chars.map((c) => [c.zh, c.pinyin, c.gloss]), [["不", "bù", "not"], ["着", "zhuó", "to touch"], ["痕", "hén", "mark"], ["迹", "jì", "trace"]], "着 read zhuó, as in this word; 龙 left out");
+assert.ok(parts.checks.some((c) => c.includes("龙")), "the stray character is reported");
+assert.equal(normaliseAnswer({ blocks: [{ type: "parts", word: "畅销", chars: "[{\"zh\":\"畅\",\"gloss\":\"freely\"}]" }] }).blocks.length, 1, "a parts block handed in survives the shape check");
+
 console.log(out.checks.join("\n"));
 console.log("ok");

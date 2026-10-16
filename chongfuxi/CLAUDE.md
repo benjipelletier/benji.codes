@@ -288,6 +288,7 @@ the owner raised. Kinds seen so far:
 | Sentence pattern | the more… the more | a pattern, 越…越… |
 | Whole expression | I'm not in the mood | a sentence-level equivalent, 没心情 |
 | Reading | 你真行 | meaning in this context |
+| Why these characters | 不着痕迹 character breakdown, 畅销 why these characters | each character's sense in the word, put together |
 
 Collocation counts help with the first two, a little with near-synonyms,
 and mislead on their own: 有 is common before 抑郁症 but means having it,
@@ -448,6 +449,11 @@ Built on the owner's corpus alone, since that is what answers lead with:
     sentences whose translation has the English), and sent with the
     question in `<evidence_already_gathered>`; the prompt says to use it
     and to ask for anything more in one turn, several calls at once.
+  - When the question names Chinese and its English only asks about it
+    ("character breakdown", "why", "mnemonic", "how to use": `ASKING`),
+    the English isn't looked up (it once had "character" read as 人物 and
+    a breakdown answered as a translation); the word and each of its
+    characters are, from the dictionary.
   - Each answer's check list ends with where the time went ("Took 31.2 s:
     evidence up front 0.4 s, 4 model calls 29.8 s, tools 0.6 s, check 0.1
     s"), also logged as `lookup timing` on Vercel. Read it before the next
@@ -482,6 +488,7 @@ the blocks' shapes, with no sentence saying what it is.
 | Family | the rule behind the answer from the owner's sentences (得 + an illness: 得感冒 · 得了癌症) | any; what makes it more than a dictionary |
 | Wrong → right | the likely mistake beside the fix | any |
 | Example | one of the owner's sentences by id, or one labelled as the model's | any |
+| Parts | a word taken apart: each character, its reading in this word, what it means here, the owner's deck words sharing it; then the literal sense put together | why these characters |
 
 - The model hands the answer in by calling an `answer` tool whose input
   schema is `ANSWER_SCHEMA` (`blocks` an `anyOf` of eight objects, each told
@@ -522,7 +529,7 @@ the blocks' shapes, with no sentence saying what it is.
   the slot words marked in each filling), `FamilyBlock` (a tap on a member shows its words, each with pinyin
   and + Add: members and the headwords they split into are in the answer's
   words map, `parts`), `WrongRightBlock` (marked as a proofreader would, at the owner's request after two coloured sentences and a reason were too busy: the right sentence in white, the right word in green, the wrong word struck in red over it as ruby, widened to a whole word the answer knows, 幻觉 under 幻想, not 觉 under 想; one the owner's sentences contradict shows one of them, the part in green, and the count),
-  `ExampleBlock`.
+  `ExampleBlock`, `PartsBlock` (a row per character; its reading comes from the word's own reading, so 着 is zhuó in 不着痕迹, and the deck words sharing it are looked up each time it is shown, `withParts`; added at the owner's request after a breakdown came back as a translation).
 - A chip whose word is in the deck has a small ✓ in its corner, so what is
   known shows at a glance (the owner couldn't tell from the first real
   answer, which had no sense block to carry the deck marks).

@@ -45,7 +45,8 @@ export type ModelBlock =
     }
   | { type: "family"; head: string; rule: string; members: Array<{ zh: string; count: number }> }
   | { type: "wrong-right"; wrong: string; right: string; why: string }
-  | { type: "example"; id: number; zh: string; en: string };
+  | { type: "example"; id: number; zh: string; en: string }
+  | { type: "parts"; word: string; chars: Array<{ zh: string; gloss: string }>; literal: string };
 
 /** The answer as the model gives it. */
 export interface ModelAnswer {
@@ -94,7 +95,7 @@ export function normaliseAnswer(input: unknown): ModelAnswer {
 
   const POINTS = ["meaning", "pairing", "grammar", "register", "tone", "frequency"] as const;
   const SOURCES = ["corpus", "dictionary", "deck", "model"] as const;
-  const KINDS = ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading"] as const;
+  const KINDS = ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading", "breakdown"] as const;
 
   const block = (v: unknown): ModelBlock | null => {
     const x = o(v);
@@ -142,6 +143,8 @@ export function normaliseAnswer(input: unknown): ModelAnswer {
         return { type: "wrong-right", wrong: s(x.wrong), right: s(x.right), why: s(x.why) };
       case "example":
         return { type: "example", id: n(x.id), zh: s(x.zh), en: s(x.en) };
+      case "parts":
+        return { type: "parts", word: s(x.word), chars: l(x.chars, (y) => ({ zh: s(o(y).zh), gloss: s(o(y).gloss) })), literal: s(x.literal) };
       default:
         return null;
     }
@@ -259,6 +262,7 @@ const RANK: Record<LookupBlock["type"], number> = {
   family: 2,
   "wrong-right": 3,
   example: 4,
+  parts: 0,
 };
 export const orderBlocks = (blocks: LookupBlock[]) =>
   blocks.map((b, i) => ({ b, i })).sort((x, y) => RANK[x.b.type] - RANK[y.b.type] || x.i - y.i).map((x) => x.b);
@@ -345,6 +349,24 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
         const ws = b.words.map(word).filter(Boolean).slice(0, 3);
         const rows = b.rows.map((r) => ({ aspect: r.aspect, cells: r.cells.slice(0, ws.length) })).filter((r) => r.cells.length === ws.length);
         if (ws.length >= 2 && rows.length) blocks.push({ type: "contrast", words: ws, rows });
+        break;
+      }
+      case "parts": {
+        // Only the word's own characters, in its order, each once; each read
+        // as the word reads it (着 zhuó in 不着痕迹), from our dictionary.
+        const w = b.word.trim();
+        const chars = [...w];
+        if (!HAN.test(w) || chars.length < 2) break;
+        word(w);
+        const reading = deps.entry(w)?.p.split("@") ?? [];
+        const said = new Map(b.chars.map((c) => [c.zh.trim(), c.gloss]));
+        const parts = chars.map((ch, i) => {
+          const p = reading.length === chars.length ? reading[i] : deps.entry(ch)?.p;
+          return { zh: ch, pinyin: p ? displayPinyin(p) : null, gloss: said.get(ch) ?? "", also: [] as string[] };
+        });
+        const stray = b.chars.map((c) => c.zh.trim()).filter((c) => c && !chars.includes(c));
+        if (stray.length) checks.push(`${w}: ${stray.join(" ")} isn't one of its characters; left out.`);
+        if (parts.some((p) => p.gloss)) blocks.push({ type: "parts", word: w, chars: parts, literal: b.literal });
         break;
       }
       case "scale": {

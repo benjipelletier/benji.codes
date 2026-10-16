@@ -53,6 +53,7 @@ Kinds of question:
 - pattern: a sentence pattern with slots (越…越…).
 - expression: a whole-sentence equivalent ("I'm not in the mood": 没心情).
 - reading: what something means in context (你真行).
+- breakdown: how a word is built, why these characters, a way to remember it ("不着痕迹 character breakdown", "畅销 why these characters", "及格 mnemonic"). The English is the request, not something to translate.
 
 Which part is the question. Split the query into parts and mark which are asked. In a pair, the noun (base) translates on its own and the verb or adjective (collocate) depends on it, so the collocate is usually the question. A part the user wrote in Chinese is known, not asked. A part that fans out to many words is more likely asked than one that is nearly always the same word. If the dictionary tool shows a strong deck card for a word, the user knows it.
 
@@ -72,6 +73,7 @@ The blocks. Use the ones the question needs, usually two to four, one of them a 
 - family: the rule behind the answer, so it carries to other cases: head ("得"), rule ("+ an illness"), and members from the user's sentences ("得感冒", "得了癌症") with their counts as the tools returned them (-1 when you have none). Include it whenever the answer follows a rule the user can reuse.
 - wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses. Warn only against what is really wrong, not what is merely less explicit: search_sentences for the wrong phrase first, and if the user's sentences use it, it is not a mistake (哪个站 is everyday Chinese). The app tests every warning against their sentences and shows the ones they contradict as in doubt.
 - example: one sentence, by id from the tools, or id -1 for one you write (it is labelled as yours).
+- parts (headline for breakdown): the word, and each of its characters in order with what it means in this word, a few words ("着: to touch, to reach"); then literal, the characters' sense put together and how it comes to mean what the word means ("not touching any mark or trace, so: seamlessly"). Never pinyin: the app reads each character as the word reads it. Follow it with a sense block for the word itself when its meaning needs saying.
 
 Rules:
 - Never write pinyin; the app adds it from its own dictionary.
@@ -114,7 +116,7 @@ const list = (items: unknown) => ({ type: "array", items });
 const ANSWER_SCHEMA = obj({
   reading: obj({
     parts: list(obj({ text: str, asked: { type: "boolean" } })),
-    kind: { type: "string", enum: ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading"] },
+    kind: { type: "string", enum: ["pairing", "meaning", "synonyms", "tone", "pattern", "expression", "reading", "breakdown"] },
     note: str,
   }),
   blocks: list({
@@ -136,6 +138,7 @@ const ANSWER_SCHEMA = obj({
       obj({ type: { const: "family" }, head: str, rule: str, members: list(obj({ zh: str, count: int })) }),
       obj({ type: { const: "wrong-right" }, wrong: str, right: str, why: str }),
       obj({ type: { const: "example" }, id: int, zh: str, en: str }),
+      obj({ type: { const: "parts" }, word: str, chars: list(obj({ zh: str, gloss: str })), literal: str }),
     ],
   }),
   summary: str,
@@ -262,6 +265,13 @@ const STOP = new Set(
   ),
 );
 
+/** English that asks about the Chinese in the question rather than being something to say. */
+const ASKING = new Set(
+  "character characters breakdown break down parse parsing mnemonic remember memorise memorize etymology radical radicals component components origin why explain explanation literally literal meaning means mean use usage".split(
+    " ",
+  ),
+);
+
 /**
  * The evidence nearly every lookup asks for first, fetched before the model
  * is called, all at once: dictionary candidates for each English word (and
@@ -273,6 +283,14 @@ const STOP = new Set(
 async function evidenceUpFront(sql: Sql, owner: string, seen: Seen, query: string) {
   const chinese = [...new Set(query.match(/[\u3400-\u9fff]+/g) ?? [])].slice(0, 6);
   const english = query.replace(/[\u3400-\u9fff]+/g, " ").toLowerCase().replace(/[^a-z' -]+/g, " ").replace(/\s+/g, " ").trim();
+  // "不着痕迹 character breakdown": the English asks about the Chinese, so
+  // its words aren't looked up (they once had "character" read as 人物);
+  // the word's characters are, beside the word.
+  const asking = chinese.length > 0 && english.split(" ").some((w) => ASKING.has(w));
+  if (asking) {
+    const words = [...new Set([...chinese, ...chinese.flatMap((c) => (c.length > 1 && c.length <= 6 ? [...c] : []))])].slice(0, 12);
+    return { dictionary: await dictionary(sql, owner, seen, { words }) };
+  }
   const content = [...new Set(english.split(" ").filter((w) => w.length > 1 && !STOP.has(w)))].slice(0, 3);
   const phrases = content.length > 1 && english.split(" ").length <= 5 ? [english, ...content] : content;
   const [candidates, dict, sentences] = await Promise.all([
@@ -330,7 +348,10 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
       answer: LookupAnswer | LookupAnswerV1;
     }>;
     // Kept before blocks: drawn as blocks all the same.
-    if (kept[0]) return withDeck(sql, owner, await withUsage(sql, owner, "blocks" in kept[0].answer ? kept[0].answer : fromV1(kept[0].answer)));
+    if (kept[0]) {
+      const answer = "blocks" in kept[0].answer ? kept[0].answer : fromV1(kept[0].answer);
+      return withDeck(sql, owner, await withParts(sql, owner, await withUsage(sql, owner, answer)));
+    }
   }
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new LookupError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
@@ -428,7 +449,34 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     on conflict (owner_email, query) do update
       set at = now(), model = excluded.model, kind = excluded.kind, answer = excluded.answer, verdict = null, note = null
   `;
-  return withDeck(sql, owner, await withUsage(sql, owner, answer));
+  return withDeck(sql, owner, await withParts(sql, owner, await withUsage(sql, owner, answer)));
+}
+
+/**
+ * For a word taken apart, the owner's deck words that share each character
+ * (着 in 着急, 睡着): what to hang it on. Looked up each time the answer is
+ * shown, like the deck marks, since the deck moves.
+ */
+async function withParts(sql: Sql, owner: string, answer: LookupAnswer): Promise<LookupAnswer> {
+  if (!answer.blocks.some((b) => b.type === "parts")) return answer;
+  const blocks = await Promise.all(
+    answer.blocks.map(async (b) => {
+      if (b.type !== "parts") return b;
+      const chars = [...new Set(b.chars.map((c) => c.zh))];
+      const rows = (await sql`
+        select c.ch, w.word
+        from unnest(${chars}::text[]) c(ch)
+        cross join lateral (
+          select w.word from chongfuxi_word w
+          where w.owner_email = ${owner} and w.status = 'deck' and w.word <> ${b.word} and strpos(w.word, c.ch) > 0
+          order by char_length(w.word), w.word
+          limit 3
+        ) w
+      `) as unknown as Array<{ ch: string; word: string }>;
+      return { ...b, chars: b.chars.map((c) => ({ ...c, also: rows.filter((r) => r.ch === c.zh).map((r) => r.word) })) };
+    }),
+  );
+  return { ...answer, blocks };
 }
 
 /**

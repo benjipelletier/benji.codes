@@ -27,6 +27,7 @@ const KIND = {
   pattern: "A sentence pattern",
   expression: "A whole expression",
   reading: "What it means here",
+  breakdown: "Why these characters",
 } as const;
 
 const SOURCE: Record<LookupSource, string> = {
@@ -504,6 +505,37 @@ function differ(wrong: string, right: string, words: string[] = []): { before: s
 }
 
 /**
+ * A word taken apart: a row per character (the character, its reading in
+ * this word, what it means here, and deck words that share it), then the
+ * characters' literal sense put together.
+ */
+function PartsBlock({ b }: { b: Block<"parts"> }) {
+  return (
+    <div className="cf-lk-parts">
+      <ol className="cf-lk-pa-chars">
+        {b.chars.map((c, i) => (
+          <li key={i}>
+            <span className="cf-zh cf-lk-pa-ch">{c.zh}</span>
+            <span className="cf-lk-pa-body">
+              <span className="cf-lk-pa-line">
+                {c.pinyin && <span className="cf-lk-py">{c.pinyin}</span>}
+                <span>{c.gloss}</span>
+              </span>
+              {c.also.length > 0 && (
+                <span className="cf-lk-pa-also">
+                  also in <span className="cf-zh">{c.also.join(" · ")}</span>
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {b.literal && <p className="cf-lk-pa-literal">{b.literal}</p>}
+    </div>
+  );
+}
+
+/**
  * The likely mistake, marked as a proofreader would: the right sentence in
  * white with the right word in green, and the wrong word struck in red over
  * it. Nothing else, at the owner's request (two coloured sentences and a
@@ -656,6 +688,8 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
             return <WrongRightBlock key={i} b={b} words={Object.keys(a.words)} />;
           case "example":
             return <ExampleBlock key={i} b={b} />;
+          case "parts":
+            return <PartsBlock key={i} b={b} />;
         }
       })}
 

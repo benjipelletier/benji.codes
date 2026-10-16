@@ -628,7 +628,7 @@ export interface BugReport {
 }
 
 /** The kinds of question Look up answers (chongfuxi/CLAUDE.md, Look up). */
-export type LookupKind = "pairing" | "meaning" | "synonyms" | "tone" | "pattern" | "expression" | "reading";
+export type LookupKind = "pairing" | "meaning" | "synonyms" | "tone" | "pattern" | "expression" | "reading" | "breakdown";
 
 /** What an option is judged on. */
 export type LookupPoint = "meaning" | "pairing" | "grammar" | "register" | "tone" | "frequency";
@@ -692,7 +692,19 @@ export type LookupBlock =
       used?: { key: string; count: number; examples: LookupSentence[] };
     }
   /** One sentence: the owner's (by id, as stored), or labelled as written by the model. */
-  | { type: "example"; zh: string; en: string | null; mine: boolean; readable: boolean };
+  | { type: "example"; zh: string; en: string | null; mine: boolean; readable: boolean }
+  | {
+      /**
+       * A word taken apart: each character with its reading in this word
+       * (from ours, never the model), what it means here, and words of the
+       * owner's deck that share it (filled in when shown); then the
+       * characters' literal sense put together.
+       */
+      type: "parts";
+      word: string;
+      chars: Array<{ zh: string; pinyin: string | null; gloss: string; also: string[] }>;
+      literal: string;
+    };
 
 /** What the app knows about a word shown in an answer: our reading and meaning, and where it stands in the deck. */
 export interface LookupWord {
