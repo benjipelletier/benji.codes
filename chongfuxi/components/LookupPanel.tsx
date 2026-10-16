@@ -722,7 +722,7 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
 }
 
 const RECENT = 6;
-const hanRuns = (text: string) => text.match(/[\u3400-\u9fff]+/g) ?? [];
+const hanRuns = (text: string): string[] => text.match(/[\u3400-\u9fff]+/g) ?? [];
 
 /**
  * Past questions: first those sharing Chinese with what is in the field (one
