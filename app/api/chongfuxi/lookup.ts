@@ -74,6 +74,7 @@ The blocks. Use the ones the question needs, usually two to four, one of them a 
 - wrong-right: the mistake an English speaker would make, beside the fix, both in Chinese, and why in one short sentence. One per likely mistake; any word you warn against belongs here or among a gap's near misses. Warn only against what is really wrong, not what is merely less explicit: search_sentences for the wrong phrase first, and if the user's sentences use it, it is not a mistake (哪个站 is everyday Chinese). The app tests every warning against their sentences and shows the ones they contradict as in doubt.
 - example: one sentence, by id from the tools, or id -1 for one you write (it is labelled as yours).
 - parts (headline for breakdown): the word, and each of its characters in order with what it means in this word, a few words ("着: to touch, to reach"); then literal, the characters' sense put together and how it comes to mean what the word means ("not touching any mark or trace, so: seamlessly"). Never pinyin: the app reads each character as the word reads it. Follow it with a sense block for the word itself when its meaning needs saying.
+- note: a grammar point in the question that isn't what is asked but helps the user read it: 是…的 around "围绕X转" (it marks the whole as an explanation of how things are, not the asked words), 把 bringing the object forward, 连…都. title is the structure with … for its gaps ("是…的"); shape is the question's own words with the part inside the structure in braces ("是{围绕X转}的"), or "" when that doesn't fit; text is one or two plain sentences on what it does there. At most one, and only when the question has such a structure; it is what the summary would otherwise say about it.
 
 Rules:
 - Never write pinyin; the app adds it from its own dictionary.
@@ -139,6 +140,7 @@ const ANSWER_SCHEMA = obj({
       obj({ type: { const: "wrong-right" }, wrong: str, right: str, why: str }),
       obj({ type: { const: "example" }, id: int, zh: str, en: str }),
       obj({ type: { const: "parts" }, word: str, chars: list(obj({ zh: str, gloss: str })), literal: str }),
+      obj({ type: { const: "note" }, title: str, shape: str, text: str }),
     ],
   }),
   summary: str,

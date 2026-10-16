@@ -46,7 +46,8 @@ export type ModelBlock =
   | { type: "family"; head: string; rule: string; members: Array<{ zh: string; count: number }> }
   | { type: "wrong-right"; wrong: string; right: string; why: string }
   | { type: "example"; id: number; zh: string; en: string }
-  | { type: "parts"; word: string; chars: Array<{ zh: string; gloss: string }>; literal: string };
+  | { type: "parts"; word: string; chars: Array<{ zh: string; gloss: string }>; literal: string }
+  | { type: "note"; title: string; shape: string; text: string };
 
 /** The answer as the model gives it. */
 export interface ModelAnswer {
@@ -145,6 +146,8 @@ export function normaliseAnswer(input: unknown): ModelAnswer {
         return { type: "example", id: n(x.id), zh: s(x.zh), en: s(x.en) };
       case "parts":
         return { type: "parts", word: s(x.word), chars: l(x.chars, (y) => ({ zh: s(o(y).zh), gloss: s(o(y).gloss) })), literal: s(x.literal) };
+      case "note":
+        return { type: "note", title: s(x.title), shape: s(x.shape), text: s(x.text) };
       default:
         return null;
     }
@@ -263,6 +266,8 @@ const RANK: Record<LookupBlock["type"], number> = {
   "wrong-right": 3,
   example: 4,
   parts: 0,
+  // A side point: after the answer and its rule, before the mistakes.
+  note: 2.5,
 };
 export const orderBlocks = (blocks: LookupBlock[]) =>
   blocks.map((b, i) => ({ b, i })).sort((x, y) => RANK[x.b.type] - RANK[y.b.type] || x.i - y.i).map((x) => x.b);
@@ -355,6 +360,19 @@ export function checkAnswer(raw: ModelAnswer, seen: Seen, deps: CheckDeps): Omit
         const ws = b.words.map(word).filter(Boolean).slice(0, 3);
         const rows = b.rows.map((r) => ({ aspect: r.aspect, cells: r.cells.slice(0, ws.length) })).filter((r) => r.cells.length === ws.length);
         if (ws.length >= 2 && rows.length) blocks.push({ type: "contrast", words: ws, rows });
+        break;
+      }
+      case "note": {
+        // One, naming a Chinese structure, saying something. The shape only when it is the words with one part in braces.
+        const title = b.title.trim();
+        const text = b.text.trim();
+        if (!HAN.test(title) || !text) break;
+        if (blocks.some((x) => x.type === "note")) {
+          checks.push(`A second grammar note (${title}) left out.`);
+          break;
+        }
+        const shape = /^[^{}]*\{[^{}]+\}[^{}]*$/.test(b.shape.trim()) ? b.shape.trim() : "";
+        blocks.push({ type: "note", title, shape, text });
         break;
       }
       case "parts": {

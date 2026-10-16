@@ -710,6 +710,18 @@ export type LookupBlock =
       word: string;
       chars: Array<{ zh: string; pinyin: string | null; gloss: string; also: string[] }>;
       literal: string;
+    }
+  | {
+      /**
+       * A grammar point in the question that isn't what is asked but helps
+       * read it (是…的 around 围绕X转): the structure ("是…的"), the
+       * question's words with the part inside it in braces ("是{围绕X转}的",
+       * or ""), and what it does there. The model's own, at most one.
+       */
+      type: "note";
+      title: string;
+      shape: string;
+      text: string;
     };
 
 /** What the app knows about a word shown in an answer: our reading and meaning, and where it stands in the deck. */

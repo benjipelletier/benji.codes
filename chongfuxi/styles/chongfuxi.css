@@ -7630,3 +7630,66 @@ button.cf-synclog-row {
   line-height: 1.3;
   margin-bottom: 4px;
 }
+
+/* A grammar point in the question (Look up's note block): the structure as
+ * a title, the question's words with the structure in colour and its inside
+ * boxed, then what it does. */
+.cf-lk-gram {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cf-recall) 9%, var(--cf-surface));
+  border: 1px solid color-mix(in srgb, var(--cf-recall) 28%, transparent);
+}
+
+.cf-lk-gram-label {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cf-recall);
+}
+
+.cf-lk-gram-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--cf-ink);
+}
+
+.cf-lk-gram-shape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.cf-lk-gram-shape b {
+  font-weight: 700;
+  color: var(--cf-recall);
+}
+
+.cf-lk-gram-shape span {
+  padding: 0 8px;
+  border: 1.5px dashed color-mix(in srgb, var(--cf-ink-faint) 70%, transparent);
+  border-radius: 8px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-gram-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-gram-zh {
+  font-size: 1.08em;
+  color: var(--cf-ink);
+}

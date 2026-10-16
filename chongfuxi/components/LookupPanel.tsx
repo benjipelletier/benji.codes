@@ -622,6 +622,49 @@ function GreenText({ zh, mark }: { zh: string; mark: string }) {
   );
 }
 
+/** Prose with its Chinese in the Chinese face, so 是…的 reads as Chinese inside English. */
+function HanText({ text }: { text: string }) {
+  return (
+    <>
+      {/* A run starts and ends with Chinese; a slot's capital inside it (围绕X转) stays with it. */}
+      {text.split(/([\u3400-\u9fff…](?:[\u3400-\u9fff…A-Z]*[\u3400-\u9fff…])?)/).map((part, i) =>
+        i % 2 ? (
+          <span key={i} className="cf-zh cf-lk-gram-zh">
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * A grammar point in the question that isn't what was asked but helps read
+ * it: the structure as a title, the question's words with the structure's
+ * own characters in colour and what sits inside it boxed, then what it does.
+ */
+function NoteBlock({ b }: { b: Block<"note"> }) {
+  const shape = b.shape.match(/^([^{}]*)\{([^{}]+)\}([^{}]*)$/);
+  return (
+    <aside className="cf-lk-gram">
+      <span className="cf-lk-gram-label">Grammar in your question</span>
+      <p className="cf-zh cf-lk-gram-title">{b.title}</p>
+      {shape && (
+        <p className="cf-zh cf-lk-gram-shape" aria-label={b.shape.replace(/[{}]/g, "")}>
+          {shape[1] && <b>{shape[1]}</b>}
+          <span>{shape[2]}</span>
+          {shape[3] && <b>{shape[3]}</b>}
+        </p>
+      )}
+      <p className="cf-lk-gram-text">
+        <HanText text={b.text} />
+      </p>
+    </aside>
+  );
+}
+
 /** One sentence: the owner's, or labelled as the model's. */
 function ExampleBlock({ b }: { b: Block<"example"> }) {
   return (
@@ -706,6 +749,8 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
             return <ExampleBlock key={i} b={b} />;
           case "parts":
             return <PartsBlock key={i} b={b} />;
+          case "note":
+            return <NoteBlock key={i} b={b} />;
         }
       })}
 

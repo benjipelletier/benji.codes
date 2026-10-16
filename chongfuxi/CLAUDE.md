@@ -564,6 +564,19 @@ the blocks' shapes, with no sentence saying what it is.
   (a card's note as the bridge until phrase cards), and showing something
   at once while the model works.
 
+A **grammar note** (block `note`): when the question holds a structure that
+isn't what is asked but helps read it (是…的 around 围绕X转, 把, 连…都), the
+model adds one, at most: `title` the structure ("是…的"), `shape` the
+question's words with the part inside it in braces ("是{围绕X转}的", or
+""), `text` a sentence or two. `NoteBlock` draws it as a card after the
+answer and its rule ("Grammar in your question"): the title large, the shape
+with the structure's characters in Recall's colour and its inside boxed with
+a dashed line, then the text with its Chinese in the Chinese face. The check
+keeps one whose title is Chinese, drops a second (saying so) and a malformed
+shape. The owner asked for it after liking the 是…的 explanation that had
+been folded away in the summary. Answers kept from before have none until
+asked again.
+
 ### Open questions
 
 - **The bigger corpus.** Looked at in October 2026 (from search results;
