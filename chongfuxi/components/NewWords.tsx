@@ -6,7 +6,7 @@
 
 import type { Addition } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, LongkuTag, fmt } from "./shared";
+import { AiPill, Highlighted, LongkuTag, fmt } from "./shared";
 
 export function AdditionDetails({ addition }: { addition: Addition }) {
   const a = addition;
@@ -34,7 +34,15 @@ export function AdditionDetails({ addition }: { addition: Addition }) {
             <span className="cf-arrival-zh">{w.word}</span>
             <span className="cf-arrival-what">
               <span className="cf-arrival-py">{w.pinyin ? displayPinyin(w.pinyin) : "no reading on file"}</span>
-              <span className="cf-arrival-gloss">{w.gloss ?? "No definition on file."}</span>
+              <span className="cf-arrival-gloss">
+                {w.gloss ?? "No definition on file."}
+                {w.gloss && (
+                  <>
+                    {" "}
+                    <AiPill word={w.word} />
+                  </>
+                )}
+              </span>
               <span className="cf-arrival-tags">
                 {w.hsk.old && <span className={`cf-tag cf-hsk cf-level is-l${w.hsk.old}`}>HSK {w.hsk.old}</span>}
                 {w.hsk.v3 && (

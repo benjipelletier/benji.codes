@@ -13,7 +13,7 @@ import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { BlockerSheet, UnlockPage, type Blockers } from "./UnlockPanel";
 import { WordSheet } from "./WordWall";
-import { BackStep, History, PlecoTile, Sheet, fmt, message, piecesOf, useBackLayer, type Piece, type Shell } from "./shared";
+import { AiPill, BackStep, History, PlecoTile, Sheet, fmt, message, piecesOf, useBackLayer, type Piece, type Shell } from "./shared";
 
 type Show = "readable" | "one" | "locked";
 const PAGE = 40;
@@ -451,7 +451,11 @@ function SentenceSheet({
                   <b className="cf-zh">{pickedWord}</b>
                   {look?.p && <span>{displayPinyin(look.p)}</span>}
                 </p>
-                {look?.gloss && <p>{look.gloss}</p>}
+                {look?.gloss && (
+                  <p>
+                    {look.gloss} <AiPill word={pickedWord} />
+                  </p>
+                )}
                 <p className="cf-muted">{pw.inDeck || pw.standing !== "known" ? STANDING[pw.standing] : "Known: made of words you know"}</p>
                 <p className="cf-wordcard-acts">
                   {pw.inDeck && <button onClick={() => setWordOpen(pickedWord)}>Open word</button>}

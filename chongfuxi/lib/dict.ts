@@ -18,6 +18,8 @@ export interface Definition {
   own?: boolean;
   /** Written by the model for a word with no definition (app/api/chongfuxi/define.ts); shown with an AI tag. */
   ai?: boolean;
+  /** The model also gave its reading (it had none), taken away with it on undo. */
+  aiPinyin?: boolean;
 }
 
 export interface Dict {

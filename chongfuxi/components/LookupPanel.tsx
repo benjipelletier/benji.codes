@@ -17,7 +17,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
-import { message, type Shell } from "./shared";
+import { AiPill, message, type Shell } from "./shared";
 
 const KIND = {
   pairing: "Which word goes with it",
@@ -162,7 +162,11 @@ function WordLine({ zh, ctx }: { zh: string; ctx: Ctx }) {
         {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
         <DeckMark zh={zh} ctx={ctx} />
       </div>
-      {info?.gloss && <p className="cf-lk-gloss">{info.gloss}</p>}
+      {info?.gloss && (
+        <p className="cf-lk-gloss">
+          {info.gloss} <AiPill word={zh} />
+        </p>
+      )}
     </div>
   );
 }
@@ -277,7 +281,11 @@ function SenseItem({
           {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
           <DeckMark zh={it.zh} ctx={ctx} />
         </div>
-        {info?.gloss && <p className="cf-lk-gloss">{info.gloss}</p>}
+        {info?.gloss && (
+          <p className="cf-lk-gloss">
+            {info.gloss} <AiPill word={it.zh} />
+          </p>
+        )}
         {it.why && <p className="cf-lk-why">{it.why}</p>}
         {it.count !== null && <p className="cf-lk-count">In {it.count} of your sentences</p>}
         {first && <SenseExample s={first} />}

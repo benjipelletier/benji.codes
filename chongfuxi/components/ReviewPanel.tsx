@@ -27,7 +27,7 @@ import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
-import { AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
+import { AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
 const BATCH = 10;
@@ -406,6 +406,15 @@ export function Session({
   const { summary, canWrite, refresh } = shell;
   const kinds = list ? LIST_KINDS : (chosen ?? EVERYTHING);
   const [queue, setQueue] = useState<SessionCard[]>([]);
+  // A word's definition written by the model, or undone (defs empty), on every queued card of it.
+  const redefine = (word: string, pinyin: string | null, defs: Definition[]) =>
+    setQueue((q) =>
+      q.map((c) => {
+        if (c.word?.word !== word) return c;
+        const lost = !defs.length && c.word.defs.some((d) => d.aiPinyin);
+        return { ...c, word: { ...c.word, pinyin: lost ? null : (c.word.pinyin ?? pinyin), defs } };
+      }),
+    );
   const [status, setStatus] = useState<"loading" | "ready" | "empty">("loading");
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -864,11 +873,8 @@ export function Session({
                   <Definitions
                     card={card}
                     canDefine={canWrite}
-                    onDefined={(r) =>
-                      setQueue((q) =>
-                        q.map((c) => (c.word?.word === card.word!.word ? { ...c, word: { ...c.word!, pinyin: c.word!.pinyin ?? r.pinyin, defs: r.defs } } : c)),
-                      )
-                    }
+                    onDefined={(r) => redefine(card.word!.word, r.pinyin, r.defs)}
+                    onUndone={() => redefine(card.word!.word, null, [])}
                     canSplit={canWrite && !card.meaning}
                     splitting={splitting}
                     onPick={setSplitting}
@@ -883,8 +889,16 @@ export function Session({
           {card.kind === "produce" && card.word && (
             <>
               <ul className="cf-prompt">
-                {promptOf(card).map((s) => (
-                  <li key={s}>{s}</li>
+                {promptOf(card).map((s, i) => (
+                  <li key={s}>
+                    {s}
+                    {i === 0 && aiDefined(card.word!.defs) && (
+                      <>
+                        {" "}
+                        <AiPill word={card.word!.word} onUndone={() => redefine(card.word!.word, null, [])} />
+                      </>
+                    )}
+                  </li>
                 ))}
               </ul>
               {card.sentence && blankOut(card.sentence.zh, card.word.word) && !revealed && (
@@ -1123,6 +1137,7 @@ function Definitions({
   card,
   canDefine,
   onDefined,
+  onUndone,
   canSplit,
   splitting,
   onPick,
@@ -1132,6 +1147,7 @@ function Definitions({
   card: SessionCard;
   canDefine: boolean;
   onDefined: (r: { pinyin: string | null; defs: Definition[] }) => void;
+  onUndone: () => void;
   canSplit: boolean;
   splitting: string | null;
   onPick: (gloss: string | null) => void;
@@ -1154,14 +1170,23 @@ function Definitions({
         <div key={i} className="cf-def">
           {!d.own && d.p && d.p !== word.pinyin && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
           <ul>
-            {d.senses.map((s) => (
-              <li key={s} className={card.meaning?.gloss === s ? "is-target" : undefined}>
+            {d.senses.map((s, j) => (
+              <li
+                key={s}
+                className={[card.meaning?.gloss === s && "is-target", d.ai && j === 0 && "has-ai"].filter(Boolean).join(" ") || undefined}
+              >
                 {canSplit && !d.own && !split.has(s) ? (
                   <button className="cf-sense" onClick={() => onPick(splitting === s ? null : s)}>
                     {s}
                   </button>
                 ) : (
                   <span className="cf-sense-text">{s}</span>
+                )}
+                {d.ai && j === 0 && (
+                  <>
+                    {" "}
+                    <AiPill word={word.word} onUndone={onUndone} />
+                  </>
                 )}
                 {split.has(s) && (
                   <>

@@ -18,6 +18,7 @@ import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
+import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
 import { Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
@@ -84,6 +85,8 @@ export function ChongfuxiApp() {
   useBackLayer(tab !== "review", () => setTab("review"));
 
   const canWrite = Boolean(summary?.viewer.isOwner);
+  // Who may undo a definition the model wrote, wherever its AI pill is.
+  useEffect(() => aidefs.setOwner(canWrite), [canWrite]);
 
   const checkArrivals = useCallback(() => {
     get<{ syncs: AnkiSync[] }>("anki-log")

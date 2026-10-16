@@ -10,6 +10,7 @@ import type { CardHistory, SentenceInfo, Summary, WordInfo } from "@chongfuxi/li
 import { send } from "@chongfuxi/lib/client";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
 
@@ -206,7 +207,11 @@ export function SentenceText({
           >
             <span className="cf-look-zh">{sentence.words[open!.i]}</span>
             <span className="cf-look-py">{displayPinyin(look.p)}</span>
-            {look.gloss && <span className="cf-look-gloss">{look.gloss}</span>}
+            {look.gloss && (
+              <span className="cf-look-gloss">
+                {look.gloss} <AiPill word={sentence.words[open!.i]} still />
+              </span>
+            )}
           </span>,
           host,
         )}
@@ -347,7 +352,9 @@ export function DefineButton({
     setBusy(true);
     setError(null);
     try {
-      onDefined(await send<{ pinyin: string | null; defs: Definition[] }>("define", { word }));
+      const r = await send<{ pinyin: string | null; defs: Definition[] }>("define", { word });
+      aidefs.written(word);
+      onDefined(r);
     } catch (e) {
       setError(message(e));
     } finally {
@@ -364,6 +371,76 @@ export function DefineButton({
       </button>
       {error && <p className="cf-error">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * Beside a definition the model wrote, wherever one is shown: a small "AI"
+ * pill. Tapped, it says so and, for the owner, offers Undo, which takes the
+ * definition away (the word has none again; `onUndone` redraws). `still`
+ * where the pill sits inside something tappable (a row, a link, a tooltip):
+ * the pill alone, not a button.
+ */
+export function AiPill({ word, onUndone, still = false }: { word: string; onUndone?: () => void; still?: boolean }) {
+  useSyncExternalStore(aidefs.subscribe, aidefs.snapshot, () => 0);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!aidefs.isAi(word)) return null;
+  if (still) {
+    return (
+      <span className="cf-ai-pill" title="Definition written by AI">
+        AI
+      </span>
+    );
+  }
+  const undo = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await aidefs.undo(word);
+      setOpen(false);
+      onUndone?.();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className={`cf-ai-pill-wrap${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="cf-ai-pill"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        aria-expanded={open}
+        title="Definition written by AI"
+      >
+        AI
+      </button>
+      {open && (
+        <span className="cf-ai-pill-more">
+          Written by AI
+          {aidefs.canUndo() && (
+            <button
+              type="button"
+              className="cf-link"
+              onClick={(e) => {
+                e.stopPropagation();
+                void undo();
+              }}
+              disabled={busy}
+            >
+              {busy ? "Undoing…" : "Undo"}
+            </button>
+          )}
+          {error && <span className="cf-error">{error}</span>}
+        </span>
+      )}
+    </span>
   );
 }
 

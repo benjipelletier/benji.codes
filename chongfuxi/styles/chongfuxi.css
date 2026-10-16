@@ -2362,6 +2362,28 @@ label.cf-kind {
   border-bottom: 1px solid var(--cf-rule);
 }
 
+/* The first sense of a definition the model wrote: its AI pill beside it, and what the pill opens under both. */
+.cf-def li.has-ai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+}
+
+.cf-def li.has-ai .cf-sense {
+  width: auto;
+  flex: 0 1 auto;
+}
+
+.cf-def li.has-ai .cf-ai-pill-wrap.is-open {
+  display: contents;
+}
+
+.cf-def li.has-ai .cf-ai-pill-more {
+  flex-basis: 100%;
+  margin: 0 0 10px 4px;
+}
+
 .cf-def li:last-child {
   border-bottom: 0;
 }
@@ -5713,6 +5735,58 @@ button.cf-synclog-row {
   background: color-mix(in srgb, var(--cf-recall) 14%, transparent) !important;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+/* Beside a definition the model wrote, wherever one is shown; tapped, it
+ * says so and offers Undo. */
+.cfx .cf-ai-pill {
+  display: inline-block;
+  vertical-align: 0.12em;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 17px;
+  letter-spacing: 0.05em;
+  color: var(--cf-recall);
+  background: color-mix(in srgb, var(--cf-recall) 16%, transparent);
+  white-space: nowrap;
+}
+
+.cfx button.cf-ai-pill {
+  cursor: pointer;
+}
+
+.cf-ai-pill-wrap {
+  display: inline;
+}
+
+.cf-ai-pill-wrap.is-open .cf-ai-pill {
+  color: var(--cf-bg);
+  background: var(--cf-recall);
+}
+
+.cf-ai-pill-more {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-left: 8px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--cf-ink-faint);
+  white-space: normal;
+}
+
+.cf-ai-pill-more .cf-link {
+  font-size: 12.5px;
+}
+
+.cf-ai-pill-more .cf-error {
+  margin: 0;
 }
 
 .cf-define {

@@ -17,7 +17,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { newId } from "@chongfuxi/lib/upload";
-import { fmt, message, span, useBackLayer, type Shell } from "./shared";
+import { AiPill, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 150;
 /** Fetch more when fewer than this many cards are left below what has been uncovered. */
@@ -400,7 +400,11 @@ export function FastReview({
                         inner text is pinyin and English (bug #7). Pressed says it was forgotten. */}
                     <span className="cf-fast-meaning" aria-hidden="true">
                       {c.pinyin && <span>{displayPinyin(c.pinyin)}</span>}
-                      {c.gloss && <span>{c.gloss}</span>}
+                      {c.gloss && (
+                        <span>
+                          {c.gloss} <AiPill word={c.word} still />
+                        </span>
+                      )}
                     </span>
                   </button>
                 </li>
@@ -423,7 +427,15 @@ export function FastReview({
         <div className={`cf-fast-peek${peek.below ? " is-below" : ""}`} style={{ left: peek.x, top: peek.y }} role="status">
           <b>{peek.card.word}</b>
           {peek.card.pinyin && <span className="cf-fast-peek-py">{displayPinyin(peek.card.pinyin)}</span>}
-          <span>{peek.card.gloss ?? "No definition on file."}</span>
+          <span>
+            {peek.card.gloss ?? "No definition on file."}
+            {peek.card.gloss && (
+              <>
+                {" "}
+                <AiPill word={peek.card.word} still />
+              </>
+            )}
+          </span>
         </div>
       )}
     </div>

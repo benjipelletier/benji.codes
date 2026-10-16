@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { Coverage, LevelCoverage, MissingWord } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { fmt, message, plecoHref, type Shell } from "./shared";
+import { AiPill, fmt, message, plecoHref, type Shell } from "./shared";
 
 const PAGE = 60;
 const share = (n: number, of: number) => (of ? Math.round((100 * n) / of) : 0);
@@ -105,6 +105,12 @@ function Level({ level }: { level: LevelCoverage }) {
                       <span className="cf-pinyin">
                         {w.pinyin ? displayPinyin(w.pinyin) : ""}
                         {w.gloss ? ` · ${w.gloss}` : ""}
+                        {w.gloss && (
+                          <>
+                            {" "}
+                            <AiPill word={w.word} still />
+                          </>
+                        )}
                       </span>
                     </a>
                   </li>

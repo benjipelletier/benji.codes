@@ -631,6 +631,16 @@ the word has none, and only when each syllable is one CC-CEDICT gives that
 character. Refused for a word that has a definition. An import that brings
 none for the word keeps it; one that brings one replaces it.
 
+Wherever a definition is shown (the card's back and Recall prompt, the word
+sheet, Look up, a word tapped in a sentence, Learn, lists, new words, Fast
+review, Unlock next), one the model wrote has a small **AI** pill beside it
+(`AiPill`). Which words those are comes from one shared fetch (`lib/aidefs.ts`,
+GET `define`, public), not from each API. Tapped, the pill says "Written by
+AI" and, for the owner, offers Undo (POST `define` with `undo`): the word has
+no definition again (nor its reading, if the model gave that too, marked
+`aiPinyin`), and can be written afresh. Inside something already tappable
+(a list row, Fast review's cards, a tooltip) the pill is only a label.
+
 ## The owner's corpus
 
 From `flashbackup-2610131958.pqb` (35,974 cards), with `hsk1-4 sentences`

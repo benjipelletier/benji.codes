@@ -16,7 +16,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { AdditionDetails } from "./NewWords";
 import type { ListReview } from "./ReviewPanel";
-import { BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
+import { AiPill, BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
 /** As the server allows (LIST_ADD_MAX). */
@@ -288,6 +288,12 @@ function Word({ w }: { w: ListWord }) {
       <small>
         {w.pinyin ? displayPinyin(w.pinyin) : ""}
         {w.gloss ? `${w.pinyin ? " · " : ""}${w.gloss}` : ""}
+        {w.gloss && (
+          <>
+            {" "}
+            <AiPill word={w.word} still />
+          </>
+        )}
       </small>
     </span>
   );

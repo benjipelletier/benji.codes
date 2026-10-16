@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import type { Blocker, SentenceRow } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
+import { AiPill, Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
 
 const PAGE = 25;
 
@@ -63,7 +63,15 @@ export function BlockerSheet({
         <h2>{b.word}</h2>
         {b.pinyin && <p className="cf-sheet-py">{displayPinyin(b.pinyin)}</p>}
       </header>
-      <p className="cf-bsheet-gloss">{b.gloss ?? (b.listed ? "" : "Not in the dictionary: most likely a name.")}</p>
+      <p className="cf-bsheet-gloss">
+        {b.gloss ?? (b.listed ? "" : "Not in the dictionary: most likely a name.")}
+        {b.gloss && (
+          <>
+            {" "}
+            <AiPill word={b.word} />
+          </>
+        )}
+      </p>
       <p className="cf-muted">
         The last word keeping <b className="cf-bsheet-n">{fmt(b.unlocks)}</b> {b.unlocks === 1 ? "sentence" : "sentences"} locked.
       </p>
@@ -106,6 +114,12 @@ function Rows({ items, empty, onOpen }: { items: Blocker[]; empty: string; onOpe
               <span className="cf-wrow-gloss">
                 {b.pinyin && <i>{displayPinyin(b.pinyin)}</i>}
                 {b.gloss ?? ""}
+                {b.gloss && (
+                  <>
+                    {" "}
+                    <AiPill word={b.word} still />
+                  </>
+                )}
               </span>
               <em title="Sentences this word alone is blocking">+{fmt(b.unlocks)}</em>
             </button>

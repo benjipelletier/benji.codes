@@ -52,6 +52,29 @@ function checkedPinyin(word: string, pinyin: string): string | null {
   return fits ? sounds.join("@") : null;
 }
 
+/** The words with a definition the model wrote. */
+export async function aiWords(sql: Sql, owner: string): Promise<string[]> {
+  const rows = (await sql`
+    select word from chongfuxi_word where owner_email = ${owner} and defs @> '[{"ai": true}]'::jsonb order by word
+  `) as unknown as Array<{ word: string }>;
+  return rows.map((r) => r.word);
+}
+
+/**
+ * Undo a definition the model wrote: the word has none again (and no
+ * reading, if the model gave that too), so it can be written afresh.
+ */
+export async function undefineWord(sql: Sql, owner: string, word: string): Promise<void> {
+  const done = await sql`
+    update chongfuxi_word
+    set defs = '[]'::jsonb, glosses = '{}'::text[],
+        pinyin = case when defs->0->>'aiPinyin' = 'true' then null else pinyin end
+    where owner_email = ${owner} and word = ${word} and defs @> '[{"ai": true}]'::jsonb
+    returning word
+  `;
+  if (!done.length) throw new DefineError(`${word} has no AI definition`);
+}
+
 /** Write the word a definition and keep it. Refused for a word that has one. */
 export async function defineWord(sql: Sql, owner: string, word: string): Promise<{ pinyin: string | null; defs: Definition[] }> {
   const [row] = (await sql`
@@ -102,7 +125,7 @@ export async function defineWord(sql: Sql, owner: string, word: string): Promise
 
   // Its own reading where it has one: the model's only fills a gap, and only when the dictionary agrees with each syllable.
   const pinyin = row.pinyin ?? (typeof given.pinyin === "string" ? checkedPinyin(word, given.pinyin) : null);
-  const defs: Definition[] = [{ p: pinyin ?? "", senses, ai: true }];
+  const defs: Definition[] = [{ p: pinyin ?? "", senses, ai: true, ...(!row.pinyin && pinyin ? { aiPinyin: true } : {}) }];
   const [saved] = (await sql`
     update chongfuxi_word set defs = ${JSON.stringify(defs)}::jsonb, glosses = ${glossesOf(defs)}::text[],
            pinyin = coalesce(pinyin, ${pinyin})

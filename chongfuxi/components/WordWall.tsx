@@ -12,7 +12,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainSenses } from "@chongfuxi/lib/senses";
-import { AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
+import { AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -449,8 +449,19 @@ export function WordSheet({
           <>
             {senses.length > 0 ? (
               <ul className="cf-sheet-senses">
-                {senses.slice(0, 4).map((s) => (
-                  <li key={s}>{s}</li>
+                {senses.slice(0, 4).map((s, i) => (
+                  <li key={s}>
+                    {s}
+                    {i === 0 && aiDefined(d.defs) && (
+                      <>
+                        {" "}
+                        <AiPill
+                          word={word}
+                          onUndone={() => setD({ ...d, pinyin: d.defs.some((x) => x.aiPinyin) ? null : d.pinyin, defs: [] })}
+                        />
+                      </>
+                    )}
+                  </li>
                 ))}
               </ul>
             ) : (

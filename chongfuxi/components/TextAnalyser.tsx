@@ -12,7 +12,7 @@ import type { Addition, TextAnalysis, TextListed, TextToken } from "@chongfuxi/l
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Added } from "./ListsPanel";
-import { PlecoTile, fmt, message, useBackLayer, type Shell } from "./shared";
+import { AiPill, PlecoTile, fmt, message, useBackLayer, type Shell } from "./shared";
 
 /** Paragraphs shown before "Show the whole text". */
 const PARAGRAPHS_SHOWN = 12;
@@ -305,7 +305,11 @@ function Analysis({ a, shell, onClose, onChanged }: { a: TextAnalysis; shell: Sh
             <p>
               <span className="cf-zh">{picked}</span> {look?.p && <b>{displayPinyin(look.p)}</b>}
             </p>
-            {look?.gloss && <p className="cf-muted">{look.gloss}</p>}
+            {look?.gloss && (
+              <p className="cf-muted">
+                {look.gloss} <AiPill word={picked} />
+              </p>
+            )}
             <div className="cf-an-picked-foot">
               {pickedUnknown?.addable && canWrite && a.id !== null && (
                 <button className="cf-link" onClick={() => tick(picked)}>
@@ -334,6 +338,12 @@ function Analysis({ a, shell, onClose, onChanged }: { a: TextAnalysis; shell: Sh
                       <small>
                         {u.pinyin ? displayPinyin(u.pinyin) : ""}
                         {u.gloss ? `${u.pinyin ? " · " : ""}${u.gloss}` : ""}
+                        {u.gloss && (
+                          <>
+                            {" "}
+                            <AiPill word={u.word} still />
+                          </>
+                        )}
                       </small>
                     </span>
                     <b className="cf-an-count">
