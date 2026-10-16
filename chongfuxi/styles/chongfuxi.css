@@ -550,15 +550,41 @@ body:has(.cfx) {
   color: var(--cf-accent) !important;
 }
 
-.cf-link {
-  background: none;
+/* A small action (Undo, Bring back, Tick all, Open in Spotify): a soft pill
+ * in the accent colour, at the owner's request, not underlined text.
+ * ".cfx" so it beats ".cfx button"'s inherited font and colour. */
+.cfx .cf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 11px;
   border: 0;
-  padding: 6px 0;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
   color: var(--cf-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
   font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cfx .cf-link:active {
+  background: color-mix(in srgb, var(--cf-accent) 26%, transparent);
+}
+
+.cfx .cf-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* A link inside a sentence (龙库 in the list's about line): just the word, in the accent colour. */
+.cfx .cf-list-about .cf-link {
+  display: inline;
+  padding: 0;
+  background: none;
+  font-size: inherit;
 }
 
 /* ------------------------------------------------------------ sentences -- */
@@ -6662,12 +6688,13 @@ button.cf-synclog-row {
 }
 
 .cfx .cf-lk-undo {
-  padding: 0;
+  padding: 2px 9px;
   border: 0;
-  background: none;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font: inherit;
-  text-decoration: underline;
+  font-weight: 600;
   cursor: pointer;
 }
 

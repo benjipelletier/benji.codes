@@ -149,6 +149,9 @@ rejected as too themed. Keep it that way:
   done beneath it (`Loading` in `shared.tsx`; `small` beside its words inside
   a sheet or list). Reduced motion holds the stack still and lets the words
   breathe. Buttons keep their own "Adding…" words.
+- Small actions (Undo, Bring back, Tick all, Open in Spotify) are soft
+  pills in the accent colour (`.cf-link`), never underlined text: the
+  owner's call. A link inside a sentence is just the word, in the accent.
 - No iOS-style switches. A choice in a list is a row with a tick box that
   fills with the row's colour.
 - Light and dark are both designed; tokens are at the top of
