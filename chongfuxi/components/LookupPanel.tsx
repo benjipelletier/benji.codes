@@ -14,7 +14,7 @@
 // A proof of concept. Each answer asks for a verdict (Right / Wrong, and
 // what was wrong): those lookups are the test set that decides what to build.
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { LookupAnswer, LookupBlock, LookupListed, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { message, type Shell } from "./shared";
@@ -720,6 +720,16 @@ export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: strin
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [past, setPast] = useState<LookupListed[] | null>(null);
+  const field = useRef<HTMLInputElement>(null);
+
+  // Opened, the field takes the focus, so the phone's keyboard comes up ready
+  // (the owner's request), the cursor after anything filled in.
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
 
   useEffect(() => {
     if (!shell.canWrite || answer) return;
@@ -757,6 +767,7 @@ export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: strin
         }}
       >
         <input
+          ref={field}
           type="search"
           enterKeyHint="go"
           placeholder="What do you want to say?"

@@ -430,10 +430,31 @@ Built on the owner's corpus alone, since that is what answers lead with:
   from everyone but the owner too.
 - Config: `CHONGFUXI_LOOKUP_MODEL` (default `claude-haiku-5-5`, the
   owner's choice; see The model below),
-  `CHONGFUXI_LOOKUP_EFFORT` (default `medium`), and
+  `CHONGFUXI_LOOKUP_EFFORT` (default `medium`; **never lower it**, the
+  owner's explicit instruction, not even to make lookups faster), and
   `CHONGFUXI_ANTHROPIC_API_KEY` or the site's `ANTHROPIC_API_KEY`. The
   answer's check list ends with its estimated cost. On Claude models that
   offer it, a refusal falls back server-side (`fallbacks: "default"`).
+- **Speed** (October 2026; a lookup took up to a minute). Nearly all of
+  it is model turns (each a full call; the last writes the whole answer);
+  the database queries are indexed and small. So:
+  - The first turn's evidence is fetched before the model is called, all
+    at once (`evidenceUpFront`: dictionary candidates for each English
+    word and the phrase, the dictionary for each Chinese word, the owner's
+    sentences whose translation has the English), and sent with the
+    question in `<evidence_already_gathered>`; the prompt says to use it
+    and to ask for anything more in one turn, several calls at once.
+  - Each answer's check list ends with where the time went ("Took 31.2 s:
+    evidence up front 0.4 s, 4 model calls 29.8 s, tools 0.6 s, check 0.1
+    s"), also logged as `lookup timing` on Vercel. Read it before the next
+    change: it is what decides what to speed up.
+  - `englishToChinese` searches an index of every sense by English word
+    (built once), not every sense each call: about 10 ms, from about 115
+    ms, with the same results in the same order.
+  - Not done: streaming progress to the screen while it works (the next
+    step for how it feels), and lowering the effort (the owner said no).
+  - The Look up field takes the focus when the tab or a review card's
+    sheet opens, so the phone's keyboard comes up (the owner's request).
 - Not yet exercised against the real database or a real model: the session
   that built it had neither. Run a few lookups first and read "What the check
   changed".

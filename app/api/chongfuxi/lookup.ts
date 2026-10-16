@@ -78,6 +78,8 @@ Rules:
 - A judgment with source "corpus" gives a count exactly as a tool returned it for that word or pair; otherwise count -1. "dictionary" is only for what the dictionary tool showed, "deck" only for what it showed about the deck, "model" for your own knowledge.
 - Put each judgment under what it is about: frequency is how common, pairing is what it goes with; what the deck shows is its own judgment with source "deck".
 - No block explains the answer in a sentence; let the blocks show it. summary is at most two sentences of anything the blocks don't show, and says so if the user's sentences had nothing.
+- Evidence for the question's own words may come with it, in <evidence_already_gathered> (the same as those tools return, already counted): use it, and don't fetch it again.
+- Each step costs the user a wait. When you need more evidence, ask for all of it at once, several tool calls in one turn, rather than one at a time.
 - When you have the evidence, hand in the answer by calling the answer tool, once, following its schema exactly. Write nothing else.`;
 
 const POINT = {
@@ -140,8 +142,30 @@ const ANSWER_SCHEMA = obj({
 });
 
 /** The evidence, as tools for this lookup. Each records what it returned in `seen`. */
-function tools(sql: Sql, owner: string, seen: Seen) {
-  const json = (v: unknown) => JSON.stringify(v);
+/** When each tool ran, [start, end] in ms: several run at once, so their time is the union. */
+type Spans = Array<[number, number]>;
+const spanTotal = (spans: Spans) => {
+  let total = 0;
+  let reach = -Infinity;
+  for (const [a, b] of [...spans].sort((x, y) => x[0] - y[0])) {
+    if (b <= reach) continue;
+    total += b - Math.max(a, reach);
+    reach = b;
+  }
+  return total;
+};
+
+function tools(sql: Sql, owner: string, seen: Seen, spans: Spans = []) {
+  const timed =
+    <A,>(f: (a: A) => Promise<unknown>) =>
+    async (a: A) => {
+      const t = performance.now();
+      try {
+        return JSON.stringify(await f(a));
+      } finally {
+        spans.push([t, performance.now()]);
+      }
+    };
   return [
     betaTool({
       name: "answer",
@@ -160,7 +184,7 @@ function tools(sql: Sql, owner: string, seen: Seen) {
         required: ["english"],
         additionalProperties: false,
       },
-      run: async ({ english }) => json(await englishCandidates(sql, owner, seen, { english })),
+      run: timed(({ english }: { english: string }) => englishCandidates(sql, owner, seen, { english })),
     }),
     betaTool({
       name: "dictionary",
@@ -172,7 +196,7 @@ function tools(sql: Sql, owner: string, seen: Seen) {
         required: ["words"],
         additionalProperties: false,
       },
-      run: async ({ words }) => json(await dictionary(sql, owner, seen, { words })),
+      run: timed(({ words }: { words: string[] }) => dictionary(sql, owner, seen, { words })),
     }),
     betaTool({
       name: "neighbours",
@@ -188,7 +212,9 @@ function tools(sql: Sql, owner: string, seen: Seen) {
         required: ["word", "side"],
         additionalProperties: false,
       },
-      run: async ({ word, side, window }) => json(await neighbours(sql, owner, seen, { word, side, window })),
+      run: timed(({ word, side, window }: { word: string; side: "before" | "after"; window?: number }) =>
+        neighbours(sql, owner, seen, { word, side, window }),
+      ),
     }),
     betaTool({
       name: "together",
@@ -204,7 +230,9 @@ function tools(sql: Sql, owner: string, seen: Seen) {
         required: ["first", "second"],
         additionalProperties: false,
       },
-      run: async ({ first, second, window }) => json(await together(sql, owner, seen, { first, second, window })),
+      run: timed(({ first, second, window }: { first: string; second: string; window?: number }) =>
+        together(sql, owner, seen, { first, second, window }),
+      ),
     }),
     betaTool({
       name: "search_sentences",
@@ -220,9 +248,43 @@ function tools(sql: Sql, owner: string, seen: Seen) {
         required: [],
         additionalProperties: false,
       },
-      run: async ({ english, chinese, limit }) => json(await searchSentences(sql, owner, seen, { english, chinese, limit })),
+      run: timed(({ english, chinese, limit }: { english?: string; chinese?: string[]; limit?: number }) =>
+        searchSentences(sql, owner, seen, { english, chinese, limit }),
+      ),
     }),
   ];
+}
+
+/** Words of an English question that say nothing to look up. */
+const STOP = new Set(
+  "a an the to of in on at for from with by into onto about as is are be been was were i you he she it we they me my your his her its our their this that these those what which who how do does did say said and or but not no so".split(
+    " ",
+  ),
+);
+
+/**
+ * The evidence nearly every lookup asks for first, fetched before the model
+ * is called, all at once: dictionary candidates for each English word (and
+ * the phrase), the dictionary for each Chinese word, and the owner's
+ * sentences whose translation has the English. It goes in with the question,
+ * so the model starts a step ahead: each step it saves is a whole model call.
+ * Recorded in `seen` like any tool's, so the check stands behind it.
+ */
+async function evidenceUpFront(sql: Sql, owner: string, seen: Seen, query: string) {
+  const chinese = [...new Set(query.match(/[\u3400-\u9fff]+/g) ?? [])].slice(0, 6);
+  const english = query.replace(/[\u3400-\u9fff]+/g, " ").toLowerCase().replace(/[^a-z' -]+/g, " ").replace(/\s+/g, " ").trim();
+  const content = [...new Set(english.split(" ").filter((w) => w.length > 1 && !STOP.has(w)))].slice(0, 3);
+  const phrases = content.length > 1 && english.split(" ").length <= 5 ? [english, ...content] : content;
+  const [candidates, dict, sentences] = await Promise.all([
+    Promise.all(phrases.map(async (e) => ({ english: e, candidates: (await englishCandidates(sql, owner, seen, { english: e })).slice(0, 15) }))),
+    chinese.length ? dictionary(sql, owner, seen, { words: chinese }) : Promise.resolve([]),
+    content.length ? searchSentences(sql, owner, seen, { english: content.join(" "), limit: 8 }) : Promise.resolve(null),
+  ]);
+  const found: Record<string, unknown> = {};
+  if (candidates.length) found.english_candidates = candidates;
+  if (dict.length) found.dictionary = dict;
+  if (sentences) found.search_sentences = { english: content.join(" "), ...sentences };
+  return Object.keys(found).length ? found : null;
 }
 
 /** Lower case, single spaces: the same question asked twice is one lookup. */
@@ -275,14 +337,25 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
 
   const client = new Anthropic({ apiKey });
   const seen = newSeen();
+  const started = performance.now();
+  const ahead = await evidenceUpFront(sql, owner, seen, query.trim());
+  const aheadMs = performance.now() - started;
+  const spans: Spans = [];
   const runner = client.beta.messages.toolRunner({
     model: MODEL,
     max_tokens: 16000,
     max_iterations: 12,
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     output_config: { effort: EFFORT },
-    tools: tools(sql, owner, seen),
-    messages: [{ role: "user", content: query.trim() }],
+    tools: tools(sql, owner, seen, spans),
+    messages: [
+      {
+        role: "user",
+        content: ahead
+          ? `${query.trim()}\n\n<evidence_already_gathered>\n${JSON.stringify(ahead)}\n</evidence_already_gathered>`
+          : query.trim(),
+      },
+    ],
     ...(WITH_FALLBACK.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
   });
 
@@ -316,6 +389,7 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
       throw new LookupError("The answer came back malformed.");
     }
   }
+  const modelDone = performance.now();
   const raw: ModelAnswer = normaliseAnswer(handedIn);
   if (!raw.blocks.length) throw new LookupError("The answer came back empty; try again.");
 
@@ -333,6 +407,21 @@ export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh
     const dollars = (usage.input * price[0] + usage.output * price[1] + usage.cacheRead * price[2] + usage.cacheWrite * price[3]) / 1e6;
     answer.checks.push(`About $${dollars.toFixed(3)} (${usage.calls} model calls, ${MODEL}).`);
   }
+  // Where the time went, to see what to speed up next: the model's share is
+  // the loop's time less the tools' (which overlap, so counted once).
+  const s = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+  const toolMs = spanTotal(spans);
+  const timing = {
+    total: performance.now() - started,
+    ahead: aheadMs,
+    model: modelDone - started - aheadMs - toolMs,
+    tools: toolMs,
+    check: performance.now() - modelDone,
+  };
+  answer.checks.push(
+    `Took ${s(timing.total)}: evidence up front ${s(timing.ahead)}, ${usage.calls} model calls ${s(timing.model)}, tools ${s(timing.tools)}, check ${s(timing.check)}.`,
+  );
+  console.log("lookup timing", JSON.stringify({ query: q, calls: usage.calls, ...Object.fromEntries(Object.entries(timing).map(([k, v]) => [k, Math.round(v)])) }));
   await sql`
     insert into chongfuxi_lookup (owner_email, query, model, kind, answer)
     values (${owner}, ${q}, ${answer.model}, ${answer.reading.kind}, ${JSON.stringify(answer)}::jsonb)

@@ -95,26 +95,64 @@ export function dictEntries(word: string): Array<{ p: string; senses: string[] }
  * that has it as a whole word somewhere. Names and pointer senses are skipped.
  * For "what do I say here": the candidates before the corpus decides.
  */
-export function englishToChinese(english: string, limit = 40): Array<{ word: string; p: string; sense: string; score: number }> {
+/** Every English sense, once, and which senses each English word (lower case) is in: englishToChinese's index. */
+interface Sense {
+  word: string;
+  p: string;
+  raw: string;
+  /** Lower case, brackets and a leading "to " taken off. */
+  bare: string;
+}
+let senses: Sense[] | null = null;
+let byToken: Map<string, number[]> | null = null;
+
+function indexSenses() {
   if (!entries) load();
-  const phrase = english.trim().toLowerCase().replace(/\s+/g, " ");
-  if (!phrase) return [];
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const whole = new RegExp(`\\b${escaped}`, "i");
-  const best = new Map<string, { word: string; p: string; sense: string; score: number }>();
+  senses = [];
+  byToken = new Map();
   for (const [word, list] of entries!) {
     for (const e of list) {
       if (/^[A-Z]/.test(e.p)) continue;
       for (const raw of e.senses.split("/")) {
         if (!raw || POINTER.test(raw)) continue;
-        const sense = raw.toLowerCase().replace(/\([^)]*\)/g, "").replace(/^to /, "").trim();
-        const score = sense === phrase ? 3 : sense.startsWith(phrase) ? 2 : whole.test(raw) ? 1 : 0;
-        if (!score) continue;
-        const had = best.get(word);
-        // Shorter senses say it more squarely: "to develop" over "to develop a film".
-        if (!had || score > had.score || (score === had.score && raw.length < had.sense.length)) best.set(word, { word, p: e.p, sense: raw, score });
+        const i = senses.push({ word, p: e.p, raw, bare: raw.toLowerCase().replace(/\([^)]*\)/g, "").replace(/^to /, "").trim() }) - 1;
+        for (const t of new Set(raw.toLowerCase().match(/[a-z0-9]+/g) ?? [])) {
+          const at = byToken.get(t);
+          if (at) at.push(i);
+          else byToken.set(t, [i]);
+        }
       }
     }
+  }
+}
+
+export function englishToChinese(english: string, limit = 40): Array<{ word: string; p: string; sense: string; score: number }> {
+  if (!senses) indexSenses();
+  const phrase = english.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!phrase) return [];
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const whole = new RegExp(`\\b${escaped}`, "i");
+  // Every sense that could match starts a word with the phrase's first word
+  // ("develop" in "developing"), so only those are scored, not all 200k.
+  // A phrase that doesn't start with a letter or digit is scored against all.
+  const first = phrase.match(/^[a-z0-9]+/)?.[0];
+  let pool: Iterable<number>;
+  if (first) {
+    const hits = new Set<number>();
+    for (const [t, at] of byToken!) if (t.startsWith(first)) for (const i of at) hits.add(i);
+    // In dictionary order, as a full pass would meet them, so ties come out the same.
+    pool = [...hits].sort((x, y) => x - y);
+  } else {
+    pool = senses!.keys();
+  }
+  const best = new Map<string, { word: string; p: string; sense: string; score: number }>();
+  for (const i of pool) {
+    const { word, p, raw, bare } = senses![i];
+    const score = bare === phrase ? 3 : bare.startsWith(phrase) ? 2 : whole.test(raw) ? 1 : 0;
+    if (!score) continue;
+    const had = best.get(word);
+    // Shorter senses say it more squarely: "to develop" over "to develop a film".
+    if (!had || score > had.score || (score === had.score && raw.length < had.sense.length)) best.set(word, { word, p, sense: raw, score });
   }
   return [...best.values()].sort((a, b) => b.score - a.score || [...a.word].length - [...b.word].length).slice(0, limit);
 }
