@@ -1,17 +1,16 @@
 "use client";
 
 // The answers of this session, to look back over: each card face up again,
-// with the answer given, which can be changed (Got it to Forgot or back) as if
-// it had been given that way (app/api/chongfuxi/review.ts, `changeAnswer`).
+// with the answer given and when it is back. The latest can be undone, as from
+// the receipt; earlier ones only looked at (changing one would mean replaying
+// every later answer that touched the same cards).
 
 import { useState } from "react";
-import type { ReviewResult, SessionCard } from "@chongfuxi/lib/api";
-import { ApiError, send } from "@chongfuxi/lib/client";
+import type { SessionCard } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import * as outbox from "@chongfuxi/lib/outbox";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { mainSenses } from "@chongfuxi/lib/senses";
-import { AiPill, PlecoTile, Sheet, fmt, message, span } from "./shared";
+import { AiPill, PlecoTile, Sheet, fmt, span } from "./shared";
 
 /** One answer given this session. `days` is when the card is back (null: retired; undefined: not heard yet). */
 export interface Answered {
@@ -30,13 +29,14 @@ const back = (days: number | null | undefined) => (days === undefined ? "" : day
 
 export function ReviewedSheet({
   log,
-  canWrite,
-  onChanged,
+  onUndo,
+  undoing,
   onClose,
 }: {
   log: Answered[];
-  canWrite: boolean;
-  onChanged: (id: string, grade: Grade, result: ReviewResult) => void;
+  /** Take back the latest answer, when it can be. */
+  onUndo?: () => void;
+  undoing: boolean;
   onClose: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(log.length ? log[log.length - 1].id : null);
@@ -46,13 +46,19 @@ export function ReviewedSheet({
       <header className="cf-sheet-head">
         <h2 className="cf-answered-h">This session</h2>
         <p className="cf-muted">
-          {fmt(log.length)} answered · {fmt(got)} got it · {fmt(log.length - got)} forgot. Tap one to see it again
-          {canWrite ? " or change your answer" : ""}.
+          {fmt(log.length)} answered · {fmt(got)} got it · {fmt(log.length - got)} forgot. Tap one to see it again.
         </p>
       </header>
       <ol className="cf-answered">
         {[...log].reverse().map((a) => (
-          <AnsweredRow key={a.id} a={a} open={open === a.id} onToggle={() => setOpen(open === a.id ? null : a.id)} canWrite={canWrite} onChanged={onChanged} />
+          <AnsweredRow
+            key={a.id}
+            a={a}
+            open={open === a.id}
+            onToggle={() => setOpen(open === a.id ? null : a.id)}
+            onUndo={a.id === log[log.length - 1].id ? onUndo : undefined}
+            undoing={undoing}
+          />
         ))}
       </ol>
     </Sheet>
@@ -63,45 +69,17 @@ function AnsweredRow({
   a,
   open,
   onToggle,
-  canWrite,
-  onChanged,
+  onUndo,
+  undoing,
 }: {
   a: Answered;
   open: boolean;
   onToggle: () => void;
-  canWrite: boolean;
-  onChanged: (id: string, grade: Grade, result: ReviewResult) => void;
+  onUndo?: () => void;
+  undoing: boolean;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const word = a.card.word;
   const title = word ? word.word : (a.card.sentence?.zh ?? "Sentence");
-
-  const change = async (grade: Grade) => {
-    if (busy || grade === a.grade) return;
-    // An answer still on the device (offline, or on its way) isn't in the log to change yet.
-    if (outbox.waitingCards().includes(a.card.id)) {
-      setError("That answer is still being sent. Try again in a moment.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setNote(null);
-    try {
-      const r = await send<{ result: ReviewResult; replayed: number; dropped: number }>("review/change", { id: a.id, grade });
-      onChanged(a.id, grade, r.result);
-      setNote(
-        `Changed to ${grade === "good" ? "Got it" : "Forgot"}.` +
-          (r.dropped ? ` ${r.dropped === 1 ? "A later answer no longer applies and was" : `${r.dropped} later answers no longer apply and were`} dropped.` : ""),
-      );
-    } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? e.message : message(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <li className={`cf-answered-item is-${a.card.kind}${open ? " is-open" : ""}`}>
       <button className="cf-answered-row" onClick={onToggle} aria-expanded={open}>
@@ -138,21 +116,15 @@ function AnsweredRow({
               {a.card.sentence.en && <p className="cf-muted">{a.card.sentence.en}</p>}
             </div>
           )}
-          <div className="cf-answered-grade" role="group" aria-label="Your answer">
-            {(["forgot", "good"] as const).map((g) => (
-              <button
-                key={g}
-                className={`cf-answered-g is-${g}${a.grade === g ? " is-on" : ""}`}
-                aria-pressed={a.grade === g}
-                disabled={busy || !canWrite}
-                onClick={() => void change(g)}
-              >
-                {g === "good" ? "Got it" : "Forgot"}
+          <p className="cf-answered-status">
+            <span className={`cf-answered-said is-${a.grade}`}>{a.grade === "good" ? "Got it" : "Forgot"}</span> · {comesBack(a.days)}
+            {/* Only the latest answer can be taken back: nothing after it depends on it. */}
+            {onUndo && (
+              <button className="cf-link" onClick={onUndo} disabled={undoing}>
+                {undoing ? "Undoing…" : "Undo and answer again"}
               </button>
-            ))}
-          </div>
-          <p className="cf-answered-status">{busy ? "Changing it…" : [note, comesBack(a.days)].filter(Boolean).join(" ")}</p>
-          {error && <p className="cf-error">{error}</p>}
+            )}
+          </p>
         </div>
       )}
     </li>

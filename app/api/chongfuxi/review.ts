@@ -1017,41 +1017,34 @@ export function isReviewInput(r: ReviewInput | null): r is ReviewInput {
 
 export class ReviewError extends Error {}
 
-/** An answer as the log keeps it: enough to take it back, and to give it again. */
-interface LoggedAnswer {
-  id: string;
-  seq: number;
-  card_id: number;
-  kind: CardKind;
-  word: string | null;
-  meaning_id: number | null;
-  sentence_id: number | null;
-  grade: Grade;
-  at: number;
-  day: string;
-  session: string | null;
-  ms: number | null;
-  reveal_ms: number | null;
-  tapped: string[] | null;
-  comment: string | null;
-  tz: string | null;
-  utc_offset: number | null;
-  position: number | null;
-  device: string | null;
-  effects: { produce?: boolean; prior?: Array<{ id: number }>; exposed?: string[]; cutoff?: number };
-}
-
-const LOGGED = `r.id, r.seq::float8 as seq, r.card_id::int as card_id, r.kind, r.word, r.meaning_id::int as meaning_id,
-  r.sentence_id::int as sentence_id, r.grade, (extract(epoch from r.at) * 1000)::float8 as at,
-  to_char(r.day, 'YYYY-MM-DD') as day, r.session, r.ms, r.reveal_ms, r.tapped, r.comment, r.tz, r.utc_offset,
-  r.position, r.device, r.effects`;
-
 /**
- * What taking an answer back runs: every card it moved goes back to how it
- * was, a Recall card it opened goes, its words lose the reading it counted,
- * and it leaves the log (with its lapse rows).
+ * Take back the last answer, as if it had never been given: every card it
+ * moved goes back to how it was, a Recall card it opened goes, its words lose
+ * the reading it counted, and the answer leaves the log. Only the latest
+ * answer, so nothing after it can depend on it.
  */
-function takeBack(sql: Sql, owner: string, r: LoggedAnswer) {
+export async function undoReview(sql: Sql, owner: string, id: string): Promise<{ cardId: number }> {
+  const found = (await sql`
+    select r.card_id::int as card_id, r.kind, r.word, r.meaning_id, r.effects,
+           exists (
+             select 1 from chongfuxi_review l
+             where l.owner_email = r.owner_email and l.cause = 'answer' and l.seq > r.seq
+           ) as superseded
+    from chongfuxi_review r
+    where r.owner_email = ${owner} and r.id = ${id} and r.cause = 'answer'
+  `) as unknown as Array<{
+    card_id: number;
+    kind: CardKind;
+    word: string | null;
+    meaning_id: number | null;
+    effects: { produce?: boolean; prior?: unknown; exposed?: string[] };
+    superseded: boolean;
+  }>;
+  const r = found[0];
+  if (!r) throw new ReviewError("That answer isn't in the log.");
+  if (r.superseded) throw new ReviewError("Only the last answer can be taken back.");
+  if (!r.effects.prior) throw new ReviewError("That answer was given before answers could be taken back.");
+
   const statements = [
     sql`
       update chongfuxi_card c
@@ -1080,139 +1073,9 @@ function takeBack(sql: Sql, owner: string, r: LoggedAnswer) {
       where owner_email = ${owner} and word = any(${r.effects.exposed}::text[])
     `);
   }
-  statements.push(sql`delete from chongfuxi_review where owner_email = ${owner} and (id = ${r.id} or parent = ${r.id})`);
-  return statements;
-}
-
-/**
- * Take back the last answer, as if it had never been given. Only the latest
- * answer, so nothing after it can depend on it.
- */
-export async function undoReview(sql: Sql, owner: string, id: string): Promise<{ cardId: number }> {
-  const found = (await sql.query(
-    `select ${LOGGED},
-            exists (
-              select 1 from chongfuxi_review l
-              where l.owner_email = r.owner_email and l.cause = 'answer' and l.seq > r.seq
-            ) as superseded
-     from chongfuxi_review r
-     where r.owner_email = $1 and r.id = $2 and r.cause = 'answer'`,
-    [owner, id],
-  )) as unknown as Array<LoggedAnswer & { superseded: boolean }>;
-  const r = found[0];
-  if (!r) throw new ReviewError("That answer isn't in the log.");
-  if (r.superseded) throw new ReviewError("Only the last answer can be taken back.");
-  if (!r.effects.prior) throw new ReviewError("That answer was given before answers could be taken back.");
-  await sql.transaction(takeBack(sql, owner, r));
+  statements.push(sql`delete from chongfuxi_review where owner_email = ${owner} and (id = ${id} or parent = ${id})`);
+  await sql.transaction(statements);
   return { cardId: r.card_id };
-}
-
-/** Later answers a change will replay at most: past that, it's too long ago. */
-const CHANGE_REPLAY_MAX = 400;
-
-/**
- * Change an answer already given, Got it to Forgot or back, as if it had been
- * given that way. The answer is taken back, with every later answer that
- * touched a card it moved (or one those moved, and so on: the same card come
- * round again, a word it lapsed, the Recall card it opened), newest first;
- * then it is given again with the new grade at its own time, and those later
- * ones after it as they were. Answers that touched none of those cards stand.
- * A later answer whose card no longer exists (the Recall card a Got it opened,
- * now a Forgot) is dropped.
- */
-export async function changeAnswer(
-  sql: Sql,
-  owner: string,
-  id: string,
-  grade: Grade,
-): Promise<{ result: ReviewResult; replayed: number; dropped: number }> {
-  const [target] = (await sql.query(`select ${LOGGED} from chongfuxi_review r where r.owner_email = $1 and r.id = $2 and r.cause = 'answer'`, [
-    owner,
-    id,
-  ])) as unknown as LoggedAnswer[];
-  if (!target) throw new ReviewError("That answer isn't in the log.");
-  if (!target.effects.prior) throw new ReviewError("That answer was given before answers could be changed.");
-  if (target.grade === grade) throw new ReviewError(`That answer is already ${grade === "good" ? "Got it" : "Forgot"}.`);
-
-  const later = (await sql.query(
-    `select ${LOGGED} from chongfuxi_review r
-     where r.owner_email = $1 and r.cause = 'answer' and r.seq > $2
-     order by r.seq limit ${CHANGE_REPLAY_MAX + 1}`,
-    [owner, target.seq],
-  )) as unknown as LoggedAnswer[];
-  if (later.length > CHANGE_REPLAY_MAX) throw new ReviewError("That answer is too far back to change.");
-
-  // The Recall cards answers opened, which their later answers may have answered.
-  const opened = [target, ...later].filter((r) => r.effects.produce && r.kind === "read");
-  const produce = opened.length
-    ? ((await sql`
-        select c.id::int as id, c.word, c.meaning_id::int as meaning_id from chongfuxi_card c
-        where c.owner_email = ${owner} and c.kind = 'produce' and c.word = any(${opened.map((r) => r.word!)}::text[])
-      `) as unknown as Array<{ id: number; word: string; meaning_id: number | null }>)
-    : [];
-  const touches = (r: LoggedAnswer) => [
-    r.card_id,
-    ...(r.effects.prior ?? []).map((p) => Number(p.id)),
-    ...(r.effects.produce ? produce.filter((p) => p.word === r.word && p.meaning_id === r.meaning_id).map((p) => p.id) : []),
-  ];
-
-  const moved = new Set(touches(target));
-  const chain = [target];
-  for (const r of later) {
-    const ids = touches(r);
-    if (!ids.some((x) => moved.has(x))) continue;
-    if (!r.effects.prior) throw new ReviewError("A later answer on the same card can't be taken back, so this one can't change.");
-    chain.push(r);
-    for (const x of ids) moved.add(x);
-  }
-
-  // Every card the chain answers must still be there to answer again (Recall cards excepted: they may not be, by design).
-  const answeredCards = [...new Set(chain.filter((r) => r === target || r.kind !== "produce").map((r) => r.card_id))];
-  const live = (await sql.query(
-    `select c.id::int as id from chongfuxi_card c
-     where c.owner_email = $1 and c.id = any($2::bigint[]) and c.flagged is null and not c.suspended`,
-    [owner, answeredCards],
-  )) as unknown as Array<{ id: number }>;
-  if (live.length < answeredCards.length) {
-    throw new ReviewError("A card in this answer's chain has since been suspended, removed or flagged, so it can't change.");
-  }
-
-  // Newest first, in one transaction: the cards come back to how they were before the answer.
-  await sql.transaction(chain.toReversed().flatMap((r) => takeBack(sql, owner, r)));
-
-  const inputOf = (r: LoggedAnswer, g: Grade): ReviewInput => {
-    const [y, m, d] = r.day.split("-").map(Number);
-    return {
-      id: r.id,
-      cardId: r.card_id,
-      grade: g,
-      at: r.at,
-      day: r.day,
-      // The end of the study day it was given in (4 am the next morning, where it was given).
-      cutoff: r.effects.cutoff ?? Date.UTC(y, m - 1, d + 1, 4) - (r.utc_offset ?? 0) * 60_000,
-      session: r.session ?? "",
-      ms: r.ms ?? undefined,
-      revealMs: r.reveal_ms ?? undefined,
-      sentenceId: r.sentence_id,
-      tapped: g === "forgot" ? (r.tapped ?? []) : [],
-      comment: g === "forgot" ? (r.comment ?? undefined) : undefined,
-      tz: r.tz ?? undefined,
-      utcOffset: r.utc_offset ?? undefined,
-      device: r.device ?? undefined,
-      position: r.position ?? undefined,
-    };
-  };
-  const result = await submitReview(sql, owner, inputOf(target, grade), true);
-  let dropped = 0;
-  for (const r of chain.slice(1)) {
-    try {
-      await submitReview(sql, owner, inputOf(r, r.grade), true);
-    } catch (e) {
-      if (!(e instanceof ReviewError)) throw e;
-      dropped++;
-    }
-  }
-  return { result, replayed: chain.length - 1, dropped };
 }
 
 /** A retired sentence that has this word, other than the one given: the one read longest ago. */

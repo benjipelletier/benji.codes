@@ -660,14 +660,6 @@ export function Session({
     }
   };
 
-  /** An earlier answer changed from the session's list: its row, and the receipt if it is the one showing. */
-  const changed = (id: string, grade: Grade, result: ReviewResult) => {
-    const was = log.find((a) => a.id === id);
-    setLog((l) => l.map((a) => (a.id === id ? { ...a, grade, days: result.retired ? null : result.days } : a)));
-    if (was && last?.id === id) setLast(receiptOf(was.card, grade, result, id, 0));
-    refresh();
-  };
-
   // The box for what went wrong comes into view when it opens.
   useEffect(() => {
     if (why !== null) whyBox.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -816,7 +808,21 @@ export function Session({
           </button>
         )}
       </div>
-      {lookingBack && <ReviewedSheet log={log} canWrite={canWrite} onChanged={changed} onClose={() => setLookingBack(false)} />}
+      {lookingBack && (
+        <ReviewedSheet
+          log={log}
+          undoing={undoing}
+          onUndo={
+            canWrite && latest.current && latest.current.id === log[log.length - 1]?.id
+              ? () => {
+                  setLookingBack(false);
+                  void undo();
+                }
+              : undefined
+          }
+          onClose={() => setLookingBack(false)}
+        />
+      )}
 
       {error && <p className="cf-error">{error}</p>}
       <Waiting />

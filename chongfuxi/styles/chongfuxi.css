@@ -7596,50 +7596,31 @@ button.cf-synclog-row {
   font-size: 13.5px;
 }
 
-.cf-answered-grade {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.cfx .cf-answered-g {
-  min-height: 44px;
-  border-radius: 12px;
-  border: 1.5px solid var(--cf-rule-strong);
-  background: none;
-  color: var(--cf-ink-soft);
-  font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.cfx .cf-answered-g.is-forgot.is-on {
-  border-color: var(--cf-down);
-  background: var(--cf-down-soft);
-  color: var(--cf-down);
+.cf-answered-said {
   font-weight: 600;
 }
 
-.cfx .cf-answered-g.is-good.is-on {
-  border-color: var(--cf-up);
-  background: var(--cf-up-soft);
+.cf-answered-said.is-good {
   color: var(--cf-up);
-  font-weight: 600;
 }
 
-.cfx .cf-answered-g:disabled {
-  cursor: default;
-}
-
-.cfx .cf-answered-g:disabled:not(.is-on) {
-  opacity: 0.55;
+.cf-answered-said.is-forgot {
+  color: var(--cf-down);
 }
 
 .cf-answered-status {
-  margin: 8px 0 0;
-  font-size: 12.5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  margin: 12px 0 0;
+  font-size: 13px;
   color: var(--cf-ink-faint);
+}
+
+.cf-answered-status .cf-link {
+  margin-left: auto;
+  font-size: 13px;
 }
 
 .cfx .cf-sheet-head h2.cf-answered-h {
