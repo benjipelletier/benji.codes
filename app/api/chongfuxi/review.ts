@@ -6,6 +6,7 @@
 // review row, the card it moved, and whatever else it moved — a Produce card
 // opened, retired sentences brought back, tapped words lapsed.
 
+import { SUSPENDED_WORD } from "./suspended";
 import type { Sql } from "./db";
 import { dictEntry, loadHeadwords } from "./headwords";
 import type {
@@ -84,17 +85,6 @@ export interface CardRow {
   note: string | null;
 }
 
-/**
- * A deck word set aside, too hard for now: its Read and Recall cards are
- * suspended, history and schedule kept, so nothing deals them, and it still
- * counts as known for sentences. Only its main Read card says so: the other
- * suspended cards are a merged meaning's and a locked sentence's. The word
- * stays 'deck', so no import, list or 龙库 link brings it back by itself.
- */
-export const SET_ASIDE = (w: string) =>
-  `exists (select 1 from chongfuxi_card sa where sa.owner_email = ${w}.owner_email and sa.kind = 'read'
-     and sa.word = ${w}.word and sa.meaning_id is null and sa.suspended)`;
-
 export const CARD_COLUMNS = `
   c.id::int as id, c.kind, c.word, c.meaning_id::int as meaning_id, c.sentence_id::int as sentence_id,
   c.state::int as state, (extract(epoch from c.due) * 1000)::double precision as due,
@@ -162,10 +152,10 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
        select * from chongfuxi_review where owner_email = $1 and day = $2::date
      )
      select
-       -- Set-aside words are out of review, so out of the deck's figures too.
-       (select count(*) from chongfuxi_word w where w.owner_email = $1 and w.status = 'deck' and not ${SET_ASIDE("w")})::int as words,
+       -- Suspended words are out of review, so out of the deck's figures too.
+       (select count(*) from chongfuxi_word w where w.owner_email = $1 and w.status = 'deck' and not ${SUSPENDED_WORD("w")})::int as words,
        (select count(distinct ch) from chongfuxi_word w, regexp_split_to_table(w.word, '') ch
-          where w.owner_email = $1 and w.status = 'deck' and not ${SET_ASIDE("w")} and ch ~ '[一-鿿㐀-䶿]')::int as characters,
+          where w.owner_email = $1 and w.status = 'deck' and not ${SUSPENDED_WORD("w")} and ch ~ '[一-鿿㐀-䶿]')::int as characters,
        (select count(*) from chongfuxi_card where owner_email = $1 and kind <> 'sentence' and not suspended)::int as word_cards,
        (select count(*) from chongfuxi_card where owner_email = $1 and kind = 'produce' and not suspended)::int as recall_cards,
        (select count(*) from chongfuxi_word where owner_email = $1 and status = 'name')::int as names,

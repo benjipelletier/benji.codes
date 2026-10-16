@@ -7,6 +7,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import { recallOdds, type Grade } from "@chongfuxi/lib/schedule";
+import { recomputeUnlocks } from "./corpus";
 import { longkuWords } from "./longku";
 import { CARD_COLUMNS, CONTEXT_IDEAL_HAN, CONTEXT_MIN_HAN, hskOf, promptSenses, scheduleOf, type CardRow } from "./review";
 
@@ -17,21 +18,33 @@ const GLOSS_CHARS = 48;
 
 export class WordError extends Error {}
 
-/** Set a word aside, or bring it back: every card it had live, merged meanings left as they are. */
-export async function setAside(sql: Sql, owner: string, word: string, aside: boolean): Promise<{ cards: number }> {
+/**
+ * Suspend a word, too hard for now, or bring it back: every card it had live
+ * (Read, Recall, split meanings not merged back) stops or starts being dealt,
+ * history and schedule kept. Its sentences lock while it is suspended
+ * (suspended.ts), so they are counted again either way.
+ */
+export async function suspendWord(
+  sql: Sql,
+  owner: string,
+  word: string,
+  on: boolean,
+  at = Date.now(),
+): Promise<{ cards: number; relocked: number; unlocked: number }> {
   const found = (await sql`select status from chongfuxi_word where owner_email = ${owner} and word = ${word}`) as unknown as Array<{
     status: string;
   }>;
   if (found[0]?.status !== "deck") throw new WordError(`${word} isn't in the deck.`);
   const moved = (await sql`
-    update chongfuxi_card c set suspended = ${aside}
-    where c.owner_email = ${owner} and c.word = ${word} and c.kind in ('read', 'produce') and c.suspended = ${!aside}
+    update chongfuxi_card c set suspended = ${on}
+    where c.owner_email = ${owner} and c.word = ${word} and c.kind in ('read', 'produce') and c.suspended = ${!on}
       and (c.meaning_id is null or exists (
         select 1 from chongfuxi_meaning m where m.owner_email = c.owner_email and m.id = c.meaning_id and m.merged is null
       ))
     returning c.id
   `) as unknown as Array<{ id: number }>;
-  return { cards: moved.length };
+  const sentences = await recomputeUnlocks(sql, owner, on ? [] : [word], at);
+  return { cards: moved.length, relocked: sentences.relocked, unlocked: sentences.unlocked };
 }
 
 /** Every deck word with its Read card, for the wall. */
@@ -39,7 +52,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
   const rows = (await sql`
     select w.word, w.pinyin, w.defs, w.lists,
            c.stability, (extract(epoch from c.due) * 1000)::double precision as due,
-           c.answered, c.difficulty, c.suspended as aside,
+           c.answered, c.difficulty, c.suspended,
            (select count(*)::int from chongfuxi_review r
             where r.owner_email = c.owner_email and r.card_id = c.id and r.grade = 'forgot') as forgot_here,
            exists (
@@ -62,7 +75,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
     forgot_here: number;
     difficulty: number;
     recall: boolean;
-    aside: boolean;
+    suspended: boolean;
   }>;
   const inLongku = await longkuWords(sql, owner, rows.map((r) => r.word));
   return rows.map((r) => {
@@ -79,7 +92,7 @@ export async function listWords(sql: Sql, owner: string): Promise<WordTile[]> {
       recall: r.recall,
       hsk: hskOf(r.lists ?? []),
       longku: inLongku.has(r.word),
-      aside: r.aside,
+      suspended: r.suspended,
     };
   });
 }
@@ -105,7 +118,7 @@ export async function wordDetail(sql: Sql, owner: string, word: string, at = Dat
      from chongfuxi_card c
      left join chongfuxi_meaning m on m.owner_email = c.owner_email and m.id = c.meaning_id
      where c.owner_email = $1 and c.word = $2 and c.kind in ('read', 'produce')
-       -- A set-aside word's cards still show; a merged meaning's don't.
+       -- A suspended word's cards still show; a merged meaning's don't.
        and (not c.suspended or m.merged is null)
      order by c.meaning_id nulls first, (c.kind = 'produce'), c.id`,
     [owner, word],
@@ -146,7 +159,7 @@ export async function wordDetail(sql: Sql, owner: string, word: string, at = Dat
     defs: w.defs,
     hsk: hskOf(w.lists ?? []),
     longku: (await longkuWords(sql, owner, [w.word])).has(w.word),
-    aside: cards.some((c) => c.kind === "read" && c.meaning_id === null && c.suspended),
+    suspended: cards.some((c) => c.kind === "read" && c.meaning_id === null && c.suspended),
     cards: cards.map((c) => {
       const schedule = scheduleOf(c);
       const here = answers.filter((a) => a.card === c.id);

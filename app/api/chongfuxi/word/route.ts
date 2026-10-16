@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { AdditionError, removeWord } from "../additions";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { WordError, setAside, wordDetail } from "../words";
+import { WordError, suspendWord, wordDetail } from "../words";
 
 export const dynamic = "force-dynamic";
-// Removing a word re-checks every sentence.
+// Removing, suspending or bringing back a word re-checks every sentence.
 export const maxDuration = 60;
 
 /** One word in full: its cards, Pleco's record, and the sentences it is in. Readable by anyone. */
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * { word, action: "remove" }: take a word out of the deck, its cards and answers with it.
- * { word, action: "aside" | "back" }: set it aside (its cards kept, not dealt) or bring it back.
+ * { word, action: "suspend" | "resume" }: suspend it (its cards kept, not dealt, its sentences locked) or bring it back.
  */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
@@ -28,12 +28,12 @@ export async function POST(req: NextRequest) {
   const input = await body<{ word?: string; action?: string }>(req);
   const word = input?.word?.trim();
   const action = input?.action;
-  if (!word || word.length > 20 || (action !== "remove" && action !== "aside" && action !== "back")) {
-    return bad("expected a word and action: remove, aside or back");
+  if (!word || word.length > 20 || (action !== "remove" && action !== "suspend" && action !== "resume")) {
+    return bad("expected a word and action: remove, suspend or resume");
   }
   try {
     if (action === "remove") return NextResponse.json(await removeWord(gate.sql, gate.owner, word));
-    return NextResponse.json(await setAside(gate.sql, gate.owner, word, action === "aside"));
+    return NextResponse.json(await suspendWord(gate.sql, gate.owner, word, action === "suspend"));
   } catch (e) {
     if (e instanceof AdditionError) return bad(e.message, 409);
     if (e instanceof WordError) return bad(e.message, 409);

@@ -322,7 +322,7 @@ body:has(.cfx) {
 }
 
 .cf-ti-zh {
-  /* Only 复卡查统入 and the card foot's 魚记搁 are loaded in this face (app/chongfuxi/layout.tsx). */
+  /* Only 复卡查统入 and the card foot's 魚记停 are loaded in this face (app/chongfuxi/layout.tsx). */
   font-family: "LXGW WenKai TC", var(--cf-zh);
   font-weight: 700;
   fill: currentColor;
@@ -2506,22 +2506,44 @@ label.cf-kind {
   font-size: 13px;
 }
 
-.cfx .cf-foot-btn.is-aside {
+.cfx .cf-foot-btn.is-suspend {
   --hue: var(--cf-ink-soft);
 }
 
-/* A word just set aside, under the next card, with the way back. */
-.cf-aside-note {
+/* A word just suspended, under the next card, with the way back. */
+.cf-suspend-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
-  gap: 8px;
+  gap: 4px 8px;
   margin: 10px 0 0;
   font-size: 13.5px;
   color: var(--cf-ink-soft);
 }
 
-.cf-aside-note .cf-zh {
+.cf-suspend-ask {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.cf-suspend-ask p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-suspend-ask b {
+  font-size: 17px;
+  color: var(--cf-ink);
+}
+
+.cf-suspend-note .cf-zh,
+.cf-suspend-note button {
+  white-space: nowrap;
+}
+
+.cf-suspend-note .cf-zh {
   font-size: 17px;
   font-weight: 700;
   color: var(--cf-ink);
@@ -4948,20 +4970,20 @@ button.cf-synclog-row {
 }
 
 /* Taking a word out of the deck: quiet until asked, red once it is. */
-/* A set-aside word's tile: faded, out of review. */
-.cfx .cf-tile-word.is-aside {
+/* A suspended word's tile: faded, out of review. */
+.cfx .cf-tile-word.is-suspended {
   opacity: 0.5;
 }
 
-/* A set-aside word's sheet: what that means, and the way back. */
-.cf-sheet-aside-back {
+/* A suspended word's sheet: what that means, and the way back. */
+.cf-sheet-suspended {
   margin-top: 22px;
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--cf-sunken);
 }
 
-.cf-sheet-aside-back p {
+.cf-sheet-suspended p {
   margin: 0 0 10px;
   font-size: 13.5px;
   color: var(--cf-ink-soft);

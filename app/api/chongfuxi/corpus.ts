@@ -10,6 +10,7 @@
 // and refreshes what Pleco says about old ones; it never removes a word, and
 // never touches a card that already exists, answered or not.
 
+import { wordStanding } from "./suspended";
 import type { Sql } from "./db";
 import { buildCorpus, defaultSettings, type CategoryRole, type Corpus, type Settings } from "@chongfuxi/lib/corpus";
 import { definitionsFor, glossesOf, type Dict } from "@chongfuxi/lib/dict";
@@ -199,17 +200,15 @@ export interface UnlockResult {
  * one that stopped being readable has its card set aside.
  *
  * Run after anything that changes which words are known — an import, a name
- * marked or unmarked. Answering cards never does.
+ * marked or unmarked, a word suspended or brought back. Answering cards never does.
  *
  * @param by  the words that just became known, so a sentence can remember
  *            which of them unlocked it
  */
 export async function recomputeUnlocks(sql: Sql, owner: string, by: string[] = [], at = Date.now()): Promise<UnlockResult> {
-  const words = (await sql`
-    select word, status from chongfuxi_word where owner_email = ${owner}
-  `) as unknown as Array<{ word: string; status: string }>;
+  const words = await wordStanding(sql, owner);
   const universe = new Set(words.map((w) => w.word));
-  const known = new Set(words.filter((w) => w.status !== "listed").map((w) => w.word));
+  const known = new Set(words.filter((w) => w.known).map((w) => w.word));
   const unlock = makeUnlock(known, universe);
   const fresh = new Set(by);
 
@@ -294,9 +293,7 @@ export async function ingest(
   log(`${corpus.texts.length.toLocaleString("en-US")} sentences and ${words.length.toLocaleString("en-US")} words read from ${snapshot.cards.length.toLocaleString("en-US")} cards (${entries} dictionary entries and ${corpus.stats.cutShort} sentences cut short left out)`);
 
   // What is there already, to say what this adds.
-  const existing = (await sql`
-    select word, status from chongfuxi_word where owner_email = ${owner}
-  `) as unknown as Array<{ word: string; status: string }>;
+  const existing = await wordStanding(sql, owner);
   const had = (await sql`
     select key, (blockers is not null and cardinality(blockers) = 0) as readable
     from chongfuxi_sentence where owner_email = ${owner}
@@ -307,7 +304,11 @@ export async function ingest(
 
   const deck = words.filter((w) => w.s === "deck");
   const added = deck.filter((w) => !deckBefore.has(w.w)).map((w) => w.w);
-  const knownAfter = new Set([...existing.filter((w) => w.status !== "listed").map((w) => w.word), ...deck.map((w) => w.w)]);
+  const suspended = new Set(existing.filter((w) => w.status === "deck" && !w.known).map((w) => w.word));
+  const knownAfter = new Set([
+    ...existing.filter((w) => w.known).map((w) => w.word),
+    ...deck.map((w) => w.w).filter((w) => !suspended.has(w)),
+  ]);
   const universeAfter = new Set([...existing.map((w) => w.word), ...words.map((w) => w.w)]);
   const unlock = makeUnlock(knownAfter, universeAfter);
   let readable = 0;
@@ -535,15 +536,13 @@ export async function ingestSentences(
   } = {},
 ): Promise<{ bySource: Record<string, SourceCount>; total: SourceCount; samples: Array<{ zh: string; words: string[]; split: string; blockers: string[] }> }> {
   const log = options.log ?? (() => {});
-  const wordRows = (await sql`
-    select word, status from chongfuxi_word where owner_email = ${owner}
-  `) as unknown as Array<{ word: string; status: string }>;
+  const wordRows = await wordStanding(sql, owner);
   const had = (await sql`
     select key from chongfuxi_sentence where owner_email = ${owner}
   `) as unknown as Array<{ key: string }>;
   const existing = new Set(had.map((h) => h.key));
   const universe = new Set(wordRows.map((w) => w.word));
-  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.status !== "listed").map((w) => w.word)), universe);
+  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.known).map((w) => w.word)), universe);
 
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);

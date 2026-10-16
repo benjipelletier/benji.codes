@@ -12,6 +12,7 @@
 // each time, against what is known then, so a text gets easier as words are
 // learnt.
 
+import { wordStanding } from "./suspended";
 import type { Sql } from "./db";
 import { hskOf, wordLooks } from "./review";
 import type { TextAnalysis, TextListed, TextToken, TextUnknown, WordStanding } from "@chongfuxi/lib/api";
@@ -36,11 +37,6 @@ const UNLOCK_WEIGHT = 4;
 
 const HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"];
 
-interface Row {
-  word: string;
-  status: "deck" | "listed" | "name";
-}
-
 /** Analyse a text: nothing is written. */
 export async function analyse(
   sql: Sql,
@@ -48,10 +44,10 @@ export async function analyse(
   dict: Dict,
   input: { text: string; kind: TextAnalysis["kind"]; title: string | null; url: string | null; id?: number | null; at?: number; savedAs?: string | null },
 ): Promise<TextAnalysis> {
-  const rows = (await sql`select word, status from chongfuxi_word where owner_email = ${owner}`) as unknown as Row[];
+  const rows = await wordStanding(sql, owner);
   const universe = new Set(rows.map((r) => r.word));
   const status = new Map(rows.map((r) => [r.word, r.status]));
-  const unlock = makeUnlock(new Set(rows.filter((r) => r.status !== "listed").map((r) => r.word)), universe);
+  const unlock = makeUnlock(new Set(rows.filter((r) => r.known).map((r) => r.word)), universe);
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);
   const context = { charReadings: dict.readings as Map<string, Set<string>>, vocab, maxLen: SPLIT_MAX };

@@ -163,22 +163,22 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         // Without the sizes the bars show the deck's words alone.
       });
   }, [by, totals.size]);
-  // Set-aside words leave every grouping for one of their own, first.
+  // Suspended words leave every grouping for one of their own, first.
   const groups = useMemo(() => {
-    const set = found.filter((w) => w.aside);
+    const set = found.filter((w) => w.suspended);
     const rest = groupWords(
-      found.filter((w) => !w.aside),
+      found.filter((w) => !w.suspended),
       by,
       cutoff,
       totals,
     );
-    return set.length ? [{ key: "aside", label: "Set aside, not in review", words: set }, ...rest] : rest;
+    return set.length ? [{ key: "suspended", label: "Suspended", words: set }, ...rest] : rest;
   }, [found, by, cutoff, totals]);
 
   if (error) return <p className="cf-error">{error}</p>;
   if (!words) return <p className="cf-muted cf-pad">Laying out the words…</p>;
 
-  const inReview = words.filter((w) => !w.aside);
+  const inReview = words.filter((w) => !w.suspended);
   const counts = Object.fromEntries(STAGES.map((s) => [s.key, inReview.filter((w) => stageOf(w) === s.key).length])) as Record<
     Stage,
     number
@@ -293,14 +293,14 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
                   {shown.map((w) => {
                     const stage = stageOf(w);
                     // Grouped by when due, the group says it; elsewhere a dot does.
-                    const due = by !== "due" && w.due <= cutoff && !w.aside;
+                    const due = by !== "due" && w.due <= cutoff && !w.suspended;
                     return (
                       <li key={w.word}>
                         <button
-                          className={`cf-tile-word is-${stage}${due ? " is-due" : ""}${w.aside ? " is-aside" : ""}`}
+                          className={`cf-tile-word is-${stage}${due ? " is-due" : ""}${w.suspended ? " is-suspended" : ""}`}
                           style={{ "--n": Math.min(Math.max([...w.word].length, 2), 5) } as React.CSSProperties}
                           onClick={() => setOpen(w.word)}
-                          aria-label={`${w.word}: ${w.aside ? "set aside" : stage}${due ? ", due today" : ""}`}
+                          aria-label={`${w.word}: ${w.suspended ? "suspended" : stage}${due ? ", due today" : ""}`}
                         >
                           {w.word}
                         </button>
@@ -329,7 +329,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
             setOpen(null);
             setWords((list) => list?.filter((x) => x.word !== w) ?? null);
           }}
-          onBack={(w) => setWords((list) => list?.map((x) => (x.word === w ? { ...x, aside: false } : x)) ?? null)}
+          onBack={(w) => setWords((list) => list?.map((x) => (x.word === w ? { ...x, suspended: false } : x)) ?? null)}
           onFindSentences={(w) => {
             setOpen(null);
             onFindSentences(w);
@@ -367,7 +367,7 @@ export function WordSheet({
   canWrite: boolean;
   onClose: () => void;
   onRemoved: (word: string) => void;
-  /** Brought back from being set aside. */
+  /** Brought back from being suspended. */
   onBack?: (word: string) => void;
   onFindSentences: (word: string) => void;
 }) {
@@ -377,8 +377,8 @@ export function WordSheet({
     setBringing(true);
     setError(null);
     try {
-      await send("word", { word, action: "back" });
-      setD((x) => (x ? { ...x, aside: false } : x));
+      await send("word", { word, action: "resume" });
+      setD((x) => (x ? { ...x, suspended: false } : x));
       onBack?.(word);
     } catch (e) {
       setError(message(e));
@@ -552,9 +552,9 @@ export function WordSheet({
               )}
             </section>
             {!canWrite && <p className="cf-muted cf-sheet-aside">This is Benji&apos;s deck, shown read-only.</p>}
-            {canWrite && d.aside && (
-              <section className="cf-sheet-aside-back">
-                <p>Set aside: its cards and their history are kept, but nothing deals them.</p>
+            {canWrite && d.suspended && (
+              <section className="cf-sheet-suspended">
+                <p>Suspended: its cards and their history are kept, but nothing deals them, and the sentences that need it are locked.</p>
                 <button className="cf-btn" disabled={bringing} onClick={() => void bringBack()}>
                   {bringing ? "Bringing it back…" : "Bring back into review"}
                 </button>

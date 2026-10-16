@@ -12,7 +12,7 @@
 // while one is running. A visitor can page through the cards but not answer.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds } from "@chongfuxi/lib/api";
+import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -410,9 +410,13 @@ export function Session({
   const [revealed, setRevealed] = useState(false);
   // Look up over the card, filled with its word (or sentence): back or × returns to the same card.
   const [looking, setLooking] = useState<string | null>(null);
-  // A word just set aside, and its cards that were in the queue, for Bring back.
-  const [aside, setAside] = useState<{ word: string; cards: SessionCard[] } | null>(null);
-  const [asideBusy, setAsideBusy] = useState(false);
+  // Suspending the card's word: asked first ("ask", with how many sentences it would lock), then done ("busy").
+  const [suspending, setSuspending] = useState<"ask" | "busy" | null>(null);
+  const [wouldLock, setWouldLock] = useState<number | null>(null);
+  const suspendBox = useRef<HTMLDivElement>(null);
+  // A word just suspended, and the cards it took out of the queue, for Bring back.
+  const [suspended, setSuspended] = useState<{ word: string; cards: SessionCard[]; relocked: number } | null>(null);
+  const [resuming, setResuming] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
   /** Words of this card's sentence tapped for their meaning. */
@@ -541,6 +545,7 @@ export function Session({
     setWhy(null);
     setNoting(null);
     setSplitting(null);
+    setSuspending(null);
     setLeaving(null);
     shownAt.current = performance.now();
     revealedAt.current = back ? shownAt.current : null;
@@ -582,7 +587,7 @@ export function Session({
 
   const answer = (grade: Grade, words: string[] = [], comment?: string) => {
     if (!card || leaving) return;
-    setAside(null);
+    setSuspended(null);
     const now = performance.now();
     const input: ReviewInput = {
       id: newId(),
@@ -657,6 +662,11 @@ export function Session({
   // Back steps out of what is open on the card before it leaves the session.
   useBackLayer(why !== null, backFromForgot);
   useBackLayer(noting !== null, () => setNoting(null));
+  useBackLayer(suspending !== null, () => setSuspending(null));
+  // The question comes into view when it opens.
+  useEffect(() => {
+    if (suspending === "ask") suspendBox.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [suspending, wouldLock]);
   useBackLayer(splitting !== null, () => setSplitting(null));
 
   const saveNote = async () => {
@@ -695,38 +705,51 @@ export function Session({
     }
   };
 
-  // Too hard for now: the word's cards leave the session (and every session, until brought back), history kept.
-  const setWordAside = async () => {
+  // Suspend asks first, saying how many readable sentences need the word (they lock until it comes back).
+  const askSuspend = () => {
     const w = card?.word?.word;
-    if (!w || asideBusy) return;
-    setAsideBusy(true);
+    if (!w) return;
+    setSuspending("ask");
+    setWouldLock(null);
+    get<WordDetail>("word", { w })
+      .then((d) => setWouldLock(d.sentences.readable))
+      .catch(() => {
+        // Asked without the number.
+      });
+  };
+  // Too hard for now: the word's cards leave the session (and every session,
+  // until brought back), history kept; so do queued sentences that need it.
+  const suspendWord = async () => {
+    const w = card?.word?.word;
+    if (!w || suspending === "busy") return;
+    setSuspending("busy");
     try {
-      await send("word", { word: w, action: "aside" });
-      const its = (c: SessionCard) => c.kind !== "sentence" && c.word?.word === w;
-      setAside({ word: w, cards: queue.filter(its) });
+      const r = await send<{ cards: number; relocked: number }>("word", { word: w, action: "suspend" });
+      const its = (c: SessionCard) => (c.kind !== "sentence" ? c.word?.word === w : Boolean(c.sentence?.words.includes(w)));
+      setSuspended({ word: w, cards: queue.filter(its), relocked: r.relocked });
       setQueue((q) => q.filter((c) => !its(c)));
+      setSuspending(null);
       refresh();
     } catch (e) {
       setError(message(e));
-    } finally {
-      setAsideBusy(false);
+      setSuspending("ask");
     }
   };
   const bringBack = async () => {
-    if (!aside || asideBusy) return;
-    setAsideBusy(true);
+    if (!suspended || resuming) return;
+    setResuming(true);
     try {
-      await send("word", { word: aside.word, action: "back" });
+      await send("word", { word: suspended.word, action: "resume" });
       // Back on top, answer showing, as Undo brings a card back.
-      if (aside.cards[0]) undone.current = aside.cards[0].id;
-      setQueue((q) => [...aside.cards, ...q.filter((c) => !aside.cards.some((a) => a.id === c.id))]);
+      if (suspended.cards[0]) undone.current = suspended.cards[0].id;
+      setQueue((q) => [...suspended.cards, ...q.filter((c) => !suspended.cards.some((a) => a.id === c.id))]);
       setStatus("ready");
-      setAside(null);
+      setSuspended(null);
       refresh();
     } catch (e) {
       setError(message(e));
     } finally {
-      setAsideBusy(false);
+      setResuming(false);
     }
   };
 
@@ -931,8 +954,9 @@ export function Session({
             </div>
           )}
 
-          {revealed && (
-            // Three character tiles, in the tab icons' face: 魚 for Pleco (its fish), 记 for a note, 查 for Look up.
+          {revealed && suspending === null && (
+            // Character tiles, in the tab icons' face: 魚 Pleco (its fish), 记 a note, 停 suspend, 查 Look up.
+            // While Suspend asks, its question stands where they were.
             <div className="cf-card-foot">
               {card.word && (
                 <PlecoTile word={card.word.word} />
@@ -945,13 +969,13 @@ export function Session({
                   <small>{card.note ? "Edit note" : "Note"}</small>
                 </button>
               )}
-              {/* Too hard for now: out of review, history kept; brought back from here or the Words tab. */}
-              {canWrite && card.word && card.kind !== "sentence" && (
-                <button className="cf-foot-btn is-aside" onClick={() => void setWordAside()} disabled={asideBusy} aria-label="Set aside">
+              {/* Too hard for now: 停, as in 暂停. Out of review, history kept, after asking; brought back from here or the Words tab. */}
+              {canWrite && card.word && card.kind !== "sentence" && suspending === null && (
+                <button className="cf-foot-btn is-suspend" onClick={askSuspend} aria-label="Suspend">
                   <span className="cf-foot-zh" aria-hidden="true">
-                    搁
+                    停
                   </span>
-                  <small>Set aside</small>
+                  <small>Suspend</small>
                 </button>
               )}
               {/* The owner's only, like the tab: a lookup costs money. Filled in, not asked, so it can be edited first. */}
@@ -963,6 +987,27 @@ export function Session({
                   <small>Look up</small>
                 </button>
               )}
+            </div>
+          )}
+          {suspending !== null && card.word && (
+            <div className="cf-fix cf-suspend-ask" ref={suspendBox}>
+              <p>
+                Suspend <b className="cf-zh">{card.word.word}</b>? Its cards stop coming up, their history kept, and{" "}
+                {wouldLock === null
+                  ? "the sentences that need it lock"
+                  : wouldLock === 0
+                    ? "no readable sentence needs it"
+                    : `${fmt(wouldLock)} readable ${wouldLock === 1 ? "sentence that needs it locks" : "sentences that need it lock"}`}{" "}
+                until you bring it back.
+              </p>
+              <div className="cf-buttons">
+                <button className="cf-btn cf-btn-ghost" onClick={() => setSuspending(null)} disabled={suspending === "busy"}>
+                  Keep it
+                </button>
+                <button className="cf-btn" onClick={() => void suspendWord()} disabled={suspending === "busy"}>
+                  {suspending === "busy" ? "Suspending…" : "Suspend"}
+                </button>
+              </div>
             </div>
           )}
           {noting !== null && (
@@ -997,18 +1042,19 @@ export function Session({
         </Sheet>
       )}
 
-      {/* A word just set aside, with the way back. */}
-      {aside && (
-        <p className="cf-aside-note">
-          <span className="cf-zh">{aside.word}</span> set aside
-          <button className="cf-link" onClick={() => void bringBack()} disabled={asideBusy}>
-            Bring back
+      {/* A word just suspended, with the way back. */}
+      {suspended && (
+        <p className="cf-suspend-note">
+          <span className="cf-zh">{suspended.word}</span> suspended
+          {suspended.relocked > 0 && ` · ${fmt(suspended.relocked)} ${suspended.relocked === 1 ? "sentence" : "sentences"} locked`}
+          <button className="cf-link" onClick={() => void bringBack()} disabled={resuming}>
+            {resuming ? "Bringing back…" : "Bring back"}
           </button>
         </p>
       )}
 
       {/* What the last answer changed. */}
-      {last && !aside && (
+      {last && !suspended && (
         <ReceiptStrip r={last} undoing={undoing} onUndo={canWrite && latest.current?.id === last.id ? undo : undefined} />
       )}
 
