@@ -126,9 +126,14 @@ rejected as too themed. Keep it that way:
   schoolbook or paper motifs.
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
   character of the tab's Chinese name set over it on a halo, in LXGW WenKai
-  (a modern regular script, the one exception to the sans: only 复卡查统入 are
-  fetched, so a new tab character must be added to the URL in the layout), and the English
-  small beneath; the current tab sits on a pill.
+  (a modern regular script, the one exception to the sans: only 复卡查统入, and
+  the card foot's 魚筆, are fetched, so a new character must be added to the
+  URL in the layout), and the English small beneath; the current tab sits on
+  a pill.
+- A revealed card's foot is three character tiles in the same face, each a
+  character on a soft round in its own hue with its name under it: 魚
+  (traditional, the owner's pick) for Pleco, 筆 for a note, 查 for Look up.
+  The owner asked for them cuter than the three text links they replaced.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
 - Motion only answers the owner: the answer rises on reveal, an answered card
@@ -604,7 +609,8 @@ the design was silent and are still to be confirmed.
   CC-CEDICT headword around it (手 in 住手, 日 in 周日), since they show the
   compound, not the word (`contextFit`; the decks' word breaks often split
   compounds, so tokens alone can't say). Back: pinyin, every
-  definition, the translation. A word with no saved pinyin shows its
+  definition, and the translation right under the sentence (the owner
+  wanted it closer than the foot of the back). A word with no saved pinyin shows its
   dictionary entry's (`shownPinyin`).
 - **Tapping a word in a sentence**, on any card once the answer is shown,
   opens a small popup with its pinyin and a short meaning (`SentenceText` in
