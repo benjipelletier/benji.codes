@@ -2688,23 +2688,19 @@ label.cf-kind {
 }
 
 /* One row of chips; more than fit scroll sideways rather than add a line. */
+/* What the answer changed: chips that wrap onto as many lines as they need, all in view. */
 .cf-facts {
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  height: 26px;
-  margin: 8px -18px 0;
-  padding: 0 18px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.cf-facts::-webkit-scrollbar {
-  display: none;
+  margin: 8px 0 0;
+  padding: 0;
 }
 
 .cf-facts li {
   flex: none;
+  height: 26px;
   display: flex;
   align-items: center;
   gap: 5px;

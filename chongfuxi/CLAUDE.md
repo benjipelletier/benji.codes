@@ -757,8 +757,9 @@ the design was silent and are still to be confirmed.
   one it has now (log scale, full at two years), then a row of chips: how much
   longer or shorter, the odds it was remembered when answered, FSRS difficulty
   and which way it moved, a Recall card opened, clean reads as pips, lapsed
-  words, words read in context, sentences brought back, Got its in a row. Two
-  fixed rows; more chips than fit scroll sideways. `submitReview` returns the
+  words, words read in context, sentences brought back, Got its in a row. The
+  chips wrap onto as many lines as they need, all in view (the owner's
+  choice over a sideways scroll that hid the last ones). `submitReview` returns the
   detail; nothing reads it back later.
 - **One screen**: Today and a session never scroll the page on a phone. Today
   closes up below 940px of height; a session is exactly `100dvh` and a card
