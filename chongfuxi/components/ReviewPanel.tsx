@@ -27,6 +27,7 @@ import { DayStrip } from "./DayStrip";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
+import { ReviewedSheet, type Answered } from "./Reviewed";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Cards fetched at a time, and how few are left in hand before fetching more. */
@@ -441,6 +442,9 @@ export function Session({
   const [noting, setNoting] = useState<string | null>(null);
   const [splitting, setSplitting] = useState<string | null>(null);
   const [last, setLast] = useState<Receipt | null>(null);
+  // Every answer of this session, to look back over and change (Reviewed.tsx).
+  const [log, setLog] = useState<Answered[]>([]);
+  const [lookingBack, setLookingBack] = useState(false);
   // Got its in a row this session.
   const streak = useRef(0);
   // The card on its way out, and which way: answered cards slide off before the next arrives.
@@ -571,6 +575,7 @@ export function Session({
         const result = await send<ReviewResult>("review", { ...input, sentAt: Date.now() });
         outbox.remove(input.id);
         if (!result.duplicate) setLast(receiptOf(shown, input.grade, result, input.id, run));
+        setLog((l) => l.map((a) => (a.id === input.id ? { ...a, days: result.retired ? null : result.days } : a)));
         refresh();
       } catch (e) {
         // 409: the card had already left the queue (answered on another device). Nothing to resend.
@@ -619,6 +624,7 @@ export function Session({
     recentIds.current = [...recentIds.current, card.id].slice(-IN_FLIGHT);
     if (card.word) recentWords.current = [...recentWords.current, card.word.word].slice(-IN_FLIGHT);
     latest.current = { id: input.id, card, streak: streak.current };
+    setLog((l) => [...l, { id: input.id, card, grade, days: undefined }]);
     streak.current = grade === "good" ? streak.current + 1 : 0;
     void post(input, card, streak.current);
     setAnswered((n) => n + 1);
@@ -633,6 +639,7 @@ export function Session({
     try {
       await send("review/undo", { id: back.id });
       latest.current = null;
+      setLog((l) => l.filter((a) => a.id !== back.id));
       undone.current = back.card.id;
       recentIds.current = recentIds.current.filter((id) => id !== back.card.id);
       if (back.card.word) {
@@ -651,6 +658,14 @@ export function Session({
     } finally {
       setUndoing(false);
     }
+  };
+
+  /** An earlier answer changed from the session's list: its row, and the receipt if it is the one showing. */
+  const changed = (id: string, grade: Grade, result: ReviewResult) => {
+    const was = log.find((a) => a.id === id);
+    setLog((l) => l.map((a) => (a.id === id ? { ...a, grade, days: result.retired ? null : result.days } : a)));
+    if (was && last?.id === id) setLast(receiptOf(was.card, grade, result, id, 0));
+    refresh();
   };
 
   // The box for what went wrong comes into view when it opens.
@@ -790,7 +805,18 @@ export function Session({
           <i style={{ width: `${progress}%` }} />
         </div>
         <span className="cf-left">{more ? "more" : fmt(left)}</span>
+        {log.length > 0 && (
+          <button className="cf-session-log" onClick={() => setLookingBack(true)} aria-label={`Look back over ${log.length} answers`}>
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <rect x="6" y="3" width="10" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+              <rect x="3.5" y="5" width="10" height="13" rx="2" fill="var(--cf-bg)" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M6.5 11.5l2 2 3.5-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {fmt(log.length)}
+          </button>
+        )}
       </div>
+      {lookingBack && <ReviewedSheet log={log} canWrite={canWrite} onChanged={changed} onClose={() => setLookingBack(false)} />}
 
       {error && <p className="cf-error">{error}</p>}
       <Waiting />
@@ -821,6 +847,11 @@ export function Session({
               }}
             >
               Keep going with new sentences
+            </button>
+          )}
+          {log.length > 0 && (
+            <button className="cf-btn cf-btn-ghost" onClick={() => setLookingBack(true)}>
+              Look back over {fmt(log.length)} {log.length === 1 ? "answer" : "answers"}
             </button>
           )}
           <button className={`cf-btn${!list && !more && kinds.sentences ? " cf-btn-ghost" : ""}`} onClick={onEnd}>

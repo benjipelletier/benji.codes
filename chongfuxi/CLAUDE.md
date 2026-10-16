@@ -772,6 +772,25 @@ the design was silent and are still to be confirmed.
   row is removed. Only the latest answer; older ones are refused. The
   card comes back as it was left, answer showing, to be answered again
   (the owner asked; it used to come back face down).
+- **Looking back**: once a session has answers, a button by the progress bar
+  (a card with a tick and the count), and Look back on the done screen, open
+  the session's answers, newest first (`components/Reviewed.tsx`): each a
+  row (got it or forgot as the bubbles draw them, the kind, when it is back),
+  opening to the card face up (word, reading, meaning with its AI pill, the
+  sentence) and Forgot / Got it to change the answer. A change
+  (`changeAnswer`, route `review/change`) gives the answer again as if it had
+  been given that way: it takes back the answer and every later answer that
+  touched a card it moved (or one those moved: the same card come round, a
+  word a sentence lapsed, the Recall card a Got it opened), newest first in
+  one transaction, then gives them again in order at their own times, the
+  changed one with its new grade. Answers that touched none of those stand.
+  A later answer whose card no longer exists (a Recall card the change no
+  longer opens) is dropped and the change says so. Refused when a card in the
+  chain has since been suspended, removed or flagged, for an answer still on
+  the device, or more than 400 answers back. Tested against a local Postgres
+  by comparing each change with the same answers given that way from the
+  start (cards, log and exposures alike). Fast review's answers aren't in
+  the list.
 - **Why it was forgotten**: Forgot opens a step with an optional line, "what
   tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
   words, for reading the mistakes back later.
