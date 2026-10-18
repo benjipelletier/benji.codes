@@ -2535,6 +2535,11 @@ label.cf-kind {
   --hue: var(--cf-recall);
 }
 
+/* Learn's 会: a new word already known, in the green of Got it. */
+.cfx .cf-foot-btn.is-known {
+  --hue: var(--cf-up);
+}
+
 /* Inline, in a popup or a row of tags: a smaller round, the name beside it. */
 .cfx .cf-foot-btn.is-inline {
   display: inline-flex;

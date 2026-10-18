@@ -890,6 +890,10 @@ the design was silent and are still to be confirmed.
   its first real answer, Read and then Recall as usual, comes a day later.
   How each step went is kept in `chongfuxi_learn` (a row per session and
   word, each step once by its id) for reading back, and touches no schedule.
+  A word already known needn't climb: the card's 会 "Know it" tile (owner,
+  any step) takes it off the ladder at once, saved as a step graded "known"
+  that marks it learned like the last step does, so it joins the review from
+  the next study day and its first real answer says whether it was.
 - **Notes**: the owner can put a note on any card ("the adverb, not 狠"). It
   shows on the card's front every time, to tell it apart before answering, and
   changes nothing about the schedule. This replaced the Fix button the original
@@ -1098,6 +1102,8 @@ Keep and Undo, as a sync's do. NPCR and 成语 are left off the screen
 whole scheme is refused and a lesson or level isn't. Routes: `lists` (GET
 the tree, or `?list=` its words; POST to add, owner).
 
+Learn, Review and Add show only on a list with none under it (a lesson, a
+level, a song), at the owner's request; a book or a scheme is for browsing.
 Each list also shows how many of its words are due today (words with a Read
 or Recall card a session would deal: due before the day ends, not answered
 yet today), and a list with any has Review (the count beneath, beside Learn
