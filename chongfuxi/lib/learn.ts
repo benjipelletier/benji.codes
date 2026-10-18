@@ -119,14 +119,16 @@ export function sentencesFor(it: LearnItem): LearnSentence[] {
 /**
  * After a step: met, passed or missed on `turn`, shown with `sentences`.
  * Passing climbs a step and comes back after a longer gap; missing goes back
- * a step (never to meeting it again) and comes back soon.
+ * a step (never to meeting it again) and comes back soon. "known" (the owner
+ * already knows the word) takes it off the ladder at once, learned.
  */
 export function afterStep(
   it: LearnItem,
-  grade: "seen" | "good" | "forgot",
+  grade: "seen" | "good" | "forgot" | "known",
   turn: number,
   sentences: LearnSentence[],
 ): LearnItem {
+  if (grade === "known") return { ...it, at: it.steps.length, passed: it.passed + Math.max(0, it.steps.length - it.at) };
   const step = stepOf(it);
   const shown = [
     ...it.shown.filter((id) => !sentences.some((s) => s.id === id)),
@@ -150,7 +152,7 @@ export function afterStep(
 export function stepDone(
   before: LearnItem,
   after: LearnItem,
-  grade: "seen" | "good" | "forgot",
+  grade: "seen" | "good" | "forgot" | "known",
   sentences: LearnSentence[],
   id: string,
 ): LearnStepDone {

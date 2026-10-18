@@ -26,7 +26,7 @@ const STEP_NAME: Record<LearnStep, string> = {
   word: "The word",
 };
 
-type Grade = "seen" | "good" | "forgot";
+type Grade = "seen" | "good" | "forgot" | "known";
 
 export interface Ladder {
   /** The words, as they stand; null while loading. */
@@ -44,6 +44,8 @@ export interface Ladder {
   take: (grade: Grade) => void;
   /** Send whatever steps are waiting. */
   flush: () => Promise<void>;
+  /** Whether steps are saved (the owner): only then can a word be taken off as known. */
+  canWrite: boolean;
 }
 
 /**
@@ -131,7 +133,7 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
     return bugs.note("learn", { word: item.word.word, step: stepOf(item), sentence: current?.sentences[0]?.id ?? null });
   }, [item, current]);
 
-  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, flush };
+  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, flush, canWrite };
 }
 
 /** The step on show, as a card. */
@@ -168,9 +170,19 @@ export function LearnCard({ ladder }: { ladder: Ladder }) {
         </>
       )}
 
-      {revealed && (
+      {/* Pleco once the answer shows; 会 at any step, for a word already known: off the ladder,
+          into the review from the next study day, as if it had climbed every step. */}
+      {(revealed || ladder.canWrite) && (
         <div className="cf-card-foot">
-          <PlecoTile word={item.word.word} />
+          {(revealed || step === "meet") && <PlecoTile word={item.word.word} />}
+          {ladder.canWrite && (
+            <button className="cf-foot-btn is-known" onClick={() => ladder.take("known")} aria-label="I know it: take it out of new words">
+              <span className="cf-foot-zh" aria-hidden="true">
+                会
+              </span>
+              <small>Know it</small>
+            </button>
+          )}
         </div>
       )}
     </article>

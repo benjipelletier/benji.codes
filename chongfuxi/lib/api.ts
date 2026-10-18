@@ -198,7 +198,8 @@ export interface LearnStepDone {
   word: string;
   step: LearnStep;
   sentence: number | null;
-  grade: Grade | "seen";
+  /** "known": the owner already knows it, and took it off the ladder (Learn's 会 tile). */
+  grade: Grade | "seen" | "known";
   /** The step it goes on to; null when this one learned it. */
   next: LearnStep | null;
 }

@@ -219,8 +219,9 @@ export function ListsPanel({
               <Bar node={here} />
             </>
           )}
-          {/* Learn its new words and review its due ones, side by side, the counts beneath. */}
-          {canWrite && ((onLearn && here.toLearn > 0) || (onReview && here.due > 0)) && (
+          {/* Learn its new words and review its due ones, side by side, the counts beneath. Only on a
+              list with none under it (a lesson, a level, a song), at the owner's request. */}
+          {leaf && canWrite && ((onLearn && here.toLearn > 0) || (onReview && here.due > 0)) && (
             <div className="cf-list-actions">
               {onLearn && here.toLearn > 0 && (
                 <button className="cf-btn cf-list-learn" onClick={() => onLearn(at)}>
@@ -236,7 +237,7 @@ export function ListsPanel({
               )}
             </div>
           )}
-          {canWrite && missing > 0 && (
+          {leaf && canWrite && missing > 0 && (
             <>
               <button
                 className={`cf-btn cf-list-add${(onReview && here.due > 0) || (onLearn && here.toLearn > 0) ? " cf-btn-ghost" : ""}`}

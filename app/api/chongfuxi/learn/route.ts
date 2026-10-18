@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         STEPS.includes(s.step) &&
         (s.next === null || STEPS.includes(s.next)) &&
         (s.sentence === null || Number.isInteger(s.sentence)) &&
-        ["good", "forgot", "seen"].includes(s.grade),
+        ["good", "forgot", "seen", "known"].includes(s.grade),
     );
   if (!fine) return bad("expected a session and the steps taken");
   return NextResponse.json({ learned: await recordSteps(gate.sql, gate.owner, day, b!.session!, steps!) });
