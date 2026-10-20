@@ -8233,7 +8233,7 @@ button.cf-synclog-row {
   margin-top: 18px;
 }
 
-/* Settings › How cards are chosen (components/HowItWorks.tsx). */
+/* Settings › Algorithm (components/Algorithm.tsx). */
 .cf-how-head h1 {
   margin: 4px 0 6px;
   font-size: 24px;

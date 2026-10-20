@@ -351,7 +351,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
 
   const picked = o.more ? fresh.slice(0, o.limit) : interleave({ word: wordCards, sentence: dueSentences, new: fresh }, o.position, o.limit);
   if (!picked.length) return [];
-  // What put each card where it is, for Settings › How cards are chosen.
+  // What put each card where it is, for Settings › Algorithm.
   const overdue = (c: CardRow) => Math.max(0, (at - c.due) / DAY_MS);
   const why = new Map<number, QueueWhy>([
     ...wordCards.map((c): [number, QueueWhy] => [c.id, { line: "word", odds: recallOdds(scheduleOf(c), at), overdueDays: overdue(c) }]),

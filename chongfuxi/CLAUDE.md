@@ -1424,7 +1424,7 @@ Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
 the session), `Learn` (the ladder: `useLadder` for the session, and a list's
 drill), `CardsPanel` (`WordsPanel`, `SentencesPanel` with its sentence
 page and `UnlockPanel`'s Unlock next page and blocker sheet, `ListsPanel`),
-`LookupPanel` (Look up), `StatsPanel`, `SettingsPanel` (with `HowItWorks`). `Sheet` in `shared.tsx` is the sheet over the
+`LookupPanel` (Look up), `StatsPanel`, `SettingsPanel` (with `Algorithm`). `Sheet` in `shared.tsx` is the sheet over the
 page (back, Escape, a tap outside close it).
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
