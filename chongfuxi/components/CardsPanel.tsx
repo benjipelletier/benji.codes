@@ -3,8 +3,9 @@
 // Everything there is a card for, or could be: the words, the sentences, and
 // the Pleco word lists more words come from.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { routeChoice, useRouteParam } from "@chongfuxi/lib/route";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Learn } from "./Learn";
 import { ListsPanel } from "./ListsPanel";
 import { Session, type ListReview } from "./ReviewPanel";
@@ -21,6 +22,15 @@ export function CardsPanel({ shell }: { shell: Shell }) {
   useRouteParam("cards", side === "words" ? null : side);
   // A word to find among the sentences, when a word's sheet asks for them.
   const [find, setFind] = useState<{ word: string; at: number } | null>(null);
+  // A word page, opened from anywhere, can send its word here to find its sentences.
+  useEffect(() => {
+    wordpage.setFindSentences((word) => {
+      setFind({ word, at: Date.now() });
+      setSide("sentences");
+      window.scrollTo({ top: 0 });
+    });
+    return () => wordpage.setFindSentences(null);
+  }, []);
   // Back from Sentences or Lists comes to Words.
   useBackLayer(side !== "words", () => setSide("words"));
   // A list's own review or Learn, over the whole screen; Lists stays as it was beneath.

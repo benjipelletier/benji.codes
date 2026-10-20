@@ -8058,3 +8058,37 @@ button.cf-synclog-row {
   margin: 0 0 4px;
   font-size: 12.5px;
 }
+
+/* A list's word as a button (it opens the word's page), drawn as the row it was. */
+.cfx button.cf-kind {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Word page › in the popup over a word in a sentence. */
+.cfx .cf-look-page {
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Look up's word line: the page link at the end. */
+.cfx .cf-lk-page {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 2px 9px;
+}
+
+/* The word page opened from anywhere sits over sheets and sessions alike. */
+.cf-wordpage {
+  z-index: 45;
+}

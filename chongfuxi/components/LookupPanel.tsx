@@ -16,6 +16,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
@@ -145,6 +146,17 @@ const inDeck = (ctx: Ctx, zh: string) => ctx.words[zh]?.deck?.status === "deck";
  * deck (or + Add), its meaning. A phrase that isn't a headword shows a line
  * for each word in it instead.
  */
+/** A word in the owner's corpus (in the deck or on a list) opens its page. */
+function WordPageLink({ zh, ctx }: { zh: string; ctx: Ctx }) {
+  const status = ctx.words[zh]?.deck?.status;
+  if (status !== "deck" && status !== "listed") return null;
+  return (
+    <button className="cf-link cf-lk-page" onClick={() => wordpage.openWordPage(zh)}>
+      Word page ›
+    </button>
+  );
+}
+
 function WordLine({ zh, ctx }: { zh: string; ctx: Ctx }) {
   const info = ctx.words[zh];
   if (info?.parts) {
@@ -162,6 +174,7 @@ function WordLine({ zh, ctx }: { zh: string; ctx: Ctx }) {
         <span className="cf-zh cf-lk-wl-zh">{zh}</span>
         {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
         <DeckMark zh={zh} ctx={ctx} />
+        <WordPageLink zh={zh} ctx={ctx} />
       </div>
       {info?.gloss && (
         <p className="cf-lk-gloss">
@@ -281,6 +294,7 @@ function SenseItem({
           </button>
           {info?.pinyin && <span className="cf-lk-py">{info.pinyin}</span>}
           <DeckMark zh={it.zh} ctx={ctx} />
+          <WordPageLink zh={it.zh} ctx={ctx} />
         </div>
         {info?.gloss && (
           <p className="cf-lk-gloss">

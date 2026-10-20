@@ -15,13 +15,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { AdditionDetails } from "./NewWords";
 import type { ListReview } from "./ReviewPanel";
-import { Loading, AiPill, BackStep, fmt, message, plecoHref, useBackLayer, type Shell } from "./shared";
+import { Loading, AiPill, BackStep, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const PAGE = 300;
 /** Where songs go (spotify.ts, SPOTIFY_LIST). */
@@ -289,11 +290,12 @@ export function ListsPanel({
             {words.map((w) => (
               <li key={w.word}>
                 {w.inDeck || !canWrite ? (
-                  <a className={`cf-kind is-read${w.inDeck ? " is-in" : ""}`} href={plecoHref(w.word)}>
+                  // The word's page (Pleco is a tile on it).
+                  <button className={`cf-kind is-read${w.inDeck ? " is-in" : ""}`} onClick={() => wordpage.openWordPage(w.word)}>
                     <i className="cf-dot" />
                     <Word w={w} />
                     <b>{w.inDeck ? "in deck" : ""}</b>
-                  </a>
+                  </button>
                 ) : (
                   <label className={`cf-kind is-read${ticked(w.word) ? "" : " is-off"}`}>
                     <input type="checkbox" checked={ticked(w.word)} onChange={(e) => tick(w.word, e.target.checked)} />

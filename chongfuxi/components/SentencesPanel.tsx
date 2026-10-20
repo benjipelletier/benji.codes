@@ -7,13 +7,13 @@
 // sentence, its translation and one quiet line; a tap opens the sentence's
 // page: its words with pinyin, each tappable, and its card.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { Blocker, SentenceDetail, SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { BlockerSheet, UnlockPage, type Blockers } from "./UnlockPanel";
-import { WordSheet } from "./WordWall";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Loading, AiPill, BackStep, History, PlecoTile, Sheet, fmt, message, piecesOf, useBackLayer, type Piece, type Shell } from "./shared";
 
 type Show = "readable" | "one" | "locked";
@@ -384,7 +384,10 @@ function SentenceSheet({
   const [d, setD] = useState<SentenceDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
-  const [wordOpen, setWordOpen] = useState<string | null>(null);
+  // Escape closes a word page opened over this one before this one.
+  const wordUp = useSyncExternalStore(wordpage.subscribe, wordpage.openWord, () => null) !== null;
+  // A word removed from its page (opened over this one) changes what this sentence needs.
+  useEffect(() => wordpage.onChange(({ change }) => change === "removed" && onChanged()), [onChanged]);
 
   useEffect(() => {
     get<SentenceDetail>("sentence", { id })
@@ -405,7 +408,7 @@ function SentenceSheet({
 
   return (
     <>
-      <Sheet label="Sentence" onClose={onClose} escape={wordOpen === null}>
+      <Sheet label="Sentence" onClose={onClose} escape={!wordUp}>
         {error && <p className="cf-error">{error}</p>}
         {!d && !error && <Loading small label="Opening it…" />}
         {d && st && (
@@ -460,7 +463,7 @@ function SentenceSheet({
                 )}
                 <p className="cf-muted">{pw.inDeck || pw.standing !== "known" ? STANDING[pw.standing] : "Known: made of words you know"}</p>
                 <p className="cf-wordcard-acts">
-                  {pw.inDeck && <button onClick={() => setWordOpen(pickedWord)}>Open word</button>}
+                  <button onClick={() => wordpage.openWordPage(pickedWord)}>Word page</button>
                   <PlecoTile word={pickedWord} inline />
                 </p>
               </div>
@@ -504,25 +507,7 @@ function SentenceSheet({
           </>
         )}
       </Sheet>
-      {wordOpen && (
-        <>
-          <BackStep onBack={() => setWordOpen(null)} />
-          <WordSheet
-            word={wordOpen}
-            canWrite={shell.canWrite}
-            onClose={() => setWordOpen(null)}
-            onRemoved={() => {
-              setWordOpen(null);
-              onChanged();
-            }}
-            onFindSentences={(w) => {
-              setWordOpen(null);
-              onFind(w);
-            }}
-            onOpenWord={setWordOpen}
-          />
-        </>
-      )}
+
     </>
   );
 }

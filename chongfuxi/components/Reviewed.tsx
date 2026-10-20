@@ -8,6 +8,7 @@
 import { useState } from "react";
 import type { SessionCard } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { mainSenses } from "@chongfuxi/lib/senses";
 import { AiPill, PlecoTile, Sheet, fmt, span } from "./shared";
@@ -96,6 +97,9 @@ function AnsweredRow({
                 <span className="cf-zh">{word.word}</span>
                 {word.pinyin && <span className="cf-answered-py">{displayPinyin(word.pinyin)}</span>}
                 <PlecoTile word={word.word} inline />
+                <button className="cf-link" onClick={() => wordpage.openWordPage(word.word)}>
+                  Word page ›
+                </button>
               </p>
               {a.card.meaning ? (
                 <p className="cf-answered-senses">{a.card.meaning.gloss}</p>

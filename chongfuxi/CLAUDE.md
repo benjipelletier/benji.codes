@@ -866,9 +866,19 @@ the design was silent and are still to be confirmed.
   level was taken out as redundant with Stats and Cards › Lists,
   and found by characters, toneless pinyin or meaning. HSK coverage lives
   on the Stats page.
-- **A word's page** (a tile, or Open word on a sentence's page; `WordSheet`
-  in `components/WordWall.tsx`, route `word/page`, `app/api/chongfuxi/wordpage.ts`;
-  in the address as `word=`): the owner asked for a full dictionary page
+- **A word's page** (`WordSheet` in `components/WordWall.tsx`, route
+  `word/page`, `app/api/chongfuxi/wordpage.ts`; in the address as `word=`)
+  opens from anywhere a word is (the owner asked that every word popup lead
+  there): one page for the whole app (`lib/wordpage.ts`, `openWordPage`,
+  drawn once by `WordPageHost` in the shell, over sheets and sessions, back
+  closing it). Ways in: a Words tile; "Word page ›" in the popup over a word
+  tapped in any sentence (review backs, Learn, a sentence's page), on Look
+  up's word lines for corpus words, on the text analyser's picked word, on
+  Unlock next's sheet for a listed word, on a word card in the session's
+  look-back list; a list's word row (Pleco is a tile on the page). A word in
+  no deck, list or sentence says so. Removing or bringing back a word on it
+  tells the screens showing it (`onChange`); "Open them under Sentences"
+  shows while Cards is there to take it. the owner asked for a full dictionary page
   explaining how the word lives in the corpus, in place of the small sheet.
   Over everything, scrolling on its own: every meaning (the main entry
   first, the owner's Pleco definition, AI pills); its cards (due, strength,

@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import type { Blocker, SentenceRow } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Loading, AiPill, Highlighted, PlecoTile, Sheet, fmt, message, type Shell } from "./shared";
 
@@ -93,6 +94,11 @@ export function BlockerSheet({
         {shell.canWrite && !b.listed && (
           <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={name}>
             {busy ? "Working…" : "It's a name"}
+          </button>
+        )}
+        {b.listed && (
+          <button className="cf-link" onClick={() => wordpage.openWordPage(b.word)}>
+            Word page ›
           </button>
         )}
         <PlecoTile word={b.word} label={shell.canWrite ? "Add in Pleco" : "Pleco"} inline />

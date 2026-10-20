@@ -6,11 +6,12 @@
 // pinyin or meaning. A tile opens the word's sheet: its cards and how they
 // stand, Pleco's record, and the sentences it is in.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import type { WordPage, WordPageSentence, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
-import { get, send, today } from "@chongfuxi/lib/client";
+import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainFirst } from "@chongfuxi/lib/senses";
 import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
@@ -85,9 +86,16 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
   const [error, setError] = useState<string | null>(null);
   const [by, setBy] = useState<GroupBy>("due");
   const [query, setQuery] = useState("");
-  // The word whose sheet is open, in the address (lib/route.ts).
-  const [open, setOpen] = useState<string | null>(() => routeParam("word"));
-  useRouteParam("word", open);
+  // A word removed or brought back from its page (opened over everything, lib/wordpage.ts).
+  useEffect(
+    () =>
+      wordpage.onChange(({ word, change }) =>
+        setWords((list) =>
+          change === "removed" ? (list?.filter((x) => x.word !== word) ?? null) : (list?.map((x) => (x.word === word ? { ...x, suspended: false } : x)) ?? null),
+        ),
+      ),
+    [],
+  );
   const [all, setAll] = useState<Set<string>>(new Set());
   // Groups opened, by grouping and group. They start closed, so the page opens
   // as an overview; a search opens every group it finds something in.
@@ -235,7 +243,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
                         <button
                           className={`cf-tile-word is-${stage}${due ? " is-due" : ""}${w.suspended ? " is-suspended" : ""}`}
                           style={{ "--n": Math.min(Math.max([...w.word].length, 2), 5) } as React.CSSProperties}
-                          onClick={() => setOpen(w.word)}
+                          onClick={() => wordpage.openWordPage(w.word)}
                           aria-label={`${w.word}: ${w.suspended ? "suspended" : stage}${due ? ", due today" : ""}`}
                         >
                           {w.word}
@@ -255,24 +263,6 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
         );
       })}
 
-      <BackToWall open={open !== null} word={open} onBack={() => setOpen(null)} />
-      {open && (
-        <WordSheet
-          word={open}
-          canWrite={canWrite}
-          onClose={() => setOpen(null)}
-          onRemoved={(w) => {
-            setOpen(null);
-            setWords((list) => list?.filter((x) => x.word !== w) ?? null);
-          }}
-          onBack={(w) => setWords((list) => list?.map((x) => (x.word === w ? { ...x, suspended: false } : x)) ?? null)}
-          onOpenWord={setOpen}
-          onFindSentences={(w) => {
-            setOpen(null);
-            onFindSentences(w);
-          }}
-        />
-      )}
     </section>
   );
 }
@@ -314,7 +304,8 @@ export function WordSheet({
   onRemoved: (word: string) => void;
   /** Brought back from being suspended. */
   onBack?: (word: string) => void;
-  onFindSentences: (word: string) => void;
+  /** Its sentences under Sentences: only while Cards is on screen to show them. */
+  onFindSentences?: (word: string) => void;
   /** Another word's page, from the words around this one. */
   onOpenWord?: (word: string) => void;
 }) {
@@ -377,7 +368,13 @@ export function WordSheet({
         setPanel(p.sentencesAll.status);
         setRows({ [p.sentencesAll.status]: p.sentencesAll.rows });
       })
-      .catch((e) => setError(message(e)));
+      .catch((e) =>
+        setError(
+          e instanceof ApiError && e.status === 404
+            ? `${word} isn't in your corpus yet: it's in no deck, list or sentence of yours, so there is nothing to show.`
+            : message(e),
+        ),
+      );
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
@@ -622,7 +619,7 @@ export function WordSheet({
                   </>
                 );
               })()}
-              {d.sentencesAll.total > 0 && (
+              {d.sentencesAll.total > 0 && onFindSentences && (
                 <button className="cf-btn cf-btn-ghost" onClick={() => onFindSentences(word)}>
                   Open them under Sentences
                 </button>
@@ -856,9 +853,51 @@ function GotItChart({ answers }: { answers: WordPage["answers"] }) {
   );
 }
 
-/** Back closes an open word's sheet; a bug filed meanwhile says which word. */
-function BackToWall({ open, word, onBack }: { open: boolean; word: string | null; onBack: () => void }) {
-  useBackLayer(open, onBack);
+/** Back closes an open word's page; a bug filed meanwhile says which word. */
+function BackFromPage({ word, onBack }: { word: string | null; onBack: () => void }) {
+  useBackLayer(word !== null, onBack);
   useEffect(() => (word ? bugs.note("wordSheet", word) : undefined), [word]);
   return null;
+}
+
+/**
+ * The word page, over everything, wherever it was opened from (lib/wordpage.ts):
+ * the shell draws this once. Its word is in the address, so a reload comes back to it.
+ */
+export function WordPageHost({ canWrite }: { canWrite: boolean }) {
+  const word = useSyncExternalStore(wordpage.subscribe, wordpage.openWord, () => null);
+  // Opened by the address on a reload; kept there while open.
+  useEffect(() => {
+    const w = routeParam("word");
+    if (w) wordpage.openWordPage(w);
+  }, []);
+  useRouteParam("word", word);
+  const find = wordpage.sentencesFinder();
+  return (
+    <>
+      <BackFromPage word={word} onBack={wordpage.closeWordPage} />
+      {word && (
+        <WordSheet
+          key={word}
+          word={word}
+          canWrite={canWrite}
+          onClose={wordpage.closeWordPage}
+          onRemoved={(w) => {
+            wordpage.closeWordPage();
+            wordpage.changed({ word: w, change: "removed" });
+          }}
+          onBack={(w) => wordpage.changed({ word: w, change: "resumed" })}
+          onFindSentences={
+            find
+              ? (w) => {
+                  wordpage.closeWordPage();
+                  find(w);
+                }
+              : undefined
+          }
+          onOpenWord={wordpage.openWordPage}
+        />
+      )}
+    </>
+  );
 }

@@ -13,6 +13,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 
 export interface Shell {
   /** Where the deck stands; null until the server has answered. */
@@ -212,6 +213,17 @@ export function SentenceText({
                 {look.gloss} <AiPill word={sentence.words[open!.i]} still />
               </span>
             )}
+            {/* The word's page, over everything (lib/wordpage.ts). */}
+            <button
+              className="cf-look-page"
+              onClick={() => {
+                const w = sentence.words[open!.i];
+                setOpen(null);
+                wordpage.openWordPage(w);
+              }}
+            >
+              Word page ›
+            </button>
           </span>,
           host,
         )}

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Addition, TextAnalysis, TextListed, TextToken } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { Added } from "./ListsPanel";
 import { AiPill, PlecoTile, fmt, message, useBackLayer, type Shell } from "./shared";
@@ -316,6 +317,9 @@ function Analysis({ a, shell, onClose, onChanged }: { a: TextAnalysis; shell: Sh
                   {ticked.has(picked) ? "Don't add" : "Add to the deck"}
                 </button>
               )}
+              <button className="cf-link" onClick={() => wordpage.openWordPage(picked)}>
+                Word page ›
+              </button>
               <PlecoTile word={picked} inline />
             </div>
           </div>
