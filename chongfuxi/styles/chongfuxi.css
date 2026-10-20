@@ -8092,3 +8092,109 @@ button.cf-synclog-row {
 .cf-wordpage {
   z-index: 45;
 }
+
+/* Look up's type-ahead: the owner's words matching what is typed, a
+ * dictionary's list under the field, the last row asking the AI. */
+.cf-lk-suggest {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 4px 0;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  box-shadow: var(--cf-shadow);
+}
+
+.cf-lk-suggest li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-lk-suggest button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cfx .cf-lk-suggest button:active {
+  background: var(--cf-sunken);
+}
+
+.cf-lk-sg-zh {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.cf-lk-sg-body {
+  display: grid;
+  min-width: 0;
+}
+
+.cf-lk-sg-gloss {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-lk-sg-where {
+  font-size: 11.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-lk-sg-where.is-deck {
+  color: var(--cf-up);
+}
+
+.cfx .cf-lk-suggest .cf-lk-sg-ask {
+  display: flex;
+  justify-content: space-between;
+  min-height: 46px;
+  color: var(--cf-accent);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+/* Words a question was about: chips to their pages, in the history and on an answer. */
+.cf-lk-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+
+.cf-lk-words-label {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cfx .cf-lk-wchip {
+  padding: 2px 10px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: var(--cf-surface);
+  color: var(--cf-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cfx .cf-lk-wchip .cf-zh {
+  font-size: 15px;
+  color: var(--cf-ink);
+}
+
+/* In the history, the chips sit under their question, inside its row. */
+.cf-slist .cf-lk-words {
+  margin: -4px 16px 10px;
+}

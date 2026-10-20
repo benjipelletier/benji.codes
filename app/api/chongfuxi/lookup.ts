@@ -592,7 +592,65 @@ export async function listLookups(sql: Sql, owner: string): Promise<LookupListed
     from chongfuxi_lookup where owner_email = ${owner}
     order by at desc limit 200
   `) as unknown as Array<{ query: string; at: number; kind: LookupListed["kind"]; verdict: LookupListed["verdict"]; note: string | null }>;
-  return rows.map((r) => ({ ...r, at: Math.round(r.at) }));
+  const words = await lookupWords(sql, owner, rows.map((r) => r.query));
+  return rows.map((r) => ({ ...r, at: Math.round(r.at), words: words.get(r.query) ?? [] }));
+}
+
+/** Words of a question kept, at most. */
+const QUESTION_WORDS = 4;
+/** Longest word looked for in a question. */
+const QUESTION_WORD_MAX = 6;
+
+/**
+ * The words of the corpus each question was about, for the history to link
+ * to their pages: the words whose cards it was asked from, then the corpus
+ * words it names, by longest match in each run of characters (a lone
+ * character only when it stands alone: 拍 in "拍 a photo", not 发 in 发觉).
+ */
+export async function lookupWords(sql: Sql, owner: string, queries: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!queries.length) return out;
+  const linked = (await sql`
+    select query, array_agg(distinct word) as words from chongfuxi_lookup_card
+    where owner_email = ${owner} and word is not null and query = any(${queries}::text[])
+    group by query
+  `) as unknown as Array<{ query: string; words: string[] }>;
+  const runsOf = (q: string) => q.match(/[\u3400-\u9fff]+/g) ?? [];
+  const pieces = new Set<string>();
+  for (const q of queries) {
+    for (const run of runsOf(q)) {
+      const c = [...run];
+      for (let i = 0; i < c.length; i++) for (let n = 1; n <= QUESTION_WORD_MAX && i + n <= c.length; n++) pieces.add(c.slice(i, i + n).join(""));
+    }
+  }
+  const corpus = pieces.size
+    ? new Set(
+        ((await sql`
+          select word from chongfuxi_word
+          where owner_email = ${owner} and status in ('deck', 'listed') and word = any(${[...pieces]}::text[])
+        `) as unknown as Array<{ word: string }>).map((r) => r.word),
+      )
+    : new Set<string>();
+  for (const q of queries) {
+    const found: string[] = [...(linked.find((l) => l.query === q)?.words ?? [])];
+    for (const run of runsOf(q)) {
+      const c = [...run];
+      for (let i = 0; i < c.length; ) {
+        let took = 0;
+        for (let n = Math.min(QUESTION_WORD_MAX, c.length - i); n >= 1; n--) {
+          const w = c.slice(i, i + n).join("");
+          if (corpus.has(w) && (n > 1 || c.length === 1)) {
+            found.push(w);
+            took = n;
+            break;
+          }
+        }
+        i += took || 1;
+      }
+    }
+    out.set(q, [...new Set(found)].slice(0, QUESTION_WORDS));
+  }
+  return out;
 }
 
 /** The owner's verdict on a lookup: right, wrong (with what was wrong), or cleared. */

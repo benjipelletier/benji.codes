@@ -855,6 +855,17 @@ export interface LookupDeck {
   stage: "new" | "young" | "mature" | "strong" | null;
 }
 
+/** A word of the corpus offered as Look up's question is typed (no model): it opens the word's page. */
+export interface WordSuggestion {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  /** In the deck, or only on a list. */
+  inDeck: boolean;
+  /** What it matched: its characters, its pinyin, or its English. */
+  by: "chinese" | "pinyin" | "english";
+}
+
 /** A lookup in the history, with the owner's verdict on it. */
 export interface LookupListed {
   query: string;
@@ -862,4 +873,6 @@ export interface LookupListed {
   kind: LookupKind | null;
   verdict: "right" | "wrong" | null;
   note: string | null;
+  /** The words of the corpus it was about: asked from their cards, or named in it. */
+  words: string[];
 }

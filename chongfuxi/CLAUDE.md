@@ -461,6 +461,23 @@ Built on the owner's corpus alone, since that is what answers lead with:
   up while studying a word is evidence of how well it is known, for a model
   judging that. The Look up tab's own questions have no card and record
   none.
+- **Type-ahead of the owner's words, no model** (the owner's request): as
+  the question is typed, `words/suggest` (`suggest.ts`, readable like the
+  word page) lists up to 12 deck or listed words matching it, as a
+  dictionary would: Chinese by containing it, Latin by toneless pinyin
+  prefix ("faj", "fa jue"), English of three letters or more by the
+  definitions; exact and starts-with first, then deck words. Each row opens
+  the word's page; the last row asks the AI about the text. **Enter** opens
+  the word page when the text is exactly one of those words, and otherwise
+  asks the AI: only a question that is more than a dictionary word spends
+  tokens.
+- **Lookups show the words they were about** (the owner asked for the
+  history to make it obvious): each history row carries chips of up to four
+  corpus words (`lookupWords` in `lookup.ts`: the cards it was asked from,
+  then the deck or listed words named in its Chinese, longest match first;
+  a lone character only when it is the whole run), and an answer has an
+  "About" row of the deck or listed words its question named. Each chip
+  opens that word's page, whose Lookups section lists the question back.
 - Owner only, at the owner's insistence (it spends their tokens): the route
   goes through `ownerOnly`, so signed out (or a forged cookie) it answers 401
   and signed in as anyone else 403, before any model call; the tab is hidden

@@ -17,7 +17,8 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom, WordSuggestion } from "@chongfuxi/lib/api";
+import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
 
@@ -733,6 +734,11 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
           </span>
         )}
       </p>
+      {/* The words of the corpus the question named: each opens its page. */}
+      {(() => {
+        const about = Object.keys(a.words).filter((w) => a.query.includes(w) && ["deck", "listed"].includes(a.words[w].deck?.status ?? ""));
+        return about.length > 0 ? <WordChips label="About" words={about} /> : null;
+      })()}
       {blocks.map((b, i) => {
         switch (b.type) {
           case "gap":
@@ -833,6 +839,49 @@ function Answer({ a, onAgain, shell }: { a: LookupAnswer; onAgain: () => void; s
   );
 }
 
+/** Words of the corpus, each a chip opening its page (lib/wordpage.ts). */
+function WordChips({ words, label }: { words: string[]; label?: string }) {
+  return (
+    <p className="cf-lk-words">
+      {label && <span className="cf-lk-words-label">{label}</span>}
+      {words.map((w) => (
+        <button key={w} className="cf-lk-wchip" onClick={() => wordpage.openWordPage(w)}>
+          <span className="cf-zh">{w}</span> ›
+        </button>
+      ))}
+    </p>
+  );
+}
+
+/**
+ * As the question is typed: words of the corpus that match it, as a
+ * dictionary would list them, each opening its page; no model is asked. The
+ * last row asks the AI about what is typed.
+ */
+function Suggestions({ words, typed, onAsk }: { words: WordSuggestion[]; typed: string; onAsk: () => void }) {
+  return (
+    <ul className="cf-lk-suggest" role="listbox" aria-label="Your words">
+      {words.map((w) => (
+        <li key={w.word}>
+          <button role="option" aria-selected={false} onClick={() => wordpage.openWordPage(w.word)}>
+            <span className="cf-zh cf-lk-sg-zh">{w.word}</span>
+            <span className="cf-lk-sg-body">
+              {w.pinyin && <span className="cf-lk-py">{displayPinyin(w.pinyin)}</span>}
+              {w.gloss && <span className="cf-lk-sg-gloss">{w.gloss}</span>}
+            </span>
+            <span className={`cf-lk-sg-where${w.inDeck ? " is-deck" : ""}`}>{w.inDeck ? "in deck" : "on a list"}</span>
+          </button>
+        </li>
+      ))}
+      <li>
+        <button className="cf-lk-sg-ask" onClick={onAsk}>
+          Ask about “{typed.trim()}” <span aria-hidden="true">→</span>
+        </button>
+      </li>
+    </ul>
+  );
+}
+
 const RECENT = 6;
 const hanRuns = (text: string): string[] => text.match(/[\u3400-\u9fff]+/g) ?? [];
 
@@ -852,12 +901,14 @@ function History({ past, typed, onPick }: { past: LookupListed[]; typed: string;
   const recent = all ? rest : rest.slice(0, RECENT);
   const row = (l: LookupListed) => (
     <li key={l.query}>
-      {/* The question on one line, the kind it was read as under it, the verdict at the end. */}
+      {/* The question on one line, the kind it was read as under it, the verdict at the end: opens the answer. */}
       <button className="cf-lk-hist" onClick={() => onPick(l.query)}>
         <span className="cf-lk-hist-q">{l.query}</span>
         {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
         <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
       </button>
+      {/* The words it was about, each to its page. */}
+      {l.words.length > 0 && <WordChips words={l.words} />}
     </li>
   );
   return (
@@ -906,6 +957,35 @@ export function LookupPanel({
   const [error, setError] = useState<string | null>(null);
   const [past, setPast] = useState<LookupListed[] | null>(null);
   const field = useRef<HTMLInputElement>(null);
+  // The type-ahead: words of the corpus matching what is typed (no model), for that text.
+  const [suggest, setSuggest] = useState<{ q: string; words: WordSuggestion[] } | null>(null);
+  useEffect(() => {
+    const q = typed.trim();
+    if (!q || busy) return setSuggest(null);
+    const t = window.setTimeout(() => {
+      get<{ words: WordSuggestion[] }>("words/suggest", { q })
+        .then((r) => setSuggest({ q, words: r.words }))
+        .catch(() => setSuggest(null));
+    }, 140);
+    return () => window.clearTimeout(t);
+  }, [typed, busy]);
+  /**
+   * Enter: a word of the corpus, just that, opens its page; anything more is
+   * a question for the AI (a word on its own can still be asked from the
+   * suggestions' last row).
+   */
+  const submit = async () => {
+    const q = typed.trim();
+    if (!q || busy) return;
+    let words = suggest?.q === q ? suggest.words : null;
+    if (!words && /^[\u3400-\u9fff]{1,8}$/.test(q)) {
+      words = await get<{ words: WordSuggestion[] }>("words/suggest", { q })
+        .then((r) => r.words)
+        .catch(() => []);
+    }
+    if (words?.some((w) => w.word === q)) return wordpage.openWordPage(q);
+    void ask(q);
+  };
 
   // Opened, the field takes the focus, so the phone's keyboard comes up ready
   // (the owner's request), the cursor after anything filled in.
@@ -957,7 +1037,7 @@ export function LookupPanel({
         className="cf-lk-ask"
         onSubmit={(e) => {
           e.preventDefault();
-          void ask(typed);
+          void submit();
         }}
       >
         <input
@@ -979,8 +1059,13 @@ export function LookupPanel({
           )}
         </button>
       </form>
-      {!answer && !busy && (
-        <p className="cf-muted cf-lk-hint">English, Chinese or both: heavy rain · 拍 a photo · the more… the more</p>
+      {!busy && suggest && suggest.q === typed.trim() && suggest.q !== answer?.query && (
+        <Suggestions words={suggest.words} typed={typed} onAsk={() => void ask(typed)} />
+      )}
+      {!answer && !busy && !suggest && (
+        <p className="cf-muted cf-lk-hint">
+          A word of yours opens its page; anything more asks the AI. English, Chinese or both: heavy rain · 拍 a photo · the more… the more
+        </p>
       )}
 
       {busy && <Loading label="Looking through your sentences and the dictionary… this can take a minute." />}
