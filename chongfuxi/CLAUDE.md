@@ -64,20 +64,18 @@ check every screen at 360px wide first.
   opens the Pleco backup page directly. The owner tried the pages as sides
   like Cards' and didn't want tabs here.
 - **Algorithm** (`components/Algorithm.tsx`, route `algorithm`,
-  `app/api/chongfuxi/algorithm.ts`): the scheduling and queue algorithm as
-  its parameters. The owner asked to see "how the cookie is made", then for
-  the algorithm only, not how the app works, and for it read-only. By stage
-  (FSRS, Seeding, Learn, Queue, Sentences): each parameter's value, a
-  one-line definition, what raising or lowering it does, and its name in the
-  code; the FSRS weights fold out. The values are the code's constants,
+  `app/api/chongfuxi/algorithm.ts`): the scheduling and queue algorithm as a
+  compact table of its parameters. The owner asked to see "how the cookie is
+  made", then for the algorithm only, read-only, then compact with no prose.
+  By stage (FSRS, Seeding, Learn, Queue, Sentences): name, value, and name
+  in the code; the FSRS weights fold out. Values are the code's constants,
   imported from `lib/` (`RETENTION`, `FUZZ`, `SAME_DAY_STEPS`,
   `FSRS_WEIGHTS`, `SEED_CAP_DAYS`, `SEED_DIFFICULTY`, `RECALL_SEED_FACTOR`,
   `ROLLOVER_HOUR`, `CYCLE`, `DUE_PER_NEW`, the ladder's `GAP`…), so changing
-  one changes the page. Then Queue now: due word cards by recall odds, what
-  sibling burying holds back, and the first cards a session would deal (from
-  `nextCards` itself, each with `why`: its line, and its odds, how overdue,
-  or which word a new sentence is for). **Add a parameter here whenever one
-  is added, and change the page whenever a rule it describes changes.**
+  one changes the page. Queue now: due word cards by recall odds, what
+  burying holds back, and the first cards dealt, one line each with `why`
+  from `nextCards` itself. **Add a parameter here whenever one is added, and
+  change the page whenever a rule it describes changes.**
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.

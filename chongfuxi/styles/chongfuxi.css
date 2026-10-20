@@ -8233,57 +8233,104 @@ button.cf-synclog-row {
   margin-top: 18px;
 }
 
-/* Settings › Algorithm (components/Algorithm.tsx). */
-.cf-how-head h1 {
-  margin: 4px 0 6px;
-  font-size: 24px;
+/* Settings › Algorithm (components/Algorithm.tsx): a compact table. */
+.cf-alg h1 {
+  margin: 2px 0 4px;
+  font-size: 22px;
   font-weight: 700;
 }
 
-.cf-how-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  margin: 8px 0 0;
-}
-
-.cf-how-stats > div {
-  padding: 10px 12px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 12px;
-  background: var(--cf-surface);
-}
-
-.cf-how-stats dt {
+.cf-alg-h {
+  margin: 18px 0 6px;
   font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--cf-ink-soft);
 }
 
-.cf-how-stats dd {
-  margin: 2px 0 0;
-  font-size: 20px;
+.cf-alg-params {
+  margin: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-alg-params > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 7px 12px;
+}
+
+.cf-alg-params > div + div {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-alg-params dt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.cf-alg-params dt code {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  font-size: 10.5px;
+  color: var(--cf-ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.cf-alg-params dd {
+  margin: 0;
+  text-align: right;
+  font-size: 14px;
   font-weight: 650;
+  color: var(--cf-accent);
   font-variant-numeric: tabular-nums;
 }
 
-.cf-how-sub {
-  margin: 20px 0 8px;
-  font-size: 13px;
-  font-weight: 650;
+.cf-alg-weights {
+  grid-column: 1 / -1;
+  font-size: 12px;
+}
+
+.cf-alg-weights summary {
+  cursor: pointer;
+  color: var(--cf-accent);
+}
+
+.cf-alg-weights ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0 10px;
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-ink-soft);
+}
+
+.cf-alg-note {
+  margin: 6px 0 8px;
+  font-size: 12px;
   color: var(--cf-ink-soft);
 }
 
 .cf-how-bars {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .cf-how-bar {
   display: grid;
-  grid-template-columns: 110px 1fr 44px;
+  grid-template-columns: 104px 1fr 36px;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
 }
 
 .cf-how-bar > span:first-child {
@@ -8291,8 +8338,8 @@ button.cf-synclog-row {
 }
 
 .cf-how-track {
-  height: 10px;
-  border-radius: 5px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--cf-sunken);
   overflow: hidden;
 }
@@ -8301,7 +8348,7 @@ button.cf-synclog-row {
   display: block;
   height: 100%;
   min-width: 2px;
-  border-radius: 5px;
+  border-radius: 4px;
   background: var(--cf-read);
 }
 
@@ -8311,20 +8358,23 @@ button.cf-synclog-row {
   font-variant-numeric: tabular-nums;
 }
 
+/* The first cards dealt: one line each, the reason at the end. */
 .cf-how-next {
   list-style: none;
   margin: 0;
   padding: 0;
   border: 1px solid var(--cf-rule);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--cf-surface);
   overflow: hidden;
 }
 
 .cf-how-row {
   display: flex;
-  gap: 12px;
-  padding: 10px 14px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 .cf-how-row + .cf-how-row {
@@ -8337,23 +8387,24 @@ button.cf-synclog-row {
 
 .cf-how-n {
   flex: none;
-  width: 18px;
-  padding-top: 2px;
-  font-size: 12px;
+  width: 16px;
+  font-size: 11px;
   color: var(--cf-ink-faint);
   font-variant-numeric: tabular-nums;
 }
 
 .cf-how-body {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 8px;
+  gap: 8px;
+  flex: 1;
   min-width: 0;
 }
 
 .cf-how-kind {
-  font-size: 12px;
+  flex: none;
+  width: 56px;
+  font-size: 11px;
   font-weight: 650;
   color: var(--cf-read);
 }
@@ -8375,8 +8426,12 @@ button.cf-synclog-row {
 }
 
 .cf-how-text {
-  font-size: 17px;
-  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
 }
 
 button.cf-how-text {
@@ -8385,145 +8440,18 @@ button.cf-how-text {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 17px;
+  font-size: 15px;
+  text-align: left;
   cursor: pointer;
 }
 
 .cf-how-why {
-  flex-basis: 100%;
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-how-words {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-}
-
-.cf-how-toc {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.cf-how-toc button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 999px;
-  background: var(--cf-surface);
-  color: var(--cf-ink);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.cf-how-group {
-  margin-top: 26px;
-  scroll-margin-top: calc(var(--cf-top-h, 0px) + 12px);
-}
-
-.cf-how-about {
-  margin: 0 0 10px;
-}
-
-.cf-how-params {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--cf-rule);
-  border-radius: 14px;
-  background: var(--cf-surface);
-  overflow: hidden;
-}
-
-.cf-how-param {
-  padding: 12px 14px;
-}
-
-.cf-how-param + .cf-how-param {
-  border-top: 1px solid var(--cf-rule);
-}
-
-.cf-how-ph {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.cf-how-pname {
-  font-weight: 650;
-}
-
-.cf-how-pval {
   flex: none;
-  max-width: 55%;
-  text-align: right;
-  font-weight: 700;
-  color: var(--cf-accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-how-pdoes {
-  margin: 4px 0 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--cf-ink-soft);
-}
-
-.cf-how-pmove {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 6px 0 0;
-  font-size: 13px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-how-pmove b {
-  display: inline-block;
-  width: 14px;
-  color: var(--cf-ink);
-}
-
-.cf-how-pcode {
-  display: inline-block;
-  margin-top: 6px;
+  max-width: 45%;
+  margin-left: auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 11px;
-  color: var(--cf-ink-faint);
-  overflow-wrap: anywhere;
-}
-
-.cf-how-weights {
-  margin-top: 6px;
-  font-size: 13px;
-}
-
-.cf-how-weights summary {
-  cursor: pointer;
-  color: var(--cf-accent);
-}
-
-.cf-how-weights ol {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 2px 12px;
-  margin: 6px 0 0;
-  padding-left: 22px;
-  font-variant-numeric: tabular-nums;
   color: var(--cf-ink-soft);
-}
-
-.cf-how-file {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: var(--cf-ink-faint);
-}
-
-.cf-how-file code {
-  overflow-wrap: anywhere;
 }
