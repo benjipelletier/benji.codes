@@ -7,6 +7,7 @@
 // stand, Pleco's record, and the sentences it is in.
 
 import { useEffect, useMemo, useState } from "react";
+import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { WordDetail, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
@@ -84,7 +85,9 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
   const [error, setError] = useState<string | null>(null);
   const [by, setBy] = useState<GroupBy>("due");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
+  // The word whose sheet is open, in the address (lib/route.ts).
+  const [open, setOpen] = useState<string | null>(() => routeParam("word"));
+  useRouteParam("word", open);
   const [all, setAll] = useState<Set<string>>(new Set());
   // Groups opened, by grouping and group. They start closed, so the page opens
   // as an overview; a search opens every group it finds something in.

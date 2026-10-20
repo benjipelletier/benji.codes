@@ -8,6 +8,7 @@
 // page: its words with pinyin, each tappable, and its card.
 
 import { useEffect, useState } from "react";
+import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { Blocker, SentenceDetail, SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
 import { get } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
@@ -76,8 +77,9 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
   const [blockers, setBlockers] = useState<Blockers | null>(null);
   const [unlockPage, setUnlockPage] = useState(false);
   const [blocker, setBlocker] = useState<Blocker | null>(null);
-  // The sentence open on its page.
-  const [open, setOpen] = useState<number | null>(null);
+  // The sentence open on its page, in the address (lib/route.ts).
+  const [open, setOpen] = useState<number | null>(() => Number(routeParam("sentence")) || null);
+  useRouteParam("sentence", open === null ? null : String(open));
   // Bumped when something changed what is shown (a name marked, a word removed).
   const [changed, setChanged] = useState(0);
 

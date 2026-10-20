@@ -15,6 +15,7 @@
 // what was wrong): those lookups are the test set that decides what to build.
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
@@ -871,8 +872,10 @@ function History({ past, typed, onPick }: { past: LookupListed[]; typed: string;
 }
 
 /** `start` fills the field, as from a review card's Look up; nothing is asked until the arrow is tapped. */
-export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: string }) {
-  const [typed, setTyped] = useState(start);
+export function LookupPanel({ shell, start = "", routed = false }: { shell: Shell; start?: string; routed?: boolean }) {
+  // The Look up tab keeps the question answered in the address, and a reload asks it again
+  // (kept answers come back free); a review card's sheet leaves the address alone.
+  const [typed, setTyped] = useState(() => start || (routed ? (routeParam("q") ?? "") : ""));
   const [answer, setAnswer] = useState<LookupAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -894,6 +897,15 @@ export function LookupPanel({ shell, start = "" }: { shell: Shell; start?: strin
       .then((r) => setPast(r.lookups))
       .catch(() => setPast([]));
   }, [shell.canWrite, answer]);
+
+  // Asked again on a reload; until then the address is left as it came.
+  const [fromAddress] = useState(() => (routed ? routeParam("q") : null));
+  const [settled, setSettled] = useState(false);
+  useRouteParam("q", answer?.query ?? (busy && typed.trim() ? typed.trim() : null), routed && settled);
+  useEffect(() => {
+    if (fromAddress) void ask(fromAddress);
+    setSettled(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ask = async (q: string, fresh = false) => {
     if (!q.trim() || busy) return;

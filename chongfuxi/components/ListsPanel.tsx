@@ -14,6 +14,7 @@
 // a song's link files the words of its lyrics as a list (spotify.ts).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { Addition, ListNode, ListWord } from "@chongfuxi/lib/api";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
@@ -49,7 +50,9 @@ export function ListsPanel({
 }) {
   const { canWrite, refresh } = shell;
   const [nodes, setNodes] = useState<ListNode[] | null>(null);
-  const [at, setAt] = useState("");
+  // The list open, in the address (lib/route.ts).
+  const [at, setAt] = useState(() => routeParam("list") ?? "");
+  useRouteParam("list", at || null);
   const [words, setWords] = useState<ListWord[] | null>(null);
   // Missing words unticked, so left out of the add; after Untick all, instead
   // the only ones ticked (the rest, loaded or not, left out).

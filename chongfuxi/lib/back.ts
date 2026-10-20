@@ -12,8 +12,18 @@ type Layer = { id: number; close: () => void };
 
 const stack: Layer[] = [];
 let next = 1;
-/** Back steps taken by the page itself, whose popstate is not the owner pressing back. */
+/**
+ * Steps back taken by the page itself, whose popstate is not the owner
+ * pressing back: one per history.go, however many entries it goes back
+ * (a go of 3 fires one popstate).
+ */
 let ignoring = 0;
+/**
+ * Entries to step back, gathered over one turn and taken in one go: closing a
+ * screen closes several layers at once, and a second history.go before the
+ * first has landed can cancel it, leaving an owner's back press ignored.
+ */
+let stepping = 0;
 /** Layers opened while such steps were still on their way: their entries go on once those land. */
 let waiting = 0;
 let installed = false;
@@ -44,7 +54,7 @@ export function open(close: () => void): number {
   install();
   const id = next++;
   stack.push({ id, close });
-  if (ignoring > 0) waiting++;
+  if (ignoring > 0 || stepping > 0) waiting++;
   else window.history.pushState({ cf: true }, "");
   return id;
 }
@@ -63,7 +73,14 @@ export function release(id: number) {
   waiting -= unpushed;
   steps -= unpushed;
   if (steps > 0) {
-    ignoring += steps;
-    window.history.go(-steps);
+    if (stepping === 0) {
+      queueMicrotask(() => {
+        const n = stepping;
+        stepping = 0;
+        ignoring++;
+        window.history.go(-n);
+      });
+    }
+    stepping += steps;
   }
 }

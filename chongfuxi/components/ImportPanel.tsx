@@ -11,6 +11,7 @@
 // add, so it can be looked at first. Importing only ever adds.
 
 import { useEffect, useState } from "react";
+import { routeChoice, useRouteParam } from "@chongfuxi/lib/route";
 import { get, send } from "@chongfuxi/lib/client";
 import { uploadFile, type StoredImport } from "@chongfuxi/lib/upload";
 import { BugList } from "./BugReport";
@@ -152,12 +153,15 @@ function Importer({ shell }: { shell: Shell }) {
   );
 }
 
-export type ImportPage = "analyse" | "syncs" | "pleco" | "texts" | "bugs";
+const PAGES = ["analyse", "syncs", "pleco", "texts", "bugs"] as const;
+export type ImportPage = (typeof PAGES)[number];
 
 export function ImportPanel({ shell, start }: { shell: Shell; start?: ImportPage }) {
   const s = shell.summary!;
   const configured = s.viewer.configured;
-  const [page, setPage] = useState<ImportPage | null>(start ?? null);
+  // In the address, so a reload comes back to it (lib/route.ts).
+  const [page, setPage] = useState<ImportPage | null>(() => start ?? routeChoice("import", PAGES));
+  useRouteParam("import", page);
   // Back from a page comes to the menu.
   useBackLayer(page !== null, () => setPage(null));
   const open = (p: ImportPage | null) => {

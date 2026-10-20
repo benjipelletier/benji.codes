@@ -93,7 +93,20 @@ check every screen at 360px wide first.
   the list tree, a word's sheet, a sentence's page, a sync's page, a review session, the step
   after Forgot, the note box) puts one history entry on, and back closes the
   top one. A layer closed from the page takes its entry back off quietly.
-  From Review with nothing open, back leaves the site.
+  From Review with nothing open, back leaves the site. Layers closed together
+  (leaving a tab closes its list levels and side) are stepped back in one
+  `history.go`, counted as one popstate: stepping back one at a time, each
+  counted as its own, swallowed the owner's next back press.
+- **A reload comes back to the same page** (`lib/route.ts`): the tab, Cards'
+  side, the list open, a word's sheet, a sentence's page, the Import page,
+  Look up's question (asked again on load; a kept answer costs nothing) and a
+  review session under way (dealt again from what is still due) are kept in
+  the address (`?tab=cards&cards=lists&list=…`). Each screen sets its part
+  while it is on screen and clears it when it goes (`useRouteParam`); the
+  address is written from that, never pushed (back.ts owns the history), and
+  rewritten after every history step, since stepping back brings an older
+  entry's address with it. The shell reads the tab once on the client before
+  any panel mounts.
 - Fast review is never lost to leaving it (`lib/resume.ts`, localStorage,
   one study day): it keeps its loaded cards, the ones marked forgotten and
   the scroll, since its marks are not answers until Done. Closed by back or

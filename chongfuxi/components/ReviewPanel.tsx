@@ -18,6 +18,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
+import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import { blankOut } from "@chongfuxi/lib/review";
 import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -168,11 +169,14 @@ function rememberedKinds(): SessionKinds {
 }
 
 export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () => void }) {
-  const [kinds, setKinds] = useState<SessionKinds>(EVERYTHING);
-  const [started, setStarted] = useState<"session" | "fast" | null>(null);
+  // A session under way is in the address, so a reload deals again what is still due
+  // (lib/route.ts), with the kinds chosen on this device. Only drawn on the client.
+  const [kinds, setKinds] = useState<SessionKinds>(() => rememberedKinds());
+  const [started, setStarted] = useState<"session" | "fast" | null>(() => (routeParam("review") === "session" ? "session" : null));
   const { setFocus, refresh } = shell;
+  useRouteParam("review", started === "session" ? "session" : null);
   useEffect(() => {
-    setKinds(rememberedKinds());
+    if (started === "session") setFocus(true);
     // Left mid-Fast review (the site closed, the phone locked): straight back
     // into it. A session keeps nothing: each answer is sent as it is given, so
     // starting again simply deals what is still due.

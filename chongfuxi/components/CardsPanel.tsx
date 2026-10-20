@@ -4,6 +4,7 @@
 // the Pleco word lists more words come from.
 
 import { useCallback, useState } from "react";
+import { routeChoice, useRouteParam } from "@chongfuxi/lib/route";
 import { Learn } from "./Learn";
 import { ListsPanel } from "./ListsPanel";
 import { Session, type ListReview } from "./ReviewPanel";
@@ -11,10 +12,13 @@ import { SentencesPanel } from "./SentencesPanel";
 import { WordsPanel } from "./WordsPanel";
 import { fmt, useBackLayer, type Shell } from "./shared";
 
-type Side = "words" | "sentences" | "lists";
+const SIDES = ["words", "sentences", "lists"] as const;
+type Side = (typeof SIDES)[number];
 
 export function CardsPanel({ shell }: { shell: Shell }) {
-  const [side, setSide] = useState<Side>("words");
+  // In the address, so a reload comes back to it (lib/route.ts).
+  const [side, setSide] = useState<Side>(() => routeChoice("cards", SIDES) ?? "words");
+  useRouteParam("cards", side === "words" ? null : side);
   // A word to find among the sentences, when a word's sheet asks for them.
   const [find, setFind] = useState<{ word: string; at: number } | null>(null);
   // Back from Sentences or Lists comes to Words.

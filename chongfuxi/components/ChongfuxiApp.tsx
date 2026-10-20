@@ -21,9 +21,11 @@ import { StatsPanel } from "./StatsPanel";
 import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
+import { routeChoice, setRouteParam } from "@chongfuxi/lib/route";
 import { Loading, Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
-type Tab = "review" | "cards" | "lookup" | "stats" | "import";
+const TAB_KEYS = ["review", "cards", "lookup", "stats", "import"] as const;
+type Tab = (typeof TAB_KEYS)[number];
 
 // Each icon carries a character of the tab's Chinese name: 复习, 卡片, 查, 统计, 导入.
 const OFFLINE = "No connection: these counts may be out of date.";
@@ -41,6 +43,17 @@ export function ChongfuxiApp() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("review");
+  // The tab is in the address (lib/route.ts), so a reload comes back to it: read once on
+  // the client, before the tab's own default can clear it, then kept up to date.
+  const [routed, setRouted] = useState(false);
+  useEffect(() => {
+    const t = routeChoice("tab", TAB_KEYS);
+    if (t) setTab(t);
+    setRouted(true);
+  }, []);
+  useEffect(() => {
+    if (routed) setRouteParam("tab", tab === "review" ? null : tab);
+  }, [tab, routed]);
   // Which page Import opens on: Review's "Import a Pleco backup" goes straight to it.
   const [importPage, setImportPage] = useState<ImportPage | undefined>(undefined);
   // A review session takes the whole screen.
@@ -150,11 +163,11 @@ export function ChongfuxiApp() {
         {summary && !summary.viewer.configured && tab !== "import" && (
           <p className="cf-muted cf-pad">This deployment has no database set up, so there is nothing to show.</p>
         )}
-        {summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "pleco")} />}
-        {summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
-        {summary?.viewer.configured && tab === "lookup" && <LookupPanel shell={shell} />}
-        {summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
-        {summary && tab === "import" && <ImportPanel shell={shell} start={importPage} />}
+        {routed && summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "pleco")} />}
+        {routed && summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
+        {routed && summary?.viewer.configured && tab === "lookup" && <LookupPanel shell={shell} routed />}
+        {routed && summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
+        {routed && summary && tab === "import" && <ImportPanel shell={shell} start={importPage} />}
       </main>
 
       {canWrite && arrival !== null && !focus && (
