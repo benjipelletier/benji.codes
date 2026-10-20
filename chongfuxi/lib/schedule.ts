@@ -32,8 +32,13 @@ export interface Schedule {
 
 const DAY = 86_400_000;
 
+/** A card comes due when the odds it would be remembered fall to this. */
+export const RETENTION = 0.9;
+/** The longest a card can go between showings, in days. */
+export const MAX_INTERVAL_DAYS = 36500;
+
 const scheduler = fsrs(
-  generatorParameters({ request_retention: 0.9, maximum_interval: 36500, enable_fuzz: true, enable_short_term: false }),
+  generatorParameters({ request_retention: RETENTION, maximum_interval: MAX_INTERVAL_DAYS, enable_fuzz: true, enable_short_term: false }),
 );
 
 function toCard(s: Schedule): Card {

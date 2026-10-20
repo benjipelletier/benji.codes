@@ -29,6 +29,9 @@ import type { StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { blankOut, contextFit } from "@chongfuxi/lib/review";
 
+/** Which words Learn takes first: those part way up the ladder, then the newest (the ones just added). */
+export const LEARN_ORDER = `(c.learn_step is null), c.id desc`;
+
 /** Words in a list's Learn drill. */
 export const LEARN_MAX = 10;
 /** Words sent to a review session: enough for a long one, five on the ladder at a time. */
@@ -56,7 +59,7 @@ export async function wordsToLearn(
      join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word and w.status = 'deck'
      where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN}
        ${inList ? `and ${inList.where}` : ""}
-     order by (c.learn_step is null), c.id desc
+     order by ${LEARN_ORDER}
      limit $2`,
     [owner, limit, ...(inList?.params ?? [])],
   )) as unknown as Array<{

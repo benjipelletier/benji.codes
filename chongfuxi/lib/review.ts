@@ -101,7 +101,9 @@ export function blankOut(zh: string, word: string): string | null {
 }
 
 /** The mix of a session: two words for every sentence due, and a new sentence every fourth card. */
-const CYCLE = ["word", "sentence", "word", "new"] as const;
+export const CYCLE = ["word", "sentence", "word", "new"] as const;
+/** While cards are due, a batch takes one new sentence for every this many due. */
+export const DUE_PER_NEW = 3;
 
 /**
  * One queue out of three, each already in its own order. `position` is how

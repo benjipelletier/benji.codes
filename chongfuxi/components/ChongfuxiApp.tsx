@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AnkiSync, Summary } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { CardsPanel } from "./CardsPanel";
-import { ImportPanel, type ImportPage } from "./ImportPanel";
+import { SettingsPanel, type SettingsPage } from "./SettingsPanel";
 import { LookupPanel } from "./LookupPanel";
 import { Account } from "./Account";
 import { BugButton } from "./BugReport";
@@ -25,10 +25,10 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import { routeChoice, setRouteParam } from "@chongfuxi/lib/route";
 import { Loading, Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
-const TAB_KEYS = ["review", "cards", "lookup", "stats", "import"] as const;
+const TAB_KEYS = ["review", "cards", "lookup", "stats", "settings"] as const;
 type Tab = (typeof TAB_KEYS)[number];
 
-// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 查, 统计, 导入.
+// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 查, 统计, 设置.
 const OFFLINE = "No connection: these counts may be out of date.";
 
 const TABS: Array<{ key: Tab; label: string }> = [
@@ -37,7 +37,8 @@ const TABS: Array<{ key: Tab; label: string }> = [
   // The owner's only: every lookup asks a model.
   { key: "lookup", label: "Look up" },
   { key: "stats", label: "Stats" },
-  { key: "import", label: "Import" },
+  // Bringing material in, bug reports, and how cards are chosen (it was Import).
+  { key: "settings", label: "Settings" },
 ];
 
 export function ChongfuxiApp() {
@@ -48,15 +49,16 @@ export function ChongfuxiApp() {
   // the client, before the tab's own default can clear it, then kept up to date.
   const [routed, setRouted] = useState(false);
   useEffect(() => {
-    const t = routeChoice("tab", TAB_KEYS);
-    if (t) setTab(t);
+    // An address from when Settings was Import still opens it.
+    const t = routeChoice("tab", [...TAB_KEYS, "import"] as const);
+    if (t) setTab(t === "import" ? "settings" : t);
     setRouted(true);
   }, []);
   useEffect(() => {
     if (routed) setRouteParam("tab", tab === "review" ? null : tab);
   }, [tab, routed]);
-  // Which page Import opens on: Review's "Import a Pleco backup" goes straight to it.
-  const [importPage, setImportPage] = useState<ImportPage | undefined>(undefined);
+  // Which page Settings opens on: Review's "Import a Pleco backup" goes straight to it.
+  const [settingsPage, setSettingsPage] = useState<SettingsPage | undefined>(undefined);
   // A review session takes the whole screen.
   const [focus, setFocus] = useState(false);
   // A sync that added words and hasn't been looked at yet: its page opens by itself, oldest first.
@@ -132,9 +134,9 @@ export function ChongfuxiApp() {
     return () => seen.disconnect();
   }, []);
   const shell: Shell = useMemo(() => ({ summary, canWrite, refresh, setFocus }), [summary, canWrite, refresh]);
-  const go = (t: Tab, page?: ImportPage) => {
+  const go = (t: Tab, page?: SettingsPage) => {
     setTab(t);
-    setImportPage(page);
+    setSettingsPage(page);
     window.scrollTo({ top: 0 });
   };
 
@@ -161,14 +163,14 @@ export function ChongfuxiApp() {
         {error && !(error === OFFLINE && pending) && <p className="cf-error">{error}</p>}
         {!focus && <Waiting />}
         {!summary && !error && <Loading label="Shuffling the deck…" />}
-        {summary && !summary.viewer.configured && tab !== "import" && (
+        {summary && !summary.viewer.configured && tab !== "settings" && (
           <p className="cf-muted cf-pad">This deployment has no database set up, so there is nothing to show.</p>
         )}
-        {routed && summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("import", "pleco")} />}
+        {routed && summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("settings", "pleco")} />}
         {routed && summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
         {routed && summary?.viewer.configured && tab === "lookup" && <LookupPanel shell={shell} routed />}
         {routed && summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
-        {routed && summary && tab === "import" && <ImportPanel shell={shell} start={importPage} />}
+        {routed && summary && tab === "settings" && <SettingsPanel shell={shell} start={settingsPage} />}
       </main>
 
       {/* A word's page, over everything, from wherever it was opened. */}

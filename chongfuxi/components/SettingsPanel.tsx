@@ -1,8 +1,10 @@
 "use client";
 
-// Everything that brings material in, or looks at what came in: a short menu,
-// each row opening its own page (Analyse a text, the Anki syncs, a Pleco
-// backup, texts, bug reports), with "‹ Import" to come back.
+// Settings (Import until the owner renamed it): a short menu, each row
+// opening its own page, with "‹ Settings" to come back. How cards are chosen
+// (HowItWorks.tsx: the whole algorithm, with live numbers), then what brings
+// material in or looks at what came in (Analyse a text, a Pleco backup,
+// texts, the Anki syncs), then bug reports.
 // (Signing in is in the header: components/Account.tsx.)
 //
 // Words come from Pleco and nowhere else: the owner adds them there, exports a
@@ -18,6 +20,7 @@ import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
 import { TextAnalyser } from "./TextAnalyser";
 import { TextImport } from "./TextImport";
+import { HowItWorks } from "./HowItWorks";
 import { fmt, message, useBackLayer, type Shell } from "./shared";
 
 /** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
@@ -153,18 +156,18 @@ function Importer({ shell }: { shell: Shell }) {
   );
 }
 
-const PAGES = ["analyse", "syncs", "pleco", "texts", "bugs"] as const;
-export type ImportPage = (typeof PAGES)[number];
+const PAGES = ["how", "analyse", "syncs", "pleco", "texts", "bugs"] as const;
+export type SettingsPage = (typeof PAGES)[number];
 
-export function ImportPanel({ shell, start }: { shell: Shell; start?: ImportPage }) {
+export function SettingsPanel({ shell, start }: { shell: Shell; start?: SettingsPage }) {
   const s = shell.summary!;
   const configured = s.viewer.configured;
   // In the address, so a reload comes back to it (lib/route.ts).
-  const [page, setPage] = useState<ImportPage | null>(() => start ?? routeChoice("import", PAGES));
-  useRouteParam("import", page);
+  const [page, setPage] = useState<SettingsPage | null>(() => start ?? routeChoice("settings", PAGES));
+  useRouteParam("settings", page);
   // Back from a page comes to the menu.
   useBackLayer(page !== null, () => setPage(null));
-  const open = (p: ImportPage | null) => {
+  const open = (p: SettingsPage | null) => {
     setPage(p);
     window.scrollTo({ top: 0 });
   };
@@ -180,9 +183,10 @@ export function ImportPanel({ shell, start }: { shell: Shell; start?: ImportPage
   if (page) {
     return (
       <div className="cf-panel cf-subpage">
-        <nav className="cf-crumbs" aria-label="Import">
-          <button onClick={() => open(null)}>‹ Import</button>
+        <nav className="cf-crumbs" aria-label="Settings">
+          <button onClick={() => open(null)}>‹ Settings</button>
         </nav>
+        {page === "how" && <HowItWorks shell={shell} />}
         {page === "analyse" && <TextAnalyser shell={shell} />}
         {page === "syncs" && <SyncLog shell={shell} />}
         {page === "pleco" && <Importer shell={shell} />}
@@ -192,47 +196,56 @@ export function ImportPanel({ shell, start }: { shell: Shell; start?: ImportPage
     );
   }
 
-  const rows: Array<{ key: ImportPage; title: string; about: string; count?: string }> = [
-    ...(configured
-      ? [{ key: "analyse" as const, title: "Analyse a text", about: "What you can read, and what to learn" }]
-      : []),
-    ...(shell.canWrite
-      ? [
-          { key: "pleco" as const, title: "Pleco backup", about: "New words and sentences from a .pqb" },
-          { key: "texts" as const, title: "Texts", about: "Sentences from lessons or articles" },
-        ]
-      : []),
-    ...(configured
-      ? [
-          { key: "syncs" as const, title: "Anki syncs", about: "Words that came in from AnkiDroid" },
-          {
-            key: "bugs" as const,
-            title: "Bug reports",
-            about: "Filed with the bug tab",
-            count: openBugs ? `${fmt(openBugs)} open` : undefined,
-          },
-        ]
-      : []),
+  type Row = { key: SettingsPage; title: string; about: string; count?: string };
+  const groups: Array<{ title: string; rows: Row[] }> = [
+    {
+      title: "How it works",
+      rows: configured ? [{ key: "how", title: "How cards are chosen", about: "What comes up when, and why, with today's numbers" }] : [],
+    },
+    {
+      title: "Bring in",
+      rows: [
+        ...(configured ? [{ key: "analyse" as const, title: "Analyse a text", about: "What you can read, and what to learn" }] : []),
+        ...(shell.canWrite
+          ? [
+              { key: "pleco" as const, title: "Pleco backup", about: "New words and sentences from a .pqb" },
+              { key: "texts" as const, title: "Texts", about: "Sentences from lessons or articles" },
+            ]
+          : []),
+        ...(configured ? [{ key: "syncs" as const, title: "Anki syncs", about: "Words that came in from AnkiDroid" }] : []),
+      ],
+    },
+    {
+      title: "Bugs",
+      rows: configured
+        ? [{ key: "bugs", title: "Bug reports", about: "Filed with the bug tab", count: openBugs ? `${fmt(openBugs)} open` : undefined }]
+        : [],
+    },
   ];
 
   return (
     <div className="cf-panel">
-      {rows.length > 0 && (
-        <ul className="cf-menu">
-          {rows.map((r) => (
-            <li key={r.key}>
-              <button className="cf-menu-row" onClick={() => open(r.key)}>
-                <span className="cf-menu-text">
-                  <b>{r.title}</b>
-                  <small>{r.about}</small>
-                </span>
-                {r.count && <span className="cf-menu-count">{r.count}</span>}
-                <i aria-hidden="true">›</i>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {groups
+        .filter((g) => g.rows.length > 0)
+        .map((g) => (
+          <section key={g.title} className="cf-menu-group">
+            <h2 className="cf-h2">{g.title}</h2>
+            <ul className="cf-menu">
+              {g.rows.map((r) => (
+                <li key={r.key}>
+                  <button className="cf-menu-row" onClick={() => open(r.key)}>
+                    <span className="cf-menu-text">
+                      <b>{r.title}</b>
+                      <small>{r.about}</small>
+                    </span>
+                    {r.count && <span className="cf-menu-count">{r.count}</span>}
+                    <i aria-hidden="true">›</i>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
       {configured && (
         <section className="cf-section">
           <h2 className="cf-h2">About</h2>

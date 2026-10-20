@@ -15,17 +15,19 @@ import type { LearnSentence, LearnStep, LearnStepDone, LearnWord } from "./api";
 
 /** Words on the ladder at once; the rest wait their turn to be met. */
 export const IN_PLAY = 5;
+/** In a review session, a Learn step comes every this many cards. */
+export const LEARN_EVERY = 5;
 /** The ladder in order: a word without sentences skips reading one. */
-const LADDER: LearnStep[] = ["meet", "context", "cloze", "word"];
+export const LADDER: LearnStep[] = ["meet", "context", "cloze", "word"];
 /** Turns before a word comes back, by the step it comes back for. */
-const GAP: Record<LearnStep, number> = {
+export const GAP: Record<LearnStep, number> = {
   meet: 0,
   context: 2,
   cloze: 4,
   word: 7,
 };
 /** Turns before a missed word comes back. */
-const AFTER_MISS = 2;
+export const AFTER_MISS = 2;
 
 export interface LearnItem {
   word: LearnWord;

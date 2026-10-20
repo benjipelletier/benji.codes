@@ -20,6 +20,7 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import { blankOut } from "@chongfuxi/lib/review";
+import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
@@ -151,8 +152,6 @@ function ReceiptStrip({ r, onUndo, undoing }: { r: Receipt; onUndo?: () => void;
 /** What the last session included, kept on this device. */
 const KINDS_KEY = "chongfuxi:session";
 const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true, learn: true };
-/** A new word's Learn step comes every this many cards. */
-const LEARN_EVERY = 5;
 
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
 function wordsDue(s: { dueWords: number; dueRead: number; dueRecall: number }, kinds: SessionKinds): number {

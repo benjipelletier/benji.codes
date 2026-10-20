@@ -8227,3 +8227,237 @@ button.cf-synclog-row {
 .cf-wp-add.is-added p {
   color: var(--cf-ink);
 }
+
+/* Settings: the menu in groups (How it works, Bring in, Bugs). */
+.cf-menu-group + .cf-menu-group {
+  margin-top: 18px;
+}
+
+/* Settings › How cards are chosen (components/HowItWorks.tsx). */
+.cf-how-head h1 {
+  margin: 4px 0 6px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.cf-how-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.cf-how-stats > div {
+  padding: 10px 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+}
+
+.cf-how-stats dt {
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-stats dd {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-how-sub {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.cf-how-bar {
+  display: grid;
+  grid-template-columns: 110px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.cf-how-bar > span:first-child {
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+.cf-how-track i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 5px;
+  background: var(--cf-read);
+}
+
+.cf-how-bar b {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-how-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-how-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.cf-how-row + .cf-how-row {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-how-row.is-learn {
+  background: var(--cf-sunken);
+}
+
+.cf-how-n {
+  flex: none;
+  width: 18px;
+  padding-top: 2px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-how-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.cf-how-kind {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--cf-read);
+}
+
+.cf-how-kind.is-recall {
+  color: var(--cf-recall);
+}
+
+.cf-how-kind.is-sentence {
+  color: var(--cf-sentence);
+}
+
+.cf-how-kind.is-new {
+  color: var(--cf-new);
+}
+
+.cf-how-kind.is-learn {
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-text {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+
+button.cf-how-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.cf-how-why {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.cf-how-rule {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-how-rule h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.cf-how-rn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cf-how-rule p,
+.cf-how-rule li {
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.cf-how-rule p {
+  margin: 0 0 8px;
+}
+
+.cf-how-rule ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.cf-how-rule li + li {
+  margin-top: 6px;
+}
+
+.cf-how-code {
+  margin: 10px 0 0 !important;
+  font-size: 12px !important;
+  color: var(--cf-ink-faint);
+}
+
+.cf-how-code code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

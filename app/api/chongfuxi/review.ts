@@ -17,6 +17,7 @@ import type {
   ListNode,
   ListWord,
   MissingWord,
+  QueueWhy,
   ReviewInput,
   ReviewResult,
   SentenceDetail,
@@ -37,6 +38,7 @@ import { mainSenses } from "@chongfuxi/lib/senses";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import {
   CLEAN_READS_TO_RETIRE,
+  DUE_PER_NEW,
   REVIVED_CLEAN_READS,
   contextFit,
   interleave,
@@ -310,7 +312,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // word still waiting for Learn last. A word never yet read in a sentence
   // breaks a tie; past that a fixed shuffle, so sources and lengths are mixed.
   const due = wordCards.length + dueSentences.length;
-  const left = !withSentences ? 0 : o.more ? o.limit : Math.min(o.limit, Math.ceil(due / 3));
+  const left = !withSentences ? 0 : o.more ? o.limit : Math.min(o.limit, Math.ceil(due / DUE_PER_NEW));
   const fresh = left
     ? ((await sql.query(
         `with cand as (
@@ -334,23 +336,38 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
            order by t.sentence_id, need, strength, w.exposures, w.word
          ),
          ranked as (
-           select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.need, k.strength, k.exposures,
+           select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.word, k.need, k.strength, k.exposures,
                   row_number() over (partition by coalesce(k.word, cand.key) order by k.need, md5(cand.key), cand.sid) as turn
            from cand left join weakest k on k.sid = cand.sid
          )
-         select ${CARD_COLUMNS}
+         select ${CARD_COLUMNS}, x.unlocked_by as why_unlocked, x.word as why_word, x.need as why_need
          from ranked x join chongfuxi_card c on c.owner_email = $1 and c.id = x.id
          order by (x.unlocked_by is not null) desc,
                   case when x.unlocked_by is not null then x.unlocked_at end desc nulls last,
                   x.turn, x.need nulls last, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
          limit $3`,
         [owner, o.exclude, left, cutoff],
-      )) as unknown as CardRow[])
+      )) as unknown as Array<CardRow & { why_unlocked: string | null; why_word: string | null; why_need: number | null }>)
     : [];
 
   const picked = o.more ? fresh.slice(0, o.limit) : interleave({ word: wordCards, sentence: dueSentences, new: fresh }, o.position, o.limit);
   if (!picked.length) return [];
-  return dress(sql, owner, picked, day, at);
+  // What put each card where it is, for Settings › How cards are chosen.
+  const overdue = (c: CardRow) => Math.max(0, (at - c.due) / DAY_MS);
+  const why = new Map<number, QueueWhy>([
+    ...wordCards.map((c): [number, QueueWhy] => [c.id, { line: "word", odds: recallOdds(scheduleOf(c), at), overdueDays: overdue(c) }]),
+    ...dueSentences.map((c): [number, QueueWhy] => [c.id, { line: "sentence", overdueDays: overdue(c), cleanReads: c.clean_reads }]),
+    ...fresh.map((c): [number, QueueWhy] => [
+      c.id,
+      {
+        line: "new",
+        unlockedBy: c.why_unlocked,
+        forWord: c.why_word,
+        need: c.why_need === 0 ? "due" : c.why_need === 1 ? "weak" : c.why_need === 2 ? "learn" : null,
+      },
+    ]),
+  ]);
+  return (await dress(sql, owner, picked, day, at)).map((c) => ({ ...c, why: why.get(c.id) }));
 }
 
 /**

@@ -44,7 +44,8 @@ The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
 - Navigation is a bottom tab bar (thumb reach): Review, Cards, Look up (the
-  owner's only), Stats, Import.
+  owner's only), Stats, Settings (Import until the owner renamed it; an old
+  `tab=import` address still opens it).
   The header holds the title and one quiet line (`Glance` in
   `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
   and the share of sentences readable, each with its Chinese unit (词 字 句) in
@@ -54,13 +55,30 @@ check every screen at 360px wide first.
   which is why the figure went from about 4k to 3k.) Signing in sits at the
   right of the title (`components/Account.tsx`): the owner's 笨鸡 (Benji) opens a
   menu with the address and Sign out; anyone else gets Sign in.
-- Import is a menu (`components/ImportPanel.tsx`), since stacked as one
-  page it had grown messy: a row per page, title and one line under it, each
-  opening the page with "‹ Import" above to come back. Analyse a text, Pleco
-  backup and Texts (owner only), Anki syncs, Bug reports (the open count on
-  its row). About, with the CC-CEDICT credit, sits under the menu. Today's
-  "Import a Pleco backup" opens the Pleco backup page directly. The owner
-  tried the pages as sides like Cards' and didn't want tabs here.
+- Settings is a menu (`components/SettingsPanel.tsx`; it was Import), since
+  stacked as one page it had grown messy: a row per page, title and one line
+  under it, each opening the page with "‹ Settings" above to come back
+  (`settings=` in the address). In groups: How it works (How cards are
+  chosen), Bring in (Analyse a text, Pleco backup and Texts owner only, Anki
+  syncs), Bugs (Bug reports, the open count on its row). About, with the
+  CC-CEDICT credit, sits under the menu. Today's "Import a Pleco backup"
+  opens the Pleco backup page directly. The owner tried the pages as sides
+  like Cards' and didn't want tabs here.
+- **How cards are chosen** (`components/HowItWorks.tsx`, route `how`,
+  `app/api/chongfuxi/how.ts`): the owner asked for one place showing "how the
+  cookie is made", not being able to tell how cards are picked. Right now:
+  what is due by kind, new sentences ready, words waiting for Learn, cards
+  held back by the one-word-a-day rule, due word cards by their recall odds,
+  the cards a session started now would deal (from `nextCards` itself, each
+  with `why`: its line, and its odds, how overdue, or which word a new
+  sentence is for), with Learn steps where they'd fall, and the words Learn
+  takes next. Then the rules in the order a card meets them (where cards
+  come from, Learn, FSRS, unlocking, the three lines, the mix, one word a
+  day, what an answer does, other ways in), each naming its code. The
+  numbers in the rules are the code's constants, imported (`RETENTION`,
+  `SEED_CAP_DAYS`, `CYCLE`, `DUE_PER_NEW`, `LEARN_EVERY`, the ladder's
+  `GAP`…), so changing one changes the page. **Change the page whenever a
+  rule it describes changes.**
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.
@@ -89,7 +107,7 @@ check every screen at 360px wide first.
 - The phone's back button moves through the app (`lib/back.ts`,
   `useBackLayer` in `components/shared.tsx`): every layer that opens over
   another (a tab other than Review, Sentences or Lists in Cards, a page
-  opened from Import's menu, Unlock next, each level of
+  opened from Settings' menu, Unlock next, each level of
   the list tree, a word's sheet, a sentence's page, a sync's page, a review session, the step
   after Forgot, the note box) puts one history entry on, and back closes the
   top one. A layer closed from the page takes its entry back off quietly.
@@ -98,7 +116,7 @@ check every screen at 360px wide first.
   `history.go`, counted as one popstate: stepping back one at a time, each
   counted as its own, swallowed the owner's next back press.
 - **A reload comes back to the same page** (`lib/route.ts`): the tab, Cards'
-  side, the list open, a word's sheet, a sentence's page, the Import page,
+  side, the list open, a word's sheet, a sentence's page, the Settings page,
   Look up's question (asked again on load; a kept answer costs nothing) and a
   review session under way (dealt again from what is still due) are kept in
   the address (`?tab=cards&cards=lists&list=…`). Each screen sets its part
@@ -1052,7 +1070,7 @@ whole as an import of format `anki`.
 
 ## Analysing a text
 
-Import › Analyse a text (`components/TextAnalyser.tsx`, route `analyse`,
+Settings › Analyse a text (`components/TextAnalyser.tsx`, route `analyse`,
 `app/api/chongfuxi/analyse.ts`): how much of a text the owner can read, and
 which words would open up the most of it. The owner asked for something like
 Chinese Text Analyser, but measured against this corpus.
@@ -1087,7 +1105,7 @@ Chinese Text Analyser, but measured against this corpus.
 ## Texts
 
 Plain Chinese text (a textbook's 课文, an article) joins the corpus as
-sentences from Import › Texts (`components/TextImport.tsx`,
+sentences from Settings › Texts (`components/TextImport.tsx`,
 route `texts`): a .zip of .txt files (read in the browser, `lib/zip.ts`) or
 the files themselves, under one source name typed there (it is the deck name
 on each card). `lib/texts.ts` takes a file's first line as its title when it
@@ -1143,7 +1161,7 @@ AnkiDroid syncs to `/api/chongfuxi/anki/` as a custom sync server.
   and HSK levels, the deck's size, sentences unlocked with examples) with Keep
   or Undo. A new sync that added words opens its page by itself, once, oldest
   first (`chongfuxi_anki_sync.seen_at`); one that changed nothing stays in the
-  log on Import › Anki syncs, where every sync's page opens. Two or more such
+  log on Settings › Anki syncs, where every sync's page opens. Two or more such
   syncs in a row fold into one line there ("±0 ×5"), opened with a tap. Undo puts each word back as it
   was, removes its unanswered cards and those of the sentences it unlocked,
   and re-locks them; the notes stay marked, so the next sync doesn't add them
@@ -1246,7 +1264,7 @@ Each report keeps what the app knew (`BugContext`): the screen, what the
 screens on show noted about themselves (`note` in `lib/bugs.ts`: the card in
 a session, Fast review's progress, the open list, a word's sheet), the
 page's last errors, the viewport, the build. Stored in `chongfuxi_bug`
-(made on first use), listed on Import › Bug reports with Mark fixed / Won't fix.
+(made on first use), listed on Settings › Bug reports with Mark fixed / Won't fix.
 
 **To work on them from a Claude session:**
 
@@ -1407,7 +1425,7 @@ Screens, in `components/`: `ChongfuxiApp` (shell), `ReviewPanel` (Today and
 the session), `Learn` (the ladder: `useLadder` for the session, and a list's
 drill), `CardsPanel` (`WordsPanel`, `SentencesPanel` with its sentence
 page and `UnlockPanel`'s Unlock next page and blocker sheet, `ListsPanel`),
-`LookupPanel` (Look up), `StatsPanel`, `ImportPanel`. `Sheet` in `shared.tsx` is the sheet over the
+`LookupPanel` (Look up), `StatsPanel`, `SettingsPanel` (with `HowItWorks`). `Sheet` in `shared.tsx` is the sheet over the
 page (back, Escape, a tap outside close it).
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
