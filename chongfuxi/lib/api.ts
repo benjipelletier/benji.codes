@@ -566,6 +566,24 @@ export interface ListNode {
   song?: { title: string; artist: string | null; url: string | null };
 }
 
+/**
+ * Where a lookup was asked from, when it was a card (查 on a review card or a
+ * new word's Learn card): kept beside the question, so what the owner had to
+ * look up while studying a word can be read back later, by a model judging
+ * how well the word is known among others.
+ */
+export interface LookupFrom {
+  card: number;
+  word: string | null;
+  kind: "read" | "produce" | "sentence";
+  via: "review" | "learn";
+  /** The sentence on the card. */
+  sentence: number | null;
+  /** The review session, or Learn's step. */
+  session: string | null;
+  step: string | null;
+}
+
 /** A word on a list, in the deck or not. */
 export interface ListWord {
   word: string;

@@ -12,7 +12,7 @@
 // while one is running. A visitor can page through the cards but not answer.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CardHistory, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordDetail } from "@chongfuxi/lib/api";
+import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -424,7 +424,8 @@ export function Session({
   const [error, setError] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // Look up over the card, filled with its word (or sentence): back or × returns to the same card.
-  const [looking, setLooking] = useState<string | null>(null);
+  // Look up over the card: the question it opens on, and the card, kept beside what is asked.
+  const [looking, setLooking] = useState<{ q: string; from: LookupFrom } | null>(null);
   // Suspending the card's word: asked first ("ask", with how many sentences it would lock), then done ("busy").
   const [suspending, setSuspending] = useState<"ask" | "busy" | null>(null);
   const [wouldLock, setWouldLock] = useState<number | null>(null);
@@ -871,7 +872,7 @@ export function Session({
       )}
 
       {/* A new word's Learn step, when one is on show, comes before the next card. */}
-      {step && <LearnCard ladder={ladder} />}
+      {step && <LearnCard ladder={ladder} shell={shell} />}
       {card && !step && (
         <article key={card.id} className={`cf-card is-${card.kind}${leaving ? ` is-leaving-${leaving}` : ""}`}>
           <div className="cf-card-kind">
@@ -1043,7 +1044,20 @@ export function Session({
               )}
               {/* The owner's only, like the tab: a lookup costs money. Filled in, not asked, so it can be edited first. */}
               {canWrite && (card.word?.word ?? card.sentence?.zh) && (
-                <button className="cf-foot-btn is-look" onClick={() => setLooking(card.word?.word ?? card.sentence?.zh ?? "")} aria-label="Look up">
+                <button className="cf-foot-btn is-look" onClick={() =>
+                    setLooking({
+                      q: card.word?.word ?? card.sentence?.zh ?? "",
+                      from: {
+                        card: card.id,
+                        word: card.word?.word ?? null,
+                        kind: card.kind,
+                        via: "review",
+                        sentence: card.sentence?.id ?? null,
+                        session: session.current,
+                        step: null,
+                      },
+                    })
+                  } aria-label="Look up">
                   <span className="cf-foot-zh" aria-hidden="true">
                     查
                   </span>
@@ -1100,7 +1114,7 @@ export function Session({
       {looking !== null && (
         <Sheet label="Look up" onClose={() => setLooking(null)}>
           <div className="cf-lk-sheet">
-            <LookupPanel shell={shell} start={looking} />
+            <LookupPanel shell={shell} start={looking.q} from={looking.from} />
           </div>
         </Sheet>
       )}

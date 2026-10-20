@@ -463,3 +463,21 @@ create table if not exists chongfuxi_song (
   added       timestamptz not null default now(),
   primary key (owner_email, list)
 );
+
+-- A lookup asked from a card (Look up's sheet over a review or Learn card):
+-- which card, word, sentence and session or Learn step, each time it is
+-- asked, for reading back what had to be looked up while studying a word.
+-- Also made on first use (app/api/chongfuxi/lookup.ts).
+create table if not exists chongfuxi_lookup_card (
+  owner_email text        not null,
+  query       text        not null,
+  at          timestamptz not null default now(),
+  card_id     bigint      not null,
+  word        text,
+  kind        text        not null,
+  via         text        not null,
+  sentence_id bigint,
+  session     text,
+  step        text
+);
+create index if not exists chongfuxi_lookup_card_card on chongfuxi_lookup_card (owner_email, card_id);

@@ -11,13 +11,14 @@
 // Review the next day, new.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LearnSentence, LearnStep, LearnStepDone, LearnWord } from "@chongfuxi/lib/api";
+import type { LearnSentence, LearnStep, LearnStepDone, LearnWord, LookupFrom } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { afterStep, isLearned, pickNext, progressOf, sentencesFor, startItems, stepDone, stepOf, type LearnItem } from "@chongfuxi/lib/learn";
 import { newId } from "@chongfuxi/lib/upload";
-import { Loading, AiPill, HskTags, LongkuTag, PlecoTile, SentenceText, Word, fmt, message, type Shell } from "./shared";
+import { LookupPanel } from "./LookupPanel";
+import { Loading, AiPill, HskTags, LongkuTag, PlecoTile, SentenceText, Sheet, Word, fmt, message, type Shell } from "./shared";
 
 const STEP_NAME: Record<LearnStep, string> = {
   meet: "New word",
@@ -137,12 +138,15 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
 }
 
 /** The step on show, as a card. */
-export function LearnCard({ ladder }: { ladder: Ladder }) {
+export function LearnCard({ ladder, shell }: { ladder: Ladder; shell: Shell }) {
   const { items, current, revealed } = ladder;
+  // Look up over the card, as on a review card; the card goes with what is asked.
+  const [looking, setLooking] = useState<LookupFrom | null>(null);
   if (!items || !current) return null;
   const item = items[current.i];
   const step = stepOf(item);
   return (
+    <>
     <article className="cf-card is-learn">
       <div className="cf-card-kind">
         <span className="cf-kind-pill">
@@ -176,6 +180,28 @@ export function LearnCard({ ladder }: { ladder: Ladder }) {
         <div className="cf-card-foot">
           {(revealed || step === "meet") && <PlecoTile word={item.word.word} />}
           {ladder.canWrite && (
+            <button
+              className="cf-foot-btn is-look"
+              aria-label="Look up"
+              onClick={() =>
+                setLooking({
+                  card: item.word.card,
+                  word: item.word.word,
+                  kind: "read",
+                  via: "learn",
+                  sentence: current.sentences[0]?.id ?? null,
+                  session: null,
+                  step,
+                })
+              }
+            >
+              <span className="cf-foot-zh" aria-hidden="true">
+                查
+              </span>
+              <small>Look up</small>
+            </button>
+          )}
+          {ladder.canWrite && (
             <button className="cf-foot-btn is-known" onClick={() => ladder.take("known")} aria-label="I know it: take it out of new words">
               <span className="cf-foot-zh" aria-hidden="true">
                 会
@@ -186,6 +212,15 @@ export function LearnCard({ ladder }: { ladder: Ladder }) {
         </div>
       )}
     </article>
+    {/* Over the page, outside the card (whose motion would carry a fixed sheet with it). */}
+    {looking && (
+      <Sheet label="Look up" onClose={() => setLooking(null)}>
+        <div className="cf-lk-sheet">
+          <LookupPanel shell={shell} start={item.word.word} from={looking} />
+        </div>
+      </Sheet>
+    )}
+    </>
   );
 }
 
@@ -295,7 +330,7 @@ export function Learn({ shell, list, onEnd }: { shell: Shell; list: string; onEn
         </div>
       )}
 
-      <LearnCard ladder={ladder} />
+      <LearnCard ladder={ladder} shell={shell} />
       <LearnAnswers ladder={ladder} />
     </div>
   );

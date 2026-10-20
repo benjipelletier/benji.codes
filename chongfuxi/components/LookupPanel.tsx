@@ -16,7 +16,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
 
@@ -872,7 +872,18 @@ function History({ past, typed, onPick }: { past: LookupListed[]; typed: string;
 }
 
 /** `start` fills the field, as from a review card's Look up; nothing is asked until the arrow is tapped. */
-export function LookupPanel({ shell, start = "", routed = false }: { shell: Shell; start?: string; routed?: boolean }) {
+export function LookupPanel({
+  shell,
+  start = "",
+  routed = false,
+  from,
+}: {
+  shell: Shell;
+  start?: string;
+  routed?: boolean;
+  /** The card it was opened from: sent with each question asked, and kept beside it. */
+  from?: LookupFrom;
+}) {
   // The Look up tab keeps the question answered in the address, and a reload asks it again
   // (kept answers come back free); a review card's sheet leaves the address alone.
   const [typed, setTyped] = useState(() => start || (routed ? (routeParam("q") ?? "") : ""));
@@ -913,7 +924,7 @@ export function LookupPanel({ shell, start = "", routed = false }: { shell: Shel
     setError(null);
     setAnswer(null);
     try {
-      setAnswer(await send<LookupAnswer>("lookup", { q, fresh: fresh || undefined }));
+      setAnswer(await send<LookupAnswer>("lookup", { q, fresh: fresh || undefined, from }));
     } catch (e) {
       setError(message(e));
     } finally {

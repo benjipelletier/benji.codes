@@ -451,7 +451,16 @@ Built on the owner's corpus alone, since that is what answers lead with:
   sentence card's sentence) but not asked, since asking costs money and the
   owner may edit it first ("幻觉 vs 幻想"). Back or × returns to the same
   card: a sheet rather than the Look up tab, so a long session keeps its
-  place. The owner asked for it.
+  place. The owner asked for it. A new word's Learn card has the same 查 tile
+  (owner, any step), opening the same sheet on the word.
+- **Lookups keep the card they were asked from** (`chongfuxi_lookup_card`,
+  made on first use; `linkLookup`): each question asked from a review or
+  Learn card's sheet, once answered (a kept answer too), records the card,
+  its word and kind, review or Learn, the sentence on it, the session or the
+  Learn step, and when. The owner wants it for later: what had to be looked
+  up while studying a word is evidence of how well it is known, for a model
+  judging that. The Look up tab's own questions have no card and record
+  none.
 - Owner only, at the owner's insistence (it spends their tokens): the route
   goes through `ownerOnly`, so signed out (or a forged cookie) it answers 401
   and signed in as anyone else 403, before any model call; the tab is hidden

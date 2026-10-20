@@ -16,7 +16,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import type { LookupAnswer, LookupAnswerV1, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupAnswerV1, LookupFrom, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
 import { addWords } from "./additions";
 import type { Sql } from "./db";
 import { loadDict } from "./dictfile";
@@ -327,7 +327,37 @@ async function ensure(sql: Sql) {
       primary key (owner_email, query)
     )
   `;
+  await sql`
+    create table if not exists chongfuxi_lookup_card (
+      owner_email text not null,
+      query text not null,
+      at timestamptz not null default now(),
+      card_id bigint not null,
+      word text,
+      kind text not null,
+      via text not null,
+      sentence_id bigint,
+      session text,
+      step text
+    )
+  `;
+  await sql`create index if not exists chongfuxi_lookup_card_card on chongfuxi_lookup_card (owner_email, card_id)`;
   ready = true;
+}
+
+/**
+ * A lookup asked from a card: which card, word, sentence, session or Learn
+ * step it was asked from, each time it is asked (cached answers too), so
+ * what the owner needed to look up while studying a word stays with it.
+ */
+export async function linkLookup(sql: Sql, owner: string, query: string, from: LookupFrom): Promise<void> {
+  const q = normalise(query);
+  if (!q) return;
+  await ensure(sql);
+  await sql`
+    insert into chongfuxi_lookup_card (owner_email, query, card_id, word, kind, via, sentence_id, session, step)
+    values (${owner}, ${q}, ${from.card}, ${from.word}, ${from.kind}, ${from.via}, ${from.sentence}, ${from.session}, ${from.step})
+  `;
 }
 
 /** The owner's sentences these answers cite, by id. */
