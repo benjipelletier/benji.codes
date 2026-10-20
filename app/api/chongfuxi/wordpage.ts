@@ -73,11 +73,11 @@ export async function wordPage(sql: Sql, owner: string, word: string): Promise<W
   await ensureLookupTables(sql);
 
   const [row] = (await sql`
-    select lists, glosses,
+    select status, lists, glosses,
            (select (extract(epoch from c.learned_at) * 1000)::double precision from chongfuxi_card c
             where c.owner_email = w.owner_email and c.word = w.word and c.kind = 'read' and c.meaning_id is null) as learned_at
     from chongfuxi_word w where w.owner_email = ${owner} and w.word = ${word}
-  `) as unknown as Array<{ lists: string[] | null; glosses: string[] | null; learned_at: number | null }>;
+  `) as unknown as Array<{ status: WordPage["status"]; lists: string[] | null; glosses: string[] | null; learned_at: number | null }>;
 
   const answers = (await sql.query(
     `select r.kind, m.gloss, ${ms("r.at")} as at, r.grade, r.comment
@@ -155,6 +155,7 @@ export async function wordPage(sql: Sql, owner: string, word: string): Promise<W
   const firstRows = total ? await wordSentences(sql, owner, word, firstStatus, 0) : [];
   return {
     ...detail,
+    status: row?.status ?? "deck",
     lists: row?.lists ?? [],
     origin: origin.map((o) => ({ source: o.source, at: Math.round(o.at), undone: o.undone })),
     answers: answers.map((a) => ({ kind: a.kind, meaning: a.gloss, at: Math.round(a.at), grade: a.grade })),

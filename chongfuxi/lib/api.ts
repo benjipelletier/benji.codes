@@ -314,6 +314,8 @@ export interface WordPageSentence extends SentenceInfo {
  * in, its Learn steps, and the words around it.
  */
 export interface WordPage extends WordDetail {
+  /** In the deck, on a list only (a candidate), or a name; the page offers to add any but a deck word. */
+  status: "deck" | "listed" | "name";
   lists: string[];
   /** How it came into the deck: each addition that brought it (a sync, a list, Look up, 龙库). */
   origin: Array<{ source: string; at: number; undone: boolean }>;

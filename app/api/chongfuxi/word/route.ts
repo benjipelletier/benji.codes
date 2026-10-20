@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AdditionError, removeWord } from "../additions";
+import { AdditionError, addFromPage, removeWord } from "../additions";
+import { loadDict } from "../dictfile";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
 import { WordError, suspendWord, wordDetail } from "../words";
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
+ * { word, action: "add" }: put it in the deck from its page (an addition, undone through additions/[id]).
  * { word, action: "remove" }: take a word out of the deck, its cards and answers with it.
  * { word, action: "suspend" | "resume" }: suspend it (its cards kept, not dealt, its sentences locked) or bring it back.
  */
@@ -28,10 +30,14 @@ export async function POST(req: NextRequest) {
   const input = await body<{ word?: string; action?: string }>(req);
   const word = input?.word?.trim();
   const action = input?.action;
-  if (!word || word.length > 20 || (action !== "remove" && action !== "suspend" && action !== "resume")) {
-    return bad("expected a word and action: remove, suspend or resume");
+  if (!word || word.length > 20 || (action !== "add" && action !== "remove" && action !== "suspend" && action !== "resume")) {
+    return bad("expected a word and action: add, remove, suspend or resume");
   }
   try {
+    if (action === "add") {
+      const added = await addFromPage(gate.sql, gate.owner, word, loadDict());
+      return NextResponse.json({ id: added?.id ?? null, added: added?.added ?? [], unlocked: added?.unlocked ?? 0 });
+    }
     if (action === "remove") return NextResponse.json(await removeWord(gate.sql, gate.owner, word));
     return NextResponse.json(await suspendWord(gate.sql, gate.owner, word, action === "suspend"));
   } catch (e) {

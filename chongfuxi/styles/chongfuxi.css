@@ -7758,9 +7758,11 @@ button.cf-synclog-row {
 
 /* ---- A word's page (WordSheet in WordWall.tsx): over everything, scrolling
  * on its own, a column of sections. */
+/* Under the app's header, which stays in view (the owner's request); over
+ * the whole screen only while a review hides the header (--cf-top-h 0). */
 .cf-wordpage {
   position: fixed;
-  inset: 0;
+  inset: var(--cf-top-h, 0px) 0 0;
   z-index: 30;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -7772,7 +7774,7 @@ button.cf-synclog-row {
   position: relative;
   max-width: 640px;
   margin: 0 auto;
-  padding: calc(18px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom));
+  padding: calc(18px + var(--cf-wp-safe, env(safe-area-inset-top))) 18px calc(40px + env(safe-area-inset-bottom));
 }
 
 .cf-wordpage h4 {
@@ -8197,4 +8199,31 @@ button.cf-synclog-row {
 /* In the history, the chips sit under their question, inside its row. */
 .cf-slist .cf-lk-words {
   margin: -4px 16px 10px;
+}
+
+/* Not in the deck: added from the top of the word page. */
+.cf-wp-add {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-wp-add p {
+  flex: 1 1 180px;
+  margin: 0;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wp-add .cf-btn {
+  flex: none;
+}
+
+.cf-wp-add.is-added p {
+  color: var(--cf-ink);
 }

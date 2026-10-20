@@ -893,7 +893,13 @@ the design was silent and are still to be confirmed.
   up's word lines for corpus words, on the text analyser's picked word, on
   Unlock next's sheet for a listed word, on a word card in the session's
   look-back list; a list's word row (Pleco is a tile on the page). A word in
-  no deck, list or sentence says so. Removing or bringing back a word on it
+  no deck, list or sentence says so. **A word not in the deck** (on a list,
+  a name, or only in the dictionary) has "Add to deck" at the top of its
+  page (the owner's request; `word` POST `{action: "add"}`, `addFromPage`:
+  one addition, source "page", a new Read card), then "Added… Undo", which
+  undoes the addition; Remove from deck shows only for deck words. The page
+  sits under the app's header, which stays in view (the owner asked), and
+  covers the screen only while a review hides the header. Removing or bringing back a word on it
   tells the screens showing it (`onChange`); "Open them under Sentences"
   shows while Cards is there to take it. the owner asked for a full dictionary page
   explaining how the word lives in the corpus, in place of the small sheet.

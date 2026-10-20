@@ -86,13 +86,15 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
   const [error, setError] = useState<string | null>(null);
   const [by, setBy] = useState<GroupBy>("due");
   const [query, setQuery] = useState("");
-  // A word removed or brought back from its page (opened over everything, lib/wordpage.ts).
+  // A word removed, brought back or added from its page (opened over everything, lib/wordpage.ts).
   useEffect(
     () =>
       wordpage.onChange(({ word, change }) =>
-        setWords((list) =>
-          change === "removed" ? (list?.filter((x) => x.word !== word) ?? null) : (list?.map((x) => (x.word === word ? { ...x, suspended: false } : x)) ?? null),
-        ),
+        change === "added"
+          ? void get<{ words: WordTile[] }>("words").then((r) => setWords(r.words), () => {})
+          : setWords((list) =>
+              change === "removed" ? (list?.filter((x) => x.word !== word) ?? null) : (list?.map((x) => (x.word === word ? { ...x, suspended: false } : x)) ?? null),
+            ),
       ),
     [],
   );
@@ -295,6 +297,7 @@ export function WordSheet({
   onClose,
   onRemoved,
   onBack,
+  onAdded,
   onFindSentences,
   onOpenWord,
 }: {
@@ -304,6 +307,8 @@ export function WordSheet({
   onRemoved: (word: string) => void;
   /** Brought back from being suspended. */
   onBack?: (word: string) => void;
+  /** Put in the deck from here (or that undone, which is onRemoved without closing). */
+  onAdded?: (word: string) => void;
   /** Its sentences under Sentences: only while Cards is on screen to show them. */
   onFindSentences?: (word: string) => void;
   /** Another word's page, from the words around this one. */
@@ -318,6 +323,41 @@ export function WordSheet({
   const [rows, setRows] = useState<Partial<Record<Standing, WordPageSentence[]>>>({});
   // Removing it from the deck: asked once, then done.
   const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
+  // Not in the corpus at all: only a dictionary word, which can still be added.
+  const [missing, setMissing] = useState(false);
+  // Put in the deck from here: the addition, to undo. The page is loaded again (`loads`) either way.
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState<{ id: number; unlocked: number } | null>(null);
+  const [loads, setLoads] = useState(0);
+  const add = async () => {
+    setAdding(true);
+    setError(null);
+    try {
+      const r = await send<{ id: number | null; unlocked: number }>("word", { word, action: "add" });
+      if (r.id) setAdded({ id: r.id, unlocked: r.unlocked });
+      onAdded?.(word);
+      setLoads((n) => n + 1);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setAdding(false);
+    }
+  };
+  const undoAdd = async () => {
+    if (!added) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await send(`additions/${added.id}`, { action: "undo" });
+      setAdded(null);
+      wordpage.changed({ word, change: "removed" });
+      setLoads((n) => n + 1);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const bringBack = async () => {
     setBringing(true);
@@ -361,24 +401,18 @@ export function WordSheet({
 
   useEffect(() => {
     setD(null);
-    setError(null);
+    setMissing(false);
     get<WordPage>("word/page", { w: word })
       .then((p) => {
         setD(p);
         setPanel(p.sentencesAll.status);
         setRows({ [p.sentencesAll.status]: p.sentencesAll.rows });
       })
-      .catch((e) =>
-        setError(
-          e instanceof ApiError && e.status === 404
-            ? `${word} isn't in your corpus yet: it's in no deck, list or sentence of yours, so there is nothing to show.`
-            : message(e),
-        ),
-      );
+      .catch((e) => (e instanceof ApiError && e.status === 404 ? setMissing(true) : setError(message(e))));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
-  }, [word, onClose]);
+  }, [word, onClose, loads]);
 
   const cutoff = today().cutoff;
   const date = (at: number) => new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -413,7 +447,36 @@ export function WordSheet({
         </header>
 
         {error && <p className="cf-error">{error}</p>}
-        {!d && !error && <Loading label="Gathering everything about it…" />}
+        {!d && !error && !missing && <Loading label="Gathering everything about it…" />}
+
+        {/* Not in the deck: added from here, at the top, where it is looked for (the owner's request). */}
+        {(missing || (d && d.status !== "deck")) && (
+          <section className="cf-wp-add">
+            <p>
+              {missing
+                ? `${word} isn't in your corpus yet: it's in no deck, list or sentence of yours.`
+                : d?.status === "name"
+                  ? "A name in your sentences, not in your deck."
+                  : "On a list, not in your deck."}
+            </p>
+            {canWrite && (
+              <button className="cf-btn" disabled={adding} onClick={() => void add()}>
+                {adding ? "Adding…" : "Add to deck"}
+              </button>
+            )}
+          </section>
+        )}
+        {added && d?.status === "deck" && (
+          <section className="cf-wp-add is-added">
+            <p>
+              Added to your deck: a new Read card
+              {added.unlocked > 0 && `, and ${fmt(added.unlocked)} ${added.unlocked === 1 ? "sentence" : "sentences"} readable now`}.
+            </p>
+            <button className="cf-btn cf-btn-ghost" disabled={adding} onClick={() => void undoAdd()}>
+              {adding ? "Undoing…" : "Undo"}
+            </button>
+          </section>
+        )}
 
         {d && (
           <>
@@ -690,7 +753,7 @@ export function WordSheet({
                 </button>
               </section>
             )}
-            {canWrite && (
+            {canWrite && d.status === "deck" && (
               <section className="cf-sheet-remove">
                 {removing === "ask" && (
                   <p>
@@ -738,6 +801,7 @@ function sourceName(source: string): string {
   if (source.startsWith("lookup:")) return `Added from Look up (“${source.slice(7)}”)`;
   if (source.startsWith("text:")) return `Added from the text ${source.slice(5)}`;
   if (source === "longku") return "Added in 龙库";
+  if (source === "page") return "Added from its word page";
   if (source.startsWith("anki")) return "Added from Pleco, through AnkiDroid";
   return `Added (${source})`;
 }
@@ -887,6 +951,7 @@ export function WordPageHost({ canWrite }: { canWrite: boolean }) {
             wordpage.changed({ word: w, change: "removed" });
           }}
           onBack={(w) => wordpage.changed({ word: w, change: "resumed" })}
+          onAdded={(w) => wordpage.changed({ word: w, change: "added" })}
           onFindSentences={
             find
               ? (w) => {

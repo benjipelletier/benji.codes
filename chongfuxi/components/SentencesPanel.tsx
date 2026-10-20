@@ -386,8 +386,8 @@ function SentenceSheet({
   const [picked, setPicked] = useState<number | null>(null);
   // Escape closes a word page opened over this one before this one.
   const wordUp = useSyncExternalStore(wordpage.subscribe, wordpage.openWord, () => null) !== null;
-  // A word removed from its page (opened over this one) changes what this sentence needs.
-  useEffect(() => wordpage.onChange(({ change }) => change === "removed" && onChanged()), [onChanged]);
+  // A word removed or added from its page (opened over this one) changes what this sentence needs.
+  useEffect(() => wordpage.onChange(({ change }) => change !== "resumed" && onChanged()), [onChanged]);
 
   useEffect(() => {
     get<SentenceDetail>("sentence", { id })

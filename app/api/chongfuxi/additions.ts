@@ -366,6 +366,22 @@ export async function addList(
 }
 
 /**
+ * Put one word in the deck from its page: a word of a list, a name, or any
+ * dictionary word. One addition, source "page", kept or undone like any other.
+ */
+export async function addFromPage(sql: Sql, owner: string, word: string, dict: Dict, at = Date.now()) {
+  if (!/^[\u3400-\u9fff]{1,8}$/.test(word)) throw new AdditionError("Only a Chinese word can go in the deck.");
+  const [row] = (await sql`
+    select status from chongfuxi_word where owner_email = ${owner} and word = ${word}
+  `) as unknown as Array<{ status: string }>;
+  if (row?.status === "deck") throw new AdditionError(`${word} is already in the deck.`);
+  if (!row && !definitionsFor(dict, word, null, null).length) {
+    throw new AdditionError(`${word} isn't a dictionary word, so it has no definition to put on a card.`);
+  }
+  return addWords(sql, owner, "page", [word], dict, at);
+}
+
+/**
  * Take a word out of the deck, from the app (deleting it in AnkiDroid does
  * nothing here). Its Read and Recall cards go, with their answers; it goes
  * back on its list if it came from one, out of the corpus otherwise; the

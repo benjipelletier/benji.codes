@@ -1,10 +1,10 @@
 // The word page, from anywhere: any screen with a word on it (a popup over a
 // sentence, Look up, a list, Unlock next, the session's answers) opens it
-// here, and the shell draws it over everything (`WordPageHost` in
-// ChongfuxiApp.tsx). Screens that show words hear when one is removed or
-// brought back, to redraw; Cards says how to find a word's sentences.
+// here, and the shell draws it over everything but its header (`WordPageHost` in
+// ChongfuxiApp.tsx). Screens that show words hear when one is removed,
+// brought back or added, to redraw; Cards says how to find a word's sentences.
 
-type Change = { word: string; change: "removed" | "resumed" };
+type Change = { word: string; change: "removed" | "resumed" | "added" };
 
 let open: string | null = null;
 const listeners = new Set<() => void>();
@@ -31,7 +31,7 @@ export function subscribe(f: () => void): () => void {
   return () => listeners.delete(f);
 }
 
-/** A word removed from the deck or brought back from its page. */
+/** A word removed from the deck, brought back or added, from its page. */
 export function changed(c: Change) {
   changeListeners.forEach((f) => f(c));
 }

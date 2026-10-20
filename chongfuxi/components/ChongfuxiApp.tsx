@@ -139,7 +139,7 @@ export function ChongfuxiApp() {
   };
 
   return (
-    <div className={`cfx${focus ? " is-focus" : ""}`} style={{ "--cf-top-h": `${topH}px` } as React.CSSProperties}>
+    <div className={`cfx${focus ? " is-focus" : ""}`} style={{ "--cf-top-h": `${topH}px`, "--cf-wp-safe": topH ? "0px" : undefined } as React.CSSProperties}>
       <header className="cf-top" ref={top}>
         <div className="cf-title">
           <h1>
