@@ -30,6 +30,7 @@ import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
+import { Rescue, RescueHook, StuckWords } from "./Rescue";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Answers still on their way that the server may not know about yet. */
@@ -168,7 +169,9 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   // A session under way is in the address, so a reload deals again what is still due
   // (lib/route.ts), with the kinds chosen on this device. Only drawn on the client.
   const [kinds, setKinds] = useState<SessionKinds>(() => rememberedKinds());
-  const [started, setStarted] = useState<"session" | "fast" | null>(() => (routeParam("review") === "session" ? "session" : null));
+  const [started, setStarted] = useState<"session" | "fast" | "rescue" | null>(() => (routeParam("review") === "session" ? "session" : null));
+  // The stuck word being rescued (Rescue.tsx), while `started` is "rescue".
+  const [rescuing, setRescuing] = useState<string | null>(null);
   const { setFocus, refresh } = shell;
   useRouteParam("review", started === "session" ? "session" : null);
   useEffect(() => {
@@ -195,6 +198,11 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     setFocus(true);
     setStarted(how);
   };
+  const rescue = (word: string) => {
+    setRescuing(word);
+    setFocus(true);
+    setStarted("rescue");
+  };
   // Left by the close button or back: Fast review's marks are kept, to carry on from Today.
   const end = useCallback(() => {
     setStarted((was) => {
@@ -209,6 +217,7 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   useEffect(() => () => setFocus(false), [setFocus]);
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load()} />;
+  if (started === "rescue" && rescuing) return <Rescue shell={shell} word={rescuing} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} />;
   return (
     <Today
@@ -217,6 +226,7 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
       onChoose={choose}
       onStart={() => begin("session")}
       onFast={() => begin("fast")}
+      onRescue={rescue}
       onImport={onImport}
     />
   );
@@ -229,6 +239,7 @@ function Today({
   onChoose,
   onStart,
   onFast,
+  onRescue,
   onImport,
 }: {
   shell: Shell;
@@ -236,6 +247,7 @@ function Today({
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
   onFast: () => void;
+  onRescue: (word: string) => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
@@ -292,6 +304,9 @@ function Today({
 
       {/* The days either side of today: reviewed before, due after, by kind. */}
       <DayStrip summary={s} kinds={kinds} />
+
+      {/* Words forgotten again and again, each with its AI rescue (Rescue.tsx). */}
+      <StuckWords onOpen={onRescue} />
 
       {/* What is due by kind, each row the choice to take that kind in or leave it out. */}
       <ul className="cf-kinds">
@@ -919,6 +934,7 @@ export function Session({
                     onSplit={split}
                     onMerge={merge}
                   />
+                  {card.hook && <RescueHook hook={card.hook} />}
                 </div>
               )}
             </>
@@ -949,6 +965,7 @@ export function Session({
                   {card.alternatives && card.alternatives.length > 0 && (
                     <p className="cf-muted cf-also">Also means this: {card.alternatives.join("、")}</p>
                   )}
+                  {card.hook && <RescueHook hook={card.hook} />}
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">

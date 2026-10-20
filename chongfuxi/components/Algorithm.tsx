@@ -13,7 +13,7 @@ import type { QueueNow, QueueWhy, SessionCard } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { ROLLOVER_HOUR } from "@chongfuxi/lib/day";
 import { AFTER_MISS, GAP, IN_PLAY, LADDER, LEARN_EVERY } from "@chongfuxi/lib/learn";
-import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
+import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, RESCUE_CLEAR, RESCUE_STREAK, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
 import {
   FSRS_WEIGHTS,
   FUZZ,
@@ -191,6 +191,15 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
       ["Retire", `${CLEAN_READS_TO_RETIRE} clean reads, distinct days`, "CLEAN_READS_TO_RETIRE"],
       ["Revive on word Again", "Shown + 1", "submitReview()"],
       ["Revived clean reads", String(REVIVED_CLEAN_READS), "REVIVED_CLEAN_READS"],
+    ],
+  },
+  {
+    title: "Rescue",
+    params: [
+      ["Stuck after", `${RESCUE_STREAK} wrong in a row`, "RESCUE_STREAK"],
+      ["Counts as wrong", "Again · tapped lapse", "stuckWords()"],
+      ["Hook shown until", `${RESCUE_CLEAR} Good in a row`, "RESCUE_CLEAR"],
+      ["Schedule effect", "None", "rescue.ts"],
     ],
   },
 ];

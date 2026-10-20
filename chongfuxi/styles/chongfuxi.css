@@ -8455,3 +8455,344 @@ button.cf-how-text {
   font-size: 11px;
   color: var(--cf-ink-soft);
 }
+
+/* Stuck words on Today, and their rescue (components/Rescue.tsx). */
+.cf-stuck {
+  margin: 16px 0 4px;
+}
+
+.cf-stuck h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cf-down);
+}
+
+.cf-stuck h3 small {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--cf-ink-soft);
+}
+
+.cf-stuck ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-stuck li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-stuck button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-stuck-zh {
+  flex: none;
+  font-size: 22px;
+}
+
+.cf-stuck-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-stuck-py {
+  font-size: 13px;
+  color: var(--cf-accent);
+}
+
+.cf-stuck-gloss {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-stuck-n {
+  flex: none;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-down);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-stuck-state {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cf-stuck-state.is-done {
+  background: var(--cf-up-soft);
+  color: var(--cf-up);
+}
+
+.cf-stuck-state.is-stale {
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+}
+
+.cf-rescue {
+  min-height: 100dvh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-top: env(safe-area-inset-top);
+}
+
+.cf-rescue-top {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-in {
+  padding: 16px 18px calc(32px + env(safe-area-inset-bottom));
+}
+
+.cf-rescue-in section + section,
+.cf-rescue-in .cf-rescue-hook + section {
+  margin-top: 18px;
+}
+
+.cf-rescue-in p {
+  line-height: 1.55;
+}
+
+.cf-rescue-head {
+  margin-bottom: 14px;
+}
+
+.cf-rescue-head .cf-rescue-word {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.cf-rescue-py {
+  margin: 4px 0 0;
+  font-size: 20px;
+  color: var(--cf-accent);
+}
+
+.cf-rescue-gloss {
+  margin: 2px 0 0;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-h {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-in section > p {
+  margin: 0;
+}
+
+.cf-rescue-hook {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--cf-accent);
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.cf-rescue-hook.is-card {
+  margin-top: 12px;
+  font-size: 15px;
+}
+
+.cf-rescue-hook-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-accent);
+}
+
+.cf-rescue-conf {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-rescue-conf li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.cf-rescue-conf li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-rescue-conf .cf-lk-wchip {
+  flex: none;
+}
+
+.cf-rescue-cpy {
+  color: var(--cf-accent);
+}
+
+.cf-rescue-from {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-rescue-stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cf-down-soft);
+}
+
+.cf-rescue-stale p {
+  flex: 1 1 160px;
+  margin: 0;
+}
+
+.cf-rescue-go {
+  margin-top: 18px;
+}
+
+.cf-rescue-qkind {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-prompt {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.5;
+}
+
+.cf-rescue-prompt.cf-zh {
+  font-size: 26px;
+}
+
+.cf-rescue-en {
+  margin: 6px 0 0;
+}
+
+.cf-rescue-choices {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-rescue-choice {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-rescue-choice .cf-zh {
+  font-size: 22px;
+}
+
+.cf-rescue-choice.is-right {
+  border-color: var(--cf-up);
+  background: var(--cf-up-soft);
+}
+
+.cf-rescue-choice.is-wrong {
+  border-color: var(--cf-down);
+  background: var(--cf-down-soft);
+}
+
+.cf-rescue-choice.is-off {
+  opacity: 0.5;
+}
+
+.cf-rescue-choice:disabled {
+  cursor: default;
+}
+
+.cf-rescue-verdict {
+  margin: 14px 0 0;
+}
+
+.cf-rescue-verdict.is-right {
+  color: var(--cf-up);
+}
+
+.cf-rescue-verdict.is-wrong {
+  color: var(--cf-down);
+}
+
+.cf-rescue-q .cf-buttons,
+.cf-rescue-end .cf-buttons {
+  margin-top: 16px;
+}
+
+.cf-rescue-score {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}

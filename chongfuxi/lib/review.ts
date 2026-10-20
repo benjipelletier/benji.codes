@@ -117,6 +117,10 @@ export const CONTEXT_CANDIDATES = 40;
 export const CONTEXT_MIN_HAN = 5;
 /** The length a context sentence is best at: long enough to say something, short enough to read at a glance. */
 export const CONTEXT_IDEAL_HAN = 9;
+/** A word whose last this many results (its cards' Forgots, its trips in sentences) were all wrong is stuck, and gets a rescue. */
+export const RESCUE_STREAK = 3;
+/** A rescued word's hook stays on its cards until this many Goods in a row after the rescue. */
+export const RESCUE_CLEAR = 2;
 
 /**
  * One queue out of three, each already in its own order. `position` is how

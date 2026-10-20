@@ -481,3 +481,19 @@ create table if not exists chongfuxi_lookup_card (
   step        text
 );
 create index if not exists chongfuxi_lookup_card_card on chongfuxi_lookup_card (owner_email, card_id);
+
+-- A stuck word's AI rescue (a word forgotten RESCUE_STREAK times in a row):
+-- what the model made (diagnosis, hook, confusions, quiz) and from how much
+-- evidence, when it was worked through, and how the quiz went. Made on first
+-- use (app/api/chongfuxi/rescue.ts).
+create table if not exists chongfuxi_rescue (
+  owner_email text        not null,
+  word        text        not null,
+  at          timestamptz not null default now(),
+  model       text        not null,
+  evidence    jsonb       not null,
+  rescue      jsonb       not null,
+  done_at     timestamptz,
+  drill       jsonb,
+  primary key (owner_email, word)
+);

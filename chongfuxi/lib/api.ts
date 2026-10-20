@@ -237,6 +237,54 @@ export interface SessionCard {
   wouldRetire?: boolean;
   /** Why the queue dealt it, for Settings › Algorithm. */
   why?: QueueWhy;
+  /** Word cards of a rescued word still recovering: the rescue's memory hook, shown on the back. */
+  hook?: string | null;
+}
+
+/** A word forgotten RESCUE_STREAK or more times in a row, for the Stuck section of Today. */
+export interface StuckWord {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  /** Wrong results in a row, the latest last: Forgots on its cards and trips in sentences. */
+  streak: number;
+  /** Of the streak: Forgots on its own cards, and sentences it tripped. */
+  missed: number;
+  tripped: number;
+  /** No rescue yet, one made and not yet worked through, one worked through, or one older than the latest miss. */
+  rescue: "none" | "ready" | "done" | "stale";
+}
+
+/** One quiz item of a rescue. A cloze is one of the owner's readable sentences with the word blanked. */
+export interface RescueDrillItem {
+  kind: "cloze" | "meaning" | "pick";
+  prompt: string;
+  choices: string[];
+  answer: string;
+  explain: string;
+  /** A cloze's sentence, with its translation. */
+  sentence: { id: number; en: string | null } | null;
+}
+
+/** What the model made for a stuck word, from everything known about it. */
+export interface Rescue {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  at: number;
+  model: string;
+  /** Why it keeps slipping, from the evidence. */
+  diagnosis: string;
+  /** One or two sentences to hold on to it; shown on its cards once the rescue is worked through. */
+  hook: string;
+  /** Words it is mixed up with, and the difference. */
+  confusions: Array<{ zh: string; pinyin: string; difference: string }>;
+  drill: RescueDrillItem[];
+  /** What it was made from. */
+  evidence: { missed: number; tripped: number; notes: number; lookups: number };
+  doneAt: number | null;
+  /** A miss came after it was made: it can be made again. */
+  stale: boolean;
 }
 
 /** Settings › Algorithm: the queue's output right now. */

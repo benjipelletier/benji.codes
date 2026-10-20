@@ -32,6 +32,7 @@ import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { longkuWords } from "./longku";
+import { rescueHooks } from "./rescue";
 import { SPOTIFY_LIST, moveSongLists, songsOf } from "./spotify";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import { mainSenses } from "@chongfuxi/lib/senses";
@@ -558,6 +559,8 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null; sources: string[] }>)
     : [];
 
+  // A rescued word still recovering shows its rescue's hook (rescue.ts).
+  const hooks = await rescueHooks(sql, owner, wordList);
   const out: SessionCard[] = [];
   for (const c of cards) {
     const schedule = scheduleOf(c);
@@ -579,7 +582,14 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
     const meaning = c.meaning_id === null ? null : (word.split.find((m) => m.id === c.meaning_id) ?? null);
     // Pleco tested recognition of the word as a whole, so its record belongs to that card only.
     const plecoRecord = c.kind === "read" && c.meaning_id === null ? (wordRows.find((w) => w.word === c.word)?.pleco ?? null) : null;
-    const card: SessionCard = { ...base, history: historyOf(c, plecoRecord), word, meaning, sentence: sentenceOf(chosen.get(c.id)) };
+    const card: SessionCard = {
+      ...base,
+      history: historyOf(c, plecoRecord),
+      word,
+      meaning,
+      sentence: sentenceOf(chosen.get(c.id)),
+      hook: hooks.get(c.word!) ?? null,
+    };
     if (c.kind === "produce") {
       // Other deck words with the same meaning, so "I said 快乐" can be judged against 高兴.
       const senses = meaning ? [meaning.gloss.toLowerCase()] : promptSenses(word.defs, word.pinyin).map((s) => s.toLowerCase());

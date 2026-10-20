@@ -721,6 +721,41 @@ no definition again (nor its reading, if the model gave that too, marked
 `aiPinyin`), and can be written afresh. Inside something already tappable
 (a list row, Fast review's cards, a tooltip) the pill is only a label.
 
+## Stuck words
+
+Asked for by the owner in October 2026: a section on Today for words got
+wrong again and again, with an AI rescue "to get the word out of forgotten
+land" (`app/api/chongfuxi/rescue.ts`, route `rescue`,
+`components/Rescue.tsx`). Choices the owner made: a rescue sheet plus a
+quiz; afterwards the hook shows on the word's cards and the schedule stays
+FSRS's; card misses and sentence trips both count.
+
+- **Stuck**: a deck word, not suspended, whose last `RESCUE_STREAK` (3)
+  results were all wrong. Results are its Read and Recall review rows with
+  cause `answer` (a Forgot) or `tapped` (a lapse from being tapped in a
+  forgotten sentence), by `seq`. Today lists them under "Stuck", the longest
+  streak first, each with ×streak and its rescue's state (Rescue, Ready,
+  Done, Missed again once a miss comes after the rescue was made).
+- **The rescue** is made when a stuck word is opened, by the owner only (it
+  costs money), once, then kept (`chongfuxi_rescue`); a miss after it was
+  made marks it stale, and "Make it again" asks anew. One structured-output
+  call at Look up's `MODEL` and `EFFORT` (never lower), given everything
+  `wordPage()` knows: meanings, every answer, what was written after each
+  Forgot, card notes, the sentences it tripped (with what was written),
+  other words tapped in those sentences, its lookups (with each stored
+  answer's summary, verdict and note), same-meaning and containing deck
+  words, an earlier rescue's hook and quiz score, and up to 12 readable
+  sentences with their ids. It gives a diagnosis, a hook, confusions, and a
+  quiz of 3 to 6 items (cloze, meaning, pick). `checkRescue` keeps what holds:
+  a cloze must cite one of the given sentences containing its answer (the
+  app blanks it, not the model), every answer must be one of its choices,
+  and too few good items refuse the rescue.
+- **Worked through** (`done`), the hook shows on the word's Read and Recall
+  card backs (`hook` on `SessionCard`, from `rescueHooks` in `dress`) until
+  `RESCUE_CLEAR` (2) Goods in a row after it. The quiz's results are kept and
+  fed to the next rescue. Nothing here changes a schedule.
+- Settings › Algorithm has the Rescue group.
+
 ## The owner's corpus
 
 From `flashbackup-2610131958.pqb` (35,974 cards), with `hsk1-4 sentences`
