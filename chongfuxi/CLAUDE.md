@@ -880,8 +880,10 @@ the design was silent and are still to be confirmed.
   tripped him (what he wrote after a Forgot on its cards, and the sentence
   cards forgotten with it tapped as the trouble); lookups (asked from its
   cards, with review or Learn and the step, or naming it, with the verdict);
-  every sentence it is in, readable first, then one away, then locked, each
-  with what keeps it locked, its card's reads and its decks, forty at a time;
+  every sentence it is in, in three panels (Readable, One away, Locked,
+  each with its count, the owner's request: tap one to see those), each
+  sentence with what keeps it locked, its card's reads and its decks, forty
+  at a time, a panel loaded when first opened;
   and how it lives in the corpus: how it came in (the additions that brought
   it, else the Pleco backup), its lists, its Learn, the sentences it
   unlocked and those it alone holds back, deck words with it inside and

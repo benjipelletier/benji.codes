@@ -322,6 +322,9 @@ export function WordSheet({
   const [error, setError] = useState<string | null>(null);
   const [bringing, setBringing] = useState(false);
   const [more, setMore] = useState(false);
+  // Its sentences a panel at a time (readable, one away, locked), each loaded when first opened.
+  const [panel, setPanel] = useState<Standing>("readable");
+  const [rows, setRows] = useState<Partial<Record<Standing, WordPageSentence[]>>>({});
   // Removing it from the deck: asked once, then done.
   const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
 
@@ -349,24 +352,31 @@ export function WordSheet({
       setRemoving(null);
     }
   };
-  const moreSentences = async () => {
-    if (!d || more) return;
+  const loadSentences = async (status: Standing, offset: number) => {
     setMore(true);
     try {
-      const r = await get<{ rows: WordPageSentence[] }>("word/page", { w: word, sentences: d.sentencesAll.rows.length });
-      setD((x) => (x ? { ...x, sentencesAll: { ...x.sentencesAll, rows: [...x.sentencesAll.rows, ...r.rows] } } : x));
+      const r = await get<{ rows: WordPageSentence[] }>("word/page", { w: word, status, sentences: offset });
+      setRows((x) => ({ ...x, [status]: [...(offset ? (x[status] ?? []) : []), ...r.rows] }));
     } catch (e) {
       setError(message(e));
     } finally {
       setMore(false);
     }
   };
+  const openPanel = (status: Standing) => {
+    setPanel(status);
+    if (!rows[status]) void loadSentences(status, 0);
+  };
 
   useEffect(() => {
     setD(null);
     setError(null);
     get<WordPage>("word/page", { w: word })
-      .then(setD)
+      .then((p) => {
+        setD(p);
+        setPanel(p.sentencesAll.status);
+        setRows({ [p.sentencesAll.status]: p.sentencesAll.rows });
+      })
       .catch((e) => setError(message(e)));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", esc);
@@ -562,41 +572,56 @@ export function WordSheet({
             {/* Its sentences, every one. */}
             <section className="cf-wp-section">
               <h3>Sentences</h3>
-              <p className="cf-sheet-counts">
-                <span>
-                  <b>{fmt(d.sentences.readable)}</b> readable
-                </span>
-                <span>
-                  <b>{fmt(d.sentences.oneAway)}</b> one word away
-                </span>
-                <span>
-                  <b>{fmt(d.sentences.locked)}</b> locked
-                </span>
-                <span>
-                  read in context <b>{fmt(d.exposures)}</b> {d.exposures === 1 ? "time" : "times"}
-                </span>
-              </p>
-              <ul className="cf-wp-sentences">
-                {d.sentencesAll.rows.map((s) => (
-                  <li key={s.id} className={`is-${s.status}`}>
-                    <p className="cf-zh">
-                      <Highlighted text={s.zh} word={word} />
-                    </p>
-                    {s.en && <p className="cf-en">{s.en}</p>}
-                    <p className="cf-wp-meta">
-                      <i className="cf-wp-dot" />
-                      {s.status === "readable" ? "Readable" : `Needs ${s.blockers.join(", ")}`}
-                      {s.card && (s.card.retired ? " · retired" : s.card.answered ? ` · read ${fmt(s.card.answered)}×, ${s.card.cleanReads} of 2 clean` : " · card not started")}
-                      {s.sources.length > 0 && ` · ${s.sources.join(", ")}`}
-                    </p>
-                  </li>
+              {/* A panel per standing, each with its count: tap Locked to see the locked ones. */}
+              <div className="cf-chips cf-wp-panels" role="tablist">
+                {STANDINGS.map((t) => (
+                  <button
+                    key={t.key}
+                    role="tab"
+                    aria-selected={panel === t.key}
+                    className={`cf-chip${panel === t.key ? " is-on" : ""}`}
+                    onClick={() => openPanel(t.key)}
+                  >
+                    {t.label}
+                    <small>{fmt(d.sentences[t.count])}</small>
+                  </button>
                 ))}
-              </ul>
-              {d.sentencesAll.rows.length < d.sentencesAll.total && (
-                <button className="cf-more" disabled={more} onClick={() => void moreSentences()}>
-                  {more ? "Loading…" : `Show more (${fmt(d.sentencesAll.total - d.sentencesAll.rows.length)} left)`}
-                </button>
-              )}
+              </div>
+              <p className="cf-muted cf-wp-read">
+                Read in context {fmt(d.exposures)} {d.exposures === 1 ? "time" : "times"}
+              </p>
+              {(() => {
+                const shown = rows[panel];
+                const total = d.sentences[STANDINGS.find((t) => t.key === panel)!.count];
+                if (!shown) return <Loading small label="Finding them…" />;
+                if (!shown.length) return <p className="cf-muted">None.</p>;
+                return (
+                  <>
+                    <ul className="cf-wp-sentences">
+                      {shown.map((s) => (
+                        <li key={s.id} className={`is-${s.status}`}>
+                          <p className="cf-zh">
+                            <Highlighted text={s.zh} word={word} />
+                          </p>
+                          {s.en && <p className="cf-en">{s.en}</p>}
+                          <p className="cf-wp-meta">
+                            <i className="cf-wp-dot" />
+                            {s.status === "readable" ? "Readable" : `Needs ${s.blockers.join(", ")}`}
+                            {s.card &&
+                              (s.card.retired ? " · retired" : s.card.answered ? ` · read ${fmt(s.card.answered)}×, ${s.card.cleanReads} of 2 clean` : " · card not started")}
+                            {s.sources.length > 0 && ` · ${s.sources.join(", ")}`}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                    {shown.length < total && (
+                      <button className="cf-more" disabled={more} onClick={() => void loadSentences(panel, shown.length)}>
+                        {more ? "Loading…" : `Show more (${fmt(total - shown.length)} left)`}
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
               {d.sentencesAll.total > 0 && (
                 <button className="cf-btn cf-btn-ghost" onClick={() => onFindSentences(word)}>
                   Open them under Sentences
@@ -702,6 +727,13 @@ export function WordSheet({
     </div>
   );
 }
+
+type Standing = WordPageSentence["status"];
+const STANDINGS: Array<{ key: Standing; label: string; count: "readable" | "oneAway" | "locked" }> = [
+  { key: "readable", label: "Readable", count: "readable" },
+  { key: "oneAway", label: "One away", count: "oneAway" },
+  { key: "locked", label: "Locked", count: "locked" },
+];
 
 /** Where an addition came from, as the owner would say it. */
 function sourceName(source: string): string {

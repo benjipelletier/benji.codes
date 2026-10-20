@@ -18,8 +18,20 @@ export const PAGE_SENTENCES = 40;
 
 const ms = (column: string) => `(extract(epoch from ${column}) * 1000)::double precision`;
 
-/** A page of the sentences a word is in: readable first, then one away, then locked; each nearest a natural length first. */
-export async function wordSentences(sql: Sql, owner: string, word: string, offset: number, limit = PAGE_SENTENCES): Promise<WordPageSentence[]> {
+/** Which sentences: readable, one word away, or locked by two or more. */
+export type SentenceStatus = WordPageSentence["status"];
+const BLOCKERS: Record<SentenceStatus, [number, number]> = { readable: [0, 0], oneAway: [1, 1], locked: [2, 1_000_000] };
+
+/** A page of the sentences a word is in, of one standing; each nearest a natural length first. */
+export async function wordSentences(
+  sql: Sql,
+  owner: string,
+  word: string,
+  status: SentenceStatus,
+  offset: number,
+  limit = PAGE_SENTENCES,
+): Promise<WordPageSentence[]> {
+  const [lo, hi] = BLOCKERS[status];
   const rows = (await sql`
     select s.id::int as id, s.zh, s.en, s.sources, coalesce(s.blockers, '{}') as blockers,
            (select array_agg(t2.word order by t2.pos) from chongfuxi_token t2
@@ -28,7 +40,8 @@ export async function wordSentences(sql: Sql, owner: string, word: string, offse
     from (select distinct sentence_id from chongfuxi_token where owner_email = ${owner} and word = ${word}) t
     join chongfuxi_sentence s on s.owner_email = ${owner} and s.id = t.sentence_id
     left join chongfuxi_card c on c.owner_email = s.owner_email and c.kind = 'sentence' and c.sentence_id = s.id
-    order by least(cardinality(coalesce(s.blockers, '{}')), 2), abs(char_length(s.key) - ${CONTEXT_IDEAL_HAN}), s.id
+    where cardinality(coalesce(s.blockers, '{}')) between ${lo} and ${hi}
+    order by abs(char_length(s.key) - ${CONTEXT_IDEAL_HAN}), s.id
     limit ${limit} offset ${offset}
   `) as unknown as Array<{
     id: number;
@@ -138,13 +151,16 @@ export async function wordPage(sql: Sql, owner: string, word: string): Promise<W
     : [];
 
   const total = detail.sentences.readable + detail.sentences.oneAway + detail.sentences.locked;
+  const firstStatus: SentenceStatus = detail.sentences.readable ? "readable" : detail.sentences.oneAway ? "oneAway" : "locked";
+  const firstRows = total ? await wordSentences(sql, owner, word, firstStatus, 0) : [];
   return {
     ...detail,
     lists: row?.lists ?? [],
     origin: origin.map((o) => ({ source: o.source, at: Math.round(o.at), undone: o.undone })),
     answers: answers.map((a) => ({ kind: a.kind, meaning: a.gloss, at: Math.round(a.at), grade: a.grade })),
     notes: answers.filter((a) => a.comment).map((a) => ({ kind: a.kind, at: Math.round(a.at), comment: a.comment! })),
-    sentencesAll: { total, rows: total ? await wordSentences(sql, owner, word, 0) : [] },
+    // The first panel with any: readable, else one away, else locked.
+    sentencesAll: { total, status: firstStatus, rows: firstRows },
     tripped: tripped.map((t) => ({ id: t.id, zh: zhShown(t.zh), en: t.en, at: Math.round(t.at), comment: t.comment })),
     lookups: lookups.map((l) => ({ ...l, at: Math.round(l.at) })),
     learn: {

@@ -321,8 +321,8 @@ export interface WordPage extends WordDetail {
   answers: Array<{ kind: CardKind; meaning: string | null; at: number; grade: Grade }>;
   /** What was written after a Forgot on its cards ("what tripped you up?"). */
   notes: Array<{ kind: CardKind; at: number; comment: string }>;
-  /** Its sentences, readable first; more with `word/page?sentences=<offset>`. */
-  sentencesAll: { total: number; rows: WordPageSentence[] };
+  /** Its sentences, a panel at a time: the first panel with any, and its first rows; more with `word/page?status=&sentences=<offset>`. */
+  sentencesAll: { total: number; status: WordPageSentence["status"]; rows: WordPageSentence[] };
   /** Sentence cards forgotten with this word tapped as the trouble. */
   tripped: Array<{ id: number; zh: string; en: string | null; at: number; comment: string | null }>;
   /** Lookups about it: asked from its cards, or naming it. */

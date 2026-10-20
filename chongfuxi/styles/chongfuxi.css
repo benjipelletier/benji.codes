@@ -8049,3 +8049,12 @@ button.cf-synclog-row {
   margin: 0 0 6px;
   font-size: 13px;
 }
+
+.cf-wp-panels {
+  margin-bottom: 8px;
+}
+
+.cf-wp-read {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+}
