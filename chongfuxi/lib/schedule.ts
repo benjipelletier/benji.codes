@@ -36,10 +36,20 @@ const DAY = 86_400_000;
 export const RETENTION = 0.9;
 /** The longest a card can go between showings, in days. */
 export const MAX_INTERVAL_DAYS = 36500;
+/** Intervals nudged a little at random, so cards seeded together don't come back together. */
+export const FUZZ = true;
+/** FSRS's same-day learning steps: off, so every answer sends a card a day or more away. */
+export const SAME_DAY_STEPS = false;
 
-const scheduler = fsrs(
-  generatorParameters({ request_retention: RETENTION, maximum_interval: MAX_INTERVAL_DAYS, enable_fuzz: true, enable_short_term: false }),
-);
+const parameters = generatorParameters({
+  request_retention: RETENTION,
+  maximum_interval: MAX_INTERVAL_DAYS,
+  enable_fuzz: FUZZ,
+  enable_short_term: SAME_DAY_STEPS,
+});
+const scheduler = fsrs(parameters);
+/** FSRS's model weights: ts-fsrs's defaults, not trained on the owner's answers. */
+export const FSRS_WEIGHTS: readonly number[] = [...parameters.w];
 
 function toCard(s: Schedule): Card {
   return {
@@ -81,6 +91,15 @@ export function newSchedule(at: number): Schedule {
  * about six months after its first right answer, and earns the rest here.
  */
 export const SEED_CAP_DAYS = 60;
+/** The least a seeded card starts with, in days. */
+export const SEED_MIN_DAYS = 0.5;
+/** A Recall card seeded from Pleco starts at this share of the Read card's strength. */
+export const RECALL_SEED_FACTOR = 0.5;
+/**
+ * A seeded card's difficulty (1 to 10): `base` plus `perMissRate` times the
+ * share of Pleco's answers that were wrong; `unknown` when Pleco has no answers.
+ */
+export const SEED_DIFFICULTY = { base: 3, perMissRate: 12, unknown: 5 } as const;
 
 /**
  * Where a card starts, given what Pleco knew.
@@ -101,9 +120,11 @@ export const SEED_CAP_DAYS = 60;
  */
 export function seedSchedule(pleco: PlecoSeed | null, kind: CardKind, at: number): Schedule {
   if (!pleco || !pleco.last || !pleco.score) return newSchedule(at);
-  const stability = Math.min(Math.max(pleco.score / 100, 0.5), SEED_CAP_DAYS) * (kind === "produce" ? 0.5 : 1);
+  const stability = Math.min(Math.max(pleco.score / 100, SEED_MIN_DAYS), SEED_CAP_DAYS) * (kind === "produce" ? RECALL_SEED_FACTOR : 1);
   const total = pleco.correct + pleco.incorrect;
-  const difficulty = total ? Math.min(Math.max(3 + (12 * pleco.incorrect) / total, 1), 10) : 5;
+  const difficulty = total
+    ? Math.min(Math.max(SEED_DIFFICULTY.base + (SEED_DIFFICULTY.perMissRate * pleco.incorrect) / total, 1), 10)
+    : SEED_DIFFICULTY.unknown;
   return {
     state: State.Review,
     due: at,

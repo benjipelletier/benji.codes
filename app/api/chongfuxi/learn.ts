@@ -32,14 +32,8 @@ import { blankOut, contextFit } from "@chongfuxi/lib/review";
 /** Which words Learn takes first: those part way up the ladder, then the newest (the ones just added). */
 export const LEARN_ORDER = `(c.learn_step is null), c.id desc`;
 
-/** Words in a list's Learn drill. */
-export const LEARN_MAX = 10;
-/** Words sent to a review session: enough for a long one, five on the ladder at a time. */
-export const LEARN_SESSION_MAX = 30;
-/** Sentences sent per word: enough for a new one at every step, and again after a miss. */
-const SENTENCES_PER_WORD = 8;
-/** Longer than this (in Han characters) is too much to read while learning a word. */
-const LEARN_SENTENCE_MAX_HAN = 30;
+import { LEARN_MAX, LEARN_SENTENCE_MAX_HAN, LEARN_SESSION_MAX, SENTENCES_PER_WORD } from "@chongfuxi/lib/learn";
+export { LEARN_MAX, LEARN_SESSION_MAX };
 
 /**
  * The next words to learn, from one list or from the whole deck, each with

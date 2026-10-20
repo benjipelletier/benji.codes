@@ -66,19 +66,24 @@ check every screen at 360px wide first.
   like Cards' and didn't want tabs here.
 - **How cards are chosen** (`components/HowItWorks.tsx`, route `how`,
   `app/api/chongfuxi/how.ts`): the owner asked for one place showing "how the
-  cookie is made", not being able to tell how cards are picked. Right now:
-  what is due by kind, new sentences ready, words waiting for Learn, cards
-  held back by the one-word-a-day rule, due word cards by their recall odds,
-  the cards a session started now would deal (from `nextCards` itself, each
-  with `why`: its line, and its odds, how overdue, or which word a new
-  sentence is for), with Learn steps where they'd fall, and the words Learn
-  takes next. Then the rules in the order a card meets them (where cards
-  come from, Learn, FSRS, unlocking, the three lines, the mix, one word a
-  day, what an answer does, other ways in), each naming its code. The
-  numbers in the rules are the code's constants, imported (`RETENTION`,
-  `SEED_CAP_DAYS`, `CYCLE`, `DUE_PER_NEW`, `LEARN_EVERY`, the ladder's
-  `GAP`…), so changing one changes the page. **Change the page whenever a
-  rule it describes changes.**
+  cookie is made", not being able to tell how cards are picked, then for it
+  to be about the algorithm's parameters (read-only, the owner's choice over
+  tuning them here). By stage (Memory model, Starting from Pleco, Learn, The
+  session queue, Sentences), every parameter: its value, what it controls,
+  what raising or lowering it would do, and its name in the code; the FSRS
+  weights fold out. The values are the code's constants, imported from
+  `lib/` (`RETENTION`, `FUZZ`, `SAME_DAY_STEPS`, `FSRS_WEIGHTS`,
+  `SEED_CAP_DAYS`, `SEED_DIFFICULTY`, `RECALL_SEED_FACTOR`, `ROLLOVER_HOUR`,
+  `CYCLE`, `DUE_PER_NEW`, `SESSION_BATCH`, `WORD_POOL_FACTOR`, `CONTEXT_*`,
+  `LEARN_EVERY`, the ladder's `GAP`…; moved there from server files and
+  ReviewPanel so the page can read them), so changing one changes the page.
+  Then Today: what is due by kind, new sentences ready, words waiting for
+  Learn, cards held back by the one-word-a-day rule, due word cards by their
+  recall odds, the cards a session started now would deal (from `nextCards`
+  itself, each with `why`: its line, and its odds, how overdue, or which word
+  a new sentence is for), with Learn steps where they'd fall, and the words
+  Learn takes next. **Add a parameter here whenever one is added, and change
+  the page whenever a rule it describes changes.**
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.

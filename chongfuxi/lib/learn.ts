@@ -28,6 +28,14 @@ export const GAP: Record<LearnStep, number> = {
 };
 /** Turns before a missed word comes back. */
 export const AFTER_MISS = 2;
+/** Words in a list's Learn drill. */
+export const LEARN_MAX = 10;
+/** Words sent to a review session: enough for a long one, five on the ladder at a time. */
+export const LEARN_SESSION_MAX = 30;
+/** Sentences sent per word: enough for a new one at every step, and again after a miss. */
+export const SENTENCES_PER_WORD = 8;
+/** Longer than this (in Han characters) is too much to read while learning a word. */
+export const LEARN_SENTENCE_MAX_HAN = 30;
 
 export interface LearnItem {
   word: LearnWord;

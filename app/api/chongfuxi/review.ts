@@ -38,7 +38,12 @@ import { mainSenses } from "@chongfuxi/lib/senses";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
 import {
   CLEAN_READS_TO_RETIRE,
+  CONTEXT_CANDIDATES,
+  CONTEXT_IDEAL_HAN,
+  CONTEXT_MIN_HAN,
+  CONTEXT_POOL,
   DUE_PER_NEW,
+  WORD_POOL_FACTOR,
   REVIVED_CLEAN_READS,
   contextFit,
   interleave,
@@ -57,14 +62,8 @@ export function shownPinyin(pinyin: string | null, defs: Definition[] | null): s
   return pinyin || defs?.find((d) => /^[a-z]/.test(d.p))?.p || defs?.[0]?.p || null;
 }
 
-/** A word card rotates through this many of its readable sentences, best first (see `dress`). */
-const CONTEXT_POOL = 12;
-/** Ranked in SQL before the ones that fit badly (contextFit) are sent to the back. */
-const CONTEXT_CANDIDATES = 40;
-/** Shorter than this is a scrap (我哥哥。), shown under a word only when the word has nothing longer. */
-export const CONTEXT_MIN_HAN = 5;
-/** The length a context sentence is best at: long enough to say something, short enough to read at a glance. */
-export const CONTEXT_IDEAL_HAN = 9;
+// The context sentences' lengths, kept with the other queue settings in lib/review.ts.
+export { CONTEXT_IDEAL_HAN, CONTEXT_MIN_HAN };
 
 export interface CardRow {
   id: number;
@@ -279,7 +278,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
       o.exclude,
       o.skipWords,
       day.day,
-      o.limit * 4,
+      o.limit * WORD_POOL_FACTOR,
       [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
       at,
       ...(inList?.params ?? []),

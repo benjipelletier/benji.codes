@@ -2,7 +2,7 @@
 // session still counts for the day it started in. A card is due "today" if it
 // is due before the day ends, whatever the hour.
 
-const ROLLOVER_HOUR = 4;
+export const ROLLOVER_HOUR = 4;
 
 export interface StudyDay {
   /** YYYY-MM-DD, the local date the day began on. */

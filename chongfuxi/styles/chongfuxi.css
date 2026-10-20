@@ -8402,62 +8402,128 @@ button.cf-how-text {
   margin: 0;
 }
 
-.cf-how-rule {
-  margin-top: 14px;
-  padding: 14px 16px;
+.cf-how-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cf-how-toc button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 999px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cf-how-group {
+  margin-top: 26px;
+  scroll-margin-top: calc(var(--cf-top-h, 0px) + 12px);
+}
+
+.cf-how-about {
+  margin: 0 0 10px;
+}
+
+.cf-how-params {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--cf-rule);
   border-radius: 14px;
   background: var(--cf-surface);
+  overflow: hidden;
 }
 
-.cf-how-rule h3 {
+.cf-how-param {
+  padding: 12px 14px;
+}
+
+.cf-how-param + .cf-how-param {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-how-ph {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 8px;
-  font-size: 16px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cf-how-pname {
   font-weight: 650;
 }
 
-.cf-how-rn {
-  display: inline-grid;
-  place-items: center;
+.cf-how-pval {
   flex: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--cf-accent-soft);
-  color: var(--cf-accent);
-  font-size: 13px;
+  max-width: 55%;
+  text-align: right;
   font-weight: 700;
+  color: var(--cf-accent);
+  font-variant-numeric: tabular-nums;
 }
 
-.cf-how-rule p,
-.cf-how-rule li {
-  font-size: 15px;
-  line-height: 1.55;
+.cf-how-pdoes {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cf-ink-soft);
 }
 
-.cf-how-rule p {
-  margin: 0 0 8px;
+.cf-how-pmove {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
 }
 
-.cf-how-rule ul {
-  margin: 0 0 8px;
-  padding-left: 18px;
+.cf-how-pmove b {
+  display: inline-block;
+  width: 14px;
+  color: var(--cf-ink);
 }
 
-.cf-how-rule li + li {
+.cf-how-pcode {
+  display: inline-block;
   margin-top: 6px;
+  font-size: 11px;
+  color: var(--cf-ink-faint);
+  overflow-wrap: anywhere;
 }
 
-.cf-how-code {
-  margin: 10px 0 0 !important;
-  font-size: 12px !important;
+.cf-how-weights {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.cf-how-weights summary {
+  cursor: pointer;
+  color: var(--cf-accent);
+}
+
+.cf-how-weights ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 2px 12px;
+  margin: 6px 0 0;
+  padding-left: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-ink-soft);
+}
+
+.cf-how-file {
+  margin: 8px 0 0;
+  font-size: 12px;
   color: var(--cf-ink-faint);
 }
 
-.cf-how-code code {
-  font-size: 12px;
+.cf-how-file code {
   overflow-wrap: anywhere;
 }

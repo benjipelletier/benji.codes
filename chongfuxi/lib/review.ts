@@ -104,6 +104,19 @@ export function blankOut(zh: string, word: string): string | null {
 export const CYCLE = ["word", "sentence", "word", "new"] as const;
 /** While cards are due, a batch takes one new sentence for every this many due. */
 export const DUE_PER_NEW = 3;
+/** Cards a session fetches at a time, and how few left in hand before it fetches more. */
+export const SESSION_BATCH = 10;
+export const REFILL_AT = 3;
+/** Due word cards read per batch, as a multiple of the batch, before one card per word is kept. */
+export const WORD_POOL_FACTOR = 4;
+/** A word card rotates through this many of its readable sentences, best first. */
+export const CONTEXT_POOL = 12;
+/** Ranked in SQL before the ones that fit badly (contextFit) are sent to the back. */
+export const CONTEXT_CANDIDATES = 40;
+/** Shorter than this is a scrap (我哥哥。), shown under a word only when the word has nothing longer. */
+export const CONTEXT_MIN_HAN = 5;
+/** The length a context sentence is best at: long enough to say something, short enough to read at a glance. */
+export const CONTEXT_IDEAL_HAN = 9;
 
 /**
  * One queue out of three, each already in its own order. `position` is how

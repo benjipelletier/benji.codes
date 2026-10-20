@@ -19,7 +19,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import { blankOut } from "@chongfuxi/lib/review";
+import { REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -32,9 +32,6 @@ import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
-/** Cards fetched at a time, and how few are left in hand before fetching more. */
-const BATCH = 10;
-const REFILL_AT = 3;
 /** Answers still on their way that the server may not know about yet. */
 const IN_FLIGHT = 20;
 /** How long an answered card takes to slide away, in ms. Matches the stylesheet. */
