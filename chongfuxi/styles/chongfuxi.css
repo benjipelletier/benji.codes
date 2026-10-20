@@ -7755,3 +7755,297 @@ button.cf-synclog-row {
   font-size: 1.08em;
   color: var(--cf-ink);
 }
+
+/* ---- A word's page (WordSheet in WordWall.tsx): over everything, scrolling
+ * on its own, a column of sections. */
+.cf-wordpage {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--cf-bg);
+  animation: cf-fade 0.15s ease both;
+}
+
+.cf-wordpage-in {
+  position: relative;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(18px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom));
+}
+
+.cf-wordpage h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cf-kind);
+}
+
+.cf-wp-section {
+  margin-top: 26px;
+}
+
+.cf-wp-section > h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wp-defs {
+  display: grid;
+  gap: 10px;
+}
+
+.cf-wp-def ol {
+  margin: 2px 0 0;
+  padding-left: 22px;
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+
+.cf-wp-def-from {
+  font-size: 12.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wp-line {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wp-line b {
+  color: var(--cf-ink);
+  font-weight: 600;
+}
+
+.cf-wp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wp-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+  font-size: 14.5px;
+}
+
+.cf-wp-note span {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-wp-sentences {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+}
+
+.cf-wp-sentences li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-wp-sentences .cf-zh {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.cf-wp-sentences .cf-en {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+/* A sentence's standing, as Sentences shows it: green readable, amber one away, grey locked. */
+.cf-wp-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cf-ink-faint);
+}
+
+.cf-wp-sentences .is-readable .cf-wp-dot {
+  background: var(--cf-sentence);
+}
+
+.cf-wp-sentences .is-oneAway .cf-wp-dot {
+  background: var(--cf-new);
+}
+
+.cf-wp-sentences .is-locked .cf-zh {
+  color: var(--cf-ink-soft);
+}
+
+.cf-wp-lookups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-wp-lookups li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-wp-lookup-q {
+  font-size: 15px;
+}
+
+.cf-wp-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.cf-wp-facts div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 14px;
+}
+
+.cf-wp-facts dt {
+  color: var(--cf-ink-faint);
+}
+
+.cf-wp-facts dd {
+  margin: 0;
+}
+
+.cf-wp-chips {
+  margin-top: 14px;
+}
+
+.cf-wp-chips .cf-muted {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+}
+
+.cf-wp-chips div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cfx .cf-wp-chip {
+  padding: 4px 11px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-size: 16px;
+}
+
+/* The got-it chart: recessive grid and axis, 2px lines, dots filled for got it and ringed for forgot. */
+.cf-wp-chart {
+  margin: 0 0 6px;
+  padding: 12px 12px 8px;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  border: 1px solid var(--cf-rule);
+}
+
+.cf-wp-chart figcaption {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wp-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  overflow: visible;
+}
+
+.cf-wp-grid {
+  stroke: var(--cf-rule);
+  stroke-width: 1;
+}
+
+.cf-wp-axis,
+.cf-wp-label {
+  font-size: 9.5px;
+  fill: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-wp-label {
+  fill: var(--cf-ink-soft);
+  font-weight: 600;
+}
+
+.cf-wp-series {
+  --hue: var(--cf-read);
+}
+
+.cf-wp-series.is-produce {
+  --hue: var(--cf-recall);
+}
+
+.cf-wp-series polyline {
+  fill: none;
+  stroke: var(--hue);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cf-wp-series circle {
+  stroke: var(--cf-surface);
+  stroke-width: 1.5;
+  fill: var(--hue);
+}
+
+.cf-wp-series circle.is-forgot {
+  fill: var(--cf-surface);
+  stroke: var(--hue);
+  stroke-width: 2;
+}
+
+.cf-wp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-wp-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  margin-right: 2px;
+  vertical-align: middle;
+  border-radius: 2px;
+  background: var(--cf-read);
+}
+
+.cf-wp-legend .is-produce i {
+  background: var(--cf-recall);
+}
+
+.cf-wp-chart-empty {
+  margin: 0 0 6px;
+  font-size: 13px;
+}

@@ -519,6 +519,7 @@ function SentenceSheet({
               setWordOpen(null);
               onFind(w);
             }}
+            onOpenWord={setWordOpen}
           />
         </>
       )}

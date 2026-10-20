@@ -298,6 +298,45 @@ export interface WordDetail {
   };
 }
 
+/** A sentence a word is in, on its page: where it stands and what its card has done. */
+export interface WordPageSentence extends SentenceInfo {
+  status: "readable" | "oneAway" | "locked";
+  /** The words keeping it locked. */
+  blockers: string[];
+  /** Its sentence card, once it has one. */
+  card: { answered: number; cleanReads: number; retired: boolean } | null;
+}
+
+/**
+ * A word's page: everything about how it lives in the owner's corpus, on top
+ * of its sheet (WordDetail): every answer for the chart, every sentence it is
+ * in, where it tripped a sentence, what was looked up about it, how it came
+ * in, its Learn steps, and the words around it.
+ */
+export interface WordPage extends WordDetail {
+  lists: string[];
+  /** How it came into the deck: each addition that brought it (a sync, a list, Look up, 龙库). */
+  origin: Array<{ source: string; at: number; undone: boolean }>;
+  /** Every answer on its word cards, oldest first: the chart's points. */
+  answers: Array<{ kind: CardKind; meaning: string | null; at: number; grade: Grade }>;
+  /** What was written after a Forgot on its cards ("what tripped you up?"). */
+  notes: Array<{ kind: CardKind; at: number; comment: string }>;
+  /** Its sentences, readable first; more with `word/page?sentences=<offset>`. */
+  sentencesAll: { total: number; rows: WordPageSentence[] };
+  /** Sentence cards forgotten with this word tapped as the trouble. */
+  tripped: Array<{ id: number; zh: string; en: string | null; at: number; comment: string | null }>;
+  /** Lookups about it: asked from its cards, or naming it. */
+  lookups: Array<{ query: string; kind: string | null; at: number; via: "review" | "learn" | null; step: string | null; verdict: string | null }>;
+  /** Its Learn: when it was through, and each session's steps and misses. */
+  learn: { learnedAt: number | null; sessions: Array<{ at: number; steps: number; misses: number; known: boolean }> };
+  /** Sentences that became readable when it joined, and those it alone keeps locked. */
+  unlocked: { count: number; examples: Array<{ zh: string; en: string | null }> };
+  holdsBack: number;
+  /** Deck words with it inside (老师 for 师), and deck words sharing a meaning. */
+  compounds: string[];
+  sameMeaning: string[];
+}
+
 /** A batch of words that joined the deck together, as the new-words screen shows it. */
 export interface Addition {
   id: number;

@@ -864,10 +864,29 @@ the design was silent and are still to be confirmed.
   (waiting, young, mature, strong, as on the HSK bars), grouped by when due,
   strength or trouble (Forgot here, or FSRS difficulty 7+); grouping by HSK
   level was taken out as redundant with Stats and Cards › Lists,
-  and found by characters, toneless pinyin or meaning. A tile opens a sheet:
-  definitions, each card's due date, strength, recall odds now, difficulty and
-  history, Pleco's record, and the sentences the word is in, with a jump to
-  all of them under Sentences. HSK coverage lives on the Stats page.
+  and found by characters, toneless pinyin or meaning. HSK coverage lives
+  on the Stats page.
+- **A word's page** (a tile, or Open word on a sentence's page; `WordSheet`
+  in `components/WordWall.tsx`, route `word/page`, `app/api/chongfuxi/wordpage.ts`;
+  in the address as `word=`): the owner asked for a full dictionary page
+  explaining how the word lives in the corpus, in place of the small sheet.
+  Over everything, scrolling on its own: every meaning (the main entry
+  first, the owner's Pleco definition, AI pills); its cards (due, strength,
+  recall odds, difficulty, answers, history, note) under a chart of how
+  often each was got (for every answer, Got it among the last ten; Read in
+  Read's blue and Recall in Recall's violet, a dot per answer filled or
+  ringed, each line named at its end, a title on each dot; Pleco's undated
+  record and split meanings left off it), and Pleco's record; where it
+  tripped him (what he wrote after a Forgot on its cards, and the sentence
+  cards forgotten with it tapped as the trouble); lookups (asked from its
+  cards, with review or Learn and the step, or naming it, with the verdict);
+  every sentence it is in, readable first, then one away, then locked, each
+  with what keeps it locked, its card's reads and its decks, forty at a time;
+  and how it lives in the corpus: how it came in (the additions that brought
+  it, else the Pleco backup), its lists, its Learn, the sentences it
+  unlocked and those it alone holds back, deck words with it inside and
+  deck words sharing a meaning, each opening its own page. Remove, Suspend's
+  Bring back and Write one with AI are on it as on the sheet before.
 - **On the card**: a word's HSK levels (old and 3.0) or "not HSK"; a
   sentence's decks. Chinese punctuation in sentences is set half-width, and
   decks' ASCII ", " / "? " between Chinese is shown as "，" / "？".

@@ -8,11 +8,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import type { WordDetail, WordTile } from "@chongfuxi/lib/api";
+import type { WordPage, WordPageSentence, WordTile } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { mainSenses } from "@chongfuxi/lib/senses";
+import { mainFirst } from "@chongfuxi/lib/senses";
 import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 
 const DAY = 86_400_000;
@@ -266,6 +266,7 @@ export function WordWall({ canWrite, onFindSentences }: { canWrite: boolean; onF
             setWords((list) => list?.filter((x) => x.word !== w) ?? null);
           }}
           onBack={(w) => setWords((list) => list?.map((x) => (x.word === w ? { ...x, suspended: false } : x)) ?? null)}
+          onOpenWord={setOpen}
           onFindSentences={(w) => {
             setOpen(null);
             onFindSentences(w);
@@ -290,7 +291,14 @@ function dueText(due: number, cutoff: number): string {
   return days === 1 ? "tomorrow" : `in ${span(days)}`;
 }
 
-/** One word in full, over the page. Also opened from a sentence's page (SentencesPanel). */
+/**
+ * A word's page, over everything (opened from the Words tab and from a
+ * sentence's page): how the word lives in the owner's corpus. Its meanings,
+ * its cards and a chart of how often each was got, Pleco's record, how it
+ * came in and its Learn, every sentence it is in (locked ones too), the
+ * sentence cards it tripped, what was written after forgetting it, what was
+ * looked up about it, and the words around it (app/api/chongfuxi/wordpage.ts).
+ */
 export function WordSheet({
   word,
   canWrite,
@@ -298,6 +306,7 @@ export function WordSheet({
   onRemoved,
   onBack,
   onFindSentences,
+  onOpenWord,
 }: {
   word: string;
   canWrite: boolean;
@@ -306,9 +315,16 @@ export function WordSheet({
   /** Brought back from being suspended. */
   onBack?: (word: string) => void;
   onFindSentences: (word: string) => void;
+  /** Another word's page, from the words around this one. */
+  onOpenWord?: (word: string) => void;
 }) {
-  const [d, setD] = useState<WordDetail | null>(null);
+  const [d, setD] = useState<WordPage | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [bringing, setBringing] = useState(false);
+  const [more, setMore] = useState(false);
+  // Removing it from the deck: asked once, then done.
+  const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
+
   const bringBack = async () => {
     setBringing(true);
     setError(null);
@@ -322,10 +338,6 @@ export function WordSheet({
       setBringing(false);
     }
   };
-  const [error, setError] = useState<string | null>(null);
-  // Removing it from the deck: asked once, then done.
-  const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
-
   const remove = async () => {
     setRemoving("busy");
     setError(null);
@@ -337,9 +349,23 @@ export function WordSheet({
       setRemoving(null);
     }
   };
+  const moreSentences = async () => {
+    if (!d || more) return;
+    setMore(true);
+    try {
+      const r = await get<{ rows: WordPageSentence[] }>("word/page", { w: word, sentences: d.sentencesAll.rows.length });
+      setD((x) => (x ? { ...x, sentencesAll: { ...x.sentencesAll, rows: [...x.sentencesAll.rows, ...r.rows] } } : x));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setMore(false);
+    }
+  };
 
   useEffect(() => {
-    get<WordDetail>("word", { w: word })
+    setD(null);
+    setError(null);
+    get<WordPage>("word/page", { w: word })
       .then(setD)
       .catch((e) => setError(message(e)));
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -348,11 +374,11 @@ export function WordSheet({
   }, [word, onClose]);
 
   const cutoff = today().cutoff;
-  const senses = d ? mainSenses(d.defs, d.pinyin, { n: 4 }) : [];
+  const date = (at: number) => new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <div className="cf-sheet-back" onClick={onClose}>
-      <div className="cf-sheet" role="dialog" aria-modal="true" aria-label={word} onClick={(e) => e.stopPropagation()}>
+    <div className="cf-wordpage" role="dialog" aria-modal="true" aria-label={word}>
+      <div className="cf-wordpage-in">
         <button className="cf-close cf-sheet-close" onClick={onClose} aria-label="Close">
           <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -373,104 +399,168 @@ export function WordSheet({
               {!d.hsk.old && !d.hsk.v3 && <span className="cf-tag cf-hsk is-none">not HSK</span>}
               {d.longku && <LongkuTag />}
               {aiDefined(d.defs) && <AiTag />}
+              {d.suspended && <span className="cf-tag">suspended</span>}
               <PlecoTile word={word} inline />
             </p>
           )}
         </header>
 
         {error && <p className="cf-error">{error}</p>}
-        {!d && !error && <Loading small label="Looking it up…" />}
+        {!d && !error && <Loading label="Gathering everything about it…" />}
 
         {d && (
           <>
-            {senses.length > 0 ? (
-              <ul className="cf-sheet-senses">
-                {senses.slice(0, 4).map((s) => (
-                  <li key={s}>
-                    {s}
-                    {aiDefined(d.defs) && (
-                      <>
-                        {" "}
-                        <AiPill
-                          word={word}
-                          onUndone={() => setD({ ...d, pinyin: d.defs.some((x) => x.aiPinyin) ? null : d.pinyin, defs: [] })}
-                        />
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                <p className="cf-muted">No definition on file.</p>
-                {canWrite && <DefineButton word={word} onDefined={(r) => setD({ ...d, pinyin: d.pinyin ?? r.pinyin, defs: r.defs })} />}
-              </>
-            )}
-
-            {d.cards.map((c, i) => (
-              <section key={i} className={`cf-sheet-card is-${c.kind}`}>
-                <h3>
-                  <i className="cf-dot" />
-                  {c.meaning ? `Meaning: ${c.meaning}` : KIND[c.kind]}
-                  {c.isNew && <span className="cf-tag">new</span>}
-                </h3>
-                <div
-                  className="cf-meter"
-                  style={{ "--from": "0%", "--to": `${onMeter(c.stability) * 100}%` } as React.CSSProperties}
-                >
-                  <i className="cf-meter-fill" />
+            {/* Every meaning, the main one first, each reading of its own. */}
+            <section className="cf-wp-section">
+              <h3>Meaning</h3>
+              {d.defs.length > 0 ? (
+                <div className="cf-wp-defs">
+                  {mainFirst(d.defs, d.pinyin).map((def, i) => (
+                    <div key={i} className="cf-wp-def">
+                      {def.own ? (
+                        <span className="cf-wp-def-from">Your Pleco card</span>
+                      ) : (
+                        def.p && def.p !== d.pinyin && <span className="cf-wp-def-from">{displayPinyin(def.p)}</span>
+                      )}
+                      <ol>
+                        {def.senses.map((s) => (
+                          <li key={s}>
+                            {s}
+                            {def.ai && (
+                              <>
+                                {" "}
+                                <AiPill
+                                  word={word}
+                                  onUndone={() => setD({ ...d, pinyin: d.defs.some((x) => x.aiPinyin) ? null : d.pinyin, defs: [] })}
+                                />
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ))}
                 </div>
-                <dl className="cf-sheet-facts">
-                  <div>
-                    <dt>Due</dt>
-                    <dd>{dueText(c.due, cutoff)}</dd>
-                  </div>
-                  <div>
-                    <dt>Strength</dt>
-                    <dd>{c.stability > 0 ? span(Math.max(1, Math.round(c.stability))) : "none yet"}</dd>
-                  </div>
-                  <div>
-                    <dt>Recall odds now</dt>
-                    <dd>{c.odds === null ? "–" : `${Math.round(c.odds * 100)}%`}</dd>
-                  </div>
-                  <div>
-                    <dt>Difficulty</dt>
-                    <dd>{c.difficulty > 0 ? `${c.difficulty.toFixed(1)} of 10` : "–"}</dd>
-                  </div>
-                  <div>
-                    <dt>Answered here</dt>
-                    <dd>
-                      {fmt(c.answered)}
-                      {c.forgotHere > 0 && <span className="cf-sheet-lapses">, forgot {fmt(c.forgotHere)}</span>}
-                    </dd>
-                  </div>
-                </dl>
-                <History h={c.history} />
-                {c.note && <p className="cf-note">{c.note}</p>}
-              </section>
-            ))}
-            {d.cards.every((c) => c.kind !== "produce") && (
-              <p className="cf-muted cf-sheet-aside">
-                No Recall card yet: it opens the first time you get the Read card right here.
-              </p>
-            )}
+              ) : (
+                <>
+                  <p className="cf-muted">No definition on file.</p>
+                  {canWrite && <DefineButton word={word} onDefined={(r) => setD({ ...d, pinyin: d.pinyin ?? r.pinyin, defs: r.defs })} />}
+                </>
+              )}
+            </section>
 
-            {d.pleco && (
-              <section className="cf-sheet-pleco">
-                <h3>In Pleco, before</h3>
-                <p>
-                  Score <b>{fmt(d.pleco.score)}</b>, right <b>{fmt(d.pleco.correct)}</b>, wrong <b>{fmt(d.pleco.incorrect)}</b>
-                  {d.pleco.first && (
-                    <>
-                      , studied since {new Date(d.pleco.first).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
-                    </>
-                  )}
-                  .
+            {/* Its cards: how each stands, and how often it has been got. */}
+            <section className="cf-wp-section">
+              <h3>Your cards</h3>
+              <GotItChart answers={d.answers} />
+              {d.cards.map((c, i) => (
+                <section key={i} className={`cf-sheet-card is-${c.kind}`}>
+                  <h4>
+                    <i className="cf-dot" />
+                    {c.meaning ? `Meaning: ${c.meaning}` : KIND[c.kind]}
+                    {c.isNew && <span className="cf-tag">new</span>}
+                  </h4>
+                  <div className="cf-meter" style={{ "--from": "0%", "--to": `${onMeter(c.stability) * 100}%` } as React.CSSProperties}>
+                    <i className="cf-meter-fill" />
+                  </div>
+                  <dl className="cf-sheet-facts">
+                    <div>
+                      <dt>Due</dt>
+                      <dd>{dueText(c.due, cutoff)}</dd>
+                    </div>
+                    <div>
+                      <dt>Strength</dt>
+                      <dd>{c.stability > 0 ? span(Math.max(1, Math.round(c.stability))) : "none yet"}</dd>
+                    </div>
+                    <div>
+                      <dt>Recall odds now</dt>
+                      <dd>{c.odds === null ? "–" : `${Math.round(c.odds * 100)}%`}</dd>
+                    </div>
+                    <div>
+                      <dt>Difficulty</dt>
+                      <dd>{c.difficulty > 0 ? `${c.difficulty.toFixed(1)} of 10` : "–"}</dd>
+                    </div>
+                    <div>
+                      <dt>Answered here</dt>
+                      <dd>
+                        {fmt(c.answered)}
+                        {c.forgotHere > 0 && <span className="cf-sheet-lapses">, forgot {fmt(c.forgotHere)}</span>}
+                      </dd>
+                    </div>
+                  </dl>
+                  <History h={c.history} />
+                  {c.note && <p className="cf-note">{c.note}</p>}
+                </section>
+              ))}
+              {d.cards.every((c) => c.kind !== "produce") && (
+                <p className="cf-muted cf-sheet-aside">No Recall card yet: it opens the first time you get the Read card right here.</p>
+              )}
+              {d.pleco && (
+                <p className="cf-wp-line">
+                  <b>In Pleco, before:</b> score {fmt(d.pleco.score)}, right {fmt(d.pleco.correct)}, wrong {fmt(d.pleco.incorrect)}
+                  {d.pleco.first ? `, studied from ${date(d.pleco.first)}` : ""}
+                  {d.pleco.last ? ` to ${date(d.pleco.last)}` : ""}.
                 </p>
+              )}
+            </section>
+
+            {/* What was written after forgetting it, and the sentences it tripped. */}
+            {(d.notes.length > 0 || d.tripped.length > 0) && (
+              <section className="cf-wp-section">
+                <h3>Where it tripped you</h3>
+                {d.notes.map((n, i) => (
+                  <p key={`n${i}`} className="cf-wp-note">
+                    <span>
+                      {KIND[n.kind]} · {date(n.at)}
+                    </span>
+                    “{n.comment}”
+                  </p>
+                ))}
+                {d.tripped.length > 0 && (
+                  <>
+                    <p className="cf-muted">
+                      Sentence cards forgotten with {word} marked as the trouble: {fmt(d.tripped.length)}
+                    </p>
+                    <ul className="cf-wp-sentences">
+                      {d.tripped.map((t, i) => (
+                        <li key={`${t.id}-${i}`}>
+                          <p className="cf-zh">
+                            <Highlighted text={t.zh} word={word} />
+                          </p>
+                          {t.en && <p className="cf-en">{t.en}</p>}
+                          <p className="cf-wp-meta">
+                            {date(t.at)}
+                            {t.comment ? ` · “${t.comment}”` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </section>
             )}
 
-            <section className="cf-sheet-sentences">
+            {/* Lookups asked from its cards, or naming it. */}
+            {d.lookups.length > 0 && (
+              <section className="cf-wp-section">
+                <h3>Looked up</h3>
+                <ul className="cf-wp-lookups">
+                  {d.lookups.map((l) => (
+                    <li key={l.query}>
+                      <span className="cf-wp-lookup-q">{l.query}</span>
+                      <span className="cf-wp-meta">
+                        {date(l.at)}
+                        {l.via === "review" ? " · from a review card" : l.via === "learn" ? ` · while learning it${l.step ? ` (${l.step})` : ""}` : ""}
+                        {l.verdict === "right" ? " · ✓" : l.verdict === "wrong" ? " · ✗" : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* Its sentences, every one. */}
+            <section className="cf-wp-section">
               <h3>Sentences</h3>
               <p className="cf-sheet-counts">
                 <span>
@@ -486,22 +576,89 @@ export function WordSheet({
                   read in context <b>{fmt(d.exposures)}</b> {d.exposures === 1 ? "time" : "times"}
                 </span>
               </p>
-              <ul className="cf-sheet-best">
-                {d.sentences.best.map((s) => (
-                  <li key={s.id}>
+              <ul className="cf-wp-sentences">
+                {d.sentencesAll.rows.map((s) => (
+                  <li key={s.id} className={`is-${s.status}`}>
                     <p className="cf-zh">
                       <Highlighted text={s.zh} word={word} />
                     </p>
                     {s.en && <p className="cf-en">{s.en}</p>}
+                    <p className="cf-wp-meta">
+                      <i className="cf-wp-dot" />
+                      {s.status === "readable" ? "Readable" : `Needs ${s.blockers.join(", ")}`}
+                      {s.card && (s.card.retired ? " · retired" : s.card.answered ? ` · read ${fmt(s.card.answered)}×, ${s.card.cleanReads} of 2 clean` : " · card not started")}
+                      {s.sources.length > 0 && ` · ${s.sources.join(", ")}`}
+                    </p>
                   </li>
                 ))}
               </ul>
-              {d.sentences.readable + d.sentences.oneAway + d.sentences.locked > 0 && (
+              {d.sentencesAll.rows.length < d.sentencesAll.total && (
+                <button className="cf-more" disabled={more} onClick={() => void moreSentences()}>
+                  {more ? "Loading…" : `Show more (${fmt(d.sentencesAll.total - d.sentencesAll.rows.length)} left)`}
+                </button>
+              )}
+              {d.sentencesAll.total > 0 && (
                 <button className="cf-btn cf-btn-ghost" onClick={() => onFindSentences(word)}>
-                  All sentences with {word}
+                  Open them under Sentences
                 </button>
               )}
             </section>
+
+            {/* How it lives in the corpus: how it came, Learn, what it opened, its neighbours. */}
+            <section className="cf-wp-section">
+              <h3>In your corpus</h3>
+              <dl className="cf-wp-facts">
+                <div>
+                  <dt>Came in</dt>
+                  <dd>
+                    {d.origin.length
+                      ? d.origin.map((o) => `${sourceName(o.source)}, ${date(o.at)}${o.undone ? " (undone)" : ""}`).join("; ")
+                      : d.pleco
+                        ? "From your Pleco backup"
+                        : "From an import"}
+                  </dd>
+                </div>
+                {d.lists.length > 0 && (
+                  <div>
+                    <dt>On lists</dt>
+                    <dd>{d.lists.join(" · ")}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Learn</dt>
+                  <dd>
+                    {d.learn.sessions.some((s) => s.known)
+                      ? `Marked as known${d.learn.learnedAt ? ` on ${date(d.learn.learnedAt)}` : ""}`
+                      : d.learn.learnedAt
+                        ? `Learned ${date(d.learn.learnedAt)}`
+                        : d.learn.sessions.length
+                          ? "Part way up the ladder"
+                          : "Not through Learn (it came in known)"}
+                    {d.learn.sessions.length > 0 &&
+                      ` · ${fmt(d.learn.sessions.reduce((n, s) => n + s.steps, 0))} steps, ${fmt(d.learn.sessions.reduce((n, s) => n + s.misses, 0))} missed`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Unlocked</dt>
+                  <dd>
+                    {d.unlocked.count
+                      ? `${fmt(d.unlocked.count)} ${d.unlocked.count === 1 ? "sentence" : "sentences"} when it joined`
+                      : "No sentences when it joined"}
+                  </dd>
+                </div>
+                {d.holdsBack > 0 && (
+                  <div>
+                    <dt>Holds back</dt>
+                    <dd>
+                      {fmt(d.holdsBack)} {d.holdsBack === 1 ? "sentence" : "sentences"} waiting on it alone
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {d.compounds.length > 0 && <WordChips label={`Deck words with ${word} in them`} words={d.compounds} onOpen={onOpenWord} />}
+              {d.sameMeaning.length > 0 && <WordChips label="Deck words with the same meaning" words={d.sameMeaning} onOpen={onOpenWord} />}
+            </section>
+
             {!canWrite && <p className="cf-muted cf-sheet-aside">This is Benji&apos;s deck, shown read-only.</p>}
             {canWrite && d.suspended && (
               <section className="cf-sheet-suspended">
@@ -543,6 +700,127 @@ export function WordSheet({
         )}
       </div>
     </div>
+  );
+}
+
+/** Where an addition came from, as the owner would say it. */
+function sourceName(source: string): string {
+  if (source.startsWith("list:")) return `Added from the list ${source.slice(5)}`;
+  if (source.startsWith("lookup:")) return `Added from Look up (“${source.slice(7)}”)`;
+  if (source.startsWith("text:")) return `Added from the text ${source.slice(5)}`;
+  if (source === "longku") return "Added in 龙库";
+  if (source.startsWith("anki")) return "Added from Pleco, through AnkiDroid";
+  return `Added (${source})`;
+}
+
+/** A few deck words, each opening its own page. */
+function WordChips({ label, words, onOpen }: { label: string; words: string[]; onOpen?: (w: string) => void }) {
+  return (
+    <div className="cf-wp-chips">
+      <p className="cf-muted">{label}</p>
+      <div>
+        {words.map((w) =>
+          onOpen ? (
+            <button key={w} className="cf-wp-chip cf-zh" onClick={() => onOpen(w)}>
+              {w}
+            </button>
+          ) : (
+            <span key={w} className="cf-wp-chip cf-zh">
+              {w}
+            </span>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Answers taken into each point: the last ten. */
+const WINDOW = 10;
+const CHART_W = 320;
+const CHART_H = 132;
+const PAD = { l: 30, r: 54, t: 10, b: 22 };
+
+/**
+ * How often each word card has been got: for every answer, the share of Got
+ * it among the last ten, one line per card (Read in Read's blue, Recall in
+ * Recall's violet), a dot per answer (filled for got it, a ring for forgot,
+ * as the bubbles draw them), over time. Pleco's record has no dates, so it
+ * isn't on it. Split-off meanings are left out: their few answers would be
+ * noise beside the word's own.
+ */
+function GotItChart({ answers }: { answers: WordPage["answers"] }) {
+  const series = (["read", "produce"] as const)
+    .map((kind) => {
+      const own = answers.filter((a) => a.kind === kind && a.meaning === null);
+      return {
+        kind,
+        points: own.map((a, i) => {
+          const last = own.slice(Math.max(0, i - WINDOW + 1), i + 1);
+          return { at: a.at, grade: a.grade, rate: last.filter((x) => x.grade === "good").length / last.length, n: last.length };
+        }),
+      };
+    })
+    .filter((s) => s.points.length > 0);
+  const all = series.flatMap((s) => s.points);
+  if (all.length < 2) {
+    return <p className="cf-muted cf-wp-chart-empty">The chart starts once its cards have been answered here a couple of times.</p>;
+  }
+  const t0 = Math.min(...all.map((p) => p.at));
+  const t1 = Math.max(...all.map((p) => p.at));
+  const x = (at: number) => PAD.l + (t1 === t0 ? 0.5 : (at - t0) / (t1 - t0)) * (CHART_W - PAD.l - PAD.r);
+  const y = (rate: number) => PAD.t + (1 - rate) * (CHART_H - PAD.t - PAD.b);
+  const name = { read: "Read", produce: "Recall" } as const;
+  const day = (at: number) => new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return (
+    <figure className="cf-wp-chart">
+      <figcaption>Got it, of the last {WINDOW} answers</figcaption>
+      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} role="img" aria-label="How often each card has been got, over time">
+        {[0, 0.5, 1].map((r) => (
+          <g key={r}>
+            <line className="cf-wp-grid" x1={PAD.l} x2={CHART_W - PAD.r} y1={y(r)} y2={y(r)} />
+            <text className="cf-wp-axis" x={PAD.l - 6} y={y(r) + 3.5} textAnchor="end">
+              {Math.round(r * 100)}%
+            </text>
+          </g>
+        ))}
+        <text className="cf-wp-axis" x={PAD.l} y={CHART_H - 6}>
+          {day(t0)}
+        </text>
+        <text className="cf-wp-axis" x={CHART_W - PAD.r} y={CHART_H - 6} textAnchor="end">
+          {day(t1)}
+        </text>
+        {series.map((s) => (
+          <g key={s.kind} className={`cf-wp-series is-${s.kind}`}>
+            <polyline points={s.points.map((p) => `${x(p.at)},${y(p.rate)}`).join(" ")} />
+            {s.points.map((p, i) => (
+              <circle key={i} className={p.grade === "good" ? "is-good" : "is-forgot"} cx={x(p.at)} cy={y(p.rate)} r={3.6}>
+                <title>
+                  {`${name[s.kind]} · ${day(p.at)} · ${p.grade === "good" ? "Got it" : "Forgot"} · ${Math.round(p.rate * 100)}% of the last ${p.n}`}
+                </title>
+              </circle>
+            ))}
+            {/* Named at its end, so the line needn't be matched to a key by colour alone. */}
+            <text
+              className="cf-wp-label"
+              x={x(s.points[s.points.length - 1].at) + 7}
+              y={y(s.points[s.points.length - 1].rate) + (s.kind === "produce" ? 11 : -4)}
+            >
+              {name[s.kind]} {Math.round(s.points[s.points.length - 1].rate * 100)}%
+            </text>
+          </g>
+        ))}
+      </svg>
+      {series.length > 1 && (
+        <p className="cf-wp-legend">
+          {series.map((s) => (
+            <span key={s.kind} className={`is-${s.kind}`}>
+              <i /> {name[s.kind]} · {fmt(s.points.length)} answers
+            </span>
+          ))}
+        </p>
+      )}
+    </figure>
   );
 }
 

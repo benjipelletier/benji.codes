@@ -312,7 +312,7 @@ export const normalise = (q: string) => q.trim().replace(/\s+/g, " ").toLowerCas
 
 let ready = false;
 /** The table, made on first use so a deploy needs no migration first. Same as sql/001_init.sql. */
-async function ensure(sql: Sql) {
+export async function ensureLookupTables(sql: Sql) {
   if (ready) return;
   await sql`
     create table if not exists chongfuxi_lookup (
@@ -353,7 +353,7 @@ async function ensure(sql: Sql) {
 export async function linkLookup(sql: Sql, owner: string, query: string, from: LookupFrom): Promise<void> {
   const q = normalise(query);
   if (!q) return;
-  await ensure(sql);
+  await ensureLookupTables(sql);
   await sql`
     insert into chongfuxi_lookup_card (owner_email, query, card_id, word, kind, via, sentence_id, session, step)
     values (${owner}, ${q}, ${from.card}, ${from.word}, ${from.kind}, ${from.via}, ${from.sentence}, ${from.session}, ${from.step})
@@ -377,7 +377,7 @@ async function sentencesById(sql: Sql, owner: string, ids: number[]): Promise<Ma
 export async function lookUpPhrase(sql: Sql, owner: string, query: string, fresh = false): Promise<LookupAnswer> {
   const q = normalise(query);
   if (!q) throw new LookupError("What do you want to say?");
-  await ensure(sql);
+  await ensureLookupTables(sql);
   if (!fresh) {
     const kept = (await sql`select answer from chongfuxi_lookup where owner_email = ${owner} and query = ${q}`) as unknown as Array<{
       answer: LookupAnswer | LookupAnswerV1;
@@ -586,7 +586,7 @@ export async function addFromLookup(sql: Sql, owner: string, query: string, word
 
 /** Past lookups, newest first, with the owner's verdicts. */
 export async function listLookups(sql: Sql, owner: string): Promise<LookupListed[]> {
-  await ensure(sql);
+  await ensureLookupTables(sql);
   const rows = (await sql`
     select query, (extract(epoch from at) * 1000)::double precision as at, kind, verdict, note
     from chongfuxi_lookup where owner_email = ${owner}
@@ -597,7 +597,7 @@ export async function listLookups(sql: Sql, owner: string): Promise<LookupListed
 
 /** The owner's verdict on a lookup: right, wrong (with what was wrong), or cleared. */
 export async function judgeLookup(sql: Sql, owner: string, query: string, verdict: "right" | "wrong" | null, note: string | null) {
-  await ensure(sql);
+  await ensureLookupTables(sql);
   await sql`
     update chongfuxi_lookup set verdict = ${verdict}, note = ${note}
     where owner_email = ${owner} and query = ${normalise(query)}
