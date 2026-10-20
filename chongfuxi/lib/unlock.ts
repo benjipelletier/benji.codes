@@ -7,10 +7,6 @@
 // 孩子们 is blocked by 孩子. A word that doesn't break into words the app has
 // heard of (约翰, most names) is blamed whole.
 //
-// A word the owner marked as a word of its own (`whole`: he met 式样 in a
-// sentence and knew 式 and 样 but not it) never reads from its parts: it must
-// be known itself, and is blamed whole, also inside a longer token (新式样).
-//
 // A sentence is readable when nothing in it is blamed.
 
 export interface Unlock {
@@ -23,11 +19,10 @@ export interface Unlock {
  * @param universe  every word the app has a row for, known or not — what a
  *                  word may be broken into when deciding whom to blame
  */
-export function makeUnlock(known: ReadonlySet<string>, universe: ReadonlySet<string>, whole: ReadonlySet<string> = new Set()): Unlock {
+export function makeUnlock(known: ReadonlySet<string>, universe: ReadonlySet<string>): Unlock {
   const readableMemo = new Map<string, boolean>();
   const readable = (t: string): boolean => {
     if (known.has(t)) return true;
-    if (whole.has(t)) return false;
     const hit = readableMemo.get(t);
     if (hit !== undefined) return hit;
     const chars = [...t];
@@ -41,7 +36,7 @@ export function makeUnlock(known: ReadonlySet<string>, universe: ReadonlySet<str
 
   const blameMemo = new Map<string, string[]>();
   const blame = (t: string): string[] => {
-    if (universe.has(t) || whole.has(t)) return [t];
+    if (universe.has(t)) return [t];
     const hit = blameMemo.get(t);
     if (hit) return hit;
     // Fewest pieces drawn from the words there are rows for and the words
@@ -54,12 +49,12 @@ export function makeUnlock(known: ReadonlySet<string>, universe: ReadonlySet<str
         const prev = best[j];
         if (!prev) continue;
         const piece = chars.slice(j, i).join("");
-        if (i - j > 1 && !universe.has(piece) && !known.has(piece) && !whole.has(piece)) continue;
+        if (i - j > 1 && !universe.has(piece) && !known.has(piece)) continue;
         if (!best[i] || prev.length + 1 < best[i]!.length) best[i] = [...prev, piece];
       }
     }
     const unknown = (best[chars.length] ?? [t]).filter((p) => !readable(p));
-    const out = unknown.length && unknown.every((p) => universe.has(p) || whole.has(p)) ? unknown : [t];
+    const out = unknown.length && unknown.every((p) => universe.has(p)) ? unknown : [t];
     blameMemo.set(t, out);
     return out;
   };

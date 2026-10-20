@@ -10,7 +10,7 @@
 // and refreshes what Pleco says about old ones; it never removes a word, and
 // never touches a card that already exists, answered or not.
 
-import { wholeWords, wordStanding } from "./suspended";
+import { wordStanding } from "./suspended";
 import type { Sql } from "./db";
 import { buildCorpus, defaultSettings, type CategoryRole, type Corpus, type Settings } from "@chongfuxi/lib/corpus";
 import { definitionsFor, glossesOf, type Dict } from "@chongfuxi/lib/dict";
@@ -211,7 +211,7 @@ export async function recomputeUnlocks(sql: Sql, owner: string, by: string[] = [
   const words = await wordStanding(sql, owner);
   const universe = new Set(words.map((w) => w.word));
   const known = new Set(words.filter((w) => w.known).map((w) => w.word));
-  const unlock = makeUnlock(known, universe, await wholeWords(sql, owner));
+  const unlock = makeUnlock(known, universe);
   const fresh = new Set(by);
 
   const sentences = (await sql`
@@ -312,7 +312,7 @@ export async function ingest(
     ...deck.map((w) => w.w).filter((w) => !suspended.has(w)),
   ]);
   const universeAfter = new Set([...existing.map((w) => w.word), ...words.map((w) => w.w)]);
-  const unlock = makeUnlock(knownAfter, universeAfter, await wholeWords(sql, owner));
+  const unlock = makeUnlock(knownAfter, universeAfter);
   let readable = 0;
   let oneAway = 0;
   let unlocked = 0;
@@ -552,7 +552,7 @@ export async function ingestSentences(
   `) as unknown as Array<{ key: string }>;
   const existing = new Set(had.map((h) => h.key));
   const universe = new Set(wordRows.map((w) => w.word));
-  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.known).map((w) => w.word)), universe, await wholeWords(sql, owner));
+  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.known).map((w) => w.word)), universe);
 
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);

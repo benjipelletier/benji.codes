@@ -12,7 +12,7 @@
 // each time, against what is known then, so a text gets easier as words are
 // learnt.
 
-import { wholeWords, wordStanding } from "./suspended";
+import { wordStanding } from "./suspended";
 import type { Sql } from "./db";
 import { hskOf, wordLooks } from "./review";
 import type { TextAnalysis, TextListed, TextToken, TextUnknown, WordStanding } from "@chongfuxi/lib/api";
@@ -47,7 +47,7 @@ export async function analyse(
   const rows = await wordStanding(sql, owner);
   const universe = new Set(rows.map((r) => r.word));
   const status = new Map(rows.map((r) => [r.word, r.status]));
-  const unlock = makeUnlock(new Set(rows.filter((r) => r.known).map((r) => r.word)), universe, await wholeWords(sql, owner));
+  const unlock = makeUnlock(new Set(rows.filter((r) => r.known).map((r) => r.word)), universe);
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);
   const context = { charReadings: dict.readings as Map<string, Set<string>>, vocab, maxLen: SPLIT_MAX };
