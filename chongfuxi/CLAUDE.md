@@ -58,32 +58,26 @@ check every screen at 360px wide first.
 - Settings is a menu (`components/SettingsPanel.tsx`; it was Import), since
   stacked as one page it had grown messy: a row per page, title and one line
   under it, each opening the page with "‹ Settings" above to come back
-  (`settings=` in the address). In groups: How it works (How cards are
-  chosen), Bring in (Analyse a text, Pleco backup and Texts owner only, Anki
+  (`settings=` in the address). In groups: Review (Algorithm), Bring in (Analyse a text, Pleco backup and Texts owner only, Anki
   syncs), Bugs (Bug reports, the open count on its row). About, with the
   CC-CEDICT credit, sits under the menu. Today's "Import a Pleco backup"
   opens the Pleco backup page directly. The owner tried the pages as sides
   like Cards' and didn't want tabs here.
-- **How cards are chosen** (`components/HowItWorks.tsx`, route `how`,
-  `app/api/chongfuxi/how.ts`): the owner asked for one place showing "how the
-  cookie is made", not being able to tell how cards are picked, then for it
-  to be about the algorithm's parameters (read-only, the owner's choice over
-  tuning them here). By stage (Memory model, Starting from Pleco, Learn, The
-  session queue, Sentences), every parameter: its value, what it controls,
-  what raising or lowering it would do, and its name in the code; the FSRS
-  weights fold out. The values are the code's constants, imported from
-  `lib/` (`RETENTION`, `FUZZ`, `SAME_DAY_STEPS`, `FSRS_WEIGHTS`,
-  `SEED_CAP_DAYS`, `SEED_DIFFICULTY`, `RECALL_SEED_FACTOR`, `ROLLOVER_HOUR`,
-  `CYCLE`, `DUE_PER_NEW`, `SESSION_BATCH`, `WORD_POOL_FACTOR`, `CONTEXT_*`,
-  `LEARN_EVERY`, the ladder's `GAP`…; moved there from server files and
-  ReviewPanel so the page can read them), so changing one changes the page.
-  Then Today: what is due by kind, new sentences ready, words waiting for
-  Learn, cards held back by the one-word-a-day rule, due word cards by their
-  recall odds, the cards a session started now would deal (from `nextCards`
-  itself, each with `why`: its line, and its odds, how overdue, or which word
-  a new sentence is for), with Learn steps where they'd fall, and the words
-  Learn takes next. **Add a parameter here whenever one is added, and change
-  the page whenever a rule it describes changes.**
+- **Algorithm** (`components/Algorithm.tsx`, route `algorithm`,
+  `app/api/chongfuxi/algorithm.ts`): the scheduling and queue algorithm as
+  its parameters. The owner asked to see "how the cookie is made", then for
+  the algorithm only, not how the app works, and for it read-only. By stage
+  (FSRS, Seeding, Learn, Queue, Sentences): each parameter's value, a
+  one-line definition, what raising or lowering it does, and its name in the
+  code; the FSRS weights fold out. The values are the code's constants,
+  imported from `lib/` (`RETENTION`, `FUZZ`, `SAME_DAY_STEPS`,
+  `FSRS_WEIGHTS`, `SEED_CAP_DAYS`, `SEED_DIFFICULTY`, `RECALL_SEED_FACTOR`,
+  `ROLLOVER_HOUR`, `CYCLE`, `DUE_PER_NEW`, the ladder's `GAP`…), so changing
+  one changes the page. Then Queue now: due word cards by recall odds, what
+  sibling burying holds back, and the first cards a session would deal (from
+  `nextCards` itself, each with `why`: its line, and its odds, how overdue,
+  or which word a new sentence is for). **Add a parameter here whenever one
+  is added, and change the page whenever a rule it describes changes.**
 - The answer buttons are fixed just above the tab bar.
 - Tap targets at least 44px (36px for inline chips); no horizontal scrolling;
   inputs and selects at 16px.

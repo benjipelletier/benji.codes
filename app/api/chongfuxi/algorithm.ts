@@ -1,12 +1,12 @@
-// Settings › How cards are chosen, live: the cards a session would deal now
-// and why, what waits, and what Learn takes next. Read-only; the same queue
-// code a session uses (nextCards), so what it shows is what a session gets.
+// Settings › Algorithm, live: the cards a session would deal now and why,
+// due word cards by their recall odds, and what the one-word-a-day rule holds
+// back. Read-only; the same queue code a session uses (nextCards), so what it
+// shows is what a session gets.
 
 import type { Sql } from "./db";
-import type { HowItWorksLive } from "@chongfuxi/lib/api";
+import type { QueueNow } from "@chongfuxi/lib/api";
 import type { StudyDay } from "@chongfuxi/lib/day";
 import { recallOdds } from "@chongfuxi/lib/schedule";
-import { LEARN_ORDER } from "./learn";
 import { ACTIVE, CARD_COLUMNS, WAITING_TO_LEARN, nextCards, scheduleOf, type CardRow } from "./review";
 
 /** Cards shown as the start of a session. */
@@ -20,7 +20,7 @@ const BANDS: Array<{ label: string; below: number }> = [
   { label: "90% or more", below: Infinity },
 ];
 
-export async function howItWorks(sql: Sql, owner: string, day: StudyDay, at = Date.now()): Promise<HowItWorksLive> {
+export async function queueNow(sql: Sql, owner: string, day: StudyDay, at = Date.now()): Promise<QueueNow> {
   const next = await nextCards(sql, owner, day, { limit: NEXT, position: 0, exclude: [], skipWords: [] });
 
   const due = (await sql.query(
@@ -39,13 +39,5 @@ export async function howItWorks(sql: Sql, owner: string, day: StudyDay, at = Da
     else odds[1 + BANDS.findIndex((b) => p < b.below)].count++;
   }
 
-  const learn = (await sql.query(
-    `select c.word from chongfuxi_card c
-     join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word and w.status = 'deck'
-     where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN}
-     order by ${LEARN_ORDER} limit 8`,
-    [owner],
-  )) as unknown as Array<{ word: string }>;
-
-  return { next, heldBack: due.length - waiting.length, odds, learnNext: learn.map((l) => l.word) };
+  return { next, heldBack: due.length - waiting.length, odds };
 }

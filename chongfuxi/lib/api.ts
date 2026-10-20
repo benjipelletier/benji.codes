@@ -235,20 +235,18 @@ export interface SessionCard {
   /** Sentences: clean reads so far, and whether a clean read now would retire it. */
   cleanReads?: number;
   wouldRetire?: boolean;
-  /** Why the queue dealt it, for Settings › How cards are chosen. */
+  /** Why the queue dealt it, for Settings › Algorithm. */
   why?: QueueWhy;
 }
 
-/** Settings › How cards are chosen: what the queue is doing right now. */
-export interface HowItWorksLive {
+/** Settings › Algorithm: the queue's output right now. */
+export interface QueueNow {
   /** The cards a session started now would deal first, in order, each with why. */
   next: SessionCard[];
   /** Word cards due today held back because another card of the same word was answered today. */
   heldBack: number;
   /** Due word cards by the odds they'd be remembered now: the line they wait in, weakest first. */
   odds: Array<{ label: string; count: number }>;
-  /** The next words Learn will teach, in order. */
-  learnNext: string[];
 }
 
 /** Which of the queue's three lines a card came from, and what put it where it was in that line. */

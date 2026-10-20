@@ -1,8 +1,8 @@
 "use client";
 
 // Settings (Import until the owner renamed it): a short menu, each row
-// opening its own page, with "‹ Settings" to come back. How cards are chosen
-// (HowItWorks.tsx: the whole algorithm, with live numbers), then what brings
+// opening its own page, with "‹ Settings" to come back. Algorithm
+// (Algorithm.tsx: its parameters, and the queue live), then what brings
 // material in or looks at what came in (Analyse a text, a Pleco backup,
 // texts, the Anki syncs), then bug reports.
 // (Signing in is in the header: components/Account.tsx.)
@@ -20,7 +20,7 @@ import { BugList } from "./BugReport";
 import { SyncLog } from "./SyncLog";
 import { TextAnalyser } from "./TextAnalyser";
 import { TextImport } from "./TextImport";
-import { HowItWorks } from "./HowItWorks";
+import { Algorithm } from "./Algorithm";
 import { fmt, message, useBackLayer, type Shell } from "./shared";
 
 /** What the server says an import would do, or did. Mirrors IngestSummary on the server. */
@@ -156,7 +156,7 @@ function Importer({ shell }: { shell: Shell }) {
   );
 }
 
-const PAGES = ["how", "analyse", "syncs", "pleco", "texts", "bugs"] as const;
+const PAGES = ["algorithm", "analyse", "syncs", "pleco", "texts", "bugs"] as const;
 export type SettingsPage = (typeof PAGES)[number];
 
 export function SettingsPanel({ shell, start }: { shell: Shell; start?: SettingsPage }) {
@@ -186,7 +186,7 @@ export function SettingsPanel({ shell, start }: { shell: Shell; start?: Settings
         <nav className="cf-crumbs" aria-label="Settings">
           <button onClick={() => open(null)}>‹ Settings</button>
         </nav>
-        {page === "how" && <HowItWorks shell={shell} />}
+        {page === "algorithm" && <Algorithm />}
         {page === "analyse" && <TextAnalyser shell={shell} />}
         {page === "syncs" && <SyncLog shell={shell} />}
         {page === "pleco" && <Importer shell={shell} />}
@@ -199,8 +199,8 @@ export function SettingsPanel({ shell, start }: { shell: Shell; start?: Settings
   type Row = { key: SettingsPage; title: string; about: string; count?: string };
   const groups: Array<{ title: string; rows: Row[] }> = [
     {
-      title: "How it works",
-      rows: configured ? [{ key: "how", title: "How cards are chosen", about: "What comes up when, and why, with today's numbers" }] : [],
+      title: "Review",
+      rows: configured ? [{ key: "algorithm", title: "Algorithm", about: "Scheduling and queue parameters, and the queue now" }] : [],
     },
     {
       title: "Bring in",
