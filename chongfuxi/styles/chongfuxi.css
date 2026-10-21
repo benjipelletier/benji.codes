@@ -8879,3 +8879,51 @@ button.cf-how-text {
 .cf-rescue-self {
   margin-top: 14px;
 }
+
+/* The story with every stuck word in it (Rescue.tsx, StoryView). */
+.cf-story-btn {
+  margin: 0 0 12px;
+}
+
+.cf-story-title {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.cf-story-p + .cf-story-p {
+  margin-top: 18px;
+}
+
+.cf-story-p > p.cf-zh {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.9;
+}
+
+.cf-story-p .cf-story-w {
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cf-story-show {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.cf-story-en {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.cf-story-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+}

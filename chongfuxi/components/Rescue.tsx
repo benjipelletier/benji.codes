@@ -10,7 +10,7 @@
 // of its cards once worked through, until RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Rescue as RescueData, RescueDrillItem, StuckWord } from "@chongfuxi/lib/api";
+import type { Rescue as RescueData, RescueDrillItem, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR, RESCUE_STREAK } from "@chongfuxi/lib/review";
@@ -58,19 +58,125 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
 
 /** The stuck words, full screen; a word opens its rescue over the list, and back comes to it. */
 export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
+  // A word's rescue, or the story with them all, over the list.
   const [open, setOpen] = useState<string | null>(null);
+  const [story, setStory] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
     setOpen(null);
+    setStory(false);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null, close);
+  useBackLayer(open !== null || story, close);
   if (open) return <Rescue shell={shell} word={open} onEnd={close} />;
-  return <StuckRows key={loads} onOpen={setOpen} onEnd={onEnd} />;
+  if (story) return <StoryView shell={shell} onEnd={close} />;
+  return <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onEnd={onEnd} />;
 }
 
-function StuckRows({ onOpen, onEnd }: { onOpen: (word: string) => void; onEnd: () => void }) {
+/** A paragraph with the stuck words in it marked, each opening its page. */
+function Marked({ zh, words }: { zh: string; words: string[] }) {
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  if (!sorted.length) return <>{zh}</>;
+  const parts = zh.split(new RegExp(`(${sorted.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`));
+  return (
+    <>
+      {parts.map((p, i) =>
+        words.includes(p) ? (
+          <button key={i} className="cf-story-w" onClick={() => wordpage.openWordPage(p)}>
+            {p}
+          </button>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/** Two paragraphs the model wrote with every stuck word in them; the English under each, on a tap. */
+function StoryView({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
+  const { canWrite } = shell;
+  const [story, setStory] = useState<StuckStory | null>(null);
+  const [making, setMaking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [english, setEnglish] = useState<Set<number>>(new Set());
+  const make = async () => {
+    setMaking(true);
+    setError(null);
+    try {
+      setStory((await send<{ story: StuckStory }>("rescue", { story: true })).story);
+      setEnglish(new Set());
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setMaking(false);
+    }
+  };
+  // The one written, or, for the owner, one written now (once: React runs this twice in development).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current) return;
+    asked.current = true;
+    get<{ story: StuckStory | null }>("rescue", { story: 1 })
+      .then((r) => {
+        if (r.story) setStory(r.story);
+        else if (canWrite) void make();
+      })
+      .catch((e) => setError(message(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="cf-rescue">
+      <div className="cf-fast-top">
+        <button className="cf-close" onClick={onEnd} aria-label="Back to the list">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        <p className="cf-rescue-top">A story with them</p>
+      </div>
+      <div className="cf-rescue-in">
+        {error && <p className="cf-error">{error}</p>}
+        {making && <Loading label="Writing a story with every one of them…" />}
+        {!story && !making && !error && !canWrite && <p className="cf-muted">No story has been written yet.</p>}
+        {story && !making && (
+          <>
+            {story.title && <h1 className="cf-story-title cf-zh">{story.title}</h1>}
+            {story.paragraphs.map((p, i) => (
+              <div key={i} className="cf-story-p">
+                <p className="cf-zh">
+                  <Marked zh={p.zh} words={story.words} />
+                </p>
+                {english.has(i) ? (
+                  <p className="cf-muted cf-story-en">{p.en}</p>
+                ) : (
+                  <button className="cf-link cf-story-show" onClick={() => setEnglish(new Set([...english, i]))}>
+                    Show English
+                  </button>
+                )}
+              </div>
+            ))}
+            {story.missing.length > 0 && (
+              <p className="cf-muted cf-story-note">Left out: {story.missing.join("、")}</p>
+            )}
+            {story.stale && <p className="cf-muted cf-story-note">Your stuck words have changed since this was written.</p>}
+            {canWrite && (
+              <div className="cf-buttons cf-rescue-go">
+                <button className={`cf-btn${story.stale ? "" : " cf-btn-ghost"}`} onClick={() => void make()}>
+                  Write a new one
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StuckRows({ onOpen, onStory, onEnd }: { onOpen: (word: string) => void; onStory: () => void; onEnd: () => void }) {
   const words = useStuck();
   return (
     <div className="cf-rescue">
@@ -88,6 +194,13 @@ function StuckRows({ onOpen, onEnd }: { onOpen: (word: string) => void; onEnd: (
         {words && words.length > 0 && (
           <>
             <p className="cf-muted cf-stuck-about">Forgotten {RESCUE_STREAK} or more times in a row, on their cards or in sentences.</p>
+            <button className="cf-stuck cf-story-btn" onClick={onStory}>
+              <span className="cf-stuck-text">
+                <b>A story with them</b>
+                <small>Two paragraphs using every one, written by AI</small>
+              </span>
+              <i aria-hidden="true">›</i>
+            </button>
             <ul className="cf-stuck-list">
               {words.map((w) => (
                 <li key={w.word}>

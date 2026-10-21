@@ -275,6 +275,19 @@ export interface RescueDrillItem {
   sentence: { id: number; en: string | null } | null;
 }
 
+/** Two paragraphs the model wrote around the stuck words, to meet them all in one story. */
+export interface StuckStory {
+  at: number;
+  model: string;
+  title: string;
+  paragraphs: Array<{ zh: string; en: string }>;
+  /** The stuck words it was written for, and which of them it really uses. */
+  words: string[];
+  missing: string[];
+  /** The stuck words have changed since: a new one can be written. */
+  stale: boolean;
+}
+
 /** What the model made for a stuck word, from everything known about it. */
 export interface Rescue {
   word: string;

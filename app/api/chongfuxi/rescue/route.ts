@@ -2,16 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { RescueError, finishRescue, makeRescue, rescueOf, stuckWords } from "../rescue";
+import { RescueError, finishRescue, makeRescue, makeStory, rescueOf, storyOf, stuckWords } from "../rescue";
 
 export const dynamic = "force-dynamic";
 // One model call, at Look up's effort.
 export const maxDuration = 120;
 
-/** The stuck words; with ?w=, that word's rescue (null if none yet). Readable by anyone. */
+/** The stuck words; with ?w=, that word's rescue (null if none yet); with ?story=1, their story. Readable by anyone. */
 export async function GET(req: NextRequest) {
   const gate = ownersLog();
   if ("refused" in gate) return gate.refused;
+  if (req.nextUrl.searchParams.get("story") === "1") return NextResponse.json({ story: await storyOf(gate.sql, gate.owner) });
   const w = req.nextUrl.searchParams.get("w")?.trim();
   if (w !== undefined) {
     if (!w || w.length > 20) return bad("which word?");
@@ -23,14 +24,17 @@ export async function GET(req: NextRequest) {
 /**
  * { word, fresh? }: make the word's rescue (or give back the one made). Owner only: it costs money.
  * { word, done: true, drill: [{ i, right }] }: worked through; its hook goes on its cards.
+ * { story: true }: write a story with the stuck words in it (owner only, it costs money).
  */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = await body<{ word?: string; fresh?: boolean; done?: boolean; drill?: Array<{ i: number; right: boolean }> }>(req);
+  const input = await body<{ word?: string; fresh?: boolean; done?: boolean; story?: boolean; drill?: Array<{ i: number; right: boolean }> }>(req);
   const word = input?.word?.trim();
-  if (!word || word.length > 20) return bad("which word?");
+  if (!input?.story && (!word || word.length > 20)) return bad("which word?");
   try {
+    if (input?.story) return NextResponse.json({ story: await makeStory(gate.sql, gate.owner) });
+    if (!word) return bad("which word?");
     if (input?.done) {
       const drill = (Array.isArray(input.drill) ? input.drill : [])
         .filter((d) => Number.isInteger(d?.i) && typeof d?.right === "boolean")

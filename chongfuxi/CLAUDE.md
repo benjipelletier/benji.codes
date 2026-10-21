@@ -768,6 +768,15 @@ FSRS's; card misses and sentence trips both count.
   card backs (`hook` on `SessionCard`, from `rescueHooks` in `dress`) until
   `RESCUE_CLEAR` (2) Goods in a row after it. The quiz's results are kept and
   fed to the next rescue. Nothing here changes a schedule.
+- **A story with them** (the owner's idea): at the top of the list, two
+  paragraphs the model writes using every stuck word (the 15 longest
+  streaks), each in a sentence that shows its meaning, everything else kept
+  to HSK 1–4, with a Chinese title and an English translation under each
+  paragraph shown on a tap. The stuck words are marked and open their word
+  pages; any the model left out are named. Kept (`chongfuxi_rescue_story`,
+  one per owner) and offered again ("Write a new one", primary once the
+  stuck words have changed). Same model call pattern as the rescue, owner
+  only; `rescue?story=1` reads it, `POST {story: true}` writes one.
 - Settings › Algorithm has the Rescue group.
 
 ## The owner's corpus

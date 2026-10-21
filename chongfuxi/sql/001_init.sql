@@ -497,3 +497,13 @@ create table if not exists chongfuxi_rescue (
   drill       jsonb,
   primary key (owner_email, word)
 );
+
+-- The story written around the stuck words (one per owner): the words it was
+-- written for, and its title and paragraphs. Made on first use (rescue.ts).
+create table if not exists chongfuxi_rescue_story (
+  owner_email text        primary key,
+  at          timestamptz not null default now(),
+  model       text        not null,
+  words       text[]      not null,
+  story       jsonb       not null
+);
