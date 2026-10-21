@@ -2,54 +2,113 @@
 
 // Stuck words (app/api/chongfuxi/rescue.ts): a word forgotten RESCUE_STREAK
 // or more times in a row gets an AI rescue, made from everything known about
-// it, to get it out of "forgotten land" (the owner's words). Three parts:
-// the Stuck section on Today, listing them; the rescue screen, full screen
-// like Fast review (why it slips, a hook, what it's mixed up with, then a
-// short quiz on the owner's own sentences); and the hook on the backs of its
-// cards once worked through, until RESCUE_CLEAR Goods in a row.
+// it, to get it out of "forgotten land" (the owner's words). Four parts: one
+// button on Today with the count (the list there was clutter, the owner
+// found); the list, full screen; a word's rescue (why it slips, a hook, what
+// it's mixed up with, then a quiz that makes the word be produced, not
+// picked: multiple choice was too easy to help); and the hook on the backs
+// of its cards once worked through, until RESCUE_CLEAR Goods in a row.
 
-import { useEffect, useRef, useState } from "react";
-import type { Rescue as RescueData, StuckWord } from "@chongfuxi/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Rescue as RescueData, RescueDrillItem, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR, RESCUE_STREAK } from "@chongfuxi/lib/review";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import { Loading, fmt, message, type Shell } from "./shared";
+import { Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Rescue", ready: "Ready", done: "Done", stale: "Missed again" };
+const KIND: Record<RescueDrillItem["kind"], string> = {
+  recall: "Say the word",
+  cloze: "Fill the gap",
+  contrast: "Which one fits?",
+  translate: "Say it in Chinese",
+  meaning: "What does it mean?",
+  pick: "Which word?",
+};
 
-/** On Today: the stuck words, each opening its rescue. Nothing shows when none are stuck. */
-export function StuckWords({ onOpen }: { onOpen: (word: string) => void }) {
+/** The stuck words, loaded once per mount. */
+function useStuck(): StuckWord[] | null {
   const [words, setWords] = useState<StuckWord[] | null>(null);
   useEffect(() => {
     get<{ words: StuckWord[] }>("rescue")
       .then((r) => setWords(r.words))
       .catch(() => setWords([]));
   }, []);
+  return words;
+}
+
+/** On Today: one button with how many words are stuck, opening their list. Nothing when none are. */
+export function StuckWords({ onOpen }: { onOpen: () => void }) {
+  const words = useStuck();
   if (!words?.length) return null;
+  const waiting = words.filter((w) => w.rescue !== "done").length;
   return (
-    <section className="cf-stuck">
-      <h3>
-        Stuck <small>forgotten {RESCUE_STREAK}+ times in a row</small>
-      </h3>
-      <ul>
-        {words.map((w) => (
-          <li key={w.word}>
-            <button onClick={() => onOpen(w.word)}>
-              <span className="cf-stuck-zh cf-zh">{w.word}</span>
-              <span className="cf-stuck-body">
-                {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
-                {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
-              </span>
-              <span className="cf-stuck-n" title={`${w.missed} on its cards, ${w.tripped} in sentences`}>
-                ×{w.streak}
-              </span>
-              <span className={`cf-stuck-state is-${w.rescue}`}>{STATE[w.rescue]}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <button className="cf-stuck" onClick={onOpen}>
+      <span className="cf-stuck-text">
+        <b>Stuck words</b>
+        <small>forgotten {RESCUE_STREAK}+ times in a row</small>
+      </span>
+      {waiting > 0 && waiting < words.length && <span className="cf-stuck-state">{fmt(waiting)} to rescue</span>}
+      <span className="cf-stuck-count">{fmt(words.length)}</span>
+      <i aria-hidden="true">›</i>
+    </button>
+  );
+}
+
+/** The stuck words, full screen; a word opens its rescue over the list, and back comes to it. */
+export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  // Loaded again each time a rescue closes, so states are fresh.
+  const [loads, setLoads] = useState(0);
+  const close = useCallback(() => {
+    setOpen(null);
+    setLoads((n) => n + 1);
+  }, []);
+  useBackLayer(open !== null, close);
+  if (open) return <Rescue shell={shell} word={open} onEnd={close} />;
+  return <StuckRows key={loads} onOpen={setOpen} onEnd={onEnd} />;
+}
+
+function StuckRows({ onOpen, onEnd }: { onOpen: (word: string) => void; onEnd: () => void }) {
+  const words = useStuck();
+  return (
+    <div className="cf-rescue">
+      <div className="cf-fast-top">
+        <button className="cf-close" onClick={onEnd} aria-label="Back to Today">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        <p className="cf-rescue-top">Stuck words{words ? ` · ${fmt(words.length)}` : ""}</p>
+      </div>
+      <div className="cf-rescue-in">
+        {!words && <Loading label="Finding them…" />}
+        {words && !words.length && <p className="cf-muted">Nothing is stuck.</p>}
+        {words && words.length > 0 && (
+          <>
+            <p className="cf-muted cf-stuck-about">Forgotten {RESCUE_STREAK} or more times in a row, on their cards or in sentences.</p>
+            <ul className="cf-stuck-list">
+              {words.map((w) => (
+                <li key={w.word}>
+                  <button onClick={() => onOpen(w.word)}>
+                    <span className="cf-stuck-zh cf-zh">{w.word}</span>
+                    <span className="cf-stuck-body">
+                      {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
+                      {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
+                    </span>
+                    <span className="cf-stuck-n" title={`${w.missed} on its cards, ${w.tripped} in sentences`}>
+                      ×{w.streak}
+                    </span>
+                    <span className={`cf-stuck-state is-${w.rescue}`}>{STATE[w.rescue]}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -72,9 +131,14 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
   const [making, setMaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<"sheet" | "quiz" | "done">("sheet");
-  // The quiz: which question, the choice made on it, and every result so far.
-  const [at, setAt] = useState(0);
+  // The quiz: the items in the order they come (one missed comes back once at the end), how far in,
+  // the answer given to the one showing (a choice, or what was typed and then revealed), and first tries.
+  const [order, setOrder] = useState<number[]>([]);
+  const [pos, setPos] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
+  const [typed, setTyped] = useState("");
+  const [shown, setShown] = useState(false);
+  const [graded, setGraded] = useState<boolean | null>(null);
   const [results, setResults] = useState<Array<{ i: number; right: boolean }>>([]);
 
   const make = async (fresh: boolean) => {
@@ -99,29 +163,54 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
     asked.current = word;
     get<{ rescue: RescueData | null }>("rescue", { w: word })
       .then((got) => {
-        if (got.rescue) setR(got.rescue);
+        // One of an older shape is made again for the owner (the first quiz was too easy).
+        if (got.rescue && !(got.rescue.outdated && canWrite)) setR(got.rescue);
         else if (canWrite) void make(false);
       })
       .catch((e) => setError(message(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word]);
 
-  const startQuiz = () => {
-    setAt(0);
+  const clearItem = () => {
     setPicked(null);
+    setTyped("");
+    setShown(false);
+    setGraded(null);
+  };
+  const startQuiz = () => {
+    if (!r) return;
+    setOrder(r.drill.map((_, i) => i));
+    setPos(0);
     setResults([]);
     setStage("quiz");
+    clearItem();
+  };
+  /** How the one showing went: kept on its first try, and a miss asked again once at the end. */
+  const grade = (right: boolean) => {
+    if (graded !== null) return;
+    setGraded(right);
+    const i = order[pos];
+    if (!results.some((x) => x.i === i)) setResults((x) => [...x, { i, right }]);
+    if (!right && order.indexOf(i) === pos && order.lastIndexOf(i) === pos) setOrder((o) => [...o, i]);
   };
   const pick = (choice: string) => {
     if (!r || picked) return;
     setPicked(choice);
-    setResults((x) => [...x, { i: at, right: choice === r.drill[at].answer }]);
+    grade(choice === r.drill[order[pos]].answer);
+  };
+  const same = (a: string, b: string) => a.replace(/[\s，。！？,.!?]/g, "") === b.replace(/[\s，。！？,.!?]/g, "");
+  /** Reveal a typed or unspoken answer: a typed word that is the word is right; the rest is graded by hand. */
+  const reveal = () => {
+    if (!r) return;
+    setShown(true);
+    const q = r.drill[order[pos]];
+    if (typed.trim() && q.kind !== "translate" && same(typed, q.answer)) grade(true);
   };
   const next = async () => {
     if (!r) return;
-    if (at + 1 < r.drill.length) {
-      setAt(at + 1);
-      setPicked(null);
+    if (pos + 1 < order.length) {
+      setPos(pos + 1);
+      clearItem();
       return;
     }
     setStage("done");
@@ -135,7 +224,9 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
   };
 
   const right = results.filter((x) => x.right).length;
-  const q = r && stage === "quiz" ? r.drill[at] : null;
+  const q = r && stage === "quiz" ? r.drill[order[pos]] : null;
+  const again = q !== null && order.indexOf(order[pos]) !== pos;
+  const choosing = q !== null && q.choices.length >= 2;
 
   return (
     <div className="cf-rescue">
@@ -146,7 +237,7 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
           </svg>
         </button>
         <p className="cf-rescue-top">
-          Stuck word{stage === "quiz" && r ? ` · ${at + 1} of ${r.drill.length}` : ""}
+          Stuck word{stage === "quiz" && r ? ` · ${pos + 1} of ${order.length}` : ""}
         </p>
       </div>
 
@@ -224,29 +315,82 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
 
         {r && q && (
           <section className="cf-rescue-q">
-            <p className="cf-rescue-qkind">{q.kind === "cloze" ? "Fill the gap" : q.kind === "meaning" ? "What does it mean?" : "Which word?"}</p>
-            <p className={q.kind === "meaning" ? "cf-rescue-prompt" : "cf-rescue-prompt cf-zh"}>{q.prompt}</p>
-            {q.sentence?.en && picked && <p className="cf-muted cf-rescue-en">{q.sentence.en}</p>}
-            <ul className="cf-rescue-choices">
-              {q.choices.map((c) => {
-                const state = !picked ? "" : c === q.answer ? " is-right" : c === picked ? " is-wrong" : " is-off";
-                return (
-                  <li key={c}>
-                    <button className={`cf-rescue-choice${state}`} disabled={picked !== null} onClick={() => pick(c)}>
-                      <span className={/[㐀-鿿]/.test(c) ? "cf-zh" : ""}>{c}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {picked && (
+            <p className="cf-rescue-qkind">
+              {KIND[q.kind]}
+              {again && <span className="cf-rescue-again">again</span>}
+            </p>
+            <p className={q.kind === "recall" || q.kind === "translate" || q.kind === "meaning" ? "cf-rescue-prompt" : "cf-rescue-prompt cf-zh"}>
+              {q.prompt}
+            </p>
+            {q.sentence?.en && (graded !== null || shown) && <p className="cf-muted cf-rescue-en">{q.sentence.en}</p>}
+
+            {choosing ? (
+              <ul className="cf-rescue-choices">
+                {q.choices.map((c) => {
+                  const state = !picked ? "" : c === q.answer ? " is-right" : c === picked ? " is-wrong" : " is-off";
+                  return (
+                    <li key={c}>
+                      <button className={`cf-rescue-choice${state}`} disabled={picked !== null} onClick={() => pick(c)}>
+                        <span className={/[㐀-鿿]/.test(c) ? "cf-zh" : ""}>{c}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
               <>
-                <p className={`cf-rescue-verdict${picked === q.answer ? " is-right" : " is-wrong"}`}>
-                  {picked === q.answer ? "Right." : `It's ${q.answer}.`} {q.explain}
+                {/* Typed, or said in one's head: either way it is produced before it is seen. */}
+                <form
+                  className="cf-rescue-type"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!shown) reveal();
+                  }}
+                >
+                  <input
+                    lang="zh"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={typed}
+                    disabled={shown}
+                    onChange={(e) => setTyped(e.target.value)}
+                    placeholder={q.kind === "translate" ? "Write it in Chinese, or say it" : "Type it, or just say it"}
+                    aria-label="Your answer"
+                  />
+                  {!shown && (
+                    <button className="cf-btn" type="submit">
+                      Show
+                    </button>
+                  )}
+                </form>
+                {shown && (
+                  <p className="cf-rescue-answer">
+                    <span>Answer</span>
+                    <span className="cf-zh">{q.answer}</span>
+                  </p>
+                )}
+                {shown && graded === null && (
+                  <div className="cf-buttons cf-rescue-self">
+                    <button className="cf-btn cf-btn-ghost" onClick={() => grade(false)}>
+                      Missed
+                    </button>
+                    <button className="cf-btn" onClick={() => grade(true)}>
+                      Got it
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {graded !== null && (
+              <>
+                <p className={`cf-rescue-verdict${graded ? " is-right" : " is-wrong"}`}>
+                  {graded ? "Right." : choosing ? `It's ${q.answer}.` : "It comes back at the end."} {q.explain}
                 </p>
                 <div className="cf-buttons">
                   <button className="cf-btn" onClick={() => void next()}>
-                    {at + 1 < (r?.drill.length ?? 0) ? "Next" : "Finish"}
+                    {pos + 1 < order.length ? "Next" : "Finish"}
                   </button>
                 </div>
               </>
@@ -257,7 +401,7 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
         {r && stage === "done" && (
           <section className="cf-rescue-end">
             <p className="cf-rescue-score">
-              {right} of {results.length} right
+              {right} of {results.length} right first time
             </p>
             <p className="cf-rescue-hook">
               <span className="cf-rescue-hook-label">
@@ -275,7 +419,7 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
                 Quiz again
               </button>
               <button className="cf-btn" onClick={onEnd}>
-                Back to Today
+                Back to the list
               </button>
             </div>
           </section>

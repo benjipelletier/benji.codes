@@ -17,7 +17,7 @@ import type { LearnSentence, LearnStep, LearnStepDone, LearnWord } from "./api";
 export const IN_PLAY = 5;
 /** In a review session, a Learn step comes every this many cards. */
 export const LEARN_EVERY = 5;
-/** The ladder in order: a word without sentences skips reading one. */
+/** The ladder in order: a word without sentences skips reading one, and one without a meaning either skips the gap. */
 export const LADDER: LearnStep[] = ["meet", "context", "cloze", "word"];
 /** Turns before a word comes back, by the step it comes back for. */
 export const GAP: Record<LearnStep, number> = {
@@ -55,7 +55,10 @@ export interface LearnItem {
 /** The words, each where it was left on the ladder: one part way up is due at once. */
 export function startItems(words: LearnWord[]): LearnItem[] {
   return words.map((w) => {
-    const steps = LADDER.filter((s) => s !== "context" || w.sentences.length > 0);
+    // No sentence: nothing to read it in. No sentence and no meaning either (关起来): no gap to fill, nor meaning to fill it from.
+    const steps = LADDER.filter(
+      (s) => (s !== "context" || w.sentences.length > 0) && (s !== "cloze" || w.sentences.length > 0 || w.senses.length > 0),
+    );
     // The saved step, or the next one this word takes (a word that had no sentence to read then).
     const at = w.step === null ? 0 : steps.findIndex((s) => LADDER.indexOf(s) >= LADDER.indexOf(w.step!));
     return { word: w, steps, at: at < 0 ? 0 : at, dueAt: 0, misses: 0, passed: 0, shown: [] };

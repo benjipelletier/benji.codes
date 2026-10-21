@@ -18,7 +18,8 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { afterStep, isLearned, pickNext, progressOf, sentencesFor, startItems, stepDone, stepOf, type LearnItem } from "@chongfuxi/lib/learn";
 import { newId } from "@chongfuxi/lib/upload";
 import { LookupPanel } from "./LookupPanel";
-import { Loading, AiPill, HskTags, LongkuTag, PlecoTile, SentenceText, Sheet, Word, fmt, message, type Shell } from "./shared";
+import { Loading, AiPill, DefineButton, HskTags, LongkuTag, PlecoTile, SentenceText, Sheet, Word, fmt, message, type Shell } from "./shared";
+import type { Definition } from "@chongfuxi/lib/dict";
 
 const STEP_NAME: Record<LearnStep, string> = {
   meet: "New word",
@@ -47,6 +48,8 @@ export interface Ladder {
   flush: () => Promise<void>;
   /** Whether steps are saved (the owner): only then can a word be taken off as known. */
   canWrite: boolean;
+  /** A word given a definition by the model while on the ladder (it had none): its later steps show it. */
+  defined: (word: string, pinyin: string | null, senses: string[]) => void;
 }
 
 /**
@@ -134,7 +137,13 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
     return bugs.note("learn", { word: item.word.word, step: stepOf(item), sentence: current?.sentences[0]?.id ?? null });
   }, [item, current]);
 
-  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, flush, canWrite };
+  const defined = (word: string, pinyin: string | null, senses: string[]) => {
+    const all = itemsRef.current;
+    if (!all) return;
+    put(all.map((it) => (it.word.word === word ? { ...it, word: { ...it.word, pinyin: it.word.pinyin ?? pinyin, senses } } : it)));
+  };
+
+  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, flush, canWrite, defined };
 }
 
 /** The step on show, as a card. */
@@ -164,13 +173,22 @@ export function LearnCard({ ladder, shell }: { ladder: Ladder; shell: Shell }) {
         </span>
       </div>
 
-      {step === "meet" && <Meet w={item.word} sentences={current.sentences} />}
+      {step === "meet" && (
+        <Meet
+          w={item.word}
+          sentences={current.sentences}
+          onDefined={ladder.canWrite ? (r) => ladder.defined(item.word.word, r.pinyin, r.defs.flatMap((d) => d.senses)) : undefined}
+        />
+      )}
       {step === "context" && <Context w={item.word} s={current.sentences[0]} revealed={revealed} />}
       {step === "cloze" && <Cloze w={item.word} s={current.sentences[0] ?? null} revealed={revealed} />}
       {step === "word" && (
         <>
           <Word word={item.word.word} />
           {revealed && <Meaning w={item.word} />}
+          {revealed && !item.word.senses.length && ladder.canWrite && (
+            <DefineButton word={item.word.word} onDefined={(r) => ladder.defined(item.word.word, r.pinyin, r.defs.flatMap((d) => d.senses))} />
+          )}
         </>
       )}
 
@@ -373,11 +391,21 @@ function Unknown({ s }: { s: LearnSentence }) {
 }
 
 /** Meeting the word: everything, with sentences to see it used. Not a test. */
-function Meet({ w, sentences }: { w: LearnWord; sentences: LearnSentence[] }) {
+function Meet({
+  w,
+  sentences,
+  onDefined,
+}: {
+  w: LearnWord;
+  sentences: LearnSentence[];
+  /** The owner's, for a word with no definition: the model writes one, as on a Read card. */
+  onDefined?: (r: { pinyin: string | null; defs: Definition[] }) => void;
+}) {
   return (
     <>
       <Word word={w.word} />
       <Meaning w={w} />
+      {!w.senses.length && onDefined && <DefineButton word={w.word} onDefined={onDefined} />}
       {sentences.length > 0 ? (
         <ul className="cf-learn-sentences">
           {sentences.map((s) => (

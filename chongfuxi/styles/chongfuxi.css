@@ -8458,30 +8458,53 @@ button.cf-how-text {
 
 /* Stuck words on Today, and their rescue (components/Rescue.tsx). */
 .cf-stuck {
-  margin: 16px 0 4px;
-}
-
-.cf-stuck h3 {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--cf-down);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  margin: 14px 0 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.cf-stuck h3 small {
+.cf-stuck-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-stuck-text small {
   font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
   color: var(--cf-ink-soft);
 }
 
-.cf-stuck ul {
+.cf-stuck-count {
+  flex: none;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--cf-down);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-stuck > i {
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+
+.cf-stuck-about {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.cf-stuck-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -8491,11 +8514,11 @@ button.cf-how-text {
   overflow: hidden;
 }
 
-.cf-stuck li + li {
+.cf-stuck-list li + li {
   border-top: 1px solid var(--cf-rule);
 }
 
-.cf-stuck button {
+.cf-stuck-list button {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -8795,4 +8818,64 @@ button.cf-how-text {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
+}
+
+/* The quiz's answered-without-options items: typed (or said), revealed, graded by hand. */
+.cf-rescue-again {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cf-rescue-type {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cf-rescue-type input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+.cf-rescue-type input:disabled {
+  opacity: 0.7;
+}
+
+.cf-rescue-answer {
+  display: flex;
+  flex-direction: column;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--cf-sunken);
+}
+
+.cf-rescue-answer > span:first-child {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-answer .cf-zh {
+  font-size: 24px;
+}
+
+.cf-rescue-self {
+  margin-top: 14px;
 }

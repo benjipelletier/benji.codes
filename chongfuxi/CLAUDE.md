@@ -733,9 +733,12 @@ FSRS's; card misses and sentence trips both count.
 - **Stuck**: a deck word, not suspended, whose last `RESCUE_STREAK` (3)
   results were all wrong. Results are its Read and Recall review rows with
   cause `answer` (a Forgot) or `tapped` (a lapse from being tapped in a
-  forgotten sentence), by `seq`. Today lists them under "Stuck", the longest
-  streak first, each with ×streak and its rescue's state (Rescue, Ready,
-  Done, Missed again once a miss comes after the rescue was made).
+  forgotten sentence), by `seq`. Today shows one "Stuck words" button with
+  the count (the owner found the list there clutter); it opens the list,
+  full screen (`StuckList`), the longest streak first, each with ×streak and
+  its rescue's state (Rescue, Ready, Done, Missed again once a miss comes
+  after the rescue was made); a word opens its rescue over the list, back
+  returning to it.
 - **The rescue** is made when a stuck word is opened, by the owner only (it
   costs money), once, then kept (`chongfuxi_rescue`); a miss after it was
   made marks it stale, and "Make it again" asks anew. One structured-output
@@ -746,10 +749,21 @@ FSRS's; card misses and sentence trips both count.
   answer's summary, verdict and note), same-meaning and containing deck
   words, an earlier rescue's hook and quiz score, and up to 12 readable
   sentences with their ids. It gives a diagnosis, a hook, confusions, and a
-  quiz of 3 to 6 items (cloze, meaning, pick). `checkRescue` keeps what holds:
-  a cloze must cite one of the given sentences containing its answer (the
-  app blanks it, not the model), every answer must be one of its choices,
-  and too few good items refuse the rescue.
+  quiz of 4 to 7 items that make the word be produced, not picked (the
+  owner found version 1's multiple choice too easy to help it stick):
+  recall (the word from an English cue that rules out its confusions),
+  cloze (one of the owner's sentences, blanked, no options), contrast (the
+  same, the options only the words it is really confused with) and
+  translate (an English sentence into Chinese with it). Items without
+  options are typed, or said in one's head, then revealed: a typed word
+  that is the word counts as right, the rest is graded Got it / Missed by
+  hand; a miss comes back once at the end; first tries are what is kept.
+  `checkRescue` keeps what holds: a cloze or contrast must cite one of the
+  given sentences with the word in it (the app blanks it, not the model),
+  a recall's answer must be the word and a translation's contain it, a
+  contrast's options must include it, and too few good items refuse the
+  rescue. `RESCUE_VERSION` (2) is stored with it; an older one reads as
+  `outdated` and stale, and is made again when the owner opens it.
 - **Worked through** (`done`), the hook shows on the word's Read and Recall
   card backs (`hook` on `SessionCard`, from `rescueHooks` in `dress`) until
   `RESCUE_CLEAR` (2) Goods in a row after it. The quiz's results are kept and
@@ -997,7 +1011,11 @@ the design was silent and are still to be confirmed.
   (pinyin, meaning, two sentences with their translations; not a test), read
   it in a sentence (what does it mean here?), fill it into a gap from the
   English, the word alone. A word without sentences skips reading in context
-  and fills the gap from its meaning. A word comes back after others, the
+  and fills the gap from its meaning; one with no meaning either (关起来, a
+  phrase CC-CEDICT lacks) skips the gap too, since the owner met it as an
+  empty "Which word goes with this meaning?". A word with no definition
+  offers "Write one with AI" (the owner's) on its meet step and on the word
+  alone once revealed, and its later steps show what was written. A word comes back after others, the
   gap growing as it climbs (2, 4, 7 of its turns: in a session about 10, 20,
   35 cards); a miss puts it back a step and brings it back in two, and every
   step takes a sentence it hasn't been shown with while there is one.

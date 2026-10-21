@@ -27,8 +27,15 @@ export class RescueError extends Error {}
 const RESULTS = `r.kind in ('read', 'produce') and r.cause in ('answer', 'tapped')`;
 /** Readable sentences with the word shown to the model, for the quiz's clozes. */
 const SENTENCES = 12;
-const DRILL_MIN = 3;
-const DRILL_MAX = 6;
+const DRILL_MIN = 4;
+const DRILL_MAX = 7;
+/**
+ * The rescue's shape. 2: a quiz of retrieval (recall, cloze without options,
+ * contrast with only real confusions, translate), after the owner found
+ * version 1's multiple choice too easy to help. A rescue of an older version
+ * counts as stale, so opening it makes it again.
+ */
+export const RESCUE_VERSION = 2;
 const MAX_TEXT = 600;
 
 let ready = false;
@@ -70,7 +77,7 @@ export async function stuckWords(sql: Sql, owner: string): Promise<StuckWord[]> 
             (select count(*) from ev e where e.word = s.word and e.rn <= s.streak and e.cause = 'answer')::int as missed,
             (select count(*) from ev e where e.word = s.word and e.rn <= s.streak and e.cause = 'tapped')::int as tripped,
             case when x.word is null then 'none'
-                 when s.last_at > x.at then 'stale'
+                 when s.last_at > x.at or coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} then 'stale'
                  when x.done_at is not null then 'done'
                  else 'ready' end as rescue
      from runs s
@@ -182,11 +189,12 @@ Work out why it keeps slipping, from that evidence, and give them what they need
 - diagnosis: two or three plain sentences on why it slips, pointing at the evidence (a word it's mixed up with, a meaning that differs from the one they expect, a character that misleads, the contexts it trips them in). Say what the evidence shows, not generalities.
 - hook: one or two short sentences to hold on to the word: a vivid link between its sound or characters and its meaning, or the one contrast that settles a confusion. It will be shown on the word's flashcards, so make it quick to read.
 - confusions: the words it is mixed up with (from the evidence: same-meaning words, words tapped with it, lookups comparing it), each with its pinyin (tone marks) and the difference in one sentence. Empty if none.
-- drill: ${DRILL_MIN} to ${DRILL_MAX} quick questions aimed at the diagnosis, in order of difficulty. Kinds:
-  - cloze: pick the word that fills the blank in one of the user's own sentences. Give that sentence's id as sentenceId, the word as answer, and 3 or 4 choices including it (its confusions are the best wrong choices). prompt is ignored for a cloze (the app blanks the sentence itself).
-  - meaning: prompt asks what the word (or a phrase with it) means; choices are short English meanings.
-  - pick: prompt is a short English situation or meaning; choices are Chinese words; answer is the one that fits.
-  Every answer must be exactly one of its choices. explain says in one sentence why. sentenceId is null for meaning and pick.
+- drill: ${DRILL_MIN} to ${DRILL_MAX} questions that make them PRODUCE the word, not recognise it: recognising it among options is what they can already do, and it hasn't made it stick. Aim each at the diagnosis, easiest first, and end with the hardest. Kinds:
+  - recall: prompt is an English cue that points at this word and not its confusions (a meaning with the nuance that separates them, or a short situation). answer is the word. No choices.
+  - cloze: one of the user's own sentences, the word blanked, to fill with no options. Give the sentence's id as sentenceId and the word as answer. prompt is ignored (the app blanks the sentence). No choices.
+  - contrast: one of the user's own sentences, the word blanked, where a word it is confused with would be wrong. sentenceId and answer as for cloze; choices are the word and only the words it is really confused with (from the evidence), 2 to 4 in all. No made-up or obviously wrong options.
+  - translate: prompt is a short natural English sentence whose best Chinese uses the word, in a context it trips them in; answer is that Chinese sentence. No choices.
+  Use at least one cloze and one recall when there are sentences; use contrast only when there is a real confusion; never ask what the word means with English options. explain says in one sentence what to notice. sentenceId is null for recall and translate; choices is empty except for contrast.
 Write in English, with Chinese only for Chinese words and sentences.`;
 
 const SCHEMA = {
@@ -208,7 +216,7 @@ const SCHEMA = {
       items: {
         type: "object",
         properties: {
-          kind: { type: "string", enum: ["cloze", "meaning", "pick"] },
+          kind: { type: "string", enum: ["recall", "cloze", "contrast", "translate"] },
           prompt: { type: "string" },
           choices: { type: "array", items: { type: "string" } },
           answer: { type: "string" },
@@ -227,14 +235,17 @@ const SCHEMA = {
 const clip = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, MAX_TEXT) : "");
 
 /**
- * The model's answer, kept to what holds: a cloze must use one of the given
- * sentences, which has the answer in it (the app blanks it, not the model),
- * and every answer must be one of its choices. Items that fail are dropped.
+ * The model's answer, kept to what holds: a cloze or contrast must use one of
+ * the given sentences with the word in it (the app blanks it, not the
+ * model), and its answer must be the word; a contrast's choices must be the
+ * word and others; a recall's answer must be the word, a translation's
+ * contain it. Items that fail are dropped.
  */
 export function checkRescue(
   raw: unknown,
+  word: string,
   sentences: Map<number, { zh: string; en: string | null }>,
-): Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill"> {
+): Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill"> & { version: number } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const diagnosis = clip(r.diagnosis);
   const hook = clip(r.hook);
@@ -244,44 +255,42 @@ export function checkRescue(
     .map((c) => ({ zh: clip(c.zh), pinyin: clip(c.pinyin), difference: clip(c.difference) }))
     .filter((c) => c.zh && c.difference)
     .slice(0, 5);
+  const blanked = (zh: string) => {
+    const at = zh.indexOf(word);
+    return `${zh.slice(0, at)}${"＿".repeat(Math.max(2, [...word].length))}${zh.slice(at + word.length)}`;
+  };
   const drill: RescueDrillItem[] = [];
   for (const item of Array.isArray(r.drill) ? r.drill : []) {
     const d = item as Record<string, unknown>;
-    const kind = d.kind === "cloze" || d.kind === "meaning" || d.kind === "pick" ? d.kind : null;
-    const choices = [...new Set((Array.isArray(d.choices) ? d.choices : []).map(clip).filter(Boolean))].slice(0, 5);
     const answer = clip(d.answer);
-    if (!kind || choices.length < 2 || !choices.includes(answer)) continue;
-    if (kind === "cloze") {
+    const explain = clip(d.explain);
+    if (d.kind === "cloze" || d.kind === "contrast") {
       const s = typeof d.sentenceId === "number" ? sentences.get(d.sentenceId) : undefined;
-      if (!s || !s.zh.includes(answer)) continue;
-      const at = s.zh.indexOf(answer);
-      drill.push({
-        kind,
-        prompt: `${s.zh.slice(0, at)}${"＿".repeat(Math.max(2, [...answer].length))}${s.zh.slice(at + answer.length)}`,
-        choices,
-        answer,
-        explain: clip(d.explain),
-        sentence: { id: d.sentenceId as number, en: s.en },
-      });
-    } else {
+      if (!s || answer !== word || !s.zh.includes(word)) continue;
+      const choices = d.kind === "contrast" ? [...new Set((Array.isArray(d.choices) ? d.choices : []).map(clip).filter(Boolean))].slice(0, 4) : [];
+      if (d.kind === "contrast" && (choices.length < 2 || !choices.includes(word))) continue;
+      drill.push({ kind: d.kind, prompt: blanked(s.zh), choices, answer, explain, sentence: { id: d.sentenceId as number, en: s.en } });
+    } else if (d.kind === "recall" || d.kind === "translate") {
       const prompt = clip(d.prompt);
-      if (!prompt) continue;
-      drill.push({ kind, prompt, choices, answer, explain: clip(d.explain), sentence: null });
+      if (!prompt || (d.kind === "recall" ? answer !== word : !answer.includes(word))) continue;
+      drill.push({ kind: d.kind, prompt, choices: [], answer, explain, sentence: null });
     }
   }
   if (drill.length < DRILL_MIN) throw new RescueError("The rescue's quiz came back with too few questions that hold up.");
-  return { diagnosis, hook, confusions, drill: drill.slice(0, DRILL_MAX) };
+  return { diagnosis, hook, confusions, drill: drill.slice(0, DRILL_MAX), version: RESCUE_VERSION };
 }
 
-type Row = { word: string; at: number; model: string; evidence: Rescue["evidence"]; rescue: Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill">; done_at: number | null; stale: boolean; pinyin: string | null; defs: Definition[] };
+type Row = { word: string; at: number; model: string; evidence: Rescue["evidence"]; rescue: Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill">; done_at: number | null; stale: boolean; outdated: boolean; pinyin: string | null; defs: Definition[] };
 
 async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescue | null> {
   await ensureRescueTable(sql);
   const [row] = (await sql.query(
     `select x.word, (extract(epoch from x.at) * 1000)::double precision as at, x.model, x.evidence, x.rescue,
             (extract(epoch from x.done_at) * 1000)::double precision as done_at,
-            exists (select 1 from chongfuxi_review r where r.owner_email = x.owner_email and r.word = x.word
-                    and ${RESULTS} and r.grade = 'forgot' and r.at > x.at) as stale,
+            (coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION}
+             or exists (select 1 from chongfuxi_review r where r.owner_email = x.owner_email and r.word = x.word
+                        and ${RESULTS} and r.grade = 'forgot' and r.at > x.at)) as stale,
+            coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} as outdated,
             w.pinyin, w.defs
      from chongfuxi_rescue x join chongfuxi_word w on w.owner_email = x.owner_email and w.word = x.word
      where x.owner_email = $1 and x.word = $2`,
@@ -299,6 +308,7 @@ async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescu
     evidence: row.evidence,
     doneAt: row.done_at === null ? null : Math.round(row.done_at),
     stale: row.stale,
+    outdated: row.outdated,
   };
 }
 
@@ -329,7 +339,7 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
   } catch {
     throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The rescue came back malformed.");
   }
-  const rescue = checkRescue(given, evidence.sentences);
+  const rescue = checkRescue(given, word, evidence.sentences);
   await sql`
     insert into chongfuxi_rescue (owner_email, word, at, model, evidence, rescue, done_at, drill)
     values (${owner}, ${word}, now(), ${MODEL}, ${JSON.stringify(evidence.counts)}::jsonb, ${JSON.stringify(rescue)}::jsonb, null, null)

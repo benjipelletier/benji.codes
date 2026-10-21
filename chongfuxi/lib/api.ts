@@ -255,14 +255,23 @@ export interface StuckWord {
   rescue: "none" | "ready" | "done" | "stale";
 }
 
-/** One quiz item of a rescue. A cloze is one of the owner's readable sentences with the word blanked. */
+/**
+ * One quiz item of a rescue, made to be retrieved, not recognised: recall
+ * (the word from its meaning), cloze (the word into one of the owner's
+ * sentences, no options), contrast (the same, the options only the words it
+ * is confused with), translate (an English sentence into Chinese with it).
+ * Items with no `choices` are answered by typing or in one's head, then
+ * revealed and self-graded. "meaning" and "pick" are the first rescues'
+ * multiple-choice kinds, still shown for rescues made before.
+ */
 export interface RescueDrillItem {
-  kind: "cloze" | "meaning" | "pick";
+  kind: "recall" | "cloze" | "contrast" | "translate" | "meaning" | "pick";
   prompt: string;
+  /** Empty for the kinds answered without options. */
   choices: string[];
   answer: string;
   explain: string;
-  /** A cloze's sentence, with its translation. */
+  /** A cloze's or contrast's sentence (one of the owner's), with its translation. */
   sentence: { id: number; en: string | null } | null;
 }
 
@@ -283,8 +292,10 @@ export interface Rescue {
   /** What it was made from. */
   evidence: { missed: number; tripped: number; notes: number; lookups: number };
   doneAt: number | null;
-  /** A miss came after it was made: it can be made again. */
+  /** A miss came after it was made, or it is of an older shape: it can be made again. */
   stale: boolean;
+  /** Of an older shape (RESCUE_VERSION): opening it makes it again. */
+  outdated: boolean;
 }
 
 /** Settings › Algorithm: the queue's output right now. */
