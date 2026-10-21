@@ -730,16 +730,34 @@ land" (`app/api/chongfuxi/rescue.ts`, route `rescue`,
 quiz; afterwards the hook shows on the word's cards and the schedule stays
 FSRS's; card misses and sentence trips both count.
 
-- **Stuck**: a deck word, not suspended, whose last `RESCUE_STREAK` (3)
-  results were all wrong. Results are its Read and Recall review rows with
-  cause `answer` (a Forgot) or `tapped` (a lapse from being tapped in a
-  forgotten sentence), by `seq`. Today shows one "Stuck words" button with
-  the count (the owner found the list there clutter); it opens the list,
-  full screen (`StuckList`), the longest streak first, each with ×streak and
-  its rescue's state (Rescue, Ready, Done, Missed again once a miss comes
-  after the rescue was made); a word opens its rescue over the list, back
-  returning to it.
-- **The rescue** is made when a stuck word is opened, by the owner only (it
+- **Words to revive**, by category (`lib/revive.ts`, the owner's idea:
+  "3 fails in a row is different from getting a word right a ton then
+  failing it, which is different from failing it in context or on a
+  recall"). A deck word, not suspended, whose latest result was wrong is
+  placed by its last 15 results (its Read and Recall review rows with cause
+  `answer`, a Forgot, or `tapped`, a lapse from being tapped in a forgotten
+  sentence; each row's `before` strength), in the first that fits:
+  **Mixed up** (2 of the last 6 wrong, and a partner word: a lookup naming
+  just the two, 2 votes, or each sentence forgotten with both tapped, 1;
+  2 votes needed), **Can't produce** (Recall wrong 2 of its last 3, Read
+  mostly right), **Breaks in context** (2+ trips in 30 days, Read mostly
+  right), **Slipping** (2 of the last 3 wrong after 4 right in a row, or
+  at 30+ days strength), **Won't stick** (3 wrong in a row), **Leech** (6+
+  wrong in all). A word wrong once with none of these isn't listed: FSRS
+  handles a single lapse. The thresholds are `REVIVE`, on Settings ›
+  Algorithm. Today shows one "Words to revive" button with the count and
+  the counts by category (the owner found the list there clutter); it opens
+  the list, full screen (`StuckList`), by category, each word with the
+  reason that placed it and its rescue's state (Rescue, Ready, Done, Missed
+  again once a miss comes after the rescue was made); a word opens its
+  rescue over the list, back returning to it.
+- **The rescue** is aimed at the word's category (`FOCUS` in rescue.ts):
+  Mixed up is all about telling it from its partner, whose meanings come
+  with it; Can't produce is all production; Breaks in context works from
+  the sentences it tripped; Slipping is a short refresher; Won't stick
+  builds it from the ground up; a Leech gets a new angle (its characters,
+  its origin) and may be called not worth it for now. The category and
+  partner are kept with it. It is made when a word is opened, by the owner only (it
   costs money), once, then kept (`chongfuxi_rescue`); a miss after it was
   made marks it stale, and "Make it again" asks anew. One structured-output
   call at Look up's `MODEL` and `EFFORT` (never lower), given everything

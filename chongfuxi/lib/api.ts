@@ -1,5 +1,6 @@
 // What /api/chongfuxi sends and takes, shared by the routes and the screens.
 
+import type { ReviveCategory } from "./revive";
 import type { Definition } from "./dict";
 import type { CardKind, Grade } from "./schedule";
 
@@ -241,14 +242,18 @@ export interface SessionCard {
   hook?: string | null;
 }
 
-/** A word forgotten RESCUE_STREAK or more times in a row, for the Stuck section of Today. */
+/** A word that needs reviving (its latest result was wrong), with why: lib/revive.ts. */
 export interface StuckWord {
   word: string;
   pinyin: string | null;
   gloss: string | null;
-  /** Wrong results in a row, the latest last: Forgots on its cards and trips in sentences. */
+  category: ReviveCategory;
+  /** The pattern that placed it, in a few words ("Recall wrong 2 of its last 3; Read fine"). */
+  why: string;
+  /** For "mixed": the word it is mixed up with. */
+  partner: string | null;
+  /** Wrong results in a row now; wrong results in all; sentences it tripped lately. */
   streak: number;
-  /** Of the streak: Forgots on its own cards, and sentences it tripped. */
   missed: number;
   tripped: number;
   /** No rescue yet, one made and not yet worked through, one worked through, or one older than the latest miss. */

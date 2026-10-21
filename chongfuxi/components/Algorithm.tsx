@@ -13,7 +13,8 @@ import type { QueueNow, QueueWhy, SessionCard } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { ROLLOVER_HOUR } from "@chongfuxi/lib/day";
 import { AFTER_MISS, GAP, IN_PLAY, LADDER, LEARN_EVERY } from "@chongfuxi/lib/learn";
-import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, RESCUE_CLEAR, RESCUE_STREAK, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
+import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, RESCUE_CLEAR, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
+import { REVIVE } from "@chongfuxi/lib/revive";
 import {
   FSRS_WEIGHTS,
   FUZZ,
@@ -194,10 +195,16 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
     ],
   },
   {
-    title: "Rescue",
+    title: "Revive",
     params: [
-      ["Stuck after", `${RESCUE_STREAK} wrong in a row`, "RESCUE_STREAK"],
+      ["Needs reviving", "Latest result wrong", "stuckWords()"],
       ["Counts as wrong", "Again · tapped lapse", "stuckWords()"],
+      ["Mixed up", `${REVIVE.mixedMisses} of last 6 wrong + a partner`, "REVIVE.mixedMisses"],
+      ["Can't produce", `Recall ${REVIVE.produceMisses} of last 3 wrong, Read fine`, "REVIVE.produceMisses"],
+      ["Breaks in context", `${REVIVE.trips}+ trips in ${REVIVE.tripDays} d, Read fine`, "REVIVE.trips · tripDays"],
+      ["Slipping", `${REVIVE.slipMisses} of last 3 wrong after ${REVIVE.strongRun} right or ${REVIVE.strongDays} d`, "REVIVE.strongRun · strongDays"],
+      ["Won't stick", `${REVIVE.streak} wrong in a row`, "REVIVE.streak"],
+      ["Leech", `${REVIVE.leechMisses}+ wrong in all`, "REVIVE.leechMisses"],
       ["Hook shown until", `${RESCUE_CLEAR} Good in a row`, "RESCUE_CLEAR"],
       ["Schedule effect", "None", "rescue.ts"],
     ],

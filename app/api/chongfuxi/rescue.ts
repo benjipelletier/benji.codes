@@ -1,6 +1,8 @@
-// Stuck words: a word whose last RESCUE_STREAK results were all wrong (a
-// Forgot on its Read or Recall card, or a forgotten sentence it was tapped
-// as tripping) gets a rescue, made by the model from everything known about
+// Words that need reviving: a word whose latest result was wrong (a Forgot on
+// its Read or Recall card, or a forgotten sentence it was tapped as tripping),
+// placed in a category by its recent results (lib/revive.ts: mixed up, can't
+// produce, breaks in context, slipping, won't stick, leech), gets a rescue
+// aimed at that category, made by the model from everything known about
 // it: its answers, what was written after each Forgot, its card notes, the
 // sentences it tripped, the lookups about it, the words it is mixed up with,
 // and the owner's readable sentences with it. A rescue is a diagnosis, a
@@ -15,8 +17,9 @@ import type { Sql } from "./db";
 import type { Rescue, RescueDrillItem, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
-import { RESCUE_CLEAR, RESCUE_STREAK } from "@chongfuxi/lib/review";
-import { EFFORT, MODEL, ensureLookupTables } from "./lookup";
+import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
+import { CATEGORIES, REVIVE, classify, type ReviveCategory, type ReviveEvent } from "@chongfuxi/lib/revive";
+import { EFFORT, MODEL, ensureLookupTables, lookupWords } from "./lookup";
 import { promptSenses, shownPinyin } from "./review";
 import { SUSPENDED_WORD } from "./suspended";
 import { wordPage, wordSentences } from "./wordpage";
@@ -66,60 +69,139 @@ export async function ensureRescueTable(sql: Sql) {
   ready = true;
 }
 
-/** The stuck words, the longest streak first. Readable by anyone. */
-export async function stuckWords(sql: Sql, owner: string): Promise<StuckWord[]> {
+/** Results read per word to place it. */
+const EVENTS = 15;
+/** Votes a word needs to count as the one this word is mixed up with. */
+const PARTNER_VOTES = 2;
+
+/**
+ * The words that need reviving: every deck word, not suspended, whose latest
+ * result was wrong, placed in a category by its recent results
+ * (lib/revive.ts), in the categories' order and the worst first. A word is
+ * "mixed up" with another when the evidence names one: a lookup about the
+ * two of them (2 votes), or each sentence forgotten with both tapped (1).
+ * Readable by anyone.
+ */
+export async function stuckWords(sql: Sql, owner: string, at = Date.now()): Promise<StuckWord[]> {
   await ensureRescueTable(sql);
   const rows = (await sql.query(
     `with ev as (
-       select r.word, r.grade, r.cause, r.at,
-              row_number() over (partition by r.word order by r.seq desc) as rn
+       select r.word, r.kind, r.cause, r.grade, (extract(epoch from r.at) * 1000)::double precision as at,
+              (r.before->>'stability')::double precision as stability,
+              row_number() over (partition by r.word order by r.seq desc) as rn,
+              count(*) filter (where r.grade = 'forgot') over (partition by r.word) as misses
        from chongfuxi_review r
        where r.owner_email = $1 and ${RESULTS} and r.word is not null
      ),
-     runs as (
-       select word,
-              coalesce(min(rn) filter (where grade <> 'forgot'), max(rn) + 1) - 1 as streak,
-              max(at) as last_at
-       from ev group by word
-     )
-     select s.word, s.streak::int as streak, w.pinyin, w.defs,
-            (select count(*) from ev e where e.word = s.word and e.rn <= s.streak and e.cause = 'answer')::int as missed,
-            (select count(*) from ev e where e.word = s.word and e.rn <= s.streak and e.cause = 'tapped')::int as tripped,
-            case when x.word is null then 'none'
-                 when s.last_at > x.at or coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} then 'stale'
-                 when x.done_at is not null then 'done'
-                 else 'ready' end as rescue
-     from runs s
-     join chongfuxi_word w on w.owner_email = $1 and w.word = s.word and w.status = 'deck' and not ${SUSPENDED_WORD("w")}
-     left join chongfuxi_rescue x on x.owner_email = $1 and x.word = s.word
-     where s.streak >= $2
-     order by s.streak desc, s.word`,
-    [owner, RESCUE_STREAK],
-  )) as unknown as Array<{
-    word: string;
-    streak: number;
-    pinyin: string | null;
-    defs: Definition[];
-    missed: number;
-    tripped: number;
-    rescue: StuckWord["rescue"];
-  }>;
-  return rows.map((r) => {
-    const p = shownPinyin(r.pinyin, r.defs);
-    return {
-      word: r.word,
-      pinyin: p,
-      gloss: promptSenses(r.defs, p).slice(0, 2).join("; ") || null,
-      streak: r.streak,
-      missed: r.missed,
-      tripped: r.tripped,
-      rescue: r.rescue,
-    };
+     wrong as (select word from ev where rn = 1 and grade = 'forgot')
+     select e.word, e.kind, e.cause, e.grade, e.at, e.stability, e.misses::int as misses
+     from ev e
+     join wrong using (word)
+     join chongfuxi_word w on w.owner_email = $1 and w.word = e.word and w.status = 'deck' and not ${SUSPENDED_WORD("w")}
+     where e.rn <= $2
+     order by e.word, e.rn`,
+    [owner, EVENTS],
+  )) as unknown as Array<ReviveEvent & { word: string; misses: number }>;
+  const byWord = new Map<string, { events: ReviveEvent[]; misses: number }>();
+  for (const r of rows) {
+    const w = byWord.get(r.word) ?? { events: [], misses: r.misses };
+    w.events.push({ kind: r.kind, cause: r.cause, grade: r.grade, at: r.at, stability: r.stability });
+    byWord.set(r.word, w);
+  }
+  const candidates = [...byWord.keys()];
+  if (!candidates.length) return [];
+
+  // Who each is mixed up with: lookups naming it and one other deck word, and sentences forgotten with both tapped.
+  const votes = new Map<string, Map<string, number>>();
+  const vote = (word: string, other: string, n: number) => {
+    const m = votes.get(word) ?? new Map<string, number>();
+    m.set(other, (m.get(other) ?? 0) + n);
+    votes.set(word, m);
+  };
+  await ensureLookupTables(sql);
+  const asked = (await sql`
+    select l.query, c.word from chongfuxi_lookup l, unnest(${candidates}::text[]) as c(word)
+    where l.owner_email = ${owner} and strpos(l.query, c.word) > 0
+  `) as unknown as Array<{ query: string; word: string }>;
+  const named = await lookupWords(sql, owner, [...new Set(asked.map((a) => a.query))]);
+  for (const a of asked) {
+    const others = (named.get(a.query) ?? []).filter((w) => w !== a.word && !w.includes(a.word) && !a.word.includes(w));
+    if (others.length === 1) vote(a.word, others[0], 2);
+  }
+  const together = (await sql`
+    select c.word, t.w as other, count(*)::int as n
+    from chongfuxi_review r, unnest(r.tapped) as t(w), unnest(${candidates}::text[]) as c(word)
+    where r.owner_email = ${owner} and r.kind = 'sentence' and r.grade = 'forgot' and r.cause = 'answer'
+      and c.word = any(r.tapped) and t.w <> c.word
+      and exists (select 1 from chongfuxi_word d where d.owner_email = r.owner_email and d.word = t.w and d.status = 'deck')
+    group by c.word, t.w
+  `) as unknown as Array<{ word: string; other: string; n: number }>;
+  for (const t of together) vote(t.word, t.other, t.n);
+  const partnerOf = (word: string) => {
+    const best = [...(votes.get(word) ?? new Map<string, number>())].sort((a, b) => b[1] - a[1])[0];
+    return best && best[1] >= PARTNER_VOTES ? best[0] : null;
+  };
+
+  const placed = candidates.flatMap((word) => {
+    const { events, misses } = byWord.get(word)!;
+    const partner = partnerOf(word);
+    const c = classify(events, misses, partner, at);
+    if (!c) return [];
+    let streak = 0;
+    while (streak < events.length && events[streak].grade === "forgot") streak++;
+    const tripped = events.filter((e) => e.cause === "tapped" && at - e.at <= REVIVE.tripDays * 86_400_000).length;
+    return [{ word, ...c, partner: c.category === "mixed" ? partner : null, streak, misses, tripped, last: events[0].at }];
   });
+  if (!placed.length) return [];
+
+  const info = (await sql.query(
+    `select w.word, w.pinyin, w.defs,
+            (extract(epoch from x.at) * 1000)::double precision as made, x.done_at is not null as done,
+            coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} as outdated, x.word is not null as has
+     from chongfuxi_word w left join chongfuxi_rescue x on x.owner_email = w.owner_email and x.word = w.word
+     where w.owner_email = $1 and w.word = any($2::text[])`,
+    [owner, placed.map((p) => p.word)],
+  )) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; made: number | null; done: boolean; outdated: boolean; has: boolean }>;
+  const infoOf = new Map(info.map((i) => [i.word, i]));
+  const order = CATEGORIES.map((c) => c.key);
+  return placed
+    .sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category) || b.streak - a.streak || b.misses - a.misses || a.word.localeCompare(b.word))
+    .map((p) => {
+      const i = infoOf.get(p.word)!;
+      const pinyin = shownPinyin(i.pinyin, i.defs);
+      return {
+        word: p.word,
+        pinyin,
+        gloss: promptSenses(i.defs, pinyin).slice(0, 2).join("; ") || null,
+        category: p.category,
+        why: p.why,
+        partner: p.partner,
+        streak: p.streak,
+        missed: p.misses,
+        tripped: p.tripped,
+        rescue: !i.has ? "none" : p.last > (i.made ?? 0) || i.outdated ? "stale" : i.done ? "done" : "ready",
+      };
+    });
 }
 
 /** Everything known about the word, as the model reads it, and the sentences a cloze may use. */
-async function evidenceFor(sql: Sql, owner: string, word: string) {
+/** What a rescue should aim at, by the word's category. */
+const FOCUS: Record<ReviveCategory, (partner: string | null) => string> = {
+  mixed: (p) =>
+    `It is confused with ${p}. Make the whole rescue about telling the two apart: the diagnosis says what separates them, the hook is the one contrast that settles it, and most questions are contrast items with ${p} as the wrong option, or recalls whose cue fits only this word.`,
+  produce: () =>
+    "They recognise it but can't produce it from its meaning. Make the hook about getting from the meaning to the word's sound and characters, and the quiz all production: recall, cloze and translate items; contrast only for a real confusion.",
+  context: () =>
+    "They know it alone but it trips them in sentences: a sense, a collocation or a grammatical use they don't expect. Base the diagnosis on the sentences it tripped; make the hook about how it behaves in a sentence; make the quiz mostly cloze from their sentences and translations into contexts like the ones that tripped them.",
+  slipping: () =>
+    "They knew it well and it is slipping now. Say what may have changed (a similar word met lately, a sense they haven't seen); the hook is a quick refresher; keep the quiz short, mixing kinds.",
+  stuck: () =>
+    "It has never stuck: they get it wrong every time. Build it from the ground up: the hook links its sound, characters and meaning vividly; the quiz goes from easy recall to production.",
+  leech: () =>
+    "It keeps flip-flopping and never settles. Try an angle they won't have tried: what its characters mean on their own, where the word comes from, a striking image. If it seems not worth the effort for now, say so in the diagnosis (they can suspend it).",
+};
+
+async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<StuckWord, "category" | "why" | "partner"> | null) {
   const page = await wordPage(sql, owner, word);
   if (!page || page.status !== "deck") throw new RescueError(`${word} isn't in the deck.`);
   await ensureLookupTables(sql);
@@ -144,7 +226,24 @@ async function evidenceFor(sql: Sql, owner: string, word: string) {
 
   const day = (at: number) => new Date(at).toISOString().slice(0, 10);
   const meanings = page.defs.map((d) => `${d.p ? `${d.p.replace(/@/g, " ")}: ` : ""}${d.senses.join("; ")}${d.own ? " (the owner's own Pleco definition)" : ""}`);
+  // The word it is mixed up with: its meanings, for telling them apart.
+  const partner = place?.partner
+    ? ((await sql`select pinyin, defs from chongfuxi_word where owner_email = ${owner} and word = ${place.partner}`) as unknown as Array<{
+        pinyin: string | null;
+        defs: Definition[];
+      }>)[0]
+    : undefined;
   const lines = [
+    ...(place
+      ? [
+          `Their trouble with it: ${CATEGORIES.find((c) => c.key === place.category)!.label} (${place.why}).`,
+          `Aim the rescue at that: ${FOCUS[place.category](place.partner)}`,
+          ...(place.partner && partner
+            ? [`${place.partner}${partner.pinyin ? ` (${partner.pinyin.replace(/@/g, " ")})` : ""}: ${partner.defs.flatMap((d) => d.senses).slice(0, 4).join("; ")}`]
+            : []),
+          "",
+        ]
+      : []),
     `The word: ${word}${page.pinyin ? ` (${page.pinyin.replace(/@/g, " ")})` : ""}`,
     "Meanings:",
     ...meanings.map((m) => `- ${m}`),
@@ -192,7 +291,7 @@ async function evidenceFor(sql: Sql, owner: string, word: string) {
   };
 }
 
-const SYSTEM = `You help a learner of Chinese with a word they keep forgetting: they have got it wrong several times in a row. You are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, and their own sentences with it.
+const SYSTEM = `You help a learner of Chinese with a word they keep getting wrong. You are told what kind of trouble it is and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, and their own sentences with it.
 
 Work out why it keeps slipping, from that evidence, and give them what they need to keep it.
 - diagnosis: two or three plain sentences on why it slips, pointing at the evidence (a word it's mixed up with, a meaning that differs from the one they expect, a character that misleads, the contexts it trips them in). Say what the evidence shows, not generalities.
@@ -331,7 +430,9 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
 
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new RescueError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
-  const evidence = await evidenceFor(sql, owner, word);
+  // Where it stands now, for what the rescue should aim at (null if its latest result was right).
+  const place = (await stuckWords(sql, owner)).find((w) => w.word === word) ?? null;
+  const evidence = await evidenceFor(sql, owner, word, place);
 
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
@@ -348,7 +449,7 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
   } catch {
     throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The rescue came back malformed.");
   }
-  const rescue = checkRescue(given, word, evidence.sentences);
+  const rescue = { ...checkRescue(given, word, evidence.sentences), category: place?.category ?? null, partner: place?.partner ?? null };
   await sql`
     insert into chongfuxi_rescue (owner_email, word, at, model, evidence, rescue, done_at, drill)
     values (${owner}, ${word}, now(), ${MODEL}, ${JSON.stringify(evidence.counts)}::jsonb, ${JSON.stringify(rescue)}::jsonb, null, null)

@@ -1,10 +1,11 @@
 "use client";
 
-// Stuck words (app/api/chongfuxi/rescue.ts): a word forgotten RESCUE_STREAK
-// or more times in a row gets an AI rescue, made from everything known about
-// it, to get it out of "forgotten land" (the owner's words). Four parts: one
-// button on Today with the count (the list there was clutter, the owner
-// found); the list, full screen; a word's rescue (why it slips, a hook, what
+// Words to revive (app/api/chongfuxi/rescue.ts): a word whose latest result
+// was wrong, in a category by its pattern (lib/revive.ts), gets an AI rescue
+// aimed at that, made from everything known about it, to get it out of
+// "forgotten land" (the owner's words). Four parts: one button on Today with
+// the count (the list there was clutter, the owner found); the list, full
+// screen, by category, with a story using them all; a word's rescue (why it slips, a hook, what
 // it's mixed up with, then a quiz that makes the word be produced, not
 // picked: multiple choice was too easy to help); and the hook on the backs
 // of its cards once worked through, until RESCUE_CLEAR Goods in a row.
@@ -13,7 +14,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Rescue as RescueData, RescueDrillItem, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
-import { RESCUE_CLEAR, RESCUE_STREAK } from "@chongfuxi/lib/review";
+import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
+import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -38,18 +40,17 @@ function useStuck(): StuckWord[] | null {
   return words;
 }
 
-/** On Today: one button with how many words are stuck, opening their list. Nothing when none are. */
+/** On Today: one button with how many words need reviving, by kind, opening their list. Nothing when none do. */
 export function StuckWords({ onOpen }: { onOpen: () => void }) {
   const words = useStuck();
   if (!words?.length) return null;
-  const waiting = words.filter((w) => w.rescue !== "done").length;
+  const kinds = CATEGORIES.map((c) => ({ label: c.label, n: words.filter((w) => w.category === c.key).length })).filter((k) => k.n);
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
-        <b>Stuck words</b>
-        <small>forgotten {RESCUE_STREAK}+ times in a row</small>
+        <b>Words to revive</b>
+        <small>{kinds.map((k) => `${fmt(k.n)} ${k.label.toLowerCase()}`).join(" · ")}</small>
       </span>
-      {waiting > 0 && waiting < words.length && <span className="cf-stuck-state">{fmt(waiting)} to rescue</span>}
       <span className="cf-stuck-count">{fmt(words.length)}</span>
       <i aria-hidden="true">›</i>
     </button>
@@ -186,14 +187,13 @@ function StuckRows({ onOpen, onStory, onEnd }: { onOpen: (word: string) => void;
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="cf-rescue-top">Stuck words{words ? ` · ${fmt(words.length)}` : ""}</p>
+        <p className="cf-rescue-top">Words to revive{words ? ` · ${fmt(words.length)}` : ""}</p>
       </div>
       <div className="cf-rescue-in">
         {!words && <Loading label="Finding them…" />}
-        {words && !words.length && <p className="cf-muted">Nothing is stuck.</p>}
+        {words && !words.length && <p className="cf-muted">Nothing needs reviving.</p>}
         {words && words.length > 0 && (
           <>
-            <p className="cf-muted cf-stuck-about">Forgotten {RESCUE_STREAK} or more times in a row, on their cards or in sentences.</p>
             <button className="cf-stuck cf-story-btn" onClick={onStory}>
               <span className="cf-stuck-text">
                 <b>A story with them</b>
@@ -201,23 +201,33 @@ function StuckRows({ onOpen, onStory, onEnd }: { onOpen: (word: string) => void;
               </span>
               <i aria-hidden="true">›</i>
             </button>
-            <ul className="cf-stuck-list">
-              {words.map((w) => (
-                <li key={w.word}>
-                  <button onClick={() => onOpen(w.word)}>
-                    <span className="cf-stuck-zh cf-zh">{w.word}</span>
-                    <span className="cf-stuck-body">
-                      {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
-                      {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
-                    </span>
-                    <span className="cf-stuck-n" title={`${w.missed} on its cards, ${w.tripped} in sentences`}>
-                      ×{w.streak}
-                    </span>
-                    <span className={`cf-stuck-state is-${w.rescue}`}>{STATE[w.rescue]}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {CATEGORIES.map((c) => {
+              const these = words.filter((w) => w.category === c.key);
+              if (!these.length) return null;
+              return (
+                <section key={c.key} className="cf-revive-group">
+                  <h3 className="cf-revive-h">
+                    {c.label} <span>{fmt(these.length)}</span>
+                  </h3>
+                  <p className="cf-muted cf-stuck-about">{c.about}</p>
+                  <ul className="cf-stuck-list">
+                    {these.map((w) => (
+                      <li key={w.word}>
+                        <button onClick={() => onOpen(w.word)}>
+                          <span className="cf-stuck-zh cf-zh">{w.word}</span>
+                          <span className="cf-stuck-body">
+                            {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
+                            {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
+                            <span className="cf-stuck-why">{w.why}</span>
+                          </span>
+                          <span className={`cf-stuck-state is-${w.rescue}`}>{STATE[w.rescue]}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
           </>
         )}
       </div>
