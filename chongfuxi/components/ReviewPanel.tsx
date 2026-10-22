@@ -22,7 +22,7 @@ import * as resume from "@chongfuxi/lib/resume";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import { REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
-import { mainFirst, mainSenses } from "@chongfuxi/lib/senses";
+import { mainFirst, mainSenses, readingOfSense } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
@@ -961,7 +961,11 @@ export function Session({
               )}
               {revealed && (
                 <div className="cf-back">
-                  {card.word.pinyin && <div className="cf-card-pinyin">{displayPinyin(card.word.pinyin)}</div>}
+                  {(() => {
+                    // A split-off meaning shows the reading its sense is under.
+                    const p = card.meaning ? readingOfSense(card.word.defs, card.meaning.gloss, card.word.pinyin) : card.word.pinyin;
+                    return p && <div className="cf-card-pinyin">{displayPinyin(p)}</div>;
+                  })()}
                   {card.meaning && <p className="cf-card-meaning">{card.meaning.gloss}</p>}
                   <Definitions
                     card={card}
@@ -1273,6 +1277,8 @@ function Definitions({
 }) {
   const word = card.word!;
   const split = new Map(word.split.map((m) => [m.gloss, m.id]));
+  // On a split-off meaning's card, its own entry leads, and the others are labelled against it.
+  const lead = card.meaning ? readingOfSense(word.defs, card.meaning.gloss, word.pinyin) : word.pinyin;
   if (!word.defs.length) {
     return (
       <>
@@ -1283,9 +1289,9 @@ function Definitions({
   }
   return (
     <div className="cf-defs">
-      {mainFirst(word.defs, word.pinyin).map((d, i) => (
+      {(card.meaning ? [...word.defs.filter((d) => !d.own && d.p === lead), ...word.defs.filter((d) => d.own || d.p !== lead)] : mainFirst(word.defs, word.pinyin)).map((d, i) => (
         <div key={i} className="cf-def">
-          {!d.own && d.p && d.p !== word.pinyin && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
+          {!d.own && d.p && d.p !== lead && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
           <ul>
             {d.senses.map((s) => (
               <li

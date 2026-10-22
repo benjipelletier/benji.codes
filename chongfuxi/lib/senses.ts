@@ -111,6 +111,15 @@ export function mainSenses(defs: Definition[], pinyin: string | null, opts: { en
 }
 
 /** All the entries, the main one first; the rest as the dictionary has them. */
+/**
+ * The reading a split-off meaning is under: the dictionary entry holding
+ * that sense (调's "to adjust" is tiáo, not the word's diào), else the
+ * word's own reading (bugs #11, #12).
+ */
+export function readingOfSense(defs: Definition[], gloss: string, pinyin: string | null): string | null {
+  return defs.find((d) => !d.own && d.p && d.senses.includes(gloss))?.p ?? pinyin;
+}
+
 export function mainFirst(defs: Definition[], pinyin: string | null): Definition[] {
   const main = mainEntry(defs, pinyin);
   return main ? [main, ...defs.filter((d) => d !== main)] : defs;
