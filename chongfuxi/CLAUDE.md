@@ -802,7 +802,7 @@ FSRS's; card misses and sentence trips both count.
 Asked for by the owner in October 2026: every word tied to the others that
 share an English entry (经历, 经验, 阅历 by "experience"), and a page to
 explore how they differ. The owner chose groups of their own words with the
-dictionary's on a toggle, a dedicated AI comparison, and a place in Cards.
+dictionary's shown greyed after them, a dedicated AI comparison, and a place in Cards.
 
 - **English keys** (`lib/synonyms.ts`, `senseKeys`): each CC-CEDICT sense
   (the owner's own Pleco definition left out) is cut on ; , / into keys,
@@ -828,8 +828,9 @@ dictionary's on a toggle, a dedicated AI comparison, and a place in Cards.
   then each word side by side: pinyin, HSK, the shared sense marked and its
   others, what each character brings, the words right before and after it
   in the owner's sentences, one readable sentence, and the owner's record
-  (strength, Forgots, sentences it is in). A toggle adds the dictionary's
-  other words for the key (whole words, not single characters; from an
+  (strength, Forgots, sentences it is in). After them, always (the owner
+  wanted them shown, not behind a toggle) and greyed, the dictionary's other
+  words for the key, up to 30 (whole words, not single characters; from an
   index of every CC-CEDICT entry made on first use).
 - **How they differ** (owner only, it costs money; `compareGroup`): one
   structured call at Look up's model and effort, given each word's senses,

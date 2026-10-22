@@ -9096,8 +9096,11 @@ button.cf-how-text {
   background: var(--cf-surface);
 }
 
+/* Not the owner's: always shown, greyed. */
 .cf-syn-card.is-dictionary {
   border-style: dashed;
+  background: transparent;
+  opacity: 0.6;
 }
 
 .cf-syn-card header {
@@ -9169,15 +9172,6 @@ button.cf-how-text {
 
 .cf-syn-record {
   font-size: 12px !important;
-}
-
-.cf-syn-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-bottom: 8px;
-  font-size: 14px;
 }
 
 .cf-syn-go {

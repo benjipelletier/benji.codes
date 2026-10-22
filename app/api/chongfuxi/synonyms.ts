@@ -26,8 +26,8 @@ export class SynonymError extends Error {}
 const NEAR_TOP = 2;
 /** Groups listed at a time. */
 const LIST = 60;
-/** Dictionary words shown beside the owner's, at most. */
-const DICTIONARY = 10;
+/** Dictionary words shown after the owner's (always, greyed), at most. */
+const DICTIONARY = 30;
 /** Recent enough to count towards a group's trouble. */
 const TROUBLE_DAYS = 90;
 const DAY = 86_400_000;

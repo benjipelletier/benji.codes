@@ -5,7 +5,8 @@
 // found by English or by a word; a group's page, over everything like a word
 // page, puts its words side by side (senses with the shared one marked, what
 // each character brings, the words around it in the owner's sentences, an
-// example, the owner's record), the dictionary's other words on a toggle, and
+// example, the owner's record), the dictionary's other words after them,
+// greyed (the owner wanted them always shown, not behind a toggle), and
 // the model's comparison (a table, each word's core, pitfalls, a "which one
 // fits" quiz on the owner's sentences) when asked. A word's page lists its
 // groups (`SameEnglish`). The owner asked for it, to tell 经历 from 经验.
@@ -130,20 +131,18 @@ export function SynonymPageHost({ shell }: { shell: Shell }) {
 }
 
 function SynonymPage({ groupKey, canWrite }: { groupKey: string; canWrite: boolean }) {
-  const [dict, setDict] = useState(false);
   const [g, setG] = useState<SynonymGroup | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [compare, setCompare] = useState<SynonymCompare | null>(null);
   useEffect(() => {
-    get<SynonymGroup>("synonyms", { key: groupKey, dict: dict ? 1 : undefined })
+    get<SynonymGroup>("synonyms", { key: groupKey, dict: 1 })
       .then((r) => {
         setG(r);
-        // The dictionary toggle loads the group again: a comparison just made stays.
-        setCompare((c) => r.compare ?? c);
+        setCompare(r.compare);
       })
       .catch((e) => setError(e instanceof ApiError && e.status === 404 ? `None of your words has “${groupKey}” any more.` : message(e)));
-  }, [groupKey, dict]);
+  }, [groupKey]);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && synpage.closeGroup();
     window.addEventListener("keydown", esc);
@@ -195,6 +194,17 @@ function SynonymPage({ groupKey, canWrite }: { groupKey: string; canWrite: boole
               ))}
             </div>
 
+            {others.length > 0 && (
+              <section className="cf-wp-section">
+                <h3>In the dictionary</h3>
+                <div className="cf-syn-cards">
+                  {others.map((w) => (
+                    <SynonymCard key={w.word} w={w} />
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="cf-wp-section">
               <h3>How they differ</h3>
               {comparing && <Loading label="Comparing them… this can take a minute." />}
@@ -210,19 +220,6 @@ function SynonymPage({ groupKey, canWrite }: { groupKey: string; canWrite: boole
               )}
             </section>
 
-            <section className="cf-wp-section">
-              <label className="cf-syn-toggle">
-                <input type="checkbox" checked={dict} onChange={(e) => setDict(e.target.checked)} /> Other words for “{groupKey}” in the dictionary
-              </label>
-              {dict && others.length === 0 && <p className="cf-muted">None besides yours.</p>}
-              {dict && others.length > 0 && (
-                <div className="cf-syn-cards">
-                  {others.map((w) => (
-                    <SynonymCard key={w.word} w={w} />
-                  ))}
-                </div>
-              )}
-            </section>
           </>
         )}
       </div>
