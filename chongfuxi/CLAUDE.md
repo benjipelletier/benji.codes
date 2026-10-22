@@ -821,7 +821,13 @@ dictionary's shown greyed after them, a dedicated AI comparison, and a place in 
   the nearest the top ("become aware · detect"). Cards › Synonyms lists
   them, those that trip the owner most first: Forgots on their words in 90
   days, plus 3 for each sentence forgotten with two of them tapped; found by
-  English (a key starting with it) or by a word in them.
+  English (a key starting with it) or by a word in them. A search also
+  looks in the dictionary (the owner asked to search beyond their words):
+  a Chinese word, theirs or not, gives the groups of its dictionary keys,
+  and English the group of its key, each with the owner's words for it and
+  the dictionary's (greyed), labelled "dictionary" when fewer than two of
+  its words are in the deck; such a group's page shows the dictionary's
+  words (the AI comparison still needs two of the owner's).
 - **A group's page** (`SynonymPageHost`, over everything like a word page,
   `syn=` in the address; a word page opened from it lies on top, and one
   opened before is closed first): what the owner has mixed up between them,

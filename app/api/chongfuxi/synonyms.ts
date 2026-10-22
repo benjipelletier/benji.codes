@@ -14,8 +14,8 @@ import type { Sql } from "./db";
 import type { SynonymCompare, SynonymGroup, SynonymGroupRow, SynonymWord } from "@chongfuxi/lib/api";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
-import { KEY_VERSION, MAX_GROUP, senseKeys } from "@chongfuxi/lib/synonyms";
-import { allEntries, dictEntry } from "./headwords";
+import { KEY_VERSION, MAX_GROUP, keyOf, senseKeys } from "@chongfuxi/lib/synonyms";
+import { allEntries, dictEntries, dictEntry } from "./headwords";
 import { EFFORT, MODEL } from "./lookup";
 import { hskOf, shownPinyin } from "./review";
 import { wordSentences } from "./wordpage";
@@ -172,7 +172,7 @@ export async function synonymGroups(sql: Sql, owner: string, q = ""): Promise<Sy
   const merged = [...bySet.values()];
   const all = [...new Set(merged.flatMap((r) => r.words))];
   const { forgot, pairs } = await troubleOf(sql, owner, all);
-  return merged
+  const mine = merged
     .map((r) => {
       const ws = r.words;
       let confused = 0;
@@ -187,6 +187,36 @@ export async function synonymGroups(sql: Sql, owner: string, q = ""): Promise<Sy
     })
     .sort((a, b) => (query && !han ? Number(b.key === query) - Number(a.key === query) : 0) || b.trouble - a.trouble || b.words.length - a.words.length || a.key.localeCompare(b.key))
     .slice(0, LIST);
+  if (!query) return mine;
+
+  // A search also looks in the dictionary: the keys of a Chinese word (yours or not), or the English
+  // asked for, each as a group of your words with it (any number) and the dictionary's.
+  const keys = han
+    ? senseKeys(dictEntries(query).flatMap((e) => e.senses)).filter((k) => k.rank <= NEAR_TOP).map((k) => k.key)
+    : [keyOf(query)].filter((k): k is string => k !== null);
+  const known = new Set(mine.flatMap((g) => [g.key, ...g.also]));
+  const extra: SynonymGroupRow[] = [];
+  for (const key of keys) {
+    if (known.has(key)) continue;
+    const dict = dictionaryFor(key);
+    const ownRows = (await sql`
+      select k.word, w.status = 'deck' as deck from chongfuxi_gloss_key k join chongfuxi_word w on w.owner_email = k.owner_email and w.word = k.word
+      where k.owner_email = ${owner} and k.key = ${key} order by k.rank, char_length(k.word)
+    `) as unknown as Array<{ word: string; deck: boolean }>;
+    const ownWords = new Set(ownRows.map((r) => r.word));
+    const others = [...new Set(dict.filter((d) => [...d.word].length > 1 && !ownWords.has(d.word)).sort((a, b) => a.rank - b.rank).map((d) => d.word))];
+    if (ownRows.length + others.length < 2 || ownRows.length + others.length > MAX_GROUP * 3) continue;
+    extra.push({
+      key,
+      also: [],
+      words: [...ownRows.map((r) => ({ word: r.word, inDeck: r.deck })), ...others.slice(0, 8).map((w) => ({ word: w, inDeck: false, dictionary: true }))],
+      trouble: 0,
+      confused: 0,
+      // One of the owner's groups when two or more of its words are in the deck; else the dictionary's.
+      fromDictionary: ownRows.filter((r) => r.deck).length < 2,
+    });
+  }
+  return [...mine, ...extra];
 }
 
 /** The keys of one word that make groups, each with its other words: for the word page. */
@@ -236,7 +266,8 @@ export async function synonymGroup(sql: Sql, owner: string, key: string, withDic
     where k.owner_email = ${owner} and k.key = ${key}
     order by w.status = 'deck' desc, k.rank, char_length(k.word), k.word
   `) as unknown as Array<{ word: string; sense: string; status: "deck" | "listed"; pinyin: string | null; defs: Definition[]; lists: string[] | null }>;
-  if (!own.length) return null;
+  // A key none of the owner's words has can still be a dictionary group, found by a search.
+  if (!own.length && (!withDictionary || dictionaryFor(key).length < 2)) return null;
   const words = own.map((o) => o.word);
 
   const around = (await sql`

@@ -9049,6 +9049,20 @@ button.cf-how-text {
   color: var(--cf-ink-faint);
 }
 
+.cf-syn-words .is-dict {
+  color: var(--cf-ink-faint);
+  opacity: 0.7;
+}
+
+.cf-syn-from {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px dashed var(--cf-rule-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
 .cf-syn-trouble {
   flex: none;
   padding: 2px 8px;

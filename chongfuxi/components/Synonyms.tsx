@@ -37,7 +37,9 @@ export function SynonymsPanel() {
 
   return (
     <div className="cf-syn">
-      <p className="cf-muted cf-syn-about">Your words that share an English meaning. Those you mix up or forget most come first.</p>
+      <p className="cf-muted cf-syn-about">
+        Your words that share an English meaning, those you mix up or forget most first. A search also finds the dictionary&apos;s.
+      </p>
       <input
         className="cf-syn-search"
         type="search"
@@ -60,11 +62,12 @@ export function SynonymsPanel() {
                 </span>
                 <span className="cf-syn-words">
                   {g.words.map((w) => (
-                    <span key={w.word} className={`cf-zh${w.inDeck ? "" : " is-listed"}`}>
+                    <span key={w.word} className={`cf-zh${w.dictionary ? " is-dict" : w.inDeck ? "" : " is-listed"}`}>
                       {w.word}
                     </span>
                   ))}
                 </span>
+                {g.fromDictionary && <span className="cf-syn-from">dictionary</span>}
                 {g.trouble > 0 && (
                   <span className="cf-syn-trouble" title={`${g.confused} sentences forgotten with two of them tapped`}>
                     {g.confused > 0 ? "mixed up" : "trips you"}

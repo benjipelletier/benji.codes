@@ -988,7 +988,10 @@ export interface SynonymGroupRow {
   key: string;
   /** Other keys sharing exactly these words ("detect" beside "become aware"). */
   also: string[];
-  words: Array<{ word: string; inDeck: boolean }>;
+  /** The owner's words, then, for a group found in the dictionary by a search, some of the dictionary's (`dictionary`). */
+  words: Array<{ word: string; inDeck: boolean; dictionary?: boolean }>;
+  /** Found in the dictionary by a search, not one of the owner's groups. */
+  fromDictionary?: boolean;
   /** Forgots on its words lately, and sentences forgotten with two of them tapped: how much it trips you. */
   trouble: number;
   confused: number;
