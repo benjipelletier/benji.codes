@@ -15,6 +15,7 @@ import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainFirst } from "@chongfuxi/lib/senses";
 import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
+import { SameEnglish } from "./Synonyms";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -743,6 +744,9 @@ export function WordSheet({
               {d.compounds.length > 0 && <WordChips label={`Deck words with ${word} in them`} words={d.compounds} onOpen={onOpenWord} />}
               {d.sameMeaning.length > 0 && <WordChips label="Deck words with the same meaning" words={d.sameMeaning} onOpen={onOpenWord} />}
             </section>
+
+            {/* Its English shared with other words of yours, each opening the group side by side (Synonyms.tsx). */}
+            <SameEnglish word={word} />
 
             {!canWrite && <p className="cf-muted cf-sheet-aside">This is Benji&apos;s deck, shown read-only.</p>}
             {canWrite && d.suspended && (

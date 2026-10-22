@@ -507,3 +507,31 @@ create table if not exists chongfuxi_rescue_story (
   words       text[]      not null,
   story       jsonb       not null
 );
+
+-- Words with the same English (app/api/chongfuxi/synonyms.ts), all made on
+-- first use: each deck and list word's English keys, when they were last
+-- cut, and the model's comparison of a group's words.
+create table if not exists chongfuxi_gloss_key (
+  owner_email text     not null,
+  key         text     not null,
+  word        text     not null,
+  rank        smallint not null,
+  sense       text     not null,
+  primary key (owner_email, key, word)
+);
+create index if not exists chongfuxi_gloss_key_word on chongfuxi_gloss_key (owner_email, word);
+create table if not exists chongfuxi_gloss_meta (
+  owner_email text        primary key,
+  built_at    timestamptz not null default now(),
+  words       int         not null,
+  version     int         not null
+);
+create table if not exists chongfuxi_synonym_compare (
+  owner_email text        not null,
+  key         text        not null,
+  at          timestamptz not null default now(),
+  model       text        not null,
+  words       text[]      not null,
+  compare     jsonb       not null,
+  primary key (owner_email, key)
+);

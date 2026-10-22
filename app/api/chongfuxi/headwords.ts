@@ -62,6 +62,12 @@ function load() {
   }
 }
 
+/** Every entry, by headword: for indexes built over the whole dictionary (synonyms.ts). */
+export function allEntries(): ReadonlyMap<string, ReadonlyArray<{ p: string; senses: string }>> {
+  if (!entries) load();
+  return entries!;
+}
+
 /** Every simplified headword in chongfuxi/data/cedict.txt; empty if the file can't be read. */
 export function loadHeadwords(): Set<string> {
   if (!headwords) load();

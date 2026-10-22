@@ -797,6 +797,53 @@ FSRS's; card misses and sentence trips both count.
   only; `rescue?story=1` reads it, `POST {story: true}` writes one.
 - Settings › Algorithm has the Rescue group.
 
+## Synonyms: words with the same English
+
+Asked for by the owner in October 2026: every word tied to the others that
+share an English entry (经历, 经验, 阅历 by "experience"), and a page to
+explore how they differ. The owner chose groups of their own words with the
+dictionary's on a toggle, a dedicated AI comparison, and a place in Cards.
+
+- **English keys** (`lib/synonyms.ts`, `senseKeys`): each CC-CEDICT sense
+  (the owner's own Pleco definition left out) is cut on ; , / into keys,
+  with "to", articles, sb/sth, parentheticals, CL: notes and a trailing
+  preposition dropped and a light plural stem ("to experience for oneself"
+  → experience; "to become aware of" → become aware). Pointer senses (see,
+  variant of, used in, classifier for, surname) and keys of more than three
+  words or too common (be, thing, kind) give none. Each key keeps how early
+  its sense comes in the word's entry. Kept in `chongfuxi_gloss_key` for
+  the deck and list words, made again (`ensureKeys`) when a digest of those
+  words and their definitions, or `KEY_VERSION`, changes
+  (`chongfuxi_gloss_meta`).
+- **A group** is a key shared by two or more deck words with it among the
+  first three senses of their entries, and by no more than `MAX_GROUP` (40)
+  words in all; keys with exactly the same words are one group, named by
+  the nearest the top ("become aware · detect"). Cards › Synonyms lists
+  them, those that trip the owner most first: Forgots on their words in 90
+  days, plus 3 for each sentence forgotten with two of them tapped; found by
+  English (a key starting with it) or by a word in them.
+- **A group's page** (`SynonymPageHost`, over everything like a word page,
+  `syn=` in the address; a word page opened from it lies on top, and one
+  opened before is closed first): what the owner has mixed up between them,
+  then each word side by side: pinyin, HSK, the shared sense marked and its
+  others, what each character brings, the words right before and after it
+  in the owner's sentences, one readable sentence, and the owner's record
+  (strength, Forgots, sentences it is in). A toggle adds the dictionary's
+  other words for the key (whole words, not single characters; from an
+  index of every CC-CEDICT entry made on first use).
+- **How they differ** (owner only, it costs money; `compareGroup`): one
+  structured call at Look up's model and effort, given each word's senses,
+  neighbours and record, the sentences forgotten with two of them tapped,
+  and up to four readable sentences each. It gives a summary, a table of 2
+  to 5 dimensions, each word's core, when to use it and an example,
+  pitfalls, and a "which one fits" quiz. `checkCompare` keeps table cells
+  and words only for the group's words, examples only when they use their
+  word, and quiz items only on given sentences holding the answer with all
+  options from the group (the app blanks the sentence). Kept per key
+  (`chongfuxi_synonym_compare`), stale once the group's words change.
+- **A word's page** lists its keys that make groups ("Same English"), each
+  opening its group.
+
 ## The owner's corpus
 
 From `flashbackup-2610131958.pqb` (35,974 cards), with `hsk1-4 sentences`

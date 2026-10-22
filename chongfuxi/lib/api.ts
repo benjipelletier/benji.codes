@@ -980,3 +980,62 @@ export interface LookupListed {
   /** The words of the corpus it was about: asked from their cards, or named in it. */
   words: string[];
 }
+
+/** A group of words sharing an English key (synonyms.ts): a row of Cards › Synonyms. */
+export interface SynonymGroupRow {
+  key: string;
+  /** Other keys sharing exactly these words ("detect" beside "become aware"). */
+  also: string[];
+  words: Array<{ word: string; inDeck: boolean }>;
+  /** Forgots on its words lately, and sentences forgotten with two of them tapped: how much it trips you. */
+  trouble: number;
+  confused: number;
+}
+
+/** One word of a group, side by side with the others. */
+export interface SynonymWord {
+  word: string;
+  pinyin: string | null;
+  /** "deck", "listed", or "dictionary" (not a word of the owner's). */
+  status: "deck" | "listed" | "dictionary";
+  /** Its senses, and which of them gives the shared key. */
+  senses: string[];
+  shared: string;
+  hsk: { old: string | null; v3: string | null } | null;
+  /** Each character with a short meaning, for what it brings to the word. */
+  chars: Array<{ ch: string; gloss: string | null }>;
+  /** The words most often right before and after it in the owner's sentences. */
+  before: Array<{ word: string; n: number }>;
+  after: Array<{ word: string; n: number }>;
+  /** One of the owner's readable sentences with it. */
+  example: { id: number; zh: string; en: string | null } | null;
+  /** The owner's record: Read strength (days), Forgots in all, sentences it is in. */
+  record: { strength: number | null; forgot: number; sentences: number } | null;
+}
+
+/** A group's page: its words side by side, the pairs that get confused, and the AI's comparison if made. */
+export interface SynonymGroup {
+  key: string;
+  words: SynonymWord[];
+  /** Pairs of its words tapped together in forgotten sentences. */
+  confused: Array<{ a: string; b: string; n: number }>;
+  compare: SynonymCompare | null;
+}
+
+/** The model's comparison of a group's words (synonyms.ts, compareGroup). */
+export interface SynonymCompare {
+  at: number;
+  model: string;
+  /** The words it compared; stale once the group's words differ. */
+  words: string[];
+  stale: boolean;
+  summary: string;
+  /** Rows of a table: a dimension (register, object, …) and what each word does on it. */
+  dimensions: Array<{ name: string; values: Record<string, string> }>;
+  /** Each word: its core in a phrase, when to use it, and an example. */
+  each: Array<{ zh: string; core: string; useWhen: string; example: { zh: string; en: string } }>;
+  /** Mistakes to avoid between them. */
+  pitfalls: string[];
+  /** Which one fits: the owner's sentences blanked, the group's words as options. */
+  quiz: Array<{ prompt: string; choices: string[]; answer: string; explain: string; sentence: { id: number; en: string | null } | null }>;
+}

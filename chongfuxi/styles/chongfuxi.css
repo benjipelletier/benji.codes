@@ -605,7 +605,8 @@ body:has(.cfx) {
 
 .cf-switch {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   padding: 3px;
   border-radius: 12px;
   background: var(--cf-sunken);
@@ -613,6 +614,8 @@ body:has(.cfx) {
 
 .cfx .cf-switch-btn {
   min-height: 38px;
+  min-width: 0;
+  padding: 0 4px;
   border: 0;
   border-radius: 9px;
   background: none;
@@ -8954,4 +8957,341 @@ button.cf-how-text {
   text-overflow: ellipsis;
   font-size: 12px;
   color: var(--cf-down);
+}
+
+/* Words with the same English (components/Synonyms.tsx). The group's page
+ * lies beneath a word page opened from it. */
+.cf-wordpage.cf-synpage {
+  z-index: 44;
+}
+
+.cf-syn-about {
+  margin: 4px 0 10px;
+  font-size: 13px;
+}
+
+.cf-syn-search {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.cf-syn-list,
+.cf-syn-same {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-syn-list li + li,
+.cf-syn-same li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-syn-list button,
+.cf-syn-same button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-syn-key {
+  flex: 1 0 100%;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-same .cf-syn-key {
+  flex: 0 0 auto;
+  min-width: 90px;
+}
+
+.cf-syn-key small {
+  font-weight: 400;
+  color: var(--cf-ink-faint);
+}
+
+.cf-syn-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cf-syn-words .cf-zh {
+  font-size: 19px;
+}
+
+.cf-syn-words .is-listed {
+  color: var(--cf-ink-faint);
+}
+
+.cf-syn-trouble {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cf-syn-same i {
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+
+.cf-syn-head p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.cf-syn-head h2 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.cf-syn-confused {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cf-down-soft);
+  font-size: 14px;
+}
+
+.cf-syn-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.cf-syn-card {
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-syn-card.is-dictionary {
+  border-style: dashed;
+}
+
+.cf-syn-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.cf-syn-word {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cf-syn-card .cf-syn-word.cf-zh {
+  font-size: 28px;
+}
+
+.cf-syn-py {
+  font-size: 16px;
+  color: var(--cf-accent);
+}
+
+.cf-syn-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-card p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-syn-shared {
+  font-weight: 650;
+}
+
+.cf-syn-senses,
+.cf-syn-record {
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-chars,
+.cf-syn-around {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
+.cf-syn-chars b {
+  font-weight: 650;
+}
+
+.cf-syn-around .cf-zh {
+  font-size: 15px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-example .cf-zh {
+  font-size: 16px;
+}
+
+.cf-syn-record {
+  font-size: 12px !important;
+}
+
+.cf-syn-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.cf-syn-go {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cf-syn-compare p {
+  line-height: 1.55;
+}
+
+.cf-syn-summary {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.cf-syn-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+}
+
+.cf-syn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.cf-syn-table th,
+.cf-syn-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cf-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cf-syn-table tbody tr:last-child th,
+.cf-syn-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cf-syn-table thead th {
+  font-size: 17px;
+  background: var(--cf-sunken);
+}
+
+.cf-syn-table tbody th {
+  min-width: 90px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-each {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-syn-each li + li {
+  margin-top: 12px;
+}
+
+.cf-syn-each p {
+  margin: 0;
+}
+
+.cf-syn-each b {
+  font-size: 18px;
+  margin-right: 4px;
+}
+
+.cf-syn-ex .cf-zh {
+  font-size: 16px;
+}
+
+.cf-syn-compare h4 {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-compare h4 small {
+  font-weight: 400;
+  color: var(--cf-ink-faint);
+}
+
+.cf-syn-pitfalls {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-syn-qprompt {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cf-syn-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cf-syn-choices .cf-rescue-choice {
+  width: auto;
+  min-width: 88px;
+  font-size: 20px;
+  text-align: center;
+}
+
+.cf-syn-quiz .cf-buttons {
+  margin-top: 12px;
 }

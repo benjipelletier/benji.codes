@@ -19,6 +19,7 @@ import { TabIcon } from "./TabIcon";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import { WordPageHost } from "./WordWall";
+import { SynonymPageHost } from "./Synonyms";
 import * as aidefs from "@chongfuxi/lib/aidefs";
 import * as back from "@chongfuxi/lib/back";
 import * as outbox from "@chongfuxi/lib/outbox";
@@ -175,6 +176,8 @@ export function ChongfuxiApp() {
 
       {/* A word's page, over everything, from wherever it was opened. */}
       {routed && summary?.viewer.configured && <WordPageHost canWrite={canWrite} />}
+      {/* A group of words with the same English, beneath a word page opened from it. */}
+      {routed && summary?.viewer.configured && <SynonymPageHost shell={shell} />}
 
       {canWrite && arrival !== null && !focus && (
         <SyncPage
