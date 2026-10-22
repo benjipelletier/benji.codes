@@ -322,6 +322,9 @@ export function WordSheet({
   // Its sentences a panel at a time (readable, one away, locked), each loaded when first opened.
   const [panel, setPanel] = useState<Standing>("readable");
   const [rows, setRows] = useState<Partial<Record<Standing, WordPageSentence[]>>>({});
+  // How many of a panel's sentences show: a few at first (the owner found the page too long), more on a tap.
+  const [showing, setShowing] = useState<Partial<Record<Standing, number>>>({});
+  const [allTripped, setAllTripped] = useState(false);
   // Removing it from the deck: asked once, then done.
   const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
   // Not in the corpus at all: only a dictionary word, which can still be added.
@@ -593,7 +596,7 @@ export function WordSheet({
                       Sentence cards forgotten with {word} marked as the trouble: {fmt(d.tripped.length)}
                     </p>
                     <ul className="cf-wp-sentences">
-                      {d.tripped.map((t, i) => (
+                      {(allTripped ? d.tripped : d.tripped.slice(0, TRIPPED_FIRST)).map((t, i) => (
                         <li key={`${t.id}-${i}`}>
                           <p className="cf-zh">
                             <Highlighted text={t.zh} word={word} />
@@ -606,6 +609,11 @@ export function WordSheet({
                         </li>
                       ))}
                     </ul>
+                    {!allTripped && d.tripped.length > TRIPPED_FIRST && (
+                      <button className="cf-more" onClick={() => setAllTripped(true)}>
+                        Show all {fmt(d.tripped.length)}
+                      </button>
+                    )}
                   </>
                 )}
               </section>
@@ -652,10 +660,18 @@ export function WordSheet({
                 Read in context {fmt(d.exposures)} {d.exposures === 1 ? "time" : "times"}
               </p>
               {(() => {
-                const shown = rows[panel];
+                const loaded = rows[panel];
                 const total = d.sentences[STANDINGS.find((t) => t.key === panel)!.count];
-                if (!shown) return <Loading small label="Finding them…" />;
-                if (!shown.length) return <p className="cf-muted">None.</p>;
+                if (!loaded) return <Loading small label="Finding them…" />;
+                if (!loaded.length) return <p className="cf-muted">None.</p>;
+                const limit = showing[panel] ?? SENTENCES_FIRST;
+                const shown = loaded.slice(0, limit);
+                // Shows more of what is loaded, and loads the next page when that runs out.
+                const showMore = () => {
+                  const next = limit + SENTENCES_MORE;
+                  setShowing((x) => ({ ...x, [panel]: next }));
+                  if (next > loaded.length && loaded.length < total) void loadSentences(panel, loaded.length);
+                };
                 return (
                   <>
                     <ul className="cf-wp-sentences">
@@ -676,7 +692,7 @@ export function WordSheet({
                       ))}
                     </ul>
                     {shown.length < total && (
-                      <button className="cf-more" disabled={more} onClick={() => void loadSentences(panel, shown.length)}>
+                      <button className="cf-more" disabled={more} onClick={showMore}>
                         {more ? "Loading…" : `Show more (${fmt(total - shown.length)} left)`}
                       </button>
                     )}
@@ -793,6 +809,11 @@ export function WordSheet({
 }
 
 type Standing = WordPageSentence["status"];
+/** Sentences a panel shows at first, and how many more each tap shows. */
+const SENTENCES_FIRST = 5;
+const SENTENCES_MORE = 10;
+/** Tripped sentences shown at first. */
+const TRIPPED_FIRST = 3;
 const STANDINGS: Array<{ key: Standing; label: string; count: "readable" | "oneAway" | "locked" }> = [
   { key: "readable", label: "Readable", count: "readable" },
   { key: "oneAway", label: "One away", count: "oneAway" },

@@ -1059,8 +1059,10 @@ the design was silent and are still to be confirmed.
   cards, with review or Learn and the step, or naming it, with the verdict);
   every sentence it is in, in three panels (Readable, One away, Locked,
   each with its count, the owner's request: tap one to see those), each
-  sentence with what keeps it locked, its card's reads and its decks, forty
-  at a time, a panel loaded when first opened;
+  sentence with what keeps it locked, its card's reads and its decks; five
+  shown at first and ten more a tap (the owner found forty too many), loaded
+  forty at a time, a panel loaded when first opened; the sentences it
+  tripped, three at first;
   and how it lives in the corpus: how it came in (the additions that brought
   it, else the Pleco backup), its lists, its Learn, the sentences it
   unlocked and those it alone holds back, deck words with it inside and
