@@ -22,6 +22,7 @@ import { mainSenses } from "@chongfuxi/lib/senses";
 import { segmentByDictionary } from "@chongfuxi/lib/segment";
 import { splitSentences } from "@chongfuxi/lib/texts";
 import { makeUnlock } from "@chongfuxi/lib/unlock";
+import { loadHeadwords } from "./headwords";
 import type { Definition } from "@chongfuxi/lib/dict";
 
 /** Longest text analysed, in characters: a long article, or a film's captions. */
@@ -47,7 +48,7 @@ export async function analyse(
   const rows = await wordStanding(sql, owner);
   const universe = new Set(rows.map((r) => r.word));
   const status = new Map(rows.map((r) => [r.word, r.status]));
-  const unlock = makeUnlock(new Set(rows.filter((r) => r.known).map((r) => r.word)), universe);
+  const unlock = makeUnlock(new Set(rows.filter((r) => r.known).map((r) => r.word)), universe, loadHeadwords());
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);
   const context = { charReadings: dict.readings as Map<string, Set<string>>, vocab, maxLen: SPLIT_MAX };

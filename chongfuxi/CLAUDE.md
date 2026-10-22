@@ -1182,7 +1182,17 @@ the design was silent and are still to be confirmed.
 known words (这个, 孩子们), trailing 儿 allowed. An unreadable word is blamed on
 the part to learn (孩子们 → 孩子) when it splits into words there are rows for,
 otherwise whole (约翰). A sentence's `blockers` are everything blamed; empty
-means readable. `recomputeUnlocks` runs after an import or a name change, never
+means readable. Except a CC-CEDICT headword of two or more characters that
+isn't see-through: it must be known itself and is blamed whole (黄金, 大厦,
+挣脱 came up from known characters, bugs #14, #23, #24). See-through
+(`seeThrough`): a character from `SEE_THROUGH` (measure words, negation,
+aspect, function words, common complements: 这个, 不是, 看完), a number
+(二十), a repeat (看看, 高高兴兴), or a known word with something added
+(准备好了). Measured on the owner's 17,183 readable sentences before the
+change: a blanket rule would have locked about 6,900, mostly 这个/一个/不是;
+this one about 2,000 at most (a rough segmentation), on words like 争吵,
+外套, 合同, 行李. Relocked sentences' cards are suspended, as for any
+relock, and come back when the word is learned. `recomputeUnlocks` runs after an import or a name change, never
 after an answer.
 
 ## Storage

@@ -20,6 +20,7 @@ import { isHan } from "@chongfuxi/lib/hanzi";
 import { wordsByPinyin } from "@chongfuxi/lib/pinyin";
 import { segmentByDictionary } from "@chongfuxi/lib/segment";
 import { makeUnlock } from "@chongfuxi/lib/unlock";
+import { loadHeadwords } from "./headwords";
 import { orderStoredDefs } from "./defs";
 import { reconcileLongku } from "./longku";
 import { SPOTIFY_LIST, songListOf } from "./spotify";
@@ -211,7 +212,7 @@ export async function recomputeUnlocks(sql: Sql, owner: string, by: string[] = [
   const words = await wordStanding(sql, owner);
   const universe = new Set(words.map((w) => w.word));
   const known = new Set(words.filter((w) => w.known).map((w) => w.word));
-  const unlock = makeUnlock(known, universe);
+  const unlock = makeUnlock(known, universe, loadHeadwords());
   const fresh = new Set(by);
 
   const sentences = (await sql`
@@ -312,7 +313,7 @@ export async function ingest(
     ...deck.map((w) => w.w).filter((w) => !suspended.has(w)),
   ]);
   const universeAfter = new Set([...existing.map((w) => w.word), ...words.map((w) => w.w)]);
-  const unlock = makeUnlock(knownAfter, universeAfter);
+  const unlock = makeUnlock(knownAfter, universeAfter, loadHeadwords());
   let readable = 0;
   let oneAway = 0;
   let unlocked = 0;
@@ -552,7 +553,7 @@ export async function ingestSentences(
   `) as unknown as Array<{ key: string }>;
   const existing = new Set(had.map((h) => h.key));
   const universe = new Set(wordRows.map((w) => w.word));
-  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.known).map((w) => w.word)), universe);
+  const unlock = makeUnlock(new Set(wordRows.filter((w) => w.known).map((w) => w.word)), universe, loadHeadwords());
 
   const vocab = dict.headwords(SPLIT_MAX);
   for (const w of universe) if ([...w].length <= SPLIT_MAX) vocab.add(w);
