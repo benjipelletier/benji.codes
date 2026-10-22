@@ -844,6 +844,11 @@ dictionary's shown greyed after them, a dedicated AI comparison, and a place in 
   (`chongfuxi_synonym_compare`), stale once the group's words change.
 - **A word's page** lists its keys that make groups ("Same English"), each
   opening its group.
+- **On a word card's back** (Read and Recall), once its group has been
+  compared: "Not to mix up", the word's core and those of up to two
+  group-mates, the ones it was mixed up with first, with Compare › opening
+  the group over the session (`contrast` on `SessionCard`, from
+  `contrastsFor`). The owner chose this of the ideas for using the groups.
 
 ## The owner's corpus
 

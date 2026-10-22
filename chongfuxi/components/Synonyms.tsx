@@ -413,3 +413,24 @@ function Quiz({ quiz }: { quiz: SynonymCompare["quiz"] }) {
     </div>
   );
 }
+
+/** On a word card's back: how it differs from its group-mates, from the group's saved comparison. */
+export function SynonymContrast({ contrast }: { contrast: { key: string; items: Array<{ zh: string; core: string }> } }) {
+  return (
+    <div className="cf-syn-contrast">
+      <p className="cf-syn-contrast-head">
+        <span>Not to mix up</span>
+        <button className="cf-link" onClick={() => synpage.openGroup(contrast.key)}>
+          Compare ›
+        </button>
+      </p>
+      <ul>
+        {contrast.items.map((i, k) => (
+          <li key={i.zh} className={k === 0 ? "is-this" : ""}>
+            <b className="cf-zh">{i.zh}</b> {i.core}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

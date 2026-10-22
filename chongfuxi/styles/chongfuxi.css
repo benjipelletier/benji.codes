@@ -9289,3 +9289,51 @@ button.cf-how-text {
 .cf-syn-quiz .cf-buttons {
   margin-top: 12px;
 }
+
+/* On a word card's back: how it differs from its group-mates (Synonyms.tsx). */
+.cf-syn-contrast {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 10px;
+  text-align: left;
+}
+
+.cf-syn-contrast-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-contrast-head .cf-link {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cf-syn-contrast ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cf-syn-contrast li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--cf-ink-soft);
+}
+
+.cf-syn-contrast li.is-this {
+  color: var(--cf-ink);
+}
+
+.cf-syn-contrast b {
+  margin-right: 4px;
+  font-size: 16px;
+}

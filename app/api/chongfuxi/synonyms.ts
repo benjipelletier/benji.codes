@@ -498,3 +498,32 @@ export async function compareGroup(sql: Sql, owner: string, key: string): Promis
   console.log("synonyms compare", JSON.stringify({ key, words: words.length, usage: message.usage }));
   return (await compareOf(sql, owner, key, words))!;
 }
+
+/** Group-mates shown beside a word on its card back, at most. */
+const CONTRAST_MATES = 2;
+
+/**
+ * For card backs: each word's latest comparison, as its core and those of up
+ * to two group-mates (those it was mixed up with first), so the difference is
+ * there when the card is. Words never compared have none.
+ */
+export async function contrastsFor(sql: Sql, owner: string, words: string[]): Promise<Map<string, { key: string; items: Array<{ zh: string; core: string }> }>> {
+  const out = new Map<string, { key: string; items: Array<{ zh: string; core: string }> }>();
+  if (!words.length) return out;
+  await ensureTables(sql);
+  const rows = (await sql`
+    select key, words, compare->'each' as each from chongfuxi_synonym_compare
+    where owner_email = ${owner} and words && ${words}::text[]
+    order by at desc
+  `) as unknown as Array<{ key: string; words: string[]; each: Array<{ zh: string; core: string }> | null }>;
+  const { pairs } = await troubleOf(sql, owner, [...new Set(rows.flatMap((r) => r.words))]);
+  for (const w of words) {
+    const row = rows.find((r) => r.words.includes(w) && r.each?.some((e) => e.zh === w));
+    if (!row) continue;
+    const mixed = (o: string) => pairs.get([w, o].sort().join("|")) ?? 0;
+    const own = row.each!.find((e) => e.zh === w)!;
+    const mates = row.each!.filter((e) => e.zh !== w && e.core).sort((a, b) => mixed(b.zh) - mixed(a.zh)).slice(0, CONTRAST_MATES);
+    if (mates.length) out.set(w, { key: row.key, items: [own, ...mates].map((e) => ({ zh: e.zh, core: e.core })) });
+  }
+  return out;
+}

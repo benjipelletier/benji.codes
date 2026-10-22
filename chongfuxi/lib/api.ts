@@ -240,6 +240,8 @@ export interface SessionCard {
   why?: QueueWhy;
   /** Word cards of a rescued word still recovering: the rescue's memory hook, shown on the back. */
   hook?: string | null;
+  /** Word cards of a word in a synonym group already compared: each word's core, this one first (synonyms.ts). */
+  contrast?: { key: string; items: Array<{ zh: string; core: string }> } | null;
 }
 
 /** A word that needs reviving (its latest result was wrong), with why: lib/revive.ts. */

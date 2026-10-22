@@ -31,6 +31,7 @@ import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
 import { RescueHook, StuckList, StuckWords } from "./Rescue";
+import { SynonymContrast } from "./Synonyms";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
 /** Answers still on their way that the server may not know about yet. */
@@ -933,6 +934,7 @@ export function Session({
                     onMerge={merge}
                   />
                   {card.hook && <RescueHook hook={card.hook} />}
+                  {card.contrast && <SynonymContrast contrast={card.contrast} />}
                 </div>
               )}
             </>
@@ -964,6 +966,7 @@ export function Session({
                     <p className="cf-muted cf-also">Also means this: {card.alternatives.join("、")}</p>
                   )}
                   {card.hook && <RescueHook hook={card.hook} />}
+                  {card.contrast && <SynonymContrast contrast={card.contrast} />}
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">

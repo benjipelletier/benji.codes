@@ -33,6 +33,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { longkuWords } from "./longku";
 import { rescueHooks } from "./rescue";
+import { contrastsFor } from "./synonyms";
 import { SPOTIFY_LIST, moveSongLists, songsOf } from "./spotify";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import { mainSenses } from "@chongfuxi/lib/senses";
@@ -559,8 +560,9 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       `) as unknown as Array<{ id: number; zh: string; en: string | null; pleco: PlecoSeed | null; sources: string[] }>)
     : [];
 
-  // A rescued word still recovering shows its rescue's hook (rescue.ts).
+  // A rescued word still recovering shows its rescue's hook (rescue.ts); a compared one, how it differs (synonyms.ts).
   const hooks = await rescueHooks(sql, owner, wordList);
+  const contrasts = await contrastsFor(sql, owner, wordList);
   const out: SessionCard[] = [];
   for (const c of cards) {
     const schedule = scheduleOf(c);
@@ -589,6 +591,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       meaning,
       sentence: sentenceOf(chosen.get(c.id)),
       hook: hooks.get(c.word!) ?? null,
+      contrast: contrasts.get(c.word!) ?? null,
     };
     if (c.kind === "produce") {
       // Other deck words with the same meaning, so "I said 快乐" can be judged against 高兴.
