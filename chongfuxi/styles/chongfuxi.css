@@ -9547,3 +9547,96 @@ button.cf-how-text {
 .cf-speed-end {
   text-align: left;
 }
+
+/* The recap on leaving a session: tiles, got-it by kind, the words. */
+.cf-recap-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.cf-recap-tiles > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+}
+
+.cf-recap-tiles b {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-recap-tiles small {
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-recap-kinds {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-recap-kinds li {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.cf-recap-kinds li > i {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--cf-sunken);
+  overflow: hidden;
+}
+
+.cf-recap-kinds li > i > i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--cf-read);
+}
+
+.cf-recap-kinds li.is-produce > i > i {
+  background: var(--cf-recall);
+}
+
+.cf-recap-kinds li.is-sentence > i > i {
+  background: var(--cf-sentence);
+}
+
+.cf-recap-n {
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-ink-soft);
+}
+
+.cfx .cf-recap-line {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-recap-words {
+  margin-bottom: 12px;
+}
+
+.cf-recap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cf-recap-done {
+  width: 100%;
+  margin-top: 6px;
+}

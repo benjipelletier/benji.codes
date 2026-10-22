@@ -19,6 +19,8 @@ export interface Answered {
   card: SessionCard;
   grade: Grade;
   days: number | null | undefined;
+  /** Words whose cards lapsed from being tapped in this (forgotten) sentence, once the server says. */
+  lapsed?: string[];
 }
 
 const KIND = { read: "Read", produce: "Recall", sentence: "Sentence" } as const;

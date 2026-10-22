@@ -31,6 +31,7 @@ import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
+import { RecapSheet, worthRecap, type SessionReport } from "./Recap";
 import { RescueHook, StuckList, StuckWords } from "./Rescue";
 import { SynonymContrast } from "./Synonyms";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
@@ -206,12 +207,17 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     setFocus(true);
     setStarted("rescue");
   };
+  // What the session did, kept as it goes, for a look back once it is left (the owner asked).
+  const report = useRef<SessionReport | null>(null);
+  const [recap, setRecap] = useState<SessionReport | null>(null);
   // Left by the close button or back: Fast review's marks are kept, to carry on from Today.
   const end = useCallback(() => {
     setStarted((was) => {
       if (was === "fast") resume.close();
       return null;
     });
+    if (worthRecap(report.current)) setRecap(report.current);
+    report.current = null;
     setFocus(false);
     refresh();
   }, [setFocus, refresh]);
@@ -221,17 +227,20 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load()} />;
   if (started === "rescue") return <StuckList shell={shell} onEnd={end} />;
-  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} />;
+  if (started) return <Session shell={shell} kinds={kinds} onEnd={end} onReport={(r) => (report.current = r)} />;
   return (
-    <Today
-      shell={shell}
-      kinds={kinds}
-      onChoose={choose}
-      onStart={() => begin("session")}
-      onFast={() => begin("fast")}
-      onRescue={rescue}
-      onImport={onImport}
-    />
+    <>
+      {recap && <RecapSheet report={recap} onClose={() => setRecap(null)} />}
+      <Today
+        shell={shell}
+        kinds={kinds}
+        onChoose={choose}
+        onStart={() => begin("session")}
+        onFast={() => begin("fast")}
+        onRescue={rescue}
+        onImport={onImport}
+      />
+    </>
   );
 }
 
@@ -415,12 +424,15 @@ export function Session({
   shell,
   kinds: chosen,
   onEnd,
+  onReport,
   list = null,
 }: {
   shell: Shell;
   /** What to include; a list's review sets its own. */
   kinds?: SessionKinds;
   onEnd: () => void;
+  /** Told what the session has done so far, for the recap when it is left. */
+  onReport?: (r: SessionReport) => void;
   /** Only this list's words. */
   list?: ListReview | null;
 }) {
@@ -466,6 +478,7 @@ export function Session({
   const [last, setLast] = useState<Receipt | null>(null);
   // Every answer of this session, to look back over and change (Reviewed.tsx).
   const [log, setLog] = useState<Answered[]>([]);
+  const startedAt = useRef(Date.now());
   const [lookingBack, setLookingBack] = useState(false);
   // Got its in a row this session.
   const streak = useRef(0);
@@ -474,6 +487,10 @@ export function Session({
   const [answered, setAnswered] = useState(0);
   // New words' Learn steps, one every fifth card (components/Learn.tsx); none in a list's review.
   const ladder = useLadder({ list: null, enabled: !list && kinds.learn, canWrite });
+  // The parent keeps what has been done, to look back on once the session is left.
+  useEffect(() => {
+    onReport?.({ log, steps: ladder.taken, startedAt: startedAt.current });
+  }, [log, ladder.taken, onReport]);
   const { begin: beginStep, current: step } = ladder;
   /** Cards dealt since the last Learn step. */
   const sinceStep = useRef(0);
@@ -597,7 +614,7 @@ export function Session({
         const result = await send<ReviewResult>("review", { ...input, sentAt: Date.now() });
         outbox.remove(input.id);
         if (!result.duplicate) setLast(receiptOf(shown, input.grade, result, input.id, run));
-        setLog((l) => l.map((a) => (a.id === input.id ? { ...a, days: result.retired ? null : result.days } : a)));
+        setLog((l) => l.map((a) => (a.id === input.id ? { ...a, days: result.retired ? null : result.days, lapsed: result.lapsed } : a)));
         refresh();
       } catch (e) {
         // 409: the card had already left the queue (answered on another device). Nothing to resend.

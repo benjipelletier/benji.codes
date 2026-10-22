@@ -44,6 +44,8 @@ export interface Ladder {
   begin: () => boolean;
   /** The step on show, taken: saved, and the word moves on. */
   take: (grade: Grade) => void;
+  /** The word of each step taken here, in order: for the session's recap. */
+  taken: string[];
   /** The step on show put away untaken, to come again (Undo of the card before it). */
   setAside: () => void;
   /** Send whatever steps are waiting. */
@@ -66,6 +68,7 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
   const [saveError, setSaveError] = useState<string | null>(null);
   const [current, setCurrent] = useState<Ladder["current"]>(null);
   const [revealed, setRevealed] = useState(false);
+  const [taken, setTaken] = useState<string[]>([]);
   const turn = useRef(0);
   const last = useRef<number | null>(null);
   const session = useRef(`learn:${newId()}`);
@@ -128,6 +131,7 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
     put(all.map((it, k) => (k === current.i ? after : it)));
     last.current = current.i;
     turn.current++;
+    setTaken((t) => [...t, before.word.word]);
     setCurrent(null);
     setRevealed(false);
   };
@@ -150,7 +154,7 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
     setRevealed(false);
   };
 
-  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, setAside, flush, canWrite, defined };
+  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, taken, setAside, flush, canWrite, defined };
 }
 
 /** The step on show, as a card. */

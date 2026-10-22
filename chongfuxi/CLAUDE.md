@@ -1011,6 +1011,17 @@ the design was silent and are still to be confirmed.
   and taken out at the owner's choice: it meant taking back and replaying
   every later answer that touched the same cards. Fast review's answers
   aren't in the list.
+- **Recap on leaving** (the owner asked): leaving a session that answered
+  anything or took a Learn step, by the close button, back or the end
+  screen, opens a sheet over Today (`components/Recap.tsx`): cards and
+  new-word steps and the minutes taken; got it %, the best run of Got its
+  and seconds a card as tiles; got it by kind with a bar in the kind's
+  colour; how many were new and how many sentences retired; the new words
+  practised; and "To look at again", the word cards forgotten and the words
+  lapsed by being tapped in a forgotten sentence, each opening its word
+  page. Made on the device from the session's answers (`SessionReport`,
+  handed up as the session goes); nothing is fetched. Not for Fast review or
+  a list's review.
 - **Why it was forgotten**: Forgot opens a step with an optional line, "what
   tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
   words, for reading the mistakes back later. Holding Forgot
