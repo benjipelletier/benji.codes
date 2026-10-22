@@ -44,6 +44,8 @@ export interface Ladder {
   begin: () => boolean;
   /** The step on show, taken: saved, and the word moves on. */
   take: (grade: Grade) => void;
+  /** The step on show put away untaken, to come again (Undo of the card before it). */
+  setAside: () => void;
   /** Send whatever steps are waiting. */
   flush: () => Promise<void>;
   /** Whether steps are saved (the owner): only then can a word be taken off as known. */
@@ -143,7 +145,12 @@ export function useLadder({ list, enabled, canWrite }: { list: string | null; en
     put(all.map((it) => (it.word.word === word ? { ...it, word: { ...it.word, pinyin: it.word.pinyin ?? pinyin, senses } } : it)));
   };
 
-  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, flush, canWrite, defined };
+  const setAside = () => {
+    setCurrent(null);
+    setRevealed(false);
+  };
+
+  return { items, error, saveError, current, revealed, reveal: () => setRevealed(true), begin, take, setAside, flush, canWrite, defined };
 }
 
 /** The step on show, as a card. */

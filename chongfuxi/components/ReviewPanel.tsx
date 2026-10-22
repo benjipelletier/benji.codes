@@ -669,6 +669,12 @@ export function Session({
         if (at >= 0) recentWords.current = recentWords.current.filter((_, i) => i !== at);
       }
       streak.current = back.streak;
+      // A Learn step dealt after that card would cover it: put away untaken, it comes
+      // again once the card is answered (bug #16). Otherwise the count goes back one.
+      if (step) {
+        ladder.setAside();
+        sinceStep.current = LEARN_EVERY - 2;
+      } else sinceStep.current = Math.max(0, sinceStep.current - 1);
       dealt.current = Math.max(0, dealt.current - 1);
       setAnswered((n) => Math.max(0, n - 1));
       setQueue((q) => [back.card, ...q.filter((c) => c.id !== back.card.id)]);

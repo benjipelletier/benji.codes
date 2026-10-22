@@ -997,7 +997,10 @@ the design was silent and are still to be confirmed.
   counted, and deletes the answer and its lapse rows: the one place a review
   row is removed. Only the latest answer; older ones are refused. The
   card comes back as it was left, answer showing, to be answered again
-  (the owner asked; it used to come back face down).
+  (the owner asked; it used to come back face down). A Learn step dealt
+  right after that answer is put away untaken (`ladder.setAside`) and dealt
+  again once the card is answered (bug #16: it covered the card, so Undo
+  seemed to do nothing).
 - **Looking back**: once a session has answers, a button by the progress bar
   (a card with a tick and the count), and Look back on the done screen, open
   the session's answers, newest first (`components/Reviewed.tsx`): each a
