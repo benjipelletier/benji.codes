@@ -6,7 +6,7 @@
 // review row, the card it moved, and whatever else it moved — a Produce card
 // opened, retired sentences brought back, tapped words lapsed.
 
-import { SUSPENDED_WORD } from "./suspended";
+import { SUSPENDED_WORD, ensureSuspendedSentences } from "./suspended";
 import type { Sql } from "./db";
 import { dictEntry, loadHeadwords } from "./headwords";
 import type {
@@ -1270,6 +1270,10 @@ export async function sentenceDetail(sql: Sql, owner: string, id: number): Promi
     [owner, id],
   )) as unknown as CardRow[];
   const c = cards[0];
+  await ensureSuspendedSentences(sql);
+  const [held] = c
+    ? ((await sql`select 1 as x from chongfuxi_sentence_suspended where owner_email = ${owner} and sentence_id = ${id}`) as unknown as Array<{ x: number }>)
+    : [];
   const answers = c
     ? ((await sql`
         select grade, (extract(epoch from at) * 1000)::double precision as at
@@ -1288,7 +1292,7 @@ export async function sentenceDetail(sql: Sql, owner: string, id: number): Promi
       return { standing: blocked.has(w) ? "unknown" : settling ? "learning" : "known", inDeck: Boolean(d) };
     }),
     card: c
-      ? { state: c.retired !== null ? "retired" : c.state === 0 ? "new" : "reading", history: historyFrom(answers, s.pleco) }
+      ? { state: c.retired !== null ? "retired" : c.state === 0 ? "new" : "reading", history: historyFrom(answers, s.pleco), suspended: Boolean(held) }
       : null,
   };
 }

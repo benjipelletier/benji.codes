@@ -10,7 +10,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import type { Blocker, SentenceDetail, SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
-import { get } from "@chongfuxi/lib/client";
+import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { BlockerSheet, UnlockPage, type Blockers } from "./UnlockPanel";
 import * as wordpage from "@chongfuxi/lib/wordpage";
@@ -384,6 +384,20 @@ function SentenceSheet({
   const [d, setD] = useState<SentenceDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
+  const [resuming, setResuming] = useState(false);
+  // A sentence card put out of review by hand, brought back from here.
+  const bringBack = async () => {
+    setResuming(true);
+    try {
+      await send("sentence", { id, action: "resume" });
+      setD((x) => (x?.card ? { ...x, card: { ...x.card, suspended: false } } : x));
+      onChanged();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setResuming(false);
+    }
+  };
   // Escape closes a word page opened over this one before this one.
   const wordUp = useSyncExternalStore(wordpage.subscribe, wordpage.openWord, () => null) !== null;
   // A word removed or added from its page (opened over this one) changes what this sentence needs.
@@ -475,6 +489,16 @@ function SentenceSheet({
                   <dt>Card</dt>
                   <dd>
                     <History h={d.card.history} />
+                    {d.card.suspended && (
+                      <p className="cf-suspend-note">
+                        Suspended
+                        {shell.canWrite && (
+                          <button className="cf-link" onClick={() => void bringBack()} disabled={resuming}>
+                            {resuming ? "Bringing back…" : "Bring back"}
+                          </button>
+                        )}
+                      </p>
+                    )}
                   </dd>
                 </div>
               ) : (

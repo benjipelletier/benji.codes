@@ -459,7 +459,8 @@ export function Session({
   const [wouldLock, setWouldLock] = useState<number | null>(null);
   const suspendBox = useRef<HTMLDivElement>(null);
   // A word just suspended, and the cards it took out of the queue, for Bring back.
-  const [suspended, setSuspended] = useState<{ word: string; cards: SessionCard[]; relocked: number } | null>(null);
+  // A word (or a sentence card, `sentence` its id) just suspended, with what left the queue, for Bring back.
+  const [suspended, setSuspended] = useState<{ word: string; cards: SessionCard[]; relocked: number; sentence?: number } | null>(null);
   const [resuming, setResuming] = useState(false);
   // After forgetting a sentence: choosing the words that were the trouble.
   const [tapped, setTapped] = useState<Set<string> | null>(null);
@@ -833,11 +834,25 @@ export function Session({
       setSuspending("ask");
     }
   };
+  // A sentence card out of review at once, no question asked: Bring back is under the next card.
+  const suspendSentence = async () => {
+    const c = card;
+    if (!c?.sentence) return;
+    try {
+      await send("sentence", { id: c.sentence.id, action: "suspend" });
+      setSuspended({ word: c.sentence.zh, cards: [c], relocked: 0, sentence: c.sentence.id });
+      setQueue((q) => q.filter((x) => x.id !== c.id));
+      refresh();
+    } catch (e) {
+      setError(message(e));
+    }
+  };
   const bringBack = async () => {
     if (!suspended || resuming) return;
     setResuming(true);
     try {
-      await send("word", { word: suspended.word, action: "resume" });
+      if (suspended.sentence !== undefined) await send("sentence", { id: suspended.sentence, action: "resume" });
+      else await send("word", { word: suspended.word, action: "resume" });
       // Back on top, answer showing, as Undo brings a card back.
       if (suspended.cards[0]) undone.current = suspended.cards[0].id;
       setQueue((q) => [...suspended.cards, ...q.filter((c) => !suspended.cards.some((a) => a.id === c.id))]);
@@ -1054,7 +1069,7 @@ export function Session({
           {card.kind === "sentence" && card.sentence && (
             <>
               <p className="cf-card-sentence">
-                <SentenceText sentence={card.sentence} taps={revealed} onLook={(w) => looked.current.add(w)} />
+                <SentenceText sentence={card.sentence} taps={revealed} pinyin={revealed} onLook={(w) => looked.current.add(w)} />
               </p>
               {revealed && (
                 <div className="cf-back">
@@ -1119,8 +1134,12 @@ export function Session({
                 </button>
               )}
               {/* Too hard for now: 停, as in 暂停. Out of review, history kept, after asking; brought back from here or the Words tab. */}
-              {canWrite && card.word && card.kind !== "sentence" && suspending === null && (
-                <button className="cf-foot-btn is-suspend" onClick={askSuspend} aria-label="Suspend">
+              {canWrite && (card.kind === "sentence" ? Boolean(card.sentence) : Boolean(card.word)) && suspending === null && (
+                <button
+                  className="cf-foot-btn is-suspend"
+                  onClick={card.kind === "sentence" ? () => void suspendSentence() : askSuspend}
+                  aria-label={card.kind === "sentence" ? "Suspend this sentence" : "Suspend"}
+                >
                   <span className="cf-foot-zh" aria-hidden="true">
                     停
                   </span>
@@ -1207,7 +1226,7 @@ export function Session({
       {/* A word just suspended, with the way back. */}
       {suspended && (
         <p className="cf-suspend-note">
-          <span className="cf-zh">{suspended.word}</span> suspended
+          {suspended.sentence !== undefined ? "Sentence" : <span className="cf-zh">{suspended.word}</span>} suspended
           {suspended.relocked > 0 && ` · ${fmt(suspended.relocked)} ${suspended.relocked === 1 ? "sentence" : "sentences"} locked`}
           <button className="cf-link" onClick={() => void bringBack()} disabled={resuming}>
             {resuming ? "Bringing back…" : "Bring back"}

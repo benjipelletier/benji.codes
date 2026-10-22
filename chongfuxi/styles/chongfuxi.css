@@ -9640,3 +9640,30 @@ button.cf-how-text {
   width: 100%;
   margin-top: 6px;
 }
+
+/* A sentence card's back: each word's reading over it, small and quiet. */
+.cf-ruby {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: bottom;
+}
+
+.cf-ruby > small {
+  font-family: var(--cf-font-latin, system-ui);
+  font-size: 0.42em;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  white-space: nowrap;
+  color: var(--cf-ink-soft);
+  user-select: none;
+}
+
+.cf-ruby > span {
+  line-height: 1.25;
+}
+
+.cf-card-sentence:has(.cf-ruby) {
+  line-height: 1.25;
+}

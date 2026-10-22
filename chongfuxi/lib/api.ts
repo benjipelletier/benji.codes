@@ -680,7 +680,7 @@ export interface SentenceDetail {
   /** For each of its words, in order: how it stands, and whether it is a deck word (with a sheet of its own). */
   words: Array<{ standing: WordStanding; inDeck: boolean }>;
   /** Its sentence card, once it has one. */
-  card: { state: "new" | "reading" | "retired"; history: CardHistory } | null;
+  card: { state: "new" | "reading" | "retired"; history: CardHistory; /** Put out of review by the owner. */ suspended: boolean } | null;
 }
 
 /** How much of one level of a word list is in the deck. */

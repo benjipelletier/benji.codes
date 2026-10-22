@@ -10,7 +10,7 @@
 // and refreshes what Pleco says about old ones; it never removes a word, and
 // never touches a card that already exists, answered or not.
 
-import { wordStanding } from "./suspended";
+import { ensureSuspendedSentences, wordStanding } from "./suspended";
 import type { Sql } from "./db";
 import { buildCorpus, defaultSettings, type CategoryRole, type Corpus, type Settings } from "@chongfuxi/lib/corpus";
 import { definitionsFor, glossesOf, type Dict } from "@chongfuxi/lib/dict";
@@ -261,10 +261,13 @@ export async function recomputeUnlocks(sql: Sql, owner: string, by: string[] = [
       owner,
       opened.map((s) => ({ kind: "sentence" as const, sentenceId: s.id, schedule: seedSchedule(s.pleco, "sentence", at) })),
     );
+    // Woken as it unlocks, unless the owner put it away by hand.
+    await ensureSuspendedSentences(sql);
     for (const batch of batches(opened.map((s) => s.id), 5000)) {
       await sql`
-        update chongfuxi_card set suspended = false
-        where owner_email = ${owner} and kind = 'sentence' and suspended and sentence_id = any(${batch}::bigint[])
+        update chongfuxi_card c set suspended = false
+        where c.owner_email = ${owner} and c.kind = 'sentence' and c.suspended and c.sentence_id = any(${batch}::bigint[])
+          and not exists (select 1 from chongfuxi_sentence_suspended x where x.owner_email = c.owner_email and x.sentence_id = c.sentence_id)
       `;
     }
   }

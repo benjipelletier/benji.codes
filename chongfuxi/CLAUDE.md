@@ -162,7 +162,7 @@ rejected as too themed. Keep it that way:
   character on a soft round in its own hue with its name under it: 魚
   (traditional, the owner's pick) for Pleco, 记 (to note down, a verb like
   查; 笔, the brush, was tried) for a note, 停 for Suspend (word cards
-  only), 查 for Look up. The owner asked for them cuter than the text links
+  only until sentences could be suspended too), 查 for Look up. The owner asked for them cuter than the text links
   they replaced. Every "Open in Pleco" in the app is the 魚 tile
   (`PlecoTile` in `shared.tsx`), inline (a smaller round, the name beside
   it) in popups and a word sheet's tags.
@@ -960,7 +960,15 @@ the design was silent and are still to be confirmed.
 - **Meanings**: tap a meaning on the back of a Read card to give it its own
   card under the same word; merge it back later. A meaning's card is shown
   without a sentence, since nothing says yet which sentences use that sense.
-- **Sentence**: retires after two clean reads on different days. Forgot → tap
+- **Sentence**: its back has each word's reading over it (the owner's ask;
+  `pinyin` on `SentenceText`, from the sentence's `looks`; the front never),
+  each word still tappable for its meaning. 停 on its back suspends that
+  sentence card at once, no question (`suspendSentence` in `suspended.ts`,
+  `sentence` POST `{id, action}`), with Bring back under the next card and on
+  the sentence's page. The mark is kept in `chongfuxi_sentence_suspended`
+  (made on first use), since a sentence card is also suspended while locked
+  and woken as it unlocks: `recomputeUnlocks` leaves marked ones asleep.
+  Retires after two clean reads on different days. Forgot → tap
   the words that tripped you → those words' Read cards lapse. A tapped compound
   not in the deck (孩子们) passes the lapse to the deck words inside it.
 - **Forgetting a word** brings back the sentence it was shown in, if retired,

@@ -106,11 +106,14 @@ export function SentenceText({
   sentence,
   word = "",
   taps,
+  pinyin = false,
   onLook,
 }: {
   sentence: SentenceInfo;
   word?: string;
   taps: boolean;
+  /** Each word's reading over it (a sentence card's back, the owner's ask). */
+  pinyin?: boolean;
   onLook?: (word: string) => void;
 }) {
   const [open, setOpen] = useState<{ i: number; el: HTMLElement } | null>(null);
@@ -193,7 +196,14 @@ export function SentenceText({
               }
             }}
           >
-            {marked(b)}
+            {pinyin ? (
+              <span className="cf-ruby">
+                <small>{displayPinyin(sentence.looks[i]!.p)}</small>
+                <span>{marked(b)}</span>
+              </span>
+            ) : (
+              marked(b)
+            )}
           </span>
         );
       })}
