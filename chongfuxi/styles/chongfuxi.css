@@ -8733,37 +8733,6 @@ button.cf-how-text {
   margin-top: 18px;
 }
 
-.cf-rescue-qkind {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--cf-ink-soft);
-}
-
-.cf-rescue-prompt {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1.5;
-}
-
-.cf-rescue-prompt.cf-zh {
-  font-size: 26px;
-}
-
-.cf-rescue-en {
-  margin: 6px 0 0;
-}
-
-.cf-rescue-choices {
-  display: grid;
-  gap: 8px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
 .cf-rescue-choice {
   width: 100%;
   min-height: 52px;
@@ -8812,28 +8781,12 @@ button.cf-how-text {
   color: var(--cf-down);
 }
 
-.cf-rescue-q .cf-buttons,
-.cf-rescue-end .cf-buttons {
-  margin-top: 16px;
-}
-
 .cf-rescue-score {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
 }
-
 /* The quiz's answered-without-options items: typed (or said), revealed, graded by hand. */
-.cf-rescue-again {
-  margin-left: 8px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--cf-down-soft);
-  color: var(--cf-down);
-  font-size: 11px;
-  letter-spacing: 0;
-  text-transform: none;
-}
 
 .cf-rescue-type {
   display: flex;
@@ -8856,31 +8809,6 @@ button.cf-how-text {
 
 .cf-rescue-type input:disabled {
   opacity: 0.7;
-}
-
-.cf-rescue-answer {
-  display: flex;
-  flex-direction: column;
-  margin: 14px 0 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--cf-sunken);
-}
-
-.cf-rescue-answer > span:first-child {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--cf-ink-soft);
-}
-
-.cf-rescue-answer .cf-zh {
-  font-size: 24px;
-}
-
-.cf-rescue-self {
-  margin-top: 14px;
 }
 
 /* The story with every stuck word in it (Rescue.tsx, StoryView). */
@@ -9350,4 +9278,144 @@ button.cf-how-text {
 .cf-syn-contrast b {
   margin-right: 4px;
   font-size: 16px;
+}
+
+/* A rescue's memory handles, to pick from, and the owner's own sentence. */
+.cf-rescue-about {
+  margin: 0 0 8px !important;
+  font-size: 13px;
+}
+
+.cf-rescue-handles {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-rescue-handles li,
+.cf-rescue-own {
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+}
+
+.cf-rescue-handles li.is-picked,
+.cf-rescue-own.is-picked {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+}
+
+.cf-rescue-handles p {
+  margin: 2px 0 8px !important;
+  font-size: 16px;
+}
+
+.cf-rescue-pick {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.cf-rescue-picked {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-accent);
+}
+
+.cf-rescue-own {
+  margin-bottom: 10px;
+}
+
+.cf-rescue-own p {
+  margin: 0 0 4px !important;
+}
+
+.cf-rescue-own-zh {
+  font-size: 20px;
+}
+
+/* The speed round: one big card at a time, swiped or answered. */
+.cf-speed {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.cf-speed-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  min-height: 0;
+}
+
+.cf-speed-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 24px;
+  background: var(--cf-surface);
+  text-align: center;
+  touch-action: pan-y;
+  user-select: none;
+  cursor: pointer;
+}
+
+.cf-speed-word.cf-zh {
+  margin: 0;
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.cf-speed-card p {
+  margin: 0;
+}
+
+.cf-speed-say {
+  font-size: 14px;
+}
+
+.cf-speed-py {
+  font-size: 24px;
+  color: var(--cf-accent);
+}
+
+.cf-speed-gloss {
+  font-size: 17px;
+}
+
+.cf-speed-hook {
+  max-width: 34em;
+  margin-top: 10px !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cf-speed-again {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.cf-speed-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: none;
+}
+
+.cf-speed-end {
+  text-align: left;
 }

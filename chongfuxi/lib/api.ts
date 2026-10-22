@@ -262,24 +262,10 @@ export interface StuckWord {
   rescue: "none" | "ready" | "done" | "stale";
 }
 
-/**
- * One quiz item of a rescue, made to be retrieved, not recognised: recall
- * (the word from its meaning), cloze (the word into one of the owner's
- * sentences, no options), contrast (the same, the options only the words it
- * is confused with), translate (an English sentence into Chinese with it).
- * Items with no `choices` are answered by typing or in one's head, then
- * revealed and self-graded. "meaning" and "pick" are the first rescues'
- * multiple-choice kinds, still shown for rescues made before.
- */
-export interface RescueDrillItem {
-  kind: "recall" | "cloze" | "contrast" | "translate" | "meaning" | "pick";
-  prompt: string;
-  /** Empty for the kinds answered without options. */
-  choices: string[];
-  answer: string;
-  explain: string;
-  /** A cloze's or contrast's sentence (one of the owner's), with its translation. */
-  sentence: { id: number; en: string | null } | null;
+/** A memory handle of a rescue: one way into the word, to pick from. */
+export interface RescueHandle {
+  kind: "sound" | "characters" | "scene" | "contrast";
+  text: string;
 }
 
 /** Two paragraphs the model wrote around the stuck words, to meet them all in one story. */
@@ -304,11 +290,16 @@ export interface Rescue {
   model: string;
   /** Why it keeps slipping, from the evidence. */
   diagnosis: string;
-  /** One or two sentences to hold on to it; shown on its cards once the rescue is worked through. */
+  /** The handle on its cards: the one picked, else the strongest; shown there once one is picked. */
   hook: string;
+  /** Ways into the word to pick from: its sound, its characters, a scene, a contrast. */
+  handles: RescueHandle[];
+  /** Which became the hook: a handle's index, the owner's own sentence, or none yet. */
+  picked: number | "own" | null;
+  /** The owner's own sentence with the word, as checked by the model. */
+  own: { zh: string; ok: boolean; fixed: string; note: string; en: string } | null;
   /** Words it is mixed up with, and the difference. */
   confusions: Array<{ zh: string; pinyin: string; difference: string }>;
-  drill: RescueDrillItem[];
   /** What it was made from. */
   evidence: { missed: number; tripped: number; notes: number; lookups: number };
   doneAt: number | null;

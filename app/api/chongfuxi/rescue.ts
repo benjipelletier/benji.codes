@@ -14,7 +14,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Sql } from "./db";
-import type { Rescue, RescueDrillItem, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { Rescue, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
@@ -28,17 +28,19 @@ export class RescueError extends Error {}
 
 /** Results that count: its word cards' answers, and lapses from being tapped in a forgotten sentence. */
 const RESULTS = `r.kind in ('read', 'produce') and r.cause in ('answer', 'tapped')`;
-/** Readable sentences with the word shown to the model, for the quiz's clozes. */
-const SENTENCES = 12;
-const DRILL_MIN = 4;
-const DRILL_MAX = 7;
+/** Readable sentences with the word shown to the model, for context. */
+const SENTENCES = 8;
+/** Memory handles asked for, at least and at most. */
+const HANDLES_MIN = 2;
+const HANDLES_MAX = 4;
 /**
- * The rescue's shape. 2: a quiz of retrieval (recall, cloze without options,
- * contrast with only real confusions, translate), after the owner found
- * version 1's multiple choice too easy to help. A rescue of an older version
- * counts as stale, so opening it makes it again.
+ * The rescue's shape. 3: memory handles to choose from (sound, characters,
+ * scene, contrast) instead of a quiz: the owner found the quizzes (version
+ * 1's multiple choice, version 2's recall) added little, and the hook the
+ * thing that helped. A rescue of an older version counts as stale, so
+ * opening it makes it again.
  */
-export const RESCUE_VERSION = 2;
+export const RESCUE_VERSION = 3;
 const MAX_TEXT = 600;
 
 let ready = false;
@@ -272,44 +274,41 @@ async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<St
       : []),
     ...(page.sameMeaning.length ? ["", `Deck words with the same meaning: ${page.sameMeaning.join(", ")}`] : []),
     ...(page.compounds.length ? [`Deck words containing it: ${page.compounds.join(", ")}`] : []),
-    ...(before?.hook
-      ? [
-          "",
-          `An earlier rescue's hook, which hasn't held: ${before.hook}`,
-          ...(before.drill ? [`Its quiz: ${before.drill.filter((d) => d.right).length} of ${before.drill.length} right.`] : []),
-        ]
-      : []),
-    "",
-    readable.length ? "The owner's readable sentences with it (id: sentence — translation), for clozes:" : "The owner has no readable sentence with it: make no cloze.",
-    ...readable.map((s) => `${s.id}: ${s.zh}${s.en ? ` — ${s.en}` : ""}`),
+    ...(before?.hook ? ["", `A hook from an earlier rescue, which hasn't held: ${before.hook}`] : []),
+    ...(readable.length ? ["", "The owner's readable sentences with it:", ...readable.map((s) => `- ${s.zh}${s.en ? ` — ${s.en}` : ""}`)] : []),
   ];
   return {
     page,
     text: lines.join("\n"),
-    sentences: new Map(readable.map((s) => [s.id, s])),
     counts: { missed: page.answers.filter((a) => a.grade === "forgot").length, tripped: page.tripped.length, notes: page.notes.length + page.cards.filter((c) => c.note).length, lookups: lookups.length },
   };
 }
 
-const SYSTEM = `You help a learner of Chinese with a word they keep getting wrong. You are told what kind of trouble it is and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, and their own sentences with it.
+const SYSTEM = `You help a learner of Chinese hold on to a word they keep getting wrong. You are told what kind of trouble it is and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, and their own sentences with it.
 
-Work out why it keeps slipping, from that evidence, and give them what they need to keep it.
 - diagnosis: two or three plain sentences on why it slips, pointing at the evidence (a word it's mixed up with, a meaning that differs from the one they expect, a character that misleads, the contexts it trips them in). Say what the evidence shows, not generalities.
-- hook: one or two short sentences to hold on to the word: a vivid link between its sound or characters and its meaning, or the one contrast that settles a confusion. It will be shown on the word's flashcards, so make it quick to read.
+- handles: ${HANDLES_MIN} to ${HANDLES_MAX} memory handles, each a different kind, so they can pick the one that clicks. Each is one or two short sentences, quick to read on a flashcard, vivid and concrete:
+  - sound: link the word's pronunciation to its meaning through something it sounds like (an English word or phrase, or a well-known Chinese word), e.g. "fāxiàn sounds like 'far she ran' — she ran far and found it".
+  - characters: what each character brings and how they add up to the meaning. Use real meanings; if you invent a story about the parts, make it plainly a story.
+  - scene: one vivid, slightly absurd picture that holds the sound or the characters together with the meaning.
+  - contrast: only when it is confused with another word: one image that sets them apart.
+  Aim them at the diagnosis. Put the one you think strongest first.
 - confusions: the words it is mixed up with (from the evidence: same-meaning words, words tapped with it, lookups comparing it), each with its pinyin (tone marks) and the difference in one sentence. Empty if none.
-- drill: ${DRILL_MIN} to ${DRILL_MAX} questions that make them PRODUCE the word, not recognise it: recognising it among options is what they can already do, and it hasn't made it stick. Aim each at the diagnosis, easiest first, and end with the hardest. Kinds:
-  - recall: prompt is an English cue that points at this word and not its confusions (a meaning with the nuance that separates them, or a short situation). answer is the word. No choices.
-  - cloze: one of the user's own sentences, the word blanked, to fill with no options. Give the sentence's id as sentenceId and the word as answer. prompt is ignored (the app blanks the sentence). No choices.
-  - contrast: one of the user's own sentences, the word blanked, where a word it is confused with would be wrong. sentenceId and answer as for cloze; choices are the word and only the words it is really confused with (from the evidence), 2 to 4 in all. No made-up or obviously wrong options.
-  - translate: prompt is a short natural English sentence whose best Chinese uses the word, in a context it trips them in; answer is that Chinese sentence. No choices.
-  Use at least one cloze and one recall when there are sentences; use contrast only when there is a real confusion; never ask what the word means with English options. explain says in one sentence what to notice. sentenceId is null for recall and translate; choices is empty except for contrast.
-Write in English, with Chinese only for Chinese words and sentences.`;
+Write in English, with Chinese only for Chinese words.`;
 
 const SCHEMA = {
   type: "object",
   properties: {
     diagnosis: { type: "string" },
-    hook: { type: "string" },
+    handles: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { kind: { type: "string", enum: ["sound", "characters", "scene", "contrast"] }, text: { type: "string" } },
+        required: ["kind", "text"],
+        additionalProperties: false,
+      },
+    },
     confusions: {
       type: "array",
       items: {
@@ -319,76 +318,50 @@ const SCHEMA = {
         additionalProperties: false,
       },
     },
-    drill: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          kind: { type: "string", enum: ["recall", "cloze", "contrast", "translate"] },
-          prompt: { type: "string" },
-          choices: { type: "array", items: { type: "string" } },
-          answer: { type: "string" },
-          explain: { type: "string" },
-          sentenceId: { type: ["integer", "null"] },
-        },
-        required: ["kind", "prompt", "choices", "answer", "explain", "sentenceId"],
-        additionalProperties: false,
-      },
-    },
   },
-  required: ["diagnosis", "hook", "confusions", "drill"],
+  required: ["diagnosis", "handles", "confusions"],
   additionalProperties: false,
 } as const;
 
 const clip = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, MAX_TEXT) : "");
 
 /**
- * The model's answer, kept to what holds: a cloze or contrast must use one of
- * the given sentences with the word in it (the app blanks it, not the
- * model), and its answer must be the word; a contrast's choices must be the
- * word and others; a recall's answer must be the word, a translation's
- * contain it. Items that fail are dropped.
+ * The model's answer, kept to what holds: a diagnosis, and two or more
+ * handles, one of each kind at most. The first is the hook until the owner
+ * picks one.
  */
-export function checkRescue(
-  raw: unknown,
-  word: string,
-  sentences: Map<number, { zh: string; en: string | null }>,
-): Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill"> & { version: number } {
+export function checkRescue(raw: unknown): Pick<Rescue, "diagnosis" | "hook" | "handles" | "confusions"> & { version: number } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const diagnosis = clip(r.diagnosis);
-  const hook = clip(r.hook);
-  if (!diagnosis || !hook) throw new RescueError("The rescue came back without a diagnosis or a hook.");
+  if (!diagnosis) throw new RescueError("The rescue came back without a diagnosis.");
+  const handles: Rescue["handles"] = [];
+  for (const h of Array.isArray(r.handles) ? r.handles : []) {
+    const x = h as Record<string, unknown>;
+    const kind = x.kind === "sound" || x.kind === "characters" || x.kind === "scene" || x.kind === "contrast" ? x.kind : null;
+    const text = clip(x.text);
+    if (kind && text && !handles.some((o) => o.kind === kind)) handles.push({ kind, text });
+  }
+  if (handles.length < HANDLES_MIN) throw new RescueError("The rescue came back with too few memory handles.");
   const confusions = (Array.isArray(r.confusions) ? r.confusions : [])
     .map((c) => c as Record<string, unknown>)
     .map((c) => ({ zh: clip(c.zh), pinyin: clip(c.pinyin), difference: clip(c.difference) }))
     .filter((c) => c.zh && c.difference)
     .slice(0, 5);
-  const blanked = (zh: string) => {
-    const at = zh.indexOf(word);
-    return `${zh.slice(0, at)}${"＿".repeat(Math.max(2, [...word].length))}${zh.slice(at + word.length)}`;
-  };
-  const drill: RescueDrillItem[] = [];
-  for (const item of Array.isArray(r.drill) ? r.drill : []) {
-    const d = item as Record<string, unknown>;
-    const answer = clip(d.answer);
-    const explain = clip(d.explain);
-    if (d.kind === "cloze" || d.kind === "contrast") {
-      const s = typeof d.sentenceId === "number" ? sentences.get(d.sentenceId) : undefined;
-      if (!s || answer !== word || !s.zh.includes(word)) continue;
-      const choices = d.kind === "contrast" ? [...new Set((Array.isArray(d.choices) ? d.choices : []).map(clip).filter(Boolean))].slice(0, 4) : [];
-      if (d.kind === "contrast" && (choices.length < 2 || !choices.includes(word))) continue;
-      drill.push({ kind: d.kind, prompt: blanked(s.zh), choices, answer, explain, sentence: { id: d.sentenceId as number, en: s.en } });
-    } else if (d.kind === "recall" || d.kind === "translate") {
-      const prompt = clip(d.prompt);
-      if (!prompt || (d.kind === "recall" ? answer !== word : !answer.includes(word))) continue;
-      drill.push({ kind: d.kind, prompt, choices: [], answer, explain, sentence: null });
-    }
-  }
-  if (drill.length < DRILL_MIN) throw new RescueError("The rescue's quiz came back with too few questions that hold up.");
-  return { diagnosis, hook, confusions, drill: drill.slice(0, DRILL_MAX), version: RESCUE_VERSION };
+  return { diagnosis, handles: handles.slice(0, HANDLES_MAX), hook: handles[0].text, confusions, version: RESCUE_VERSION };
 }
 
-type Row = { word: string; at: number; model: string; evidence: Rescue["evidence"]; rescue: Pick<Rescue, "diagnosis" | "hook" | "confusions" | "drill">; done_at: number | null; stale: boolean; outdated: boolean; pinyin: string | null; defs: Definition[] };
+type Row = {
+  word: string;
+  at: number;
+  model: string;
+  evidence: Rescue["evidence"];
+  rescue: Pick<Rescue, "diagnosis" | "hook" | "confusions"> & Partial<Pick<Rescue, "handles" | "own" | "picked">>;
+  done_at: number | null;
+  stale: boolean;
+  outdated: boolean;
+  pinyin: string | null;
+  defs: Definition[];
+};
 
 async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescue | null> {
   await ensureRescueTable(sql);
@@ -412,7 +385,12 @@ async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescu
     gloss: promptSenses(row.defs, p).slice(0, 2).join("; ") || null,
     at: Math.round(row.at),
     model: row.model,
-    ...row.rescue,
+    diagnosis: row.rescue.diagnosis,
+    hook: row.rescue.hook,
+    handles: row.rescue.handles ?? [],
+    confusions: row.rescue.confusions,
+    own: row.rescue.own ?? null,
+    picked: row.rescue.picked ?? null,
     evidence: row.evidence,
     doneAt: row.done_at === null ? null : Math.round(row.done_at),
     stale: row.stale,
@@ -449,26 +427,90 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
   } catch {
     throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The rescue came back malformed.");
   }
-  const rescue = { ...checkRescue(given, word, evidence.sentences), category: place?.category ?? null, partner: place?.partner ?? null };
+  const rescue = { ...checkRescue(given), category: place?.category ?? null, partner: place?.partner ?? null };
   await sql`
     insert into chongfuxi_rescue (owner_email, word, at, model, evidence, rescue, done_at, drill)
     values (${owner}, ${word}, now(), ${MODEL}, ${JSON.stringify(evidence.counts)}::jsonb, ${JSON.stringify(rescue)}::jsonb, null, null)
     on conflict (owner_email, word) do update set
       at = now(), model = excluded.model, evidence = excluded.evidence, rescue = excluded.rescue, done_at = null
   `;
-  console.log("rescue", JSON.stringify({ word, drill: rescue.drill.length, usage: message.usage }));
+  console.log("rescue", JSON.stringify({ word, handles: rescue.handles.length, usage: message.usage }));
   return (await savedRescue(sql, owner, word))!;
 }
 
-/** Worked through: its hook goes on its cards, and how the quiz went is kept for the next rescue. Owner only. */
-export async function finishRescue(sql: Sql, owner: string, word: string, drill: Array<{ i: number; right: boolean }>): Promise<void> {
-  await ensureRescueTable(sql);
-  const done = await sql`
-    update chongfuxi_rescue set done_at = now(), drill = ${JSON.stringify(drill)}::jsonb
+/**
+ * The handle that clicks (its index, or "own" for the owner's own sentence)
+ * becomes the word's hook, shown on its cards until it is got right
+ * RESCUE_CLEAR times in a row. Owner only.
+ */
+export async function pickHandle(sql: Sql, owner: string, word: string, pick: number | "own"): Promise<Rescue> {
+  const r = await savedRescue(sql, owner, word);
+  if (!r) throw new RescueError(`${word} has no rescue yet.`);
+  const hook = pick === "own" ? (r.own?.fixed ?? null) : (r.handles[pick]?.text ?? null);
+  if (!hook) throw new RescueError("There's no such handle.");
+  await sql`
+    update chongfuxi_rescue
+    set rescue = rescue || ${JSON.stringify({ hook, picked: pick })}::jsonb, done_at = now()
     where owner_email = ${owner} and word = ${word}
-    returning word
   `;
-  if (!done.length) throw new RescueError(`${word} has no rescue to finish.`);
+  return (await savedRescue(sql, owner, word))!;
+}
+
+const OWN_SYSTEM = `A learner of Chinese wrote a sentence using a word they keep forgetting, to make it their own. Say whether it is correct and natural Chinese that uses the word in a right sense. ok is true when it is (small slips of punctuation don't count). fixed is the sentence as a native speaker would write it, changing as little as possible (the same sentence when it is already fine), and still using the word. note is one short sentence in English: what was wrong and why, or, when it is fine, what makes the word right there. en is a natural English translation of fixed.`;
+
+const OWN_SCHEMA = {
+  type: "object",
+  properties: { ok: { type: "boolean" }, fixed: { type: "string" }, note: { type: "string" }, en: { type: "string" } },
+  required: ["ok", "fixed", "note", "en"],
+  additionalProperties: false,
+} as const;
+
+/** The owner's own sentence with the word, checked by the model and kept with the rescue. Owner only. */
+export async function checkOwnSentence(sql: Sql, owner: string, word: string, zh: string): Promise<Rescue> {
+  const sentence = zh.trim().slice(0, 200);
+  if (!sentence.includes(word)) throw new RescueError(`Use ${word} in it.`);
+  const r = await savedRescue(sql, owner, word);
+  if (!r) throw new RescueError(`${word} has no rescue yet.`);
+  const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new RescueError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
+  const client = new Anthropic({ apiKey });
+  const message = await client.messages.create({
+    model: MODEL,
+    max_tokens: 2000,
+    system: OWN_SYSTEM,
+    output_config: { effort: EFFORT, format: { type: "json_schema", schema: OWN_SCHEMA as unknown as Record<string, unknown> } },
+    messages: [{ role: "user", content: `The word: ${word}${r.gloss ? ` (${r.gloss})` : ""}\nTheir sentence: ${sentence}` }],
+  });
+  const text = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
+  let given: Record<string, unknown>;
+  try {
+    given = JSON.parse(text);
+  } catch {
+    throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The check came back malformed.");
+  }
+  const fixed = clip(given.fixed);
+  const own = { zh: sentence, ok: given.ok === true, fixed: fixed.includes(word) ? fixed : sentence, note: clip(given.note), en: clip(given.en) };
+  await sql`
+    update chongfuxi_rescue set rescue = rescue || ${JSON.stringify({ own })}::jsonb
+    where owner_email = ${owner} and word = ${word}
+  `;
+  console.log("rescue own", JSON.stringify({ word, ok: own.ok, usage: message.usage }));
+  return (await savedRescue(sql, owner, word))!;
+}
+
+/**
+ * The speed round's cards: every word to revive, with the hook it has (the
+ * one picked, else its rescue's strongest handle), none for a word never
+ * rescued. Nothing here touches a schedule. Readable by anyone.
+ */
+export async function speedWords(sql: Sql, owner: string): Promise<Array<{ word: string; pinyin: string | null; gloss: string | null; hook: string | null }>> {
+  const words = await stuckWords(sql, owner);
+  if (!words.length) return [];
+  const hooks = (await sql`
+    select word, rescue->>'hook' as hook from chongfuxi_rescue where owner_email = ${owner} and word = any(${words.map((w) => w.word)}::text[])
+  `) as unknown as Array<{ word: string; hook: string | null }>;
+  const hookOf = new Map(hooks.map((h) => [h.word, h.hook]));
+  return words.map((w) => ({ word: w.word, pinyin: w.pinyin, gloss: w.gloss, hook: hookOf.get(w.word) ?? null }));
 }
 
 /**

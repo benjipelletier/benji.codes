@@ -726,9 +726,11 @@ no definition again (nor its reading, if the model gave that too, marked
 Asked for by the owner in October 2026: a section on Today for words got
 wrong again and again, with an AI rescue "to get the word out of forgotten
 land" (`app/api/chongfuxi/rescue.ts`, route `rescue`,
-`components/Rescue.tsx`). Choices the owner made: a rescue sheet plus a
-quiz; afterwards the hook shows on the word's cards and the schedule stays
-FSRS's; card misses and sentence trips both count.
+`components/Rescue.tsx`). Choices the owner made: a rescue sheet (first
+with a quiz, since replaced by a memory kit and a speed round: "the quiz
+doesn't add much, I rly like the mnemonic"); the hook the owner picks shows
+on the word's cards and the schedule stays FSRS's; card misses and sentence
+trips both count.
 
 - **Words to revive**, by category (`lib/revive.ts`, the owner's idea:
   "3 fails in a row is different from getting a word right a ton then
@@ -765,27 +767,31 @@ FSRS's; card misses and sentence trips both count.
   Forgot, card notes, the sentences it tripped (with what was written),
   other words tapped in those sentences, its lookups (with each stored
   answer's summary, verdict and note), same-meaning and containing deck
-  words, an earlier rescue's hook and quiz score, and up to 12 readable
-  sentences with their ids. It gives a diagnosis, a hook, confusions, and a
-  quiz of 4 to 7 items that make the word be produced, not picked (the
-  owner found version 1's multiple choice too easy to help it stick):
-  recall (the word from an English cue that rules out its confusions),
-  cloze (one of the owner's sentences, blanked, no options), contrast (the
-  same, the options only the words it is really confused with) and
-  translate (an English sentence into Chinese with it). Items without
-  options are typed, or said in one's head, then revealed: a typed word
-  that is the word counts as right, the rest is graded Got it / Missed by
-  hand; a miss comes back once at the end; first tries are what is kept.
-  `checkRescue` keeps what holds: a cloze or contrast must cite one of the
-  given sentences with the word in it (the app blanks it, not the model),
-  a recall's answer must be the word and a translation's contain it, a
-  contrast's options must include it, and too few good items refuse the
-  rescue. `RESCUE_VERSION` (2) is stored with it; an older one reads as
-  `outdated` and stale, and is made again when the owner opens it.
-- **Worked through** (`done`), the hook shows on the word's Read and Recall
-  card backs (`hook` on `SessionCard`, from `rescueHooks` in `dress`) until
-  `RESCUE_CLEAR` (2) Goods in a row after it. The quiz's results are kept and
-  fed to the next rescue. Nothing here changes a schedule.
+  words, an earlier rescue's hook, and up to 8 readable sentences. It gives
+  a diagnosis, 2 to 4 handles (ways to hold on to the word), each of a
+  different kind: by its sound, by its characters, a scene, against its
+  look-alike; and confusions. `checkRescue` keeps one handle per kind, drops
+  unknown or empty ones, and refuses fewer than 2. The screen shows the
+  handles with "This one clicks": the picked one becomes the word's hook
+  (`pickHandle`, `POST {word, pick}`). Under them, "Your own sentence": the
+  owner writes one with the word and the model checks it
+  (`checkOwnSentence`, `POST {word, own}`: ok, a fixed version, a note, its
+  English); it is kept and can be picked as the hook too. `RESCUE_VERSION`
+  (3) is stored with it; an older one reads as `outdated` and stale, and is
+  made again when the owner opens it.
+- **Once a hook is picked** (`done`), it shows on the word's Read and
+  Recall card backs (`hook` on `SessionCard`, from `rescueHooks` in
+  `dress`) until `RESCUE_CLEAR` (2) Goods in a row after it. Nothing here
+  changes a schedule.
+- **Speed round** (the owner's idea: "flipping through the cards really
+  fast while saying it"), a button at the top of the list: every stuck word
+  flipped full screen (`SpeedRound`, fed by `rescue?speed=1`, `speedWords`,
+  with each picked hook). The word shows alone; after 2 s
+  (`SPEED_REVEAL_MS`), or a tap, its reading, meaning and hook show and it
+  is said aloud (the browser's zh-CN voice; "Hear it again"). Missed / Had
+  it by button, swipe or arrow keys: a miss comes back 3 cards later
+  (`SPEED_BACK`), a word is done at 2 right in a row (`SPEED_DONE`). It
+  ends with the flips and minutes taken, and touches no schedule.
 - **A story with them** (the owner's idea): at the top of the list, two
   paragraphs the model writes using every stuck word (the 15 longest
   streaks), each in a sentence that shows its meaning, everything else kept
