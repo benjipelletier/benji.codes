@@ -12,6 +12,7 @@
 // while one is running. A visitor can page through the cards but not answer.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
@@ -38,6 +39,9 @@ import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, Plec
 const IN_FLIGHT = 20;
 /** How long an answered card takes to slide away, in ms. Matches the stylesheet. */
 const LEAVE_MS = 220;
+/** Forgot held this long, or swiped up this far, opens "What tripped you up?" ready to type. */
+const FORGOT_HOLD_MS = 450;
+const FORGOT_SWIPE = 40;
 
 const KIND_NAME = { read: "Read", produce: "Recall", sentence: "Sentence" } as const;
 
@@ -450,6 +454,7 @@ export function Session({
   // After Forgot, before it is sent: what went wrong, in the owner's words. Null when not forgetting.
   const [why, setWhy] = useState<string | null>(null);
   const whyBox = useRef<HTMLDivElement>(null);
+  const whyInput = useRef<HTMLInputElement>(null);
   // The last answer given, to take back; and the streak as it stood before it.
   const latest = useRef<{ id: string; card: SessionCard; streak: number } | null>(null);
   const [undoing, setUndoing] = useState(false);
@@ -687,6 +692,42 @@ export function Session({
     setWhy("");
   };
   const sendForgot = () => answer("forgot", tapped ? [...tapped] : [], why ?? undefined);
+  // Forgot held (FORGOT_HOLD_MS) or swiped up (FORGOT_SWIPE px) opens the box with the keyboard up,
+  // so what tripped you can be typed straight away (the owner's ask). The box is mounted at once
+  // and focused in the release itself: phones only raise the keyboard inside a gesture.
+  const press = useRef<{ y: number; at: number } | null>(null);
+  const [holding, setHolding] = useState(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipClick = useRef(false);
+  const forgotGesture = {
+    onPointerDown: (e: React.PointerEvent) => {
+      // Kept on the button when the finger slides off it upwards, so the release still counts.
+      e.currentTarget.setPointerCapture(e.pointerId);
+      press.current = { y: e.clientY, at: Date.now() };
+      holdTimer.current = setTimeout(() => setHolding(true), FORGOT_HOLD_MS);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      if (press.current && press.current.y - e.clientY >= FORGOT_SWIPE) setHolding(true);
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const p = press.current;
+      press.current = null;
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      setHolding(false);
+      if (!p || (Date.now() - p.at < FORGOT_HOLD_MS && p.y - e.clientY < FORGOT_SWIPE)) return;
+      // The click that follows this release is the gesture's, not a tap.
+      skipClick.current = true;
+      setTimeout(() => (skipClick.current = false), 400);
+      flushSync(forget);
+      whyInput.current?.focus();
+    },
+    onPointerCancel: () => {
+      press.current = null;
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      setHolding(false);
+    },
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
   const backFromForgot = () => {
     setTapped(null);
     setWhy(null);
@@ -1021,6 +1062,7 @@ export function Session({
               <label htmlFor="cf-why">What tripped you up?</label>
               <input
                 id="cf-why"
+                ref={whyInput}
                 className="cf-input"
                 maxLength={1000}
                 enterKeyHint="done"
@@ -1166,10 +1208,11 @@ export function Session({
             </>
           ) : why !== null ? (
             <>
-              <button className="cf-answer-btn cf-answer-ghost" onClick={backFromForgot}>
+              <button key="back" className="cf-answer-btn cf-answer-ghost" onClick={backFromForgot}>
                 Back
               </button>
-              <button className="cf-answer-btn cf-answer-forgot" onClick={sendForgot}>
+              {/* Its own key, and the release's click ignored: Forgot's hold opens this under the finger. */}
+              <button key="done" className="cf-answer-btn cf-answer-forgot" onClick={() => !skipClick.current && sendForgot()}>
                 Done
                 <small>
                   {tapped
@@ -1183,11 +1226,16 @@ export function Session({
           ) : (
             <>
               <button
-                className="cf-answer-btn cf-answer-forgot"
-                onClick={forget}
+                key="forgot"
+                className={`cf-answer-btn cf-answer-forgot cf-forgot-gesture${holding ? " is-holding" : ""}`}
+                onClick={() => {
+                  if (skipClick.current) skipClick.current = false;
+                  else forget();
+                }}
+                {...forgotGesture}
               >
                 Forgot
-                <small>{span(card.intervals.forgot)}</small>
+                <small>{holding ? "let go to type why" : span(card.intervals.forgot)}</small>
               </button>
               <button className="cf-answer-btn cf-answer-good" onClick={() => answer("good")}>
                 Got it

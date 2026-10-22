@@ -2886,6 +2886,19 @@ label.cf-kind {
   padding: 0 22px;
 }
 
+/* Forgot can be held or swiped up to open "What tripped you up?" with the keyboard up: no
+ * scrolling, menu or text selection may start from it, and it lifts while armed. */
+.cf-forgot-gesture {
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.cfx .cf-forgot-gesture.is-holding {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 2px var(--cf-down);
+}
+
 .cf-answer-note {
   flex: 1;
   font-size: 13px;

@@ -1010,7 +1010,14 @@ the design was silent and are still to be confirmed.
   aren't in the list.
 - **Why it was forgotten**: Forgot opens a step with an optional line, "what
   tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
-  words, for reading the mistakes back later.
+  words, for reading the mistakes back later. Holding Forgot
+  (`FORGOT_HOLD_MS`, 450 ms; it lifts and reads "let go to type why") or
+  swiping up on it (`FORGOT_SWIPE`, 40 px) opens that step with the line
+  focused and the keyboard up (the owner's ask: no extra tap). The step is
+  mounted with `flushSync` and focused inside the release, since phones raise
+  the keyboard only within a gesture; the pointer is captured so a swipe
+  ending off the button counts, and the release's click is kept off Done
+  (its own key, and ignored), which would otherwise answer at once.
 - **Fast review**: every Read card due, as a grid of words. Cards turn over
   one at a time, left to right: a card counts once the line two thirds down
   the grid has passed its row's foot by its share of a row (a third of a row
