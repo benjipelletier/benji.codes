@@ -383,7 +383,9 @@ function Today({
           onClick={onStart}
         >
           {!kinds.read && !kinds.recall && !kinds.sentences
-            ? "Nothing chosen"
+            ? kinds.learn && s.toLearn > 0
+              ? "Learn new words"
+              : "Nothing chosen"
             : total === 0
               ? kinds.learn && s.toLearn > 0
                 ? "Learn new words"
