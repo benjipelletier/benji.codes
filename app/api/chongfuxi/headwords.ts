@@ -21,19 +21,27 @@ let headwords: Set<string> | null = null;
 let entries: Map<string, Entry[]> | null = null;
 /** The reading a word gets when nothing asks for a particular one. */
 let readings: Map<string, string> | null = null;
+/** A headword's traditional forms where they differ from it (发: 發 and 髮), in the file's order. */
+let traditional: Map<string, string[]> | null = null;
 
 function load() {
   headwords = new Set();
   entries = new Map();
   readings = new Map();
+  traditional = new Map();
   /** How often a character has a reading inside a longer word. */
   const inWords = new Map<string, number>();
   try {
     const text = readFileSync(join(process.cwd(), "chongfuxi", "data", "cedict.txt"), "utf8");
     // simplified \t traditional \t numbered pinyin, syllables spaced \t senses
-    for (const m of text.matchAll(/^([^#\t\n][^\t\n]*)\t[^\t\n]*\t([^\t\n]*)\t([^\n]*)$/gm)) {
-      const [, word, pinyin, senses] = m;
+    for (const m of text.matchAll(/^([^#\t\n][^\t\n]*)\t([^\t\n]*)\t([^\t\n]*)\t([^\n]*)$/gm)) {
+      const [, word, trad, pinyin, senses] = m;
       headwords.add(word);
+      if (trad !== word) {
+        const forms = traditional.get(word);
+        if (!forms) traditional.set(word, [trad]);
+        else if (!forms.includes(trad)) forms.push(trad);
+      }
       const syllables = pinyin.trim().split(/\s+/);
       const p = syllables.join("@");
       const list = entries.get(word);
@@ -60,6 +68,12 @@ function load() {
     const uses = (p: string) => inWords.get(word + p) ?? 0;
     readings.set(word, ps.reduce((best, p) => (uses(p) > uses(best) ? p : best)));
   }
+}
+
+/** A headword's traditional forms where they differ from it; empty when it is written the same (or isn't one). */
+export function traditionalOf(word: string): string[] {
+  if (!entries) load();
+  return traditional!.get(word) ?? [];
 }
 
 /** Every entry, by headword: for indexes built over the whole dictionary (synonyms.ts). */

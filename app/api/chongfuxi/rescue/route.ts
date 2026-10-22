@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { RescueError, checkOwnSentence, makeRescue, makeStory, pickHandle, rescueOf, speedWords, storyOf, stuckWords } from "../rescue";
+import { RescueError, checkOwnSentence, makeRescue, makeStory, rescueOf, speedWords, storyOf, stuckWords } from "../rescue";
 
 export const dynamic = "force-dynamic";
 // One model call, at Look up's effort.
@@ -24,22 +24,18 @@ export async function GET(req: NextRequest) {
 
 /**
  * { word, fresh? }: make the word's rescue (or give back the one made). Owner only: it costs money.
- * { word, pick: index | "own" }: that handle (or the owner's own sentence) becomes the hook on its cards.
  * { word, own: "…" }: the owner's own sentence with the word, checked by the model.
  * { story: true }: write a story with the stuck words in it (owner only, it costs money).
  */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = await body<{ word?: string; fresh?: boolean; story?: boolean; pick?: number | "own"; own?: string }>(req);
+  const input = await body<{ word?: string; fresh?: boolean; story?: boolean; own?: string }>(req);
   const word = input?.word?.trim();
   if (!input?.story && (!word || word.length > 20)) return bad("which word?");
   try {
     if (input?.story) return NextResponse.json({ story: await makeStory(gate.sql, gate.owner) });
     if (!word) return bad("which word?");
-    if (input?.pick === "own" || (typeof input?.pick === "number" && Number.isInteger(input.pick) && input.pick >= 0)) {
-      return NextResponse.json({ rescue: await pickHandle(gate.sql, gate.owner, word, input.pick) });
-    }
     if (typeof input?.own === "string") {
       if (!input.own.trim()) return bad("write a sentence");
       return NextResponse.json({ rescue: await checkOwnSentence(gate.sql, gate.owner, word, input.own) });

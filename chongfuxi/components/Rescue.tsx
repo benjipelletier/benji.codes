@@ -6,22 +6,31 @@
 // "forgotten land" (the owner's words). Four parts: one button on Today with
 // the count (the list there was clutter, the owner found); the list, full
 // screen, by category, with a story using them all and a speed round
-// through them all; a word's rescue (why it slips, memory handles to pick
-// from, a sentence of one's own, what it's mixed up with: the owner found
-// quizzes added little and the hook helped most); and the picked handle on
-// the backs of its cards, until RESCUE_CLEAR Goods in a row.
+// through them all; a word's memory kit, in the owner's order (a hook, its
+// characters' real etymology, sentences with it and one of one's own, the
+// words it is told apart from: the owner found quizzes added little and the
+// hook helped most); and the hook on the backs of its cards, until
+// RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Rescue as RescueData, RescueHandle, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { Rescue as RescueData, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import { Loading, fmt, message, useBackLayer, type Shell } from "./shared";
+import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Rescue", ready: "Ready", done: "Done", stale: "Missed again" };
-const HANDLE: Record<RescueHandle["kind"], string> = { sound: "By its sound", characters: "By its characters", scene: "A scene", contrast: "Against its look-alike" };
+const FORMATION: Record<RescueChar["formation"], string> = {
+  pictograph: "Pictograph",
+  ideograph: "Ideograph",
+  "compound ideograph": "Compound ideograph",
+  "phono-semantic": "Meaning + sound",
+  borrowing: "Borrowed",
+  other: "",
+};
+const ROLE: Record<RescueChar["parts"][number]["role"], string> = { meaning: "meaning", sound: "sound", form: "shape" };
 
 /** The stuck words, loaded once per mount. */
 function useStuck(): StuckWord[] | null {
@@ -267,7 +276,6 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
   const [r, setR] = useState<RescueData | null>(null);
   const [making, setMaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [picking, setPicking] = useState<number | "own" | null>(null);
   const [own, setOwn] = useState("");
   const [checking, setChecking] = useState(false);
 
@@ -299,17 +307,6 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word]);
 
-  const pick = async (p: number | "own") => {
-    setPicking(p);
-    setError(null);
-    try {
-      setR((await send<{ rescue: RescueData }>("rescue", { word, pick: p })).rescue);
-    } catch (e) {
-      setError(message(e));
-    } finally {
-      setPicking(null);
-    }
-  };
   const check = async () => {
     if (!own.trim()) return;
     setChecking(true);
@@ -323,16 +320,6 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
       setChecking(false);
     }
   };
-
-  /** "This one clicks", or, once picked, where it is. */
-  const PickButton = ({ p }: { p: number | "own" }) =>
-    r?.picked === p ? (
-      <span className="cf-rescue-picked">On its cards ✓</span>
-    ) : canWrite ? (
-      <button className="cf-btn cf-btn-ghost cf-rescue-pick" disabled={picking !== null} onClick={() => void pick(p)}>
-        {picking === p ? "…" : "This one clicks"}
-      </button>
-    ) : null;
 
   return (
     <div className="cf-rescue">
@@ -373,37 +360,75 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
             )}
 
             <section>
-              <h3 className="cf-rescue-h">Why it slips</h3>
-              <p>{r.diagnosis}</p>
+              <h3 className="cf-rescue-h">Hook</h3>
+              <p className="cf-rescue-hook is-kit">{r.hook}</p>
+              <p className="cf-rescue-note">On its cards until you get it right {RESCUE_CLEAR} times in a row.</p>
             </section>
 
+            {r.characters.length > 0 && (
+              <section>
+                <h3 className="cf-rescue-h">Characters</h3>
+                <ul className="cf-rescue-chars">
+                  {r.characters.map((c, i) => (
+                    <li key={i}>
+                      <div className="cf-rescue-char-head">
+                        <span className="cf-zh cf-rescue-char">{c.char}</span>
+                        {c.traditional.length > 0 && (
+                          <span className="cf-zh cf-rescue-trad" title="Traditional">
+                            {c.traditional.join(" ")}
+                          </span>
+                        )}
+                        <span className="cf-rescue-char-means">
+                          {c.pinyin && <b>{displayPinyin(c.pinyin)}</b>} {c.meaning}
+                        </span>
+                        {FORMATION[c.formation] && <span className="cf-rescue-form">{FORMATION[c.formation]}</span>}
+                      </div>
+                      {c.parts.length > 0 && (
+                        <ul className="cf-rescue-parts">
+                          {c.parts.map((p, k) => (
+                            <li key={k}>
+                              <span className="cf-zh">{p.part}</span>
+                              <span className={`cf-rescue-role is-${p.role}`}>{ROLE[p.role]}</span>
+                              <span>{p.meaning}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="cf-rescue-origin">{c.origin}</p>
+                    </li>
+                  ))}
+                </ul>
+                {r.together && <p className="cf-rescue-together">{r.together}</p>}
+              </section>
+            )}
+
             <section>
-              <h3 className="cf-rescue-h">Ways to hold on to it</h3>
-              <p className="cf-muted cf-rescue-about">Pick the one that clicks: it goes on the back of its cards.</p>
-              <ul className="cf-rescue-handles">
-                {r.handles.map((h, i) => (
-                  <li key={h.kind} className={r.picked === i ? "is-picked" : ""}>
-                    <span className="cf-rescue-hook-label">
-                      {HANDLE[h.kind]} <span className="cf-ai-pill">AI</span>
-                    </span>
-                    <p>{h.text}</p>
-                    <PickButton p={i} />
+              <h3 className="cf-rescue-h">Sentences</h3>
+              <ul className="cf-rescue-sents">
+                {r.sentences.map((x, i) => (
+                  <li key={i}>
+                    <p className="cf-zh cf-rescue-sent-zh">
+                      <Highlighted text={x.zh} word={r.word} />
+                    </p>
+                    {x.en && <p className="cf-muted">{x.en}</p>}
+                    {(x.note || x.id === null) && (
+                      <p className="cf-rescue-note">
+                        {x.id === null && <span className="cf-rescue-new">New</span>} {x.note}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
-            </section>
-
-            {/* Making it one's own: a sentence about one's life, checked by the model. */}
-            <section>
-              <h3 className="cf-rescue-h">Your own sentence</h3>
+              {/* Making it one's own: a sentence about one's life, checked by the model. */}
               {r.own && (
-                <div className={`cf-rescue-own${r.picked === "own" ? " is-picked" : ""}`}>
-                  <p className="cf-zh cf-rescue-own-zh">{r.own.fixed}</p>
+                <div className="cf-rescue-own">
+                  <p className="cf-zh cf-rescue-own-zh">
+                    <Highlighted text={r.own.fixed} word={r.word} />
+                  </p>
                   {r.own.en && <p className="cf-muted">{r.own.en}</p>}
                   <p className={`cf-rescue-verdict${r.own.ok ? " is-right" : " is-wrong"}`}>
                     {r.own.ok ? "Good." : `You wrote ${r.own.zh}`} {r.own.note}
                   </p>
-                  <PickButton p="own" />
                 </div>
               )}
               {canWrite && (
@@ -418,7 +443,7 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
                     lang="zh"
                     value={own}
                     onChange={(e) => setOwn(e.target.value)}
-                    placeholder={r.own ? "Another one" : `Something true about your life, with ${r.word}`}
+                    placeholder={r.own ? "Another of your own" : `Your own, with ${r.word}`}
                     aria-label="Your own sentence"
                     disabled={checking}
                   />
@@ -429,18 +454,35 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
               )}
             </section>
 
-            {r.confusions.length > 0 && (
+            {r.contrasts.length > 0 && (
               <section>
-                <h3 className="cf-rescue-h">Mixed up with</h3>
+                <h3 className="cf-rescue-h">Contrast</h3>
                 <ul className="cf-rescue-conf">
-                  {r.confusions.map((c) => (
+                  {r.contrasts.map((c) => (
                     <li key={c.zh}>
-                      <button className="cf-lk-wchip" onClick={() => wordpage.openWordPage(c.zh)}>
-                        <span className="cf-zh">{c.zh}</span> ›
-                      </button>
-                      <span>
-                        {c.pinyin && <span className="cf-rescue-cpy">{c.pinyin}</span>} {c.difference}
-                      </span>
+                      <div className="cf-rescue-conf-head">
+                        <button className="cf-lk-wchip" onClick={() => wordpage.openWordPage(c.zh)}>
+                          <span className="cf-zh">{c.zh}</span> ›
+                        </button>
+                        {c.pinyin && <span className="cf-rescue-cpy">{c.pinyin}</span>}
+                      </div>
+                      <p>{c.difference}</p>
+                      {c.pair && (
+                        <div className="cf-rescue-pair">
+                          <p>
+                            <span className="cf-zh">
+                              <Highlighted text={c.pair.mine.zh} word={r.word} />
+                            </span>
+                            {c.pair.mine.en && <span className="cf-muted"> {c.pair.mine.en}</span>}
+                          </p>
+                          <p>
+                            <span className="cf-zh">
+                              <Highlighted text={c.pair.theirs.zh} word={c.zh} />
+                            </span>
+                            {c.pair.theirs.en && <span className="cf-muted"> {c.pair.theirs.en}</span>}
+                          </p>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -450,8 +492,7 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
             <p className="cf-rescue-from">
               From {fmt(r.evidence.missed)} {r.evidence.missed === 1 ? "miss" : "misses"}, {fmt(r.evidence.tripped)} tripped{" "}
               {r.evidence.tripped === 1 ? "sentence" : "sentences"}, {fmt(r.evidence.notes)} {r.evidence.notes === 1 ? "note" : "notes"},{" "}
-              {fmt(r.evidence.lookups)} {r.evidence.lookups === 1 ? "lookup" : "lookups"}. Its hook stays on its cards until you get it right{" "}
-              {RESCUE_CLEAR} times in a row.
+              {fmt(r.evidence.lookups)} {r.evidence.lookups === 1 ? "lookup" : "lookups"}.
             </p>
           </>
         )}

@@ -728,8 +728,8 @@ wrong again and again, with an AI rescue "to get the word out of forgotten
 land" (`app/api/chongfuxi/rescue.ts`, route `rescue`,
 `components/Rescue.tsx`). Choices the owner made: a rescue sheet (first
 with a quiz, since replaced by a memory kit and a speed round: "the quiz
-doesn't add much, I rly like the mnemonic"); the hook the owner picks shows
-on the word's cards and the schedule stays FSRS's; card misses and sentence
+doesn't add much, I rly like the mnemonic"); the kit's hook shows on the
+word's cards and the schedule stays FSRS's; card misses and sentence
 trips both count.
 
 - **Words to revive**, by category (`lib/revive.ts`, the owner's idea:
@@ -767,26 +767,38 @@ trips both count.
   Forgot, card notes, the sentences it tripped (with what was written),
   other words tapped in those sentences, its lookups (with each stored
   answer's summary, verdict and note), same-meaning and containing deck
-  words, an earlier rescue's hook, and up to 8 readable sentences. It gives
-  a diagnosis, 2 to 4 handles (ways to hold on to the word), each of a
-  different kind: by its sound, by its characters, a scene, against its
-  look-alike; and confusions. `checkRescue` keeps one handle per kind, drops
-  unknown or empty ones, and refuses fewer than 2. The screen shows the
-  handles with "This one clicks": the picked one becomes the word's hook
-  (`pickHandle`, `POST {word, pick}`). Under them, "Your own sentence": the
-  owner writes one with the word and the model checks it
-  (`checkOwnSentence`, `POST {word, own}`: ok, a fixed version, a note, its
-  English); it is kept and can be picked as the hook too. `RESCUE_VERSION`
-  (3) is stored with it; an older one reads as `outdated` and stale, and is
-  made again when the owner opens it.
-- **Once a hook is picked** (`done`), it shows on the word's Read and
-  Recall card backs (`hook` on `SessionCard`, from `rescueHooks` in
+  words, an earlier rescue's hook, each character's CC-CEDICT entries and
+  traditional forms and the deck words sharing it, and up to 12 readable
+  sentences with their ids. It gives a memory kit in the owner's order:
+  1. **Hook**: one mnemonic, the only place invention is allowed.
+  2. **Characters**: for each character, its meaning here, how it was
+     formed (pictograph, ideograph, compound ideograph, meaning + sound,
+     borrowing), its components each with a role (meaning, sound, shape)
+     and its origin, asked to be the standard account (Shuowen, oracle-bone
+     and bronze forms), explained from the traditional form when
+     simplification hides it, and to say plainly when an origin is
+     disputed; then how they add up to the word. The traditional forms
+     (`traditionalOf` in headwords.ts) and readings (the deck's pinyin)
+     are filled in from data, not the model.
+  3. **Sentences**: up to 3 of the owner's, by id only (their text comes
+     from the store), and 2 new plain ones that must hold the word, each
+     with a note; under them "Your own" (`checkOwnSentence`,
+     `POST {word, own}`: ok, a fixed version, a note, its English).
+  4. **Contrast**: 1 to 3 words it is mixed up with or could be, each with
+     the difference and a pair of near-identical sentences, one with each
+     word (dropped if either lacks its word).
+  `checkRescue(raw, facts)` refuses a kit missing any character or with no
+  sentence holding the word. `RESCUE_VERSION` (4) is stored with it; an
+  older one reads as `outdated` and stale, and is made again when the owner
+  opens it.
+- **Once made** (`done_at` is set with it), the hook shows on the word's
+  Read and Recall card backs (`hook` on `SessionCard`, from `rescueHooks` in
   `dress`) until `RESCUE_CLEAR` (2) Goods in a row after it. Nothing here
   changes a schedule.
 - **Speed round** (the owner's idea: "flipping through the cards really
   fast while saying it"), a button at the top of the list: every stuck word
   flipped full screen (`SpeedRound`, fed by `rescue?speed=1`, `speedWords`,
-  with each picked hook). The word shows alone; after 2 s
+  with each hook). The word shows alone; after 2 s
   (`SPEED_REVEAL_MS`), or a tap, its reading, meaning and hook show and it
   is said aloud (the browser's zh-CN voice; "Hear it again"). Missed / Had
   it by button, swipe or arrow keys: a miss comes back 3 cards later

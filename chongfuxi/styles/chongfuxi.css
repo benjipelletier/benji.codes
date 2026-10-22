@@ -8689,10 +8689,36 @@ button.cf-how-text {
 }
 
 .cf-rescue-conf li {
+  padding: 10px 0;
+}
+
+.cf-rescue-conf li > p {
+  margin: 4px 0 0;
+}
+
+.cf-rescue-conf-head {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 6px 0;
+}
+
+.cf-rescue-pair {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--cf-rule);
+}
+
+.cf-rescue-pair p {
+  margin: 2px 0 0;
+}
+
+.cf-rescue-pair .cf-zh {
+  font-size: 17px;
+}
+
+.cf-rescue-pair .cf-muted {
+  display: block;
+  font-size: 13px;
 }
 
 .cf-rescue-conf li + li {
@@ -9280,57 +9306,146 @@ button.cf-how-text {
   font-size: 16px;
 }
 
-/* A rescue's memory handles, to pick from, and the owner's own sentence. */
-.cf-rescue-about {
-  margin: 0 0 8px !important;
-  font-size: 13px;
+/* A rescue's memory kit: hook, characters, sentences (and the owner's own), contrast. */
+.cf-rescue-hook.is-kit {
+  margin: 4px 0 0;
 }
 
-.cf-rescue-handles {
-  display: grid;
-  gap: 8px;
+.cfx .cf-rescue-note {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-chars,
+.cf-rescue-sents,
+.cf-rescue-parts {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.cf-rescue-handles li,
-.cf-rescue-own {
+.cf-rescue-chars {
+  display: grid;
+  gap: 8px;
+}
+
+.cf-rescue-chars > li {
   padding: 12px 14px;
   border: 1px solid var(--cf-rule);
   border-radius: 12px;
   background: var(--cf-surface);
 }
 
-.cf-rescue-handles li.is-picked,
-.cf-rescue-own.is-picked {
-  border-color: var(--cf-accent);
-  background: var(--cf-accent-soft);
+.cf-rescue-char-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
 }
 
-.cf-rescue-handles p {
-  margin: 2px 0 8px !important;
-  font-size: 16px;
+.cf-rescue-char {
+  font-size: 34px;
+  line-height: 1.1;
 }
 
-.cf-rescue-pick {
-  min-height: 36px;
-  padding: 0 14px;
-  font-size: 14px;
+.cf-rescue-trad {
+  font-size: 18px;
+  color: var(--cf-ink-soft);
 }
 
-.cf-rescue-picked {
-  font-size: 13px;
-  font-weight: 650;
+.cf-rescue-char-means {
+  flex: 1 1 120px;
+}
+
+.cf-rescue-char-means b {
+  font-weight: 600;
   color: var(--cf-accent);
 }
 
-.cf-rescue-own {
-  margin-bottom: 10px;
+.cf-rescue-form {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cf-ink-soft);
 }
 
+.cf-rescue-parts {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cf-rescue-parts li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.cf-rescue-parts .cf-zh {
+  flex: none;
+  min-width: 1.4em;
+  font-size: 18px;
+}
+
+.cf-rescue-role {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--cf-sunken);
+  color: var(--cf-ink-soft);
+}
+
+.cf-rescue-role.is-meaning {
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+.cfx .cf-rescue-origin {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+
+.cfx .cf-rescue-together {
+  margin: 8px 0 0;
+}
+
+.cf-rescue-sents li {
+  padding: 8px 0;
+}
+
+.cf-rescue-sents li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-rescue-sents p,
 .cf-rescue-own p {
-  margin: 0 0 4px !important;
+  margin: 0 0 2px !important;
+}
+
+.cf-rescue-sent-zh {
+  font-size: 19px;
+}
+
+.cf-rescue-new {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  background: var(--cf-sunken);
+}
+
+.cf-rescue-own {
+  margin: 8px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
 }
 
 .cf-rescue-own-zh {

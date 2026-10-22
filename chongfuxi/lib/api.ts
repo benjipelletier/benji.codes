@@ -262,10 +262,39 @@ export interface StuckWord {
   rescue: "none" | "ready" | "done" | "stale";
 }
 
-/** A memory handle of a rescue: one way into the word, to pick from. */
-export interface RescueHandle {
-  kind: "sound" | "characters" | "scene" | "contrast";
-  text: string;
+/** One character of a stuck word, where it comes from: accurate, not a story. */
+export interface RescueChar {
+  char: string;
+  /** Its traditional forms where they differ (from CC-CEDICT). */
+  traditional: string[];
+  /** Its reading in this word. */
+  pinyin: string | null;
+  /** What it means in this word. */
+  meaning: string;
+  formation: "pictograph" | "ideograph" | "compound ideograph" | "phono-semantic" | "borrowing" | "other";
+  /** Its components, each with what it brings: the meaning, the sound, or a drawn shape. */
+  parts: Array<{ part: string; role: "meaning" | "sound" | "form"; meaning: string }>;
+  /** Where it comes from, in a sentence or two; says so when the origin is disputed or unknown. */
+  origin: string;
+}
+
+/** A sentence showing a stuck word: one of the owner's, or a new, plain one. */
+export interface RescueSentence {
+  zh: string;
+  en: string | null;
+  /** What the word does there. */
+  note: string;
+  /** The owner's sentence's id, or null for a new one. */
+  id: number | null;
+}
+
+/** A word a stuck word is mixed up with (or could be), and how to tell them apart. */
+export interface RescueContrast {
+  zh: string;
+  pinyin: string;
+  difference: string;
+  /** Two sentences as alike as can be, one with each word, or null. */
+  pair: { mine: { zh: string; en: string }; theirs: { zh: string; en: string } } | null;
 }
 
 /** Two paragraphs the model wrote around the stuck words, to meet them all in one story. */
@@ -281,25 +310,23 @@ export interface StuckStory {
   stale: boolean;
 }
 
-/** What the model made for a stuck word, from everything known about it. */
+/** What the model made for a stuck word, from everything known about it: its memory kit. */
 export interface Rescue {
   word: string;
   pinyin: string | null;
   gloss: string | null;
   at: number;
   model: string;
-  /** Why it keeps slipping, from the evidence. */
-  diagnosis: string;
-  /** The handle on its cards: the one picked, else the strongest; shown there once one is picked. */
+  /** The mnemonic, on the back of its cards. */
   hook: string;
-  /** Ways into the word to pick from: its sound, its characters, a scene, a contrast. */
-  handles: RescueHandle[];
-  /** Which became the hook: a handle's index, the owner's own sentence, or none yet. */
-  picked: number | "own" | null;
+  /** Its characters, where each comes from. */
+  characters: RescueChar[];
+  /** How the characters add up to the word. */
+  together: string;
+  sentences: RescueSentence[];
+  contrasts: RescueContrast[];
   /** The owner's own sentence with the word, as checked by the model. */
   own: { zh: string; ok: boolean; fixed: string; note: string; en: string } | null;
-  /** Words it is mixed up with, and the difference. */
-  confusions: Array<{ zh: string; pinyin: string; difference: string }>;
   /** What it was made from. */
   evidence: { missed: number; tripped: number; notes: number; lookups: number };
   doneAt: number | null;
