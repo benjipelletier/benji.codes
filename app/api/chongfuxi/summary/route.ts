@@ -12,6 +12,7 @@ const EMPTY = {
   dueWords: 0, dueRead: 0, dueRecall: 0, dueSentences: 0,
   newSentences: 0, retired: 0, flagged: 0, answeredToday: 0,
   answeredYesterday: 0, cameDueToday: 0, dueTomorrow: 0, toLearn: 0,
+  pace: { read: null, produce: null, sentence: null },
 };
 
 /** Who is asking, and where the deck stands. Readable by anyone. */

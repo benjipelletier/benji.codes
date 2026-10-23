@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, WordDetail } from "@chongfuxi/lib/api";
+import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -21,7 +21,7 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import { REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
+import { DUE_PER_NEW, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses, readingOfSense } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -159,6 +159,27 @@ function ReceiptStrip({ r, onUndo, undoing }: { r: Receipt; onUndo?: () => void;
 const KINDS_KEY = "chongfuxi:session";
 const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true, learn: true };
 
+/**
+ * About how long what is due would take at the owner's own pace (the median
+ * seconds a card of each kind takes in a session): the word cards, the due
+ * sentences, and the new sentences mixed in with them (one per DUE_PER_NEW
+ * due). New words' Learn steps are in the pace already, as they come between
+ * cards. Null until there is a pace to go by.
+ */
+function sessionTime(s: Summary, kinds: SessionKinds): string | null {
+  const { read, produce, sentence } = s.pace ?? { read: null, produce: null, sentence: null };
+  const words = wordsDue(s, kinds);
+  // Each due word shows one card a day; with both kinds chosen, as many of each as are due.
+  const share = kinds.read && kinds.recall && s.dueRead + s.dueRecall ? s.dueRead / (s.dueRead + s.dueRecall) : kinds.read ? 1 : 0;
+  const wordPace = (read ?? produce ?? 0) * share + (produce ?? read ?? 0) * (1 - share);
+  const dueSentences = kinds.sentences ? s.dueSentences : 0;
+  const fresh = kinds.sentences && s.newSentences ? Math.ceil((words + dueSentences) / DUE_PER_NEW) : 0;
+  const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace);
+  if (!seconds) return null;
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes < 60 ? `about ${minutes} min` : `about ${Math.floor(minutes / 60)} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim();
+}
+
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
 function wordsDue(s: { dueWords: number; dueRead: number; dueRecall: number }, kinds: SessionKinds): number {
   if (kinds.read && kinds.recall) return s.dueWords;
@@ -295,6 +316,7 @@ function Today({
   // New words waiting for Learn count once each, while they are included.
   const learning = kinds.learn ? s.toLearn : 0;
   const total = words + sentences + learning;
+  const eta = sessionTime(s, kinds);
   const all = total + s.answeredToday;
   const share = (n: number) => `${all ? (100 * n) / all : 0}%`;
 
@@ -406,6 +428,7 @@ function Today({
               : canWrite
                 ? "Start reviewing"
                 : "Look through the cards"}
+          {total > 0 && eta && <small>{eta}</small>}
         </button>
       </div>
     </div>

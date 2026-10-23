@@ -201,6 +201,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
   return {
+    pace: await paceOf(sql, owner, day),
     words: r.words,
     characters: r.characters,
     wordCards: r.word_cards,
@@ -223,6 +224,42 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     dueTomorrow: r.due_tomorrow,
     toLearn: r.to_learn,
   };
+}
+
+/** Days of answers a pace is read from. */
+const PACE_DAYS = 30;
+/** A gap between two answers longer than this was a break, not a card. */
+const PACE_GAP_MAX = 180;
+/** Answers of a kind needed before its pace is trusted. */
+const PACE_MIN = 10;
+
+/**
+ * How long a card of each kind typically takes the owner, in seconds: the
+ * median gap from the answer before it to its own, within one session (so
+ * reading the receipt, tapping words and a Learn step in between count, as
+ * they do in a real session), over the last PACE_DAYS days. Fast review is
+ * left out (its answers are sent together), and gaps over PACE_GAP_MAX are
+ * breaks. A kind with fewer than PACE_MIN gaps takes all kinds' median.
+ */
+async function paceOf(sql: Sql, owner: string, day: StudyDay): Promise<Summary["pace"]> {
+  const rows = (await sql.query(
+    `with g as (
+       select kind, extract(epoch from at - lag(at) over (partition by session order by at, seq)) as gap
+       from chongfuxi_review
+       where owner_email = $1 and day > $2::date - $3::int and cause = 'answer'
+         and session is not null and session not like 'fast:%'
+     )
+     select coalesce(kind, 'all') as kind, percentile_cont(0.5) within group (order by gap)::float8 as s, count(*)::int as n
+     from g where gap > 0 and gap <= $4
+     group by rollup (kind)`,
+    [owner, day.day, PACE_DAYS, PACE_GAP_MAX],
+  )) as unknown as Array<{ kind: string; s: number; n: number }>;
+  const all = rows.find((x) => x.kind === "all");
+  const of = (k: string) => {
+    const x = rows.find((y) => y.kind === k);
+    return x && x.n >= PACE_MIN ? Math.round(x.s) : all && all.n >= PACE_MIN ? Math.round(all.s) : null;
+  };
+  return { read: of("read"), produce: of("produce"), sentence: of("sentence") };
 }
 
 // ------------------------------------------------------------------- queue --

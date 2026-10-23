@@ -50,6 +50,12 @@ export interface Summary {
   dueTomorrow: number;
   /** New words waiting for Learn before they join the review. */
   toLearn: number;
+  /**
+   * The owner's pace: typical seconds a card of each kind takes in a session
+   * (the median gap between answers, last PACE_DAYS days), for the time a
+   * session would take. Null for a kind with too few answers to say.
+   */
+  pace: { read: number | null; produce: number | null; sentence: number | null };
 }
 
 export interface WordInfo {

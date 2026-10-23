@@ -211,7 +211,16 @@ sentences with no daily limit, learn-next, the sentence browser and stats.
 Review opens on Today: what is due by kind of card, with the Recall and
 Sentences rows doubling as the choice to leave them out (remembered on the
 device), then Start. The choices only filter
-the queue; nothing about the schedule changes. Above them, the days either
+the queue; nothing about the schedule changes. Start says about how long the session
+would take at the owner's own pace (the owner's ask; `sessionTime` in
+`ReviewPanel.tsx`, from `pace` on the summary, `paceOf` in review.ts): the
+median gap between consecutive answers in a session for each kind of card
+over the last 30 days (`PACE_DAYS`), so receipts, word taps and Learn steps
+in between count as they do; gaps over 3 minutes are breaks, Fast review is
+left out, and a kind with under 10 answers takes the overall median. It
+counts the due word cards (Read and Recall in their proportion), the due
+sentences and the new sentences mixed in with them (one per `DUE_PER_NEW`
+due). Above them, the days either
 side of today as a strip of bars, sliding sideways with today in the middle
 (`components/DayStrip.tsx`, route `days`): cards reviewed each day before
 (grey), cards falling due each day after (blue), today's done and still to
