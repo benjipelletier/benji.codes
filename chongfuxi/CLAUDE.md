@@ -1146,7 +1146,12 @@ the design was silent and are still to be confirmed.
   since the last review over stability (the FSRS recall odds fall as that
   grows), never-answered first; ties shuffled by a hash of the card and the
   study day. Seeded cards all fell due at one instant, so this puts the
-  weakest Pleco words first. Fast review goes the other way: best known
+  weakest Pleco words first. Cards missed last time (latest answer a Forgot, a
+  tapped lapse too) restart with stability under a day but wait a day, so
+  their odds are the lowest and they all came first, a wall of them; the
+  owner chose to spread them instead: at most one in every `MISS_EVERY` (3)
+  word cards is one (`spreadMisses`, per batch's pool), so they still come
+  early, with other cards between. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten

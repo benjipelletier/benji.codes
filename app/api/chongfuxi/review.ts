@@ -52,6 +52,7 @@ import {
   lapseTargets,
   piecesOf,
   readSentence,
+  spreadMisses,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
@@ -261,7 +262,8 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   const inList = o.list === undefined ? null : onList(o.list, "c.word", 9);
 
   const words = (await sql.query(
-    `select ${CARD_COLUMNS}
+    `select ${CARD_COLUMNS},
+            (select r.grade from chongfuxi_review r where r.owner_email = c.owner_email and r.card_id = c.id order by r.seq desc limit 1) = 'forgot' as missed
      from chongfuxi_card c
      where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE} and not ${WAITING_TO_LEARN}
        and c.due <= to_timestamp($2::double precision / 1000)
@@ -285,9 +287,13 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
       at,
       ...(inList?.params ?? []),
     ],
-  )) as unknown as CardRow[];
+  )) as unknown as Array<CardRow & { missed: boolean | null }>;
   const seen = new Set<string>();
-  const wordCards = words.filter((c) => !seen.has(c.word!) && seen.add(c.word!));
+  // Last time's misses spread through the rest, not all first (MISS_EVERY).
+  const wordCards = spreadMisses(
+    words.filter((c) => !seen.has(c.word!) && seen.add(c.word!)),
+    (c) => c.missed === true,
+  );
 
   // A list's review is its words only.
   const withSentences = o.sentences !== false && !inList;

@@ -107,6 +107,26 @@ export const DUE_PER_NEW = 3;
 /** Cards a session fetches at a time, and how few left in hand before it fetches more. */
 export const SESSION_BATCH = 10;
 export const REFILL_AT = 3;
+/**
+ * Word cards missed last time (their latest answer a Forgot) have the lowest
+ * recall odds, so they would all come first, a wall of them. Instead at most
+ * one in every this many word cards is one, the others between them; they
+ * still come early (the owner chose this over keeping them all first).
+ */
+export const MISS_EVERY = 3;
+
+/** Spread the missed cards through the others, one in every MISS_EVERY, keeping each group's order. */
+export function spreadMisses<T>(cards: T[], missed: (c: T) => boolean): T[] {
+  const misses = cards.filter(missed);
+  const others = cards.filter((c) => !missed(c));
+  const out: T[] = [];
+  while (misses.length || others.length) {
+    if (misses.length) out.push(misses.shift()!);
+    for (let k = 1; k < MISS_EVERY && others.length; k++) out.push(others.shift()!);
+    if (!others.length) out.push(...misses.splice(0));
+  }
+  return out;
+}
 /** Due word cards read per batch, as a multiple of the batch, before one card per word is kept. */
 export const WORD_POOL_FACTOR = 4;
 /** A word card rotates through this many of its readable sentences, best first. */

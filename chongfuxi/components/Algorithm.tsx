@@ -13,7 +13,7 @@ import type { QueueNow, QueueWhy, SessionCard } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { ROLLOVER_HOUR } from "@chongfuxi/lib/day";
 import { AFTER_MISS, GAP, IN_PLAY, LADDER, LEARN_EVERY } from "@chongfuxi/lib/learn";
-import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, RESCUE_CLEAR, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
+import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, MISS_EVERY, RESCUE_CLEAR, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
 import { REVIVE } from "@chongfuxi/lib/revive";
 import {
   FSRS_WEIGHTS,
@@ -182,6 +182,7 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
       ["Cycle", CYCLE.join(" · "), "CYCLE"],
       ["New sentences", `⌈due ÷ ${DUE_PER_NEW}⌉`, "DUE_PER_NEW"],
       ["Word order", "Retrievability ↑", "LEAST_LIKELY_FIRST"],
+      ["Last misses", `≤ 1 / ${MISS_EVERY} word cards`, "MISS_EVERY"],
       ["Sentence order", "Due ↑", "nextCards()"],
       ["Burying", "1 card / word / day", "nextCards()"],
     ],
