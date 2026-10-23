@@ -1025,9 +1025,13 @@ the design was silent and are still to be confirmed.
   one of the word's characters again (月 in 下个月是二月) gives the blank away
   and comes after all the rest. Back lists other deck
   words with the same meaning. Starts a step lower: half the stability.
-- **Meanings**: tap a meaning on the back of a Read card to give it its own
-  card under the same word; merge it back later. A meaning's card is shown
-  without a sentence, since nothing says yet which sentences use that sense.
+- **Meanings** (taken out): a meaning on the back of a Read card could be
+  tapped to give it its own card under the same word, and merged back
+  later. The owner wasn't using it, so the card back lists meanings as
+  plain text again, and every meaning split before was folded back as Merge
+  would (`foldSplits`, from `getSummary` once per server start: its cards
+  suspended, history kept, `chongfuxi_meaning.merged` set). The tables,
+  routes and the meaning card's drawing stay, unused.
 - **Sentence**: its back has each word's reading over it (the owner's ask;
   `pinyin` on `SentenceText`, from the sentence's `looks`; the front never),
   each word still tappable for its meaning. 停 on its back suspends that

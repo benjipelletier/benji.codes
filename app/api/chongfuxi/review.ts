@@ -150,6 +150,7 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 // ------------------------------------------------------------------ counts --
 
 export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promise<Omit<Summary, "viewer">> {
+  await foldSplits(sql, owner);
   const rows = (await sql.query(
     `with active as (
        select c.* from chongfuxi_card c where c.owner_email = $1 and ${ACTIVE} and not ${WAITING_TO_LEARN}
@@ -1207,6 +1208,22 @@ export async function splitMeaning(sql: Sql, owner: string, word: string, gloss:
   `;
   await sql`update chongfuxi_card set suspended = false where owner_email = ${owner} and meaning_id = ${id}`;
   return id;
+}
+
+/**
+ * Splitting a meaning off was taken out (the owner wasn't using it), and
+ * every meaning split before folded back, as Merge would: its cards leave
+ * the queue, history kept. Once per server start; nothing is written after.
+ */
+let splitsFolded = false;
+async function foldSplits(sql: Sql, owner: string) {
+  if (splitsFolded) return;
+  await sql.transaction([
+    sql`update chongfuxi_card set suspended = true
+        where owner_email = ${owner} and meaning_id is not null and not suspended`,
+    sql`update chongfuxi_meaning set merged = now() where owner_email = ${owner} and merged is null`,
+  ]);
+  splitsFolded = true;
 }
 
 /** Fold a split-off meaning back into its word: its cards leave the queue. */

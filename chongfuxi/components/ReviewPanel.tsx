@@ -500,7 +500,6 @@ export function Session({
   const [undoing, setUndoing] = useState(false);
   // The note being written, while its box is open.
   const [noting, setNoting] = useState<string | null>(null);
-  const [splitting, setSplitting] = useState<string | null>(null);
   const [last, setLast] = useState<Receipt | null>(null);
   // Every answer of this session, to look back over and change (Reviewed.tsx).
   const [log, setLog] = useState<Answered[]>([]);
@@ -623,7 +622,6 @@ export function Session({
     setTapped(null);
     setWhy(null);
     setNoting(null);
-    setSplitting(null);
     setSuspending(null);
     setLeaving(null);
     shownAt.current = performance.now();
@@ -789,7 +787,6 @@ export function Session({
   useEffect(() => {
     if (suspending === "ask") suspendBox.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [suspending, wouldLock]);
-  useBackLayer(splitting !== null, () => setSplitting(null));
 
   const saveNote = async () => {
     if (!card || noting === null) return;
@@ -803,29 +800,7 @@ export function Session({
     }
   };
 
-  const split = async (gloss: string) => {
-    if (!card?.word) return;
-    try {
-      const { id } = await send<{ id: number }>("meaning", { word: card.word.word, gloss });
-      setQueue((q) =>
-        q.map((c) => (c.word?.word === card.word!.word ? { ...c, word: { ...c.word!, split: [...c.word!.split, { id, gloss }] } } : c)),
-      );
-      setSplitting(null);
-    } catch (e) {
-      setError(message(e));
-    }
-  };
 
-  const merge = async (id: number) => {
-    try {
-      await send("meaning", { merge: id });
-      setQueue((q) =>
-        q.map((c) => (c.word ? { ...c, word: { ...c.word, split: c.word.split.filter((m) => m.id !== id) } } : c)),
-      );
-    } catch (e) {
-      setError(message(e));
-    }
-  };
 
   // Suspend asks first, saying how many readable sentences need the word (they lock until it comes back).
   const askSuspend = () => {
@@ -1035,11 +1010,6 @@ export function Session({
                     canDefine={canWrite}
                     onDefined={(r) => redefine(card.word!.word, r.pinyin, r.defs)}
                     onUndone={() => redefine(card.word!.word, null, [])}
-                    canSplit={canWrite && !card.meaning}
-                    splitting={splitting}
-                    onPick={setSplitting}
-                    onSplit={split}
-                    onMerge={merge}
                   />
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
@@ -1332,24 +1302,13 @@ function Definitions({
   canDefine,
   onDefined,
   onUndone,
-  canSplit,
-  splitting,
-  onPick,
-  onSplit,
-  onMerge,
 }: {
   card: SessionCard;
   canDefine: boolean;
   onDefined: (r: { pinyin: string | null; defs: Definition[] }) => void;
   onUndone: () => void;
-  canSplit: boolean;
-  splitting: string | null;
-  onPick: (gloss: string | null) => void;
-  onSplit: (gloss: string) => void;
-  onMerge: (id: number) => void;
 }) {
   const word = card.word!;
-  const split = new Map(word.split.map((m) => [m.gloss, m.id]));
   // On a split-off meaning's card, its own entry leads, and the others are labelled against it.
   const lead = card.meaning ? readingOfSense(word.defs, card.meaning.gloss, word.pinyin) : word.pinyin;
   if (!word.defs.length) {
@@ -1371,47 +1330,18 @@ function Definitions({
                 key={s}
                 className={[card.meaning?.gloss === s && "is-target", d.ai && "has-ai"].filter(Boolean).join(" ") || undefined}
               >
-                {canSplit && !d.own && !split.has(s) ? (
-                  <button className="cf-sense" onClick={() => onPick(splitting === s ? null : s)}>
-                    {s}
-                  </button>
-                ) : (
-                  <span className="cf-sense-text">{s}</span>
-                )}
+                <span className="cf-sense-text">{s}</span>
                 {d.ai && (
                   <>
                     {" "}
                     <AiPill word={word.word} onUndone={onUndone} />
                   </>
                 )}
-                {split.has(s) && (
-                  <>
-                    {" "}
-                    <span className="cf-tag">own card</span>
-                    {canSplit && (
-                      <>
-                        {" "}
-                        <button className="cf-link" onClick={() => onMerge(split.get(s)!)}>
-                          merge back
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-                {splitting === s && (
-                  <div className="cf-split">
-                    <span className="cf-muted">Didn&apos;t know this one? Give it its own card.</span>
-                    <button className="cf-btn" onClick={() => onSplit(s)}>
-                      Split it off
-                    </button>
-                  </div>
-                )}
               </li>
             ))}
           </ul>
         </div>
       ))}
-      {canSplit && <p className="cf-muted cf-defs-hint">Tap a meaning you didn&apos;t know to give it its own card.</p>}
     </div>
   );
 }

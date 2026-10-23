@@ -2444,20 +2444,7 @@ label.cf-kind {
   cursor: pointer;
 }
 
-.cf-split {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 2px 4px 10px;
-  font-size: 13px;
-}
 
-.cf-defs-hint {
-  font-size: 12px;
-  margin-top: 8px;
-}
 
 /* The words of a forgotten sentence, to tap. */
 .cf-tokens {
