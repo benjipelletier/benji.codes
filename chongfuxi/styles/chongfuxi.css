@@ -5842,6 +5842,17 @@ button.cf-synclog-row {
   background: color-mix(in srgb, #c2412d 12%, transparent);
 }
 
+/* The same pill for the other content lists: Spotify in its green, Muse in the accent blue. */
+.cf-list-linked.is-spotify {
+  color: #1a9e4b;
+  background: color-mix(in srgb, #1db954 14%, transparent);
+}
+
+.cf-list-linked.is-muse {
+  color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+}
+
 .cf-list-about {
   margin: 4px 0 8px;
   font-size: 13.5px;

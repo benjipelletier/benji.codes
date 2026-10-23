@@ -1498,9 +1498,12 @@ day's own session; its answers go through the outbox as any others.
 
 ## Lists from the owner's content: Spotify
 
-Cards › Lists opens on the lists themselves, no title: first the study lists
-(龙库, the HSK lists, the textbooks), then "From your content", lists made
-from what the owner reads or listens to. The first such source is Spotify
+Cards › Lists opens on the lists themselves, no title: first the study lists,
+in the owner's order (HSK 2012 first, then the course books such as
+HSK标准教程, then HSK 3.0; `topRank`), then "From your content": 龙库, Spotify
+and Muse, each with a pill in its colour like 龙库's ("linked to 龙库" red,
+"from Spotify" green, "by Muse" in the accent blue), lists made from what
+the owner reads, listens to, plays or has their agent write. The first such source is Spotify
 (`ListNode.source`), with a song per list ("Spotify/<title>"). Planned next,
 at the owner's word: websites, YouTube and other sources, each its own
 top-level list beside Spotify. Most of the reading exists already, for the

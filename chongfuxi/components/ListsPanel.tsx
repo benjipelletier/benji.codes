@@ -94,13 +94,14 @@ export function ListsPanel({
     () =>
       all
         .filter((n) => parentOf(n.list) === at)
-        // A linked list (龙库) first, then the rest by name.
-        .sort((a, b) => Number(Boolean(b.linked)) - Number(Boolean(a.linked)) || natural(nameOf(a.list), nameOf(b.list))),
+        // At the top, the owner's order: HSK 2012 first, then the course books, then HSK 3.0; 龙库, Spotify, Muse among
+        // the content. Below, by name.
+        .sort((a, b) => (at ? 0 : topRank(a) - topRank(b)) || natural(nameOf(a.list), nameOf(b.list))),
     [all, at],
   );
-  // At the top: the study lists, then those made from the owner's content.
-  const study = at ? children : children.filter((n) => !n.source);
-  const content = at ? [] : children.filter((n) => n.source);
+  // At the top: the study lists, then those from the owner's content (龙库, which it plays, among them).
+  const study = at ? children : children.filter((n) => !n.source && !n.linked);
+  const content = at ? [] : children.filter((n) => n.source || n.linked);
   const here = byList.get(at) ?? null;
   const leaf = here !== null && children.length === 0;
 
@@ -331,6 +332,16 @@ export function ListsPanel({
   );
 }
 
+/** Where a top-level list sits: HSK 2012 first, the course books, HSK 3.0; then 龙库, Spotify, Muse. */
+function topRank(n: ListNode): number {
+  if (n.linked) return 10;
+  if (n.source === "spotify") return 11;
+  if (n.source === "muse") return 12;
+  if (/^HSK 2012/.test(n.list)) return 0;
+  if (/^HSK 3\.0/.test(n.list)) return 2;
+  return 1;
+}
+
 /** Lists side by side, each with how much is in the deck and what is due; a song with its singer. */
 function Rows({ nodes, go }: { nodes: ListNode[]; go: (list: string) => void }) {
   return (
@@ -341,6 +352,8 @@ function Rows({ nodes, go }: { nodes: ListNode[]; go: (list: string) => void }) 
             <span className="cf-list-name cf-zh">
               {n.song?.title ?? nameOf(n.list)}
               {n.linked === "longku" && <span className="cf-list-linked">linked to 龙库</span>}
+              {!parentOf(n.list) && n.source === "spotify" && <span className="cf-list-linked is-spotify">from Spotify</span>}
+              {!parentOf(n.list) && n.source === "muse" && <span className="cf-list-linked is-muse">by Muse</span>}
               {n.song?.artist && <small className="cf-list-artist">{n.song.artist}</small>}
             </span>
             <span className="cf-list-count">
