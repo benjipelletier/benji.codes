@@ -14,7 +14,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Sql } from "./db";
-import type { KitNewWord, Rescue, RescueChar, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue, RescueAttempt, RescueChar, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { IN_PLAY } from "@chongfuxi/lib/learn";
 import { LEARN_ORDER } from "./learn";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -488,7 +488,11 @@ type Row = {
   at: number;
   model: string;
   evidence: Rescue["evidence"];
-  rescue: Pick<Rescue, "hook"> & Partial<Pick<Rescue, "characters" | "together" | "sentences" | "contrasts" | "own">>;
+  rescue: Pick<Rescue, "hook"> &
+    Partial<Pick<Rescue, "characters" | "together" | "sentences" | "contrasts" | "attempts">> & {
+      /** Before attempts were kept: the one sentence checked. */
+      own?: { zh: string; ok: boolean; fixed: string; note: string; en: string };
+    };
   done_at: number | null;
   stale: boolean;
   outdated: boolean;
@@ -525,7 +529,11 @@ async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescu
     together: row.rescue.together ?? "",
     sentences: row.rescue.sentences ?? [],
     contrasts: row.rescue.contrasts ?? [],
-    own: row.rescue.own ?? null,
+    attempts:
+      row.rescue.attempts ??
+      (row.rescue.own
+        ? [{ zh: row.rescue.own.zh, grade: row.rescue.own.ok ? "correct" : "almost", fixed: row.rescue.own.fixed, why: row.rescue.own.note, en: row.rescue.own.en, at: Math.round(row.at) }]
+        : []),
     evidence: row.evidence,
     doneAt: row.done_at === null ? null : Math.round(row.done_at),
     stale: row.stale,
@@ -573,21 +581,36 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
   return (await savedRescue(sql, owner, word))!;
 }
 
-const OWN_SYSTEM = `A learner of Chinese wrote a sentence using a word they keep forgetting, to make it their own. Say whether it is correct and natural Chinese that uses the word in a right sense. ok is true when it is (small slips of punctuation don't count). fixed is the sentence as a native speaker would write it, changing as little as possible (the same sentence when it is already fine), and still using the word. note is one short sentence in English: what was wrong and why, or, when it is fine, what makes the word right there. en is a natural English translation of fixed.`;
+const OWN_SYSTEM = `A learner of Chinese wrote a sentence using a word they are learning, to practise it. Grade it as a careful teacher would.
+- grade: "correct" when it is grammatical, natural and uses the word in a right sense (small slips of punctuation don't count); "almost" when it is understandable and uses the word rightly but has a small error or sounds unnatural (a measure word, word order, a particle, a collocation); "wrong" when the word is used in a wrong sense or a wrong way, or the sentence is ungrammatical.
+- fixed: the sentence as a native speaker would write it, changing as little as possible (the same sentence when correct), still using the word.
+- why: when not correct, one to three short sentences in English naming exactly what is wrong and why, with the Chinese involved, so they won't make the mistake again; when correct, one short sentence on what makes the word fit here.
+- en: a natural English translation of fixed.`;
 
 const OWN_SCHEMA = {
   type: "object",
-  properties: { ok: { type: "boolean" }, fixed: { type: "string" }, note: { type: "string" }, en: { type: "string" } },
-  required: ["ok", "fixed", "note", "en"],
+  properties: {
+    grade: { type: "string", enum: ["correct", "almost", "wrong"] },
+    fixed: { type: "string" },
+    why: { type: "string" },
+    en: { type: "string" },
+  },
+  required: ["grade", "fixed", "why", "en"],
   additionalProperties: false,
 } as const;
 
-/** The owner's own sentence with the word, checked by the model and kept with the rescue. Owner only. */
+/** Attempts kept with a kit, newest first. */
+const ATTEMPTS = 20;
+
+/**
+ * The owner's own sentence with the word, graded by the model (correct,
+ * almost, wrong) with why, and kept with the kit's earlier attempts. Owner only.
+ */
 export async function checkOwnSentence(sql: Sql, owner: string, word: string, zh: string): Promise<Rescue> {
   const sentence = zh.trim().slice(0, 200);
   if (!sentence.includes(word)) throw new RescueError(`Use ${word} in it.`);
   const r = await savedRescue(sql, owner, word);
-  if (!r) throw new RescueError(`${word} has no rescue yet.`);
+  if (!r) throw new RescueError(`${word} has no memory kit yet.`);
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new RescueError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
   const client = new Anthropic({ apiKey });
@@ -596,7 +619,7 @@ export async function checkOwnSentence(sql: Sql, owner: string, word: string, zh
     max_tokens: 2000,
     system: OWN_SYSTEM,
     output_config: { effort: EFFORT, format: { type: "json_schema", schema: OWN_SCHEMA as unknown as Record<string, unknown> } },
-    messages: [{ role: "user", content: `The word: ${word}${r.gloss ? ` (${r.gloss})` : ""}\nTheir sentence: ${sentence}` }],
+    messages: [{ role: "user", content: `The word: ${word}${r.pinyin ? ` (${r.pinyin.replace(/@/g, " ")})` : ""}${r.gloss ? `: ${r.gloss}` : ""}\nTheir sentence: ${sentence}` }],
   });
   const text = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
   let given: Record<string, unknown>;
@@ -605,14 +628,21 @@ export async function checkOwnSentence(sql: Sql, owner: string, word: string, zh
   } catch {
     throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The check came back malformed.");
   }
-  const fixed = clip(given.fixed);
-  const own = { zh: sentence, ok: given.ok === true, fixed: fixed.includes(word) ? fixed : sentence, note: clip(given.note), en: clip(given.en) };
+  const attempt = checkAttempt(given, word, sentence, Date.now());
+  const attempts = [attempt, ...r.attempts].slice(0, ATTEMPTS);
   await sql`
-    update chongfuxi_rescue set rescue = rescue || ${JSON.stringify({ own })}::jsonb
+    update chongfuxi_rescue set rescue = rescue || ${JSON.stringify({ attempts })}::jsonb
     where owner_email = ${owner} and word = ${word}
   `;
-  console.log("rescue own", JSON.stringify({ word, ok: own.ok, usage: message.usage }));
+  console.log("rescue attempt", JSON.stringify({ word, grade: attempt.grade, usage: message.usage }));
   return (await savedRescue(sql, owner, word))!;
+}
+
+/** The model's grade, kept to what holds: a known grade, a fix that still has the word (else theirs). */
+export function checkAttempt(given: Record<string, unknown>, word: string, zh: string, at: number): RescueAttempt {
+  const grade = given.grade === "correct" || given.grade === "almost" || given.grade === "wrong" ? given.grade : "almost";
+  const fixed = clip(given.fixed);
+  return { zh, grade, fixed: fixed.includes(word) ? fixed : zh, why: clip(given.why), en: clip(given.en), at };
 }
 
 /**

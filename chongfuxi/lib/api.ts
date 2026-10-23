@@ -278,6 +278,19 @@ export interface RescueChar {
   origin: string;
 }
 
+/** A sentence the owner wrote with a kit's word, graded by the model. */
+export interface RescueAttempt {
+  /** As written. */
+  zh: string;
+  grade: "correct" | "almost" | "wrong";
+  /** As a native speaker would write it (the same when correct). */
+  fixed: string;
+  /** What is wrong and why, or what makes the word fit. */
+  why: string;
+  en: string;
+  at: number;
+}
+
 /** A sentence showing a stuck word: one of the owner's, or a new, plain one. */
 export interface RescueSentence {
   zh: string;
@@ -336,8 +349,8 @@ export interface Rescue {
   together: string;
   sentences: RescueSentence[];
   contrasts: RescueContrast[];
-  /** The owner's own sentence with the word, as checked by the model. */
-  own: { zh: string; ok: boolean; fixed: string; note: string; en: string } | null;
+  /** The owner's own sentences with the word, as graded by the model, newest first. */
+  attempts: RescueAttempt[];
   /** What it was made from. */
   evidence: { missed: number; tripped: number; notes: number; lookups: number };
   doneAt: number | null;

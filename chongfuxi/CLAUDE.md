@@ -797,11 +797,18 @@ trips both count.
      are filled in from data, not the model.
   3. **Sentences**: up to 3 of the owner's, by id only (their text comes
      from the store), and 2 new plain ones that must hold the word, each
-     with a note; under them "Your own" (`checkOwnSentence`,
-     `POST {word, own}`: ok, a fixed version, a note, its English).
+     with a note.
   4. **Contrast**: 1 to 3 words it is mixed up with or could be, each with
      the difference and a pair of near-identical sentences, one with each
      word (dropped if either lacks its word).
+  5. **Write your own** (the owner asked for it as its own section): a box
+     for a sentence with the word, graded by the model at Look up's model
+     and effort (`checkOwnSentence`, `POST {word, own}`; `checkAttempt`):
+     ✓ Correct, ≈ Almost (understandable, a small error or unnatural) or
+     ✗ Wrong, the fixed sentence when it differs, why (what exactly is
+     wrong, or what makes the word fit) and the English. Every try is
+     kept, newest first, up to 20 (`attempts`); a kit's single checked
+     sentence from before reads back as its first try.
   `checkRescue(raw, facts)` refuses a kit missing any character or with no
   sentence holding the word. `RESCUE_VERSION` (4) is stored with it; an
   older one reads as `outdated` and stale, and is made again when the owner

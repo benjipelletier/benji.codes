@@ -13,7 +13,7 @@
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KitNewWord, Rescue as RescueData, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue as RescueData, RescueAttempt, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
@@ -31,6 +31,7 @@ const FORMATION: Record<RescueChar["formation"], string> = {
   borrowing: "Borrowed",
   other: "",
 };
+const GRADE: Record<RescueAttempt["grade"], string> = { correct: "✓ Correct", almost: "≈ Almost", wrong: "✗ Wrong" };
 const ROLE: Record<RescueChar["parts"][number]["role"], string> = { meaning: "meaning", sound: "sound", form: "shape" };
 
 /** Memory kits' words: the stuck ones and the new ones on the Learn ladder, loaded once per mount. */
@@ -450,39 +451,6 @@ export function Rescue({ canWrite, word, onEnd }: { canWrite: boolean; word: str
                   </li>
                 ))}
               </ul>
-              {/* Making it one's own: a sentence about one's life, checked by the model. */}
-              {r.own && (
-                <div className="cf-rescue-own">
-                  <p className="cf-zh cf-rescue-own-zh">
-                    <Highlighted text={r.own.fixed} word={r.word} />
-                  </p>
-                  {r.own.en && <p className="cf-muted">{r.own.en}</p>}
-                  <p className={`cf-rescue-verdict${r.own.ok ? " is-right" : " is-wrong"}`}>
-                    {r.own.ok ? "Good." : `You wrote ${r.own.zh}`} {r.own.note}
-                  </p>
-                </div>
-              )}
-              {canWrite && (
-                <form
-                  className="cf-rescue-type"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void check();
-                  }}
-                >
-                  <input
-                    lang="zh"
-                    value={own}
-                    onChange={(e) => setOwn(e.target.value)}
-                    placeholder={r.own ? "Another of your own" : `Your own, with ${r.word}`}
-                    aria-label="Your own sentence"
-                    disabled={checking}
-                  />
-                  <button className="cf-btn" type="submit" disabled={checking || !own.trim()}>
-                    {checking ? "…" : "Check"}
-                  </button>
-                </form>
-              )}
             </section>
 
             {r.contrasts.length > 0 && (
@@ -519,6 +487,59 @@ export function Rescue({ canWrite, word, onEnd }: { canWrite: boolean; word: str
                 </ul>
               </section>
             )}
+
+            {/* Making it one's own: a sentence written with the word, graded by the model, every try kept. */}
+            <section>
+              <h3 className="cf-rescue-h">Write your own</h3>
+              {canWrite && (
+                <form
+                  className="cf-rescue-write"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void check();
+                  }}
+                >
+                  <textarea
+                    lang="zh"
+                    rows={2}
+                    value={own}
+                    onChange={(e) => setOwn(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void check();
+                      }
+                    }}
+                    placeholder={`A sentence with ${r.word}, about your own life`}
+                    aria-label="Your own sentence"
+                    disabled={checking}
+                  />
+                  <button className="cf-btn" type="submit" disabled={checking || !own.trim()}>
+                    {checking ? "Grading…" : "Grade it"}
+                  </button>
+                </form>
+              )}
+              {r.attempts.length > 0 && (
+                <ol className="cf-rescue-tries">
+                  {r.attempts.map((a) => (
+                    <li key={a.at} className={`is-${a.grade}`}>
+                      <p className="cf-rescue-try-head">
+                        <span className={`cf-rescue-grade is-${a.grade}`}>{GRADE[a.grade]}</span>
+                        <span className="cf-zh">{a.zh}</span>
+                      </p>
+                      {a.fixed !== a.zh && (
+                        <p className="cf-zh cf-rescue-fixed">
+                          → <Highlighted text={a.fixed} word={r.word} />
+                        </p>
+                      )}
+                      {a.why && <p className="cf-rescue-why">{a.why}</p>}
+                      {a.en && <p className="cf-muted cf-rescue-try-en">{a.en}</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {!canWrite && !r.attempts.length && <p className="cf-muted">No sentences written yet.</p>}
+            </section>
 
             <p className="cf-rescue-from">
               From {fmt(r.evidence.missed)} {r.evidence.missed === 1 ? "miss" : "misses"}, {fmt(r.evidence.tripped)} tripped{" "}

@@ -9703,3 +9703,107 @@ button.cf-how-text {
   background: var(--cf-bg);
   animation: cf-fade 0.15s ease both;
 }
+
+/* A kit's Write your own: a box to write in, then each try graded, newest first. */
+.cf-rescue-write {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cf-rescue-write textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-family: var(--cf-zh);
+  font-size: 18px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.cf-rescue-write textarea:disabled {
+  opacity: 0.7;
+}
+
+.cf-rescue-write .cf-btn {
+  justify-self: end;
+}
+
+.cf-rescue-tries {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-rescue-tries li {
+  padding: 12px 14px;
+  border: 1px solid var(--cf-rule);
+  border-left: 3px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+}
+
+.cf-rescue-tries li.is-correct {
+  border-left-color: var(--cf-up);
+}
+
+.cf-rescue-tries li.is-almost {
+  border-left-color: var(--cf-warn);
+}
+
+.cf-rescue-tries li.is-wrong {
+  border-left-color: var(--cf-down);
+}
+
+.cf-rescue-tries p {
+  margin: 0 0 4px !important;
+}
+
+.cf-rescue-try-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.cf-rescue-try-head .cf-zh {
+  font-size: 19px;
+}
+
+.cf-rescue-grade {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cf-rescue-grade.is-correct {
+  color: var(--cf-up);
+}
+
+.cf-rescue-grade.is-almost {
+  color: var(--cf-warn);
+}
+
+.cf-rescue-grade.is-wrong {
+  color: var(--cf-down);
+}
+
+.cf-rescue-fixed {
+  font-size: 18px;
+}
+
+.cfx .cf-rescue-why {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cfx .cf-rescue-try-en {
+  font-size: 13px;
+}
