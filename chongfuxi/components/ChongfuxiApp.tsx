@@ -237,10 +237,11 @@ function Glance({ summary: s }: { summary: Summary | null }) {
           {s ? fmt(s.characters) : "—"}
           <i>字</i>
         </span>
+        {/* Every sentence (the owner's ask), and the share of them readable. */}
         <span className="is-sentences" title={detail} aria-label={detail}>
-          {pct === null ? "—" : `${Math.round(pct)}%`}
+          {s ? fmt(total) : "—"}
           <i>句</i>
-          <small>readable</small>
+          {pct !== null && <small>{Math.round(pct)}% readable</small>}
         </span>
       </p>
     </div>

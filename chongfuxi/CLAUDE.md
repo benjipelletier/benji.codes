@@ -48,7 +48,8 @@ check every screen at 360px wide first.
   `tab=import` address still opens it).
   The header holds the title and one quiet line (`Glance` in
   `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
-  and the share of sentences readable, each with its Chinese unit (词 字 句) in
+  and every sentence in the corpus (the owner asked for the total) with the
+  share readable small beside it, each with its Chinese unit (词 字 句) in
   its kind's colour. Figures only: the owner doesn't want progress bars there,
   and found boxed counts and then badges with a bar and key too busy. (Words
   is one per deck word; the old boxes counted word cards, Read plus Recall,
