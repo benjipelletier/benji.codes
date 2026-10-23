@@ -501,17 +501,27 @@ Built on the owner's corpus alone, since that is what answers lead with:
   the word page when the text is exactly one of those words, and otherwise
   asks the AI: only a question that is more than a dictionary word spends
   tokens.
-- **A situation, as typed** (the owner's case: "flight delayed", a word
-  seen before that won't come back when needed): English of two or more
-  content words (stop words dropped, each cut to a stem that matches its
-  forms at a word start, `termsOf`) is matched word by word against the
-  corpus words' senses (`glosses`), those matching more of them first, and
-  against the owner's sentences' translations: up to 6 sentences with two
-  or more of the words, readable first, each with the corpus words in it
-  whose senses match marked (航班延误了: 航班, 延误), each mark opening its
-  word page. Above the word rows, still no model; the AI row stays last.
-  The owner chose this alone for now, over a "couldn't recall" button that
-  would pull the word's Recall card forward and saving the phrase as a card.
+- **English is fuzzy** (the owner's ask: "smart and fuzzy, unlike a
+  normal dictionary"; the case: "my flight got delayed", a word seen
+  before that won't come back when needed). `lib/fuzzy.ts` over the
+  words' English keys (Synonyms' `chongfuxi_gloss_key`, indexed in memory
+  per server while its stamp holds, `glossKeys`): stop words dropped, each
+  word to a stem shared by its forms (delayed, delays, delaying → delay;
+  `stem`), a stem not in the index read as the nearest a typo away (one
+  edit up to six letters, two beyond, a swap counting one: dleay → delay;
+  `stemsFor`); words whose key holds it score (more for the key being just
+  that word, an earlier sense, no typo), then one hop through meaning: the
+  other words sharing one of a reached word's first keys (delay → 延误,
+  whose "hold up" brings 耽误; keys shared by over 25 words lead nowhere);
+  scores add across the typed words. The owner's sentences saying it are
+  found too (their English has the words in any form, or they hold a word
+  found, two signals at least, readable first, up to 6), the found words in
+  them marked and opening their pages; words sitting together in those
+  sentences are lifted (`TOGETHER_LIFT`: 航班 above 飞行 for "flight
+  delayed", from 我的航班延误了). Above the word rows; a whole pinyin match
+  still comes first (hang → 航班). No model; the AI row stays last. Chosen
+  over an AI pass after a pause and over embeddings, for now. Not reached:
+  words with no English in common (晚点 for "delayed").
 - **Lookups show the words they were about** (the owner asked for the
   history to make it obvious): each history row carries chips of up to four
   corpus words (`lookupWords` in `lookup.ts`: the cards it was asked from,

@@ -108,6 +108,38 @@ async function ensureKeys(sql: Sql, owner: string) {
   `;
 }
 
+/**
+ * Every English key of the deck and list words, made again first if the
+ * words changed, with the stamp they were made at (for callers keeping an
+ * index of them, Look up's fuzzy type-ahead).
+ */
+export async function glossKeys(sql: Sql, owner: string): Promise<{ stamp: string; rows: Array<{ key: string; word: string; rank: number }> } | null> {
+  await ensureKeys(sql, owner);
+  const [meta] = (await sql`select words, version, built_at::text as at from chongfuxi_gloss_meta where owner_email = ${owner}`) as unknown as Array<{
+    words: number;
+    version: number;
+    at: string;
+  }>;
+  if (!meta) return null;
+  const rows = (await sql`select key, word, rank::int as rank from chongfuxi_gloss_key where owner_email = ${owner}`) as unknown as Array<{
+    key: string;
+    word: string;
+    rank: number;
+  }>;
+  return { stamp: `${meta.words}:${meta.version}:${meta.at}`, rows };
+}
+
+/** The stamp the keys were made at, without reading them: whether a kept index still holds. */
+export async function glossStamp(sql: Sql, owner: string): Promise<string | null> {
+  await ensureKeys(sql, owner);
+  const [meta] = (await sql`select words, version, built_at::text as at from chongfuxi_gloss_meta where owner_email = ${owner}`) as unknown as Array<{
+    words: number;
+    version: number;
+    at: string;
+  }>;
+  return meta ? `${meta.words}:${meta.version}:${meta.at}` : null;
+}
+
 /** Forgots on each word lately (its cards, and trips in sentences), and pairs tapped together in forgotten sentences. */
 async function troubleOf(sql: Sql, owner: string, words: string[]) {
   const forgot = new Map<string, number>();
