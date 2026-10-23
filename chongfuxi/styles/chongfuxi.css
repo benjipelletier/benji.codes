@@ -9846,3 +9846,46 @@ button.cf-how-text {
   vertical-align: middle;
   color: var(--cf-ink-faint);
 }
+
+/* Look up's type-ahead for a situation: the owner's sentences saying it, the words for it marked. */
+.cf-lk-sg-sents li {
+  padding: 8px 14px;
+}
+
+.cf-lk-sg-sents li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-lk-sg-sent {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+.cfx .cf-lk-sg-en {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+/* Inline in the sentence: not a row like the list's other buttons. */
+.cfx .cf-lk-suggest .cf-lk-sg-mark {
+  display: inline;
+  width: auto;
+  min-height: 0;
+  padding: 0 1px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cf-lk-sg-locked {
+  margin-left: 8px;
+  font-family: var(--cf-font-latin, system-ui);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cf-warn);
+}

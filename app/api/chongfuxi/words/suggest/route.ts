@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const gate = ownersLog();
   if ("refused" in gate) return gate.refused;
-  return NextResponse.json({ words: await suggestWords(gate.sql, gate.owner, req.nextUrl.searchParams.get("q") ?? "") });
+  return NextResponse.json(await suggestWords(gate.sql, gate.owner, req.nextUrl.searchParams.get("q") ?? ""));
 }

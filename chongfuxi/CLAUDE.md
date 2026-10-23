@@ -501,6 +501,17 @@ Built on the owner's corpus alone, since that is what answers lead with:
   the word page when the text is exactly one of those words, and otherwise
   asks the AI: only a question that is more than a dictionary word spends
   tokens.
+- **A situation, as typed** (the owner's case: "flight delayed", a word
+  seen before that won't come back when needed): English of two or more
+  content words (stop words dropped, each cut to a stem that matches its
+  forms at a word start, `termsOf`) is matched word by word against the
+  corpus words' senses (`glosses`), those matching more of them first, and
+  against the owner's sentences' translations: up to 6 sentences with two
+  or more of the words, readable first, each with the corpus words in it
+  whose senses match marked (航班延误了: 航班, 延误), each mark opening its
+  word page. Above the word rows, still no model; the AI row stays last.
+  The owner chose this alone for now, over a "couldn't recall" button that
+  would pull the word's Recall card forward and saving the phrase as a card.
 - **Lookups show the words they were about** (the owner asked for the
   history to make it obvious): each history row carries chips of up to four
   corpus words (`lookupWords` in `lookup.ts`: the cards it was asked from,

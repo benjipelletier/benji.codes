@@ -17,7 +17,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom, WordSuggestion } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom, SentenceSuggestion, WordSuggestion } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
@@ -858,8 +858,33 @@ function WordChips({ words, label }: { words: string[]; label?: string }) {
  * dictionary would list them, each opening its page; no model is asked. The
  * last row asks the AI about what is typed.
  */
-function Suggestions({ words, typed, onAsk }: { words: WordSuggestion[]; typed: string; onAsk: () => void }) {
+function Suggestions({
+  words,
+  sentences,
+  typed,
+  onAsk,
+}: {
+  words: WordSuggestion[];
+  sentences: SentenceSuggestion[];
+  typed: string;
+  onAsk: () => void;
+}) {
   return (
+    <>
+    {/* A situation ("flight delayed"): the owner's own sentences that say it, the words for it marked, each to its page. */}
+    {sentences.length > 0 && (
+      <ul className="cf-lk-suggest cf-lk-sg-sents" aria-label="Your sentences">
+        {sentences.map((x) => (
+          <li key={x.id}>
+            <p className="cf-zh cf-lk-sg-sent">
+              <MarkedWords zh={x.zh} words={x.marked} />
+              {!x.readable && <span className="cf-lk-sg-locked">locked</span>}
+            </p>
+            <p className="cf-lk-sg-en">{x.en}</p>
+          </li>
+        ))}
+      </ul>
+    )}
     <ul className="cf-lk-suggest" role="listbox" aria-label="Your words">
       {words.map((w) => (
         <li key={w.word}>
@@ -879,6 +904,27 @@ function Suggestions({ words, typed, onAsk }: { words: WordSuggestion[]; typed: 
         </button>
       </li>
     </ul>
+    </>
+  );
+}
+
+/** A sentence with some of its words marked, each opening its word page. */
+function MarkedWords({ zh, words }: { zh: string; words: string[] }) {
+  const sorted = [...words].sort((a, b) => b.length - a.length);
+  if (!sorted.length) return <>{zh}</>;
+  const parts = zh.split(new RegExp(`(${sorted.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`));
+  return (
+    <>
+      {parts.map((p, i) =>
+        words.includes(p) ? (
+          <button key={i} className="cf-lk-sg-mark" onClick={() => wordpage.openWordPage(p)}>
+            {p}
+          </button>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -958,13 +1004,13 @@ export function LookupPanel({
   const [past, setPast] = useState<LookupListed[] | null>(null);
   const field = useRef<HTMLInputElement>(null);
   // The type-ahead: words of the corpus matching what is typed (no model), for that text.
-  const [suggest, setSuggest] = useState<{ q: string; words: WordSuggestion[] } | null>(null);
+  const [suggest, setSuggest] = useState<{ q: string; words: WordSuggestion[]; sentences: SentenceSuggestion[] } | null>(null);
   useEffect(() => {
     const q = typed.trim();
     if (!q || busy) return setSuggest(null);
     const t = window.setTimeout(() => {
-      get<{ words: WordSuggestion[] }>("words/suggest", { q })
-        .then((r) => setSuggest({ q, words: r.words }))
+      get<{ words: WordSuggestion[]; sentences?: SentenceSuggestion[] }>("words/suggest", { q })
+        .then((r) => setSuggest({ q, words: r.words, sentences: r.sentences ?? [] }))
         .catch(() => setSuggest(null));
     }, 140);
     return () => window.clearTimeout(t);
@@ -1060,7 +1106,7 @@ export function LookupPanel({
         </button>
       </form>
       {!busy && suggest && suggest.q === typed.trim() && suggest.q !== answer?.query && (
-        <Suggestions words={suggest.words} typed={typed} onAsk={() => void ask(typed)} />
+        <Suggestions words={suggest.words} sentences={suggest.sentences} typed={typed} onAsk={() => void ask(typed)} />
       )}
       {!answer && !busy && !suggest && (
         <p className="cf-muted cf-lk-hint">

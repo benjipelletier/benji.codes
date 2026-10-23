@@ -1013,6 +1013,16 @@ export interface WordSuggestion {
   by: "chinese" | "pinyin" | "english";
 }
 
+/** One of the owner's sentences whose translation has a situation's words, the Chinese words for them marked. */
+export interface SentenceSuggestion {
+  id: number;
+  zh: string;
+  en: string;
+  readable: boolean;
+  /** Corpus words in it whose senses match what was typed. */
+  marked: string[];
+}
+
 /** A lookup in the history, with the owner's verdict on it. */
 export interface LookupListed {
   query: string;
