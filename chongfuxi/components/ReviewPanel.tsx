@@ -40,9 +40,10 @@ import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, Plec
 const IN_FLIGHT = 20;
 /** How long an answered card takes to slide away, in ms. Matches the stylesheet. */
 const LEAVE_MS = 220;
-/** Forgot held this long, or swiped up this far, opens "What tripped you up?" ready to type. */
-const FORGOT_HOLD_MS = 450;
+/** Forgot swiped up this far opens "What tripped you up?" ready to type; a tap just answers. */
 const FORGOT_SWIPE = 40;
+/** How far the button rises with the finger: a nudge, so it never covers the card. */
+const FORGOT_LIFT = 10;
 
 const KIND_NAME = { read: "Read", produce: "Recall", sentence: "Sentence" } as const;
 
@@ -718,29 +719,28 @@ export function Session({
     setWhy("");
   };
   const sendForgot = () => answer("forgot", tapped ? [...tapped] : [], why ?? undefined);
-  // Forgot held (FORGOT_HOLD_MS) or swiped up (FORGOT_SWIPE px) opens the box with the keyboard up,
-  // so what tripped you can be typed straight away (the owner's ask). The box is mounted at once
-  // and focused in the release itself: phones only raise the keyboard inside a gesture.
-  const press = useRef<{ y: number; at: number } | null>(null);
-  const [holding, setHolding] = useState(false);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Forgot: a tap answers and moves on (a sentence first asks which words tripped you); swiped up
+  // (FORGOT_SWIPE px) it opens "What tripped you up?" with the keyboard up (the owner's ask: a
+  // swipe is plainer than the hold it replaced). The button follows the finger up, and the box is
+  // mounted at once and focused in the release itself: phones only raise the keyboard inside a gesture.
+  const press = useRef<{ y: number } | null>(null);
+  const [lift, setLift] = useState(0);
   const skipClick = useRef(false);
+  const holding = lift >= FORGOT_SWIPE;
   const forgotGesture = {
     onPointerDown: (e: React.PointerEvent) => {
       // Kept on the button when the finger slides off it upwards, so the release still counts.
       e.currentTarget.setPointerCapture(e.pointerId);
-      press.current = { y: e.clientY, at: Date.now() };
-      holdTimer.current = setTimeout(() => setHolding(true), FORGOT_HOLD_MS);
+      press.current = { y: e.clientY };
     },
     onPointerMove: (e: React.PointerEvent) => {
-      if (press.current && press.current.y - e.clientY >= FORGOT_SWIPE) setHolding(true);
+      if (press.current) setLift(Math.max(0, Math.min(press.current.y - e.clientY, FORGOT_SWIPE * 1.5)));
     },
     onPointerUp: (e: React.PointerEvent) => {
       const p = press.current;
       press.current = null;
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      setHolding(false);
-      if (!p || (Date.now() - p.at < FORGOT_HOLD_MS && p.y - e.clientY < FORGOT_SWIPE)) return;
+      setLift(0);
+      if (!p || p.y - e.clientY < FORGOT_SWIPE) return;
       // The click that follows this release is the gesture's, not a tap.
       skipClick.current = true;
       setTimeout(() => (skipClick.current = false), 400);
@@ -749,8 +749,7 @@ export function Session({
     },
     onPointerCancel: () => {
       press.current = null;
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      setHolding(false);
+      setLift(0);
     },
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   };
@@ -1276,14 +1275,20 @@ export function Session({
               <button
                 key="forgot"
                 className={`cf-answer-btn cf-answer-forgot cf-forgot-gesture${holding ? " is-holding" : ""}`}
+                style={lift ? { transform: `translateY(${-Math.min(lift, FORGOT_LIFT)}px)` } : undefined}
                 onClick={() => {
                   if (skipClick.current) skipClick.current = false;
-                  else forget();
+                  // A sentence still asks which words tripped you (it is what lapses them); a word goes at once.
+                  else if (card.kind === "sentence") forget();
+                  else answer("forgot");
                 }}
                 {...forgotGesture}
               >
+                <span className="cf-forgot-swipe" aria-hidden="true">
+                  ⌃
+                </span>
                 Forgot
-                <small>{holding ? "let go to type why" : span(card.intervals.forgot)}</small>
+                <small>{holding ? "let go to type why" : `${span(card.intervals.forgot)} · swipe up for why`}</small>
               </button>
               <button className="cf-answer-btn cf-answer-good" onClick={() => answer("good")}>
                 Got it

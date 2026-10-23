@@ -2886,17 +2886,32 @@ label.cf-kind {
   padding: 0 22px;
 }
 
-/* Forgot can be held or swiped up to open "What tripped you up?" with the keyboard up: no
- * scrolling, menu or text selection may start from it, and it lifts while armed. */
+/* Forgot can be swiped up to open "What tripped you up?" with the keyboard up: no
+ * scrolling, menu or text selection may start from it, and it follows the finger. */
 .cf-forgot-gesture {
   touch-action: none;
   -webkit-touch-callout: none;
   user-select: none;
 }
 
+.cf-forgot-gesture {
+  position: relative;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
 .cfx .cf-forgot-gesture.is-holding {
-  transform: translateY(-4px);
   box-shadow: 0 0 0 2px var(--cf-down);
+}
+
+/* A small chevron at the top edge: it can be swiped up. */
+.cf-forgot-swipe {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.55;
 }
 
 .cf-answer-note {

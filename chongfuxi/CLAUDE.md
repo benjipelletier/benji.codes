@@ -1045,16 +1045,19 @@ the design was silent and are still to be confirmed.
   page. Made on the device from the session's answers (`SessionReport`,
   handed up as the session goes); nothing is fetched. Not for Fast review or
   a list's review.
-- **Why it was forgotten**: Forgot opens a step with an optional line, "what
-  tripped you up?", saved as `chongfuxi_review.comment` beside the tapped
-  words, for reading the mistakes back later. Holding Forgot
-  (`FORGOT_HOLD_MS`, 450 ms; it lifts and reads "let go to type why") or
-  swiping up on it (`FORGOT_SWIPE`, 40 px) opens that step with the line
-  focused and the keyboard up (the owner's ask: no extra tap). The step is
-  mounted with `flushSync` and focused inside the release, since phones raise
-  the keyboard only within a gesture; the pointer is captured so a swipe
-  ending off the button counts, and the release's click is kept off Done
-  (its own key, and ignored), which would otherwise answer at once.
+- **Why it was forgotten**: a tap on Forgot answers at once and moves on
+  (the owner's ask); on a sentence it first asks which words tripped you,
+  since that is what lapses them. Swiping Forgot up (`FORGOT_SWIPE`, 40 px;
+  a chevron on its top edge and "1d · swipe up for why" say it can be) opens
+  the step with an optional line, "what tripped you up?", focused with the
+  keyboard up, saved as `chongfuxi_review.comment` beside the tapped words,
+  for reading the mistakes back later. While swiping the button rises a
+  little (`FORGOT_LIFT`, so it never covers the card) and reads "let go to
+  type why". It replaced a hold, which the owner found too hidden. The step
+  is mounted with `flushSync` and focused inside the release, since phones
+  raise the keyboard only within a gesture; the pointer is captured so a
+  swipe ending off the button counts, and the release's click is kept off
+  Done (its own key, and ignored), which would otherwise answer at once.
 - **Fast review**: every Read card due, as a grid of words. Cards turn over
   one at a time, left to right: a card counts once the line two thirds down
   the grid has passed its row's foot by its share of a row (a third of a row
