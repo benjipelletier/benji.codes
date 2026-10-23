@@ -9345,102 +9345,10 @@ button.cf-how-text {
   color: var(--cf-ink-soft);
 }
 
-.cf-rescue-chars,
-.cf-rescue-sents,
-.cf-rescue-parts {
+.cf-rescue-sents {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.cf-rescue-chars {
-  display: grid;
-  gap: 8px;
-}
-
-.cf-rescue-chars > li {
-  padding: 12px 14px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 12px;
-  background: var(--cf-surface);
-}
-
-.cf-rescue-char-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-}
-
-.cf-rescue-char {
-  font-size: 34px;
-  line-height: 1.1;
-}
-
-.cf-rescue-trad {
-  font-size: 18px;
-  color: var(--cf-ink-soft);
-}
-
-.cf-rescue-char-means {
-  flex: 1 1 120px;
-}
-
-.cf-rescue-char-means b {
-  font-weight: 600;
-  color: var(--cf-accent);
-}
-
-.cf-rescue-form {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--cf-ink-soft);
-}
-
-.cf-rescue-parts {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.cf-rescue-parts li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.cf-rescue-parts .cf-zh {
-  flex: none;
-  min-width: 1.4em;
-  font-size: 18px;
-}
-
-.cf-rescue-role {
-  flex: none;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 650;
-  background: var(--cf-sunken);
-  color: var(--cf-ink-soft);
-}
-
-.cf-rescue-role.is-meaning {
-  background: var(--cf-accent-soft);
-  color: var(--cf-accent);
-}
-
-.cfx .cf-rescue-origin {
-  margin: 8px 0 0;
-  font-size: 14px;
-  color: var(--cf-ink-soft);
-}
-
-.cfx .cf-rescue-together {
-  margin: 8px 0 0;
 }
 
 .cf-rescue-sents li {
@@ -9806,4 +9714,79 @@ button.cf-how-text {
 
 .cfx .cf-rescue-try-en {
   font-size: 13px;
+}
+
+/* A kit's characters as an upside-down tree: each character, its meaning
+ * here, then joined phrases down to one English sentence. */
+.cf-tree {
+  display: grid;
+  column-gap: 6px;
+  align-items: stretch;
+}
+
+.cf-tree-char {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cf-tree-char small {
+  font-size: 13px;
+  color: var(--cf-accent);
+}
+
+.cf-tree-char .cf-zh {
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+.cf-tree-link {
+  position: relative;
+  height: 16px;
+}
+
+.cf-tree-link i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px solid var(--cf-rule-strong);
+}
+
+.cf-tree-link i.is-join {
+  bottom: 7px;
+  border: 1.5px solid var(--cf-rule-strong);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.cf-tree-link i.is-join::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8.5px;
+  height: 7px;
+  border-left: 1.5px solid var(--cf-rule-strong);
+}
+
+.cf-tree-node {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 6px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 10px;
+  background: var(--cf-surface);
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.cf-tree-node.is-sentence {
+  padding: 10px 12px;
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  font-size: 16px;
+  font-weight: 600;
 }

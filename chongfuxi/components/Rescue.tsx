@@ -6,14 +6,15 @@
 // "forgotten land" (the owner's words). Four parts: one button on Today with
 // the count (the list there was clutter, the owner found); the list, full
 // screen, by category, with a story using them all and a speed round
-// through them all; a word's memory kit, in the owner's order (a hook, its
-// characters' real etymology, sentences with it and one of one's own, the
-// words it is told apart from: the owner found quizzes added little and the
+// through them all; a word's memory kit, in the owner's order (a hook saying
+// how its characters make its meaning, the characters as a tree down to an
+// English sentence, sentences with it, the words it is told apart from, and
+// one's own sentences graded: the owner found quizzes added little and the
 // hook helped most); and the hook on the backs of its cards, until
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KitNewWord, Rescue as RescueData, RescueAttempt, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
@@ -23,16 +24,7 @@ import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
 const NEW_STATE: Record<KitNewWord["kit"], string> = { none: "Make kit", done: "Kit ready", stale: "Make kit" };
-const FORMATION: Record<RescueChar["formation"], string> = {
-  pictograph: "Pictograph",
-  ideograph: "Ideograph",
-  "compound ideograph": "Compound ideograph",
-  "phono-semantic": "Meaning + sound",
-  borrowing: "Borrowed",
-  other: "",
-};
 const GRADE: Record<RescueAttempt["grade"], string> = { correct: "✓ Correct", almost: "≈ Almost", wrong: "✗ Wrong" };
-const ROLE: Record<RescueChar["parts"][number]["role"], string> = { meaning: "meaning", sound: "sound", form: "shape" };
 
 /** Memory kits' words: the stuck ones and the new ones on the Learn ladder, loaded once per mount. */
 function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
@@ -397,40 +389,10 @@ export function Rescue({ canWrite, word, onEnd }: { canWrite: boolean; word: str
               <p className="cf-rescue-note">On its cards until you get it right {RESCUE_CLEAR} times in a row.</p>
             </section>
 
-            {r.characters.length > 0 && (
+            {r.tree.length > 0 && (
               <section>
                 <h3 className="cf-rescue-h">Characters</h3>
-                <ul className="cf-rescue-chars">
-                  {r.characters.map((c, i) => (
-                    <li key={i}>
-                      <div className="cf-rescue-char-head">
-                        <span className="cf-zh cf-rescue-char">{c.char}</span>
-                        {c.traditional.length > 0 && (
-                          <span className="cf-zh cf-rescue-trad" title="Traditional">
-                            {c.traditional.join(" ")}
-                          </span>
-                        )}
-                        <span className="cf-rescue-char-means">
-                          {c.pinyin && <b>{displayPinyin(c.pinyin)}</b>} {c.meaning}
-                        </span>
-                        {FORMATION[c.formation] && <span className="cf-rescue-form">{FORMATION[c.formation]}</span>}
-                      </div>
-                      {c.parts.length > 0 && (
-                        <ul className="cf-rescue-parts">
-                          {c.parts.map((p, k) => (
-                            <li key={k}>
-                              <span className="cf-zh">{p.part}</span>
-                              <span className={`cf-rescue-role is-${p.role}`}>{ROLE[p.role]}</span>
-                              <span>{p.meaning}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <p className="cf-rescue-origin">{c.origin}</p>
-                    </li>
-                  ))}
-                </ul>
-                {r.together && <p className="cf-rescue-together">{r.together}</p>}
+                <CharTree word={r.word} pinyin={r.pinyin} tree={r.tree} />
               </section>
             )}
 
@@ -719,6 +681,52 @@ function SpeedRound({ onEnd }: { onEnd: () => void }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A kit's characters as an upside-down tree (the owner's design): each
+ * character with its reading on top, its meaning here under it, then the
+ * meanings joined layer by layer into more natural phrases, down to one
+ * English sentence for the whole word. A bracket under each node's run
+ * reaches from the middle of the first node it joins to the middle of the last.
+ */
+function CharTree({ word, pinyin, tree }: { word: string; pinyin: string | null; tree: RescueTreeNode[][] }) {
+  const chars = [...word];
+  const syllables = pinyin?.split("@") ?? [];
+  const cols = { gridTemplateColumns: `repeat(${chars.length}, minmax(0, 1fr))` };
+  const last = tree.length - 1;
+  return (
+    <div className="cf-tree" style={cols}>
+      {chars.map((c, i) => (
+        <div key={`c${i}`} className="cf-tree-char" style={{ gridColumn: i + 1, gridRow: 1 }}>
+          {syllables.length === chars.length && <small>{displayPinyin(syllables[i])}</small>}
+          <span className="cf-zh">{c}</span>
+        </div>
+      ))}
+      {tree.flatMap((layer, k) => {
+        const above = k === 0 ? chars.map((_, i) => ({ from: i, to: i + 1 })) : tree[k - 1];
+        return layer.flatMap((n) => {
+          const kids = above.filter((a) => a.from >= n.from && a.to <= n.to);
+          const width = n.to - n.from;
+          const left = kids.length ? ((kids[0].from + kids[0].to) / 2 - n.from) / width : 0.5;
+          const right = kids.length ? (n.to - (kids[kids.length - 1].from + kids[kids.length - 1].to) / 2) / width : 0.5;
+          const col = `${n.from + 1} / ${n.to + 1}`;
+          return [
+            <div key={`b${k}-${n.from}`} className="cf-tree-link" style={{ gridColumn: col, gridRow: 2 + k * 2 }}>
+              <i className={kids.length > 1 ? "is-join" : ""} style={{ left: `${left * 100}%`, right: `${right * 100}%` }} />
+            </div>,
+            <div
+              key={`n${k}-${n.from}`}
+              className={`cf-tree-node${k === last ? " is-sentence" : ""}`}
+              style={{ gridColumn: col, gridRow: 3 + k * 2 }}
+            >
+              {n.text}
+            </div>,
+          ];
+        });
+      })}
     </div>
   );
 }

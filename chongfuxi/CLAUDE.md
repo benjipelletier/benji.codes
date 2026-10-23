@@ -785,16 +785,26 @@ trips both count.
   words, an earlier rescue's hook, each character's CC-CEDICT entries and
   traditional forms and the deck words sharing it, and up to 12 readable
   sentences with their ids. It gives a memory kit in the owner's order:
-  1. **Hook**: one mnemonic, the only place invention is allowed.
-  2. **Characters**: for each character, its meaning here, how it was
-     formed (pictograph, ideograph, compound ideograph, meaning + sound,
-     borrowing), its components each with a role (meaning, sound, shape)
-     and its origin, asked to be the standard account (Shuowen, oracle-bone
-     and bronze forms), explained from the traditional form when
-     simplification hides it, and to say plainly when an origin is
-     disputed; then how they add up to the word. The traditional forms
-     (`traditionalOf` in headwords.ts) and readings (the deck's pinyin)
-     are filled in from data, not the model.
+  1. **Hook**: how the characters add up to the meaning, each character
+     in brackets after the English it stands for ("Put your mind down (下)
+     and fix it (定), cut off (决) the wavering of the heart (心): you make
+     up your mind for good."), true to what they mean here, no sound puns.
+     It was a mnemonic; the owner found, of the whole kit, only the line
+     saying how the characters make the meaning useful, and asked for it
+     here.
+  2. **Characters** as an upside-down tree (the owner's design;
+     `CharTree`, `checkTree`): each character with its pinyin on top, its
+     meaning here under it, then layers joining neighbouring runs into
+     more natural phrases, grouped as the word groups in Chinese (下定 +
+     决心), down to one plain English sentence for the whole word, with a
+     bracket under each join. Positions count the word's characters; the
+     check keeps a first layer of one node per character, drops a later
+     layer that doesn't split the word into fewer runs each joining runs
+     above, keeps at most `TREE_LAYERS` (4), and ends on the word's gloss
+     when the model's last layer isn't one sentence. It replaced each
+     character's formation, components and origin (Shuowen and so on),
+     which the owner found of no use; each character's dictionary entries
+     and traditional forms still go to the model, to keep the meanings true.
   3. **Sentences**: up to 3 of the owner's, by id only (their text comes
      from the store), and 2 new plain ones that must hold the word, each
      with a note.
@@ -810,7 +820,7 @@ trips both count.
      kept, newest first, up to 20 (`attempts`); a kit's single checked
      sentence from before reads back as its first try.
   `checkRescue(raw, facts)` refuses a kit missing any character or with no
-  sentence holding the word. `RESCUE_VERSION` (4) is stored with it; an
+  sentence holding the word. `RESCUE_VERSION` (5) is stored with it; an
   older one reads as `outdated` and stale, and is made again when the owner
   opens it.
 - **Once made** (`done_at` is set with it), the hook shows on the word's

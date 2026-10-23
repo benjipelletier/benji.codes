@@ -262,20 +262,11 @@ export interface StuckWord {
   rescue: "none" | "ready" | "done" | "stale";
 }
 
-/** One character of a stuck word, where it comes from: accurate, not a story. */
-export interface RescueChar {
-  char: string;
-  /** Its traditional forms where they differ (from CC-CEDICT). */
-  traditional: string[];
-  /** Its reading in this word. */
-  pinyin: string | null;
-  /** What it means in this word. */
-  meaning: string;
-  formation: "pictograph" | "ideograph" | "compound ideograph" | "phono-semantic" | "borrowing" | "other";
-  /** Its components, each with what it brings: the meaning, the sound, or a drawn shape. */
-  parts: Array<{ part: string; role: "meaning" | "sound" | "form"; meaning: string }>;
-  /** Where it comes from, in a sentence or two; says so when the origin is disputed or unknown. */
-  origin: string;
+/** A node of a kit's tree: a run of the word's characters (from, to, by position) and what they mean together. */
+export interface RescueTreeNode {
+  from: number;
+  to: number;
+  text: string;
 }
 
 /** A sentence the owner wrote with a kit's word, graded by the model. */
@@ -341,12 +332,14 @@ export interface Rescue {
   gloss: string | null;
   at: number;
   model: string;
-  /** The mnemonic, on the back of its cards. */
+  /** How its characters add up to its meaning, each in brackets: on the back of its cards. */
   hook: string;
-  /** Its characters, where each comes from. */
-  characters: RescueChar[];
-  /** How the characters add up to the word. */
-  together: string;
+  /**
+   * The characters as an upside-down tree: the first layer each character's
+   * meaning here, each later layer joining runs into a more natural phrase,
+   * the last one English sentence for the whole word.
+   */
+  tree: RescueTreeNode[][];
   sentences: RescueSentence[];
   contrasts: RescueContrast[];
   /** The owner's own sentences with the word, as graded by the model, newest first. */

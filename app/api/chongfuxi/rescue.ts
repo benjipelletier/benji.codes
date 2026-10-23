@@ -14,7 +14,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Sql } from "./db";
-import type { KitNewWord, Rescue, RescueAttempt, RescueChar, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue, RescueAttempt, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { IN_PLAY } from "@chongfuxi/lib/learn";
 import { LEARN_ORDER } from "./learn";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -41,13 +41,15 @@ const CONTRASTS = 3;
 /** Other deck words with each of its characters, shown to the model. */
 const CHAR_WORDS = 6;
 /**
- * The rescue's shape. 4: a memory kit in the owner's order (hook, accurate
- * character etymology, sentences, contrast), the hook going on its cards as
- * soon as it is made. Before: 3, memory handles to pick from; 2 and 1,
+ * The rescue's shape. 5: the characters as a tree down to an English
+ * sentence, and the hook how they add up (the owner found the etymology
+ * cards no use, only the line saying how the characters make the meaning).
+ * 4: a memory kit in the owner's order (hook, accurate character etymology,
+ * sentences, contrast), the hook going on its cards as soon as it is made. Before: 3, memory handles to pick from; 2 and 1,
  * quizzes, which the owner found added little. A rescue of an older version
  * counts as stale, so opening it makes it again.
  */
-export const RESCUE_VERSION = 4;
+export const RESCUE_VERSION = 5;
 const MAX_TEXT = 600;
 
 let ready = false;
@@ -199,12 +201,12 @@ const FOCUS: Record<ReviveCategory, (partner: string | null) => string> = {
   mixed: (p) =>
     `It is confused with ${p}. Aim the kit at telling them apart: the hook settles which is which, the sentences show places only it fits, and the first contrast is ${p}.`,
   produce: () =>
-    "They recognise it but can't produce it from its meaning. Make the hook lead from the meaning to its sound and characters, and pick sentences where the meaning calls for exactly this word.",
+    "They recognise it but can't produce it from its meaning. Make the hook lead from the meaning to the characters that say it, and pick sentences where the meaning calls for exactly this word.",
   context: () =>
-    "They know it alone but it trips them in sentences: a sense, a collocation or a grammatical use they don't expect. Make the hook about how it behaves in a sentence, and pick and write sentences showing the use that trips them.",
-  slipping: () => "They knew it well and it is slipping now. Keep it fresh: a quick, sharp hook; a contrast may be a similar word met lately.",
-  stuck: () => "It has never stuck. Build it from the ground up: the hook links its sound, characters and meaning vividly.",
-  leech: () => "It keeps flip-flopping and never settles. Give the hook an angle they won't have tried: a striking image, or what its characters really are.",
+    "They know it alone but it trips them in sentences: a sense, a collocation or a grammatical use they don't expect. Say in the hook how its characters' sense shows in the use that trips them, and pick and write sentences showing the use that trips them.",
+  slipping: () => "They knew it well and it is slipping now. Keep it fresh: a quick, sharp hook and tree; a contrast may be a similar word met lately.",
+  stuck: () => "It has never stuck. Build it from the ground up: the hook and tree make plain how each character gives its meaning.",
+  leech: () => "It keeps flip-flopping and never settles. Give the hook an angle they won't have tried: what its characters really mean, put plainly.",
 };
 
 async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<StuckWord, "category" | "why" | "partner"> | null) {
@@ -264,7 +266,7 @@ async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<St
   const lines = [
     ...(fresh
       ? [
-          "It is new to them: they are learning it now or about to. Make the kit its first impression: a hook that ties its sound and characters to its meaning from the start, sentences that show its core use plainly, and contrasts with the words it is most likely to be confused with later.",
+          "It is new to them: they are learning it now or about to. Make the kit its first impression: a hook and tree that show from the start how its characters make its meaning, sentences that show its core use plainly, and contrasts with the words it is most likely to be confused with later.",
           "",
         ]
       : []),
@@ -320,9 +322,9 @@ async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<St
 
 const SYSTEM = `You help a learner of Chinese hold on to a word: one they keep getting wrong, or one they are just learning. You are told what kind of trouble it is, or that it is new, and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, its characters' dictionary entries, and their own sentences with it.
 
-Make a memory kit of four parts, each short enough to take in at a glance:
-- hook: one mnemonic, one or two short sentences for the back of a flashcard. Vivid and concrete, linking the word's sound and/or characters to its meaning, aimed at why it slips (e.g. "fāxiàn sounds like 'far she ran': she ran far and found it"). This is the place for invention; nowhere else is.
-- characters: each character of the word, in order. Its reading and meaning in this word; how it was formed; its components, each with its role (meaning: the part that carries the sense; sound: the phonetic part; form: a drawn shape in a pictograph or ideograph) and what that component means; and its origin in one or two sentences. This must be accurate, the standard account (Shuowen Jiezi, the oracle-bone and bronze forms as usually described), never a folk story. When simplification hides the parts, explain from the traditional form and say so. When a phonetic part no longer sounds alike, say so. When the origin is disputed or unknown, say that plainly rather than guess. Then together: one sentence on how the characters add up to the word's meaning.
+Make a memory kit of four parts (hook, tree, sentences, contrasts), each short enough to take in at a glance:
+- hook: how the word's characters add up to its meaning, one or two short sentences for the back of a flashcard, each character in parentheses after the English it stands for (e.g. for 下定决心: "Put your mind down (下) and fix it (定), cut off (决) the wavering of the heart (心): you make up your mind for good."). Use what each character really means in this word, as the dictionary entries given say; no sound puns, nothing made up. For a one-character word, how its parts give its meaning, as accurately.
+- tree: an upside-down tree from the characters down to one plain English sentence. Positions count the word's characters from 0. The first layer has one node per character, in order ({from: i, to: i + 1}), each that character's meaning in this word in two to four English words. Each later layer joins neighbouring nodes of the layer above into fewer nodes, grouping as the word's parts group in Chinese (下定 + 决心: a verb and its object), each node's text a short English phrase saying what those characters mean together, more natural than the parts it joins. The last layer is a single node over the whole word: one plain, natural English sentence saying what the word means (e.g. "To firmly make up your mind."). Two to four layers in all (a two-character word: its characters, then the sentence; a one-character word: one layer, its meaning as a sentence).
 - sentences: mine: up to ${OWN_SENTENCES} of the owner's sentences (by id, only from those given) that show the word best, plainest first, each with a note of a few words on what the word does there. new: ${NEW_SENTENCES} short new sentences in simple Chinese (HSK 1–4 apart from the word) using it in its main sense, the meaning clear from the sentence, each with English and such a note.
 - contrasts: 1 to ${CONTRASTS} words it is mixed up with or easily could be: first those the evidence shows, then words of the same meaning, then look-alikes or sound-alikes. Each with its pinyin (tone marks), the difference in one sentence, and two short sentences as alike as can be, mine with the word and theirs with the other word, so the difference shows, each with English.
 Write in English, with Chinese only for Chinese words.`;
@@ -338,30 +340,18 @@ const SCHEMA = {
   type: "object",
   properties: {
     hook: { type: "string" },
-    characters: {
+    tree: {
       type: "array",
       items: {
-        type: "object",
-        properties: {
-          char: { type: "string" },
-          meaning: { type: "string" },
-          formation: { type: "string", enum: ["pictograph", "ideograph", "compound ideograph", "phono-semantic", "borrowing", "other"] },
-          parts: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: { part: { type: "string" }, role: { type: "string", enum: ["meaning", "sound", "form"] }, meaning: { type: "string" } },
-              required: ["part", "role", "meaning"],
-              additionalProperties: false,
-            },
-          },
-          origin: { type: "string" },
+        type: "array",
+        items: {
+          type: "object",
+          properties: { from: { type: "integer" }, to: { type: "integer" }, text: { type: "string" } },
+          required: ["from", "to", "text"],
+          additionalProperties: false,
         },
-        required: ["char", "meaning", "formation", "parts", "origin"],
-        additionalProperties: false,
       },
     },
-    together: { type: "string" },
     sentences: {
       type: "object",
       properties: {
@@ -392,13 +382,11 @@ const SCHEMA = {
       },
     },
   },
-  required: ["hook", "characters", "together", "sentences", "contrasts"],
+  required: ["hook", "tree", "sentences", "contrasts"],
   additionalProperties: false,
 } as const;
 
 const clip = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ").slice(0, MAX_TEXT) : "");
-const FORMATIONS: ReadonlyArray<RescueChar["formation"]> = ["pictograph", "ideograph", "compound ideograph", "phono-semantic", "borrowing", "other"];
-const ROLES: ReadonlyArray<RescueChar["parts"][number]["role"]> = ["meaning", "sound", "form"];
 
 /** What a kit is checked against: the word, its reading, and the owner's sentences it was shown. */
 export interface KitFacts {
@@ -406,6 +394,46 @@ export interface KitFacts {
   /** Numbered pinyin, "@" between syllables, or null. */
   pinyin: string | null;
   sentences: ReadonlyArray<{ id: number; zh: string; en: string | null }>;
+  /** Its short meaning: the tree's last line when the model's doesn't hold. */
+  gloss?: string | null;
+}
+
+/** Layers in a tree, at most: its characters, up to two of phrases, the sentence. */
+const TREE_LAYERS = 4;
+
+/**
+ * The tree, kept to what holds: the first layer one node per character, in
+ * order; each later layer splitting the word into fewer runs, each a join of
+ * runs above (a layer that doesn't is dropped); the last a single node over
+ * the whole word, else one made from the word's gloss. Empty when the first
+ * layer is wrong.
+ */
+export function checkTree(raw: unknown, n: number, gloss?: string | null): Rescue["tree"] {
+  const layers = (Array.isArray(raw) ? raw : []).map((l) =>
+    (Array.isArray(l) ? l : [])
+      .map((x) => x as Record<string, unknown>)
+      .map((x) => ({ from: Number(x.from), to: Number(x.to), text: clip(x.text) }))
+      .filter((x) => Number.isInteger(x.from) && Number.isInteger(x.to) && x.text)
+      .sort((a, b) => a.from - b.from),
+  );
+  const first = layers[0];
+  if (!n || !first || first.length !== n || first.some((x, i) => x.from !== i || x.to !== i + 1)) return [];
+  const out = [first];
+  for (const layer of layers.slice(1)) {
+    const above = out[out.length - 1];
+    const cuts = new Set(above.map((x) => x.from));
+    const covers = layer.length > 0 && layer[0].from === 0 && layer[layer.length - 1].to === n && layer.every((x, i) => x.from < x.to && (i === 0 || layer[i - 1].to === x.from));
+    if (covers && layer.length < above.length && layer.every((x) => cuts.has(x.from))) out.push(layer);
+    if (out.length === TREE_LAYERS) break;
+  }
+  const last = out[out.length - 1];
+  if (last.length !== 1) {
+    const text = clip(gloss);
+    if (!text) return out.length > 1 || n === 1 ? out : [];
+    if (out.length === TREE_LAYERS) out.pop();
+    out.push([{ from: 0, to: n, text: text[0].toUpperCase() + text.slice(1) }]);
+  }
+  return out;
 }
 
 /**
@@ -415,36 +443,14 @@ export interface KitFacts {
  * their text from the store; new sentences and contrast pairs only when they
  * hold the word they are for.
  */
-export function checkRescue(raw: unknown, facts: KitFacts): Pick<Rescue, "hook" | "characters" | "together" | "sentences" | "contrasts"> & { version: number } {
+export function checkRescue(raw: unknown, facts: KitFacts): Pick<Rescue, "hook" | "tree" | "sentences" | "contrasts"> & { version: number } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const hook = clip(r.hook);
   if (!hook) throw new RescueError("The rescue came back without a hook.");
 
   const word = facts.word;
-  const syllables = facts.pinyin?.split("@") ?? [];
-  const given = (Array.isArray(r.characters) ? r.characters : []).map((c) => c as Record<string, unknown>);
-  const characters: RescueChar[] = [];
-  [...word].forEach((char, i) => {
-    if (!/\p{Script=Han}/u.test(char)) return;
-    const c = given.find((g) => g.char === char);
-    const meaning = clip(c?.meaning);
-    const origin = clip(c?.origin);
-    if (!c || !meaning || !origin) throw new RescueError(`The rescue left out where ${char} comes from.`);
-    const parts = (Array.isArray(c.parts) ? c.parts : [])
-      .map((p) => p as Record<string, unknown>)
-      .map((p) => ({ part: clip(p.part).slice(0, 8), role: ROLES.find((x) => x === p.role), meaning: clip(p.meaning) }))
-      .filter((p): p is RescueChar["parts"][number] => Boolean(p.part && p.role && p.meaning))
-      .slice(0, 4);
-    characters.push({
-      char,
-      traditional: traditionalOf(char),
-      pinyin: [...word].length === syllables.length ? syllables[i] : null,
-      meaning,
-      formation: FORMATIONS.find((x) => x === c.formation) ?? "other",
-      parts,
-      origin,
-    });
-  });
+  const tree = checkTree(r.tree, [...word].length, facts.gloss);
+  if (!tree.length) throw new RescueError(`The kit's tree for ${word} came back broken.`);
 
   const s = (r.sentences ?? {}) as Record<string, unknown>;
   const sentences: RescueSentence[] = [];
@@ -480,7 +486,7 @@ export function checkRescue(raw: unknown, facts: KitFacts): Pick<Rescue, "hook" 
     contrasts.push({ zh, pinyin: clip(x.pinyin), difference, pair });
   }
 
-  return { hook, characters, together: clip(r.together), sentences, contrasts, version: RESCUE_VERSION };
+  return { hook, tree, sentences, contrasts, version: RESCUE_VERSION };
 }
 
 type Row = {
@@ -489,7 +495,7 @@ type Row = {
   model: string;
   evidence: Rescue["evidence"];
   rescue: Pick<Rescue, "hook"> &
-    Partial<Pick<Rescue, "characters" | "together" | "sentences" | "contrasts" | "attempts">> & {
+    Partial<Pick<Rescue, "tree" | "sentences" | "contrasts" | "attempts">> & {
       /** Before attempts were kept: the one sentence checked. */
       own?: { zh: string; ok: boolean; fixed: string; note: string; en: string };
     };
@@ -525,8 +531,7 @@ async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescu
     at: Math.round(row.at),
     model: row.model,
     hook: row.rescue.hook,
-    characters: row.rescue.characters ?? [],
-    together: row.rescue.together ?? "",
+    tree: row.rescue.tree ?? [],
     sentences: row.rescue.sentences ?? [],
     contrasts: row.rescue.contrasts ?? [],
     attempts:
@@ -570,7 +575,8 @@ export async function makeRescue(sql: Sql, owner: string, word: string, fresh = 
   } catch {
     throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The rescue came back malformed.");
   }
-  const rescue = { ...checkRescue(given, { word, pinyin: evidence.page.pinyin, sentences: evidence.readable }), category: place?.category ?? null, partner: place?.partner ?? null };
+  const gloss = evidence.page.defs[0]?.senses.slice(0, 2).join("; ") ?? null;
+  const rescue = { ...checkRescue(given, { word, pinyin: evidence.page.pinyin, sentences: evidence.readable, gloss }), category: place?.category ?? null, partner: place?.partner ?? null };
   await sql`
     insert into chongfuxi_rescue (owner_email, word, at, model, evidence, rescue, done_at, drill)
     values (${owner}, ${word}, now(), ${MODEL}, ${JSON.stringify(evidence.counts)}::jsonb, ${JSON.stringify(rescue)}::jsonb, now(), null)
