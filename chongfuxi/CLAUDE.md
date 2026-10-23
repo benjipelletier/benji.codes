@@ -1539,6 +1539,34 @@ text; a new source needs its reader, a `source` value and its add form.
   stand-ins: the page reading, simplifying and splitting on their own, the
   writes against a local Postgres.
 
+## Lists written by the owner's agent (Muse)
+
+The owner's agent writes word lists through `/api/chongfuxi/agent/lists`
+(`app/api/chongfuxi/agent.ts`), at the owner's request. Every method needs
+`Authorization: Bearer <CHONGFUXI_AGENT_TOKEN>` (set on Vercel, at least 32
+characters; compared in constant time; unset or short, nothing gets in, 401):
+a bearer secret over HTTPS, since Vercel offers no client certificates for
+this. The owner's login is never involved, so the token is the agent's only.
+
+- **POST** `{ lists: [{ path, words, replace? }] }`, up to 50 lists of 500
+  words. `path` nests with "/" ("Travel/Airport" or `["Travel",
+  "Airport"]`) and always lives under the top-level **Muse** list
+  (`MUSE_LIST`; a leading "Muse" is taken as that), so the agent can never
+  touch the Pleco, textbook or Spotify lists; at most 6 levels, 60
+  characters a level, "/" inside a name made "／". Each word is filed under
+  the list as a Spotify song's are: one not in the corpus comes in as a list
+  word with CC-CEDICT's definitions, a deck word just gets the list; a word
+  that isn't Chinese, is over 12 characters, or that neither the corpus nor
+  the dictionary knows is skipped and named back. `replace: true` writes
+  the list whole: what isn't given is taken off it and off its lists below.
+  Nothing joins the deck or unlocks. Answers `{ written: [{ list, words,
+  fresh, removed, skipped }] }`.
+- **GET**: every Muse list with its words, in the deck or not.
+- **DELETE** `{ path }`: the list and those below it taken off every word;
+  the words stay.
+- In the app the Muse lists sit under "From your content" beside Spotify
+  (`source: "muse"`), browsed, added, learnt and reviewed like any list.
+
 ## Bug reports
 
 The owner files bugs from any screen: a slim tab on the right edge (owner

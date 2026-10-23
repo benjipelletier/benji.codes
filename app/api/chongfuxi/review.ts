@@ -35,6 +35,7 @@ import { longkuWords } from "./longku";
 import { rescueHooks } from "./rescue";
 import { contrastsFor } from "./synonyms";
 import { SPOTIFY_LIST, moveSongLists, songsOf } from "./spotify";
+import { MUSE_LIST } from "./agent";
 import { lookUp, type Looked, type Lookup } from "@chongfuxi/lib/readings";
 import { mainSenses } from "@chongfuxi/lib/senses";
 import type { PlecoSeed } from "@chongfuxi/lib/pleco";
@@ -1597,6 +1598,7 @@ export async function listTree(sql: Sql, owner: string, day: StudyDay | null = n
           due: r.due,
           toLearn: r.to_learn,
           ...(r.list === SPOTIFY_LIST || r.list.startsWith(`${SPOTIFY_LIST}/`) ? { source: "spotify" as const } : {}),
+          ...(r.list === MUSE_LIST || r.list.startsWith(`${MUSE_LIST}/`) ? { source: "muse" as const } : {}),
           ...(song ? { song } : {}),
         };
       }),
