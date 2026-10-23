@@ -2481,7 +2481,8 @@ label.cf-kind {
 .cf-card-foot {
   display: flex;
   justify-content: center;
-  gap: 18px;
+  /* Five tiles (with 词) must fit a phone's card: the gap gives way first. */
+  gap: clamp(2px, 2.4vw, 18px);
   margin-top: auto;
   padding-top: 16px;
 }
@@ -2560,6 +2561,15 @@ label.cf-kind {
 
 .cf-foot-btn.is-inline small {
   font-size: 13px;
+}
+
+.cfx .cf-card-foot .cf-foot-btn {
+  min-width: 48px;
+}
+
+/* 词: the word's page. */
+.cfx .cf-foot-btn.is-page {
+  --hue: var(--cf-sentence);
 }
 
 .cfx .cf-foot-btn.is-suspend {

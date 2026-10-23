@@ -19,6 +19,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import { REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
@@ -1123,6 +1124,15 @@ export function Session({
             <div className="cf-card-foot">
               {card.word && (
                 <PlecoTile word={card.word.word} />
+              )}
+              {/* 词: the word's own page, over the session (its memory kit is there), back returning to the card. */}
+              {card.word && (
+                <button className="cf-foot-btn is-page" onClick={() => wordpage.openWordPage(card.word!.word)} aria-label="Word page">
+                  <span className="cf-foot-zh" aria-hidden="true">
+                    词
+                  </span>
+                  <small>Word</small>
+                </button>
               )}
               {canWrite && noting === null && (
                 <button className="cf-foot-btn is-note" onClick={() => setNoting(card.note ?? "")} aria-label={card.note ? "Edit note" : "Add a note"}>

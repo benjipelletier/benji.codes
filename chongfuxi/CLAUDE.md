@@ -162,7 +162,10 @@ rejected as too themed. Keep it that way:
   character on a soft round in its own hue with its name under it: 魚
   (traditional, the owner's pick) for Pleco, 记 (to note down, a verb like
   查; 笔, the brush, was tried) for a note, 停 for Suspend (word cards
-  only until sentences could be suspended too), 查 for Look up. The owner asked for them cuter than the text links
+  only until sentences could be suspended too), 查 for Look up, and on
+  word cards 词 for the word's page (over the session, back returning to
+  the card; its Memory kit button is there: the owner asked for both). With
+  five tiles the gap gives way so they fit a phone's card. The owner asked for them cuter than the text links
   they replaced. Every "Open in Pleco" in the app is the 魚 tile
   (`PlecoTile` in `shared.tsx`), inline (a smaller round, the name beside
   it) in popups and a word sheet's tags.
@@ -1075,6 +1078,10 @@ the design was silent and are still to be confirmed.
   raise the keyboard only within a gesture; the pointer is captured so a
   swipe ending off the button counts, and the release's click is kept off
   Done (its own key, and ignored), which would otherwise answer at once.
+  The button needs `touch-action: none` above `.cfx button`'s
+  `manipulation`: with that, Android Chrome took the swipe as a scroll and
+  cancelled the pointer, so the swipe did nothing on the owner's phone
+  (mouse tests passed; touch tests now go through CDP touch events).
 - **Fast review**: every Read card due, as a grid of words. Cards turn over
   one at a time, left to right: a card counts once the line two thirds down
   the grid has passed its row's foot by its share of a row (a third of a row
