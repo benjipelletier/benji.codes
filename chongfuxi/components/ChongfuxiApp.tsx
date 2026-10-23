@@ -222,7 +222,6 @@ export function ChongfuxiApp() {
  */
 function Glance({ summary: s }: { summary: Summary | null }) {
   const total = s ? s.readable + s.oneAway + s.locked : 0;
-  const pct = s && total ? (100 * s.readable) / total : null;
   const detail = s
     ? `${fmt(s.readable)} of ${fmt(total)} sentences readable; ${fmt(s.oneAway)} one word away, ${fmt(s.locked)} further off`
     : undefined;
@@ -237,11 +236,11 @@ function Glance({ summary: s }: { summary: Summary | null }) {
           {s ? fmt(s.characters) : "—"}
           <i>字</i>
         </span>
-        {/* Every sentence (the owner's ask), and the share of them readable. */}
+        {/* The sentences unlocked (readable), the owner's main number, and how many there are in all. */}
         <span className="is-sentences" title={detail} aria-label={detail}>
-          {s ? fmt(total) : "—"}
+          {s ? fmt(s.readable) : "—"}
           <i>句</i>
-          {pct !== null && <small>{Math.round(pct)}% readable</small>}
+          {s && total > 0 && <small>/ {fmt(total)}</small>}
         </span>
       </p>
     </div>
