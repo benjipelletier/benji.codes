@@ -2888,7 +2888,8 @@ label.cf-kind {
 
 /* Forgot can be swiped up to open "What tripped you up?" with the keyboard up: no
  * scrolling, menu or text selection may start from it, and it follows the finger. */
-.cf-forgot-gesture {
+/* `.cfx button` sets manipulation (which lets a swipe scroll, so Chrome cancels the pointer): outrank it. */
+.cfx .cf-forgot-gesture {
   touch-action: none;
   -webkit-touch-callout: none;
   user-select: none;
