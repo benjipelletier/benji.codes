@@ -51,6 +51,8 @@ const KIND_NAME = { read: "Read", produce: "Recall", sentence: "Sentence" } as c
 /** The senses a Produce card asks with: the first few of the word's main definition. */
 function promptOf(card: SessionCard): string[] {
   if (card.meaning) return [card.meaning.gloss];
+  // The senses the owner chose for this card, when the automatic ones were the wrong meaning.
+  if (card.prompt?.length) return card.prompt;
   // The meaning the card's sentence is about first: 米 "meter" under 跑完了1000米.
   return card.word ? mainSenses(card.word.defs, card.word.pinyin, { en: card.sentence?.en }) : [];
 }
@@ -1039,9 +1041,20 @@ export function Session({
               {revealed && (
                 <div className="cf-back">
                   <Word word={card.word.word} onOpen={() => wordpage.openWordPage(card.word!.word)} />
-                  {card.word.pinyin && <div className="cf-card-pinyin">{displayPinyin(card.word.pinyin)}</div>}
+                  {(() => {
+                    // A chosen prompt's reading (调 asked as "to adjust" is tiáo), else the word's.
+                    const p = card.prompt?.length ? readingOfSense(card.word.defs, card.prompt[0], card.word.pinyin) : card.word.pinyin;
+                    return p && <div className="cf-card-pinyin">{displayPinyin(p)}</div>;
+                  })()}
                   {card.alternatives && card.alternatives.length > 0 && (
                     <p className="cf-muted cf-also">Also means this: {card.alternatives.join("、")}</p>
+                  )}
+                  {canWrite && !card.meaning && (
+                    <PromptPicker
+                      card={card}
+                      onChange={(prompt) => setQueue((q) => q.map((c) => (c.id === card.id ? { ...c, prompt } : c)))}
+                      onError={(e) => setError(message(e))}
+                    />
                   )}
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
@@ -1342,6 +1355,75 @@ function Definitions({
           </ul>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * On a Recall card's back: "Wrong meaning?" opens every sense of the word as
+ * chips, those the card asks with filled. A tap adds or takes one away, saved
+ * at once (route `prompt`), so the card asks with them from then on; Reset
+ * goes back to the automatic ones (the owner's ask: Recall sometimes showed
+ * the wrong meaning).
+ */
+function PromptPicker({ card, onChange, onError }: { card: SessionCard; onChange: (prompt: string[] | null) => void; onError: (e: unknown) => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const word = card.word!;
+  const current = promptOf(card);
+  const save = async (senses: string[]) => {
+    setSaving(true);
+    try {
+      await send("prompt", { cardId: card.id, senses });
+      onChange(senses.length ? senses : null);
+    } catch (e) {
+      onError(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!open) {
+    return (
+      <button className="cf-link cf-prompt-fix" onClick={() => setOpen(true)}>
+        {card.prompt?.length ? "Meaning chosen · change" : "Wrong meaning?"}
+      </button>
+    );
+  }
+  const entries = mainFirst(word.defs, word.pinyin).filter((d) => !d.own && d.senses.length);
+  return (
+    <div className="cf-prompt-pick">
+      <p className="cf-muted">Ask with:</p>
+      {entries.map((d, i) => (
+        <div key={i} className="cf-prompt-entry">
+          {d.p && d.p !== word.pinyin && <span className="cf-def-p">{displayPinyin(d.p)}</span>}
+          <div className="cf-prompt-chips">
+            {d.senses.map((s) => {
+              const on = current.includes(s);
+              return (
+                <button
+                  key={s}
+                  className={`cf-prompt-chip${on ? " is-on" : ""}`}
+                  aria-pressed={on}
+                  disabled={saving}
+                  onClick={() => void save(on ? current.filter((x) => x !== s) : [...current, s])}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="cf-prompt-foot">
+        {card.prompt?.length ? (
+          <button className="cf-link" disabled={saving} onClick={() => void save([])}>
+            Reset
+          </button>
+        ) : null}
+        <button className="cf-link" onClick={() => setOpen(false)}>
+          Done
+        </button>
+      </div>
     </div>
   );
 }

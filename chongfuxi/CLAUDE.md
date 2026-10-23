@@ -1024,7 +1024,16 @@ the design was silent and are still to be confirmed.
   definition, and the sentence with the word blanked; a sentence that writes
   one of the word's characters again (月 in 下个月是二月) gives the blank away
   and comes after all the rest. Back lists other deck
-  words with the same meaning. Starts a step lower: half the stability.
+  words with the same meaning. Starts a step lower: half the stability. When the
+  meaning it asks with is the wrong one (the owner's ask, in place of
+  splitting meanings), "Wrong meaning?" on its back opens every sense of the
+  word as chips, by entry with each other reading named, those it asks with
+  filled (`PromptPicker`); a tap adds or takes one away, saved at once
+  (route `prompt`, `setPrompt`: only the word's own senses, in its order, at
+  most 6; none goes back to the automatic ones, Reset). Kept per card in
+  `chongfuxi_card_prompt` (made on first use) and sent as `prompt` on the
+  card; its back then shows the chosen meaning's reading (调 asked as "to
+  adjust" is tiáo), and the same-meaning words follow the chosen senses.
 - **Meanings** (taken out): a meaning on the back of a Read card could be
   tapped to give it its own card under the same word, and merged back
   later. The owner wasn't using it, so the card back lists meanings as

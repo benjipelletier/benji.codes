@@ -607,6 +607,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
   // A rescued word still recovering shows its rescue's hook (rescue.ts); a compared one, how it differs (synonyms.ts).
   const hooks = await rescueHooks(sql, owner, wordList);
   const contrasts = await contrastsFor(sql, owner, wordList);
+  const prompts = await promptsOf(sql, owner, cards.filter((c) => c.kind === "produce").map((c) => c.id));
   const out: SessionCard[] = [];
   for (const c of cards) {
     const schedule = scheduleOf(c);
@@ -636,10 +637,14 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       sentence: sentenceOf(chosen.get(c.id)),
       hook: hooks.get(c.word!) ?? null,
       contrast: contrasts.get(c.word!) ?? null,
+      prompt: prompts.get(c.id) ?? null,
     };
     if (c.kind === "produce") {
       // Other deck words with the same meaning, so "I said 快乐" can be judged against 高兴.
-      const senses = meaning ? [meaning.gloss.toLowerCase()] : promptSenses(word.defs, word.pinyin).map((s) => s.toLowerCase());
+      const chosenSenses = prompts.get(c.id);
+      const senses = meaning
+        ? [meaning.gloss.toLowerCase()]
+        : (chosenSenses ?? promptSenses(word.defs, word.pinyin)).map((s) => s.toLowerCase());
       const others = senses.length
         ? ((await sql`
             select word from chongfuxi_word
@@ -1245,6 +1250,56 @@ export async function setNote(sql: Sql, owner: string, cardId: number, note: str
   await sql`
     update chongfuxi_card set note = ${note.trim() || null}
     where owner_email = ${owner} and id = ${cardId}
+  `;
+}
+
+/**
+ * A Recall card's own prompt: the senses the owner chose for it to ask with,
+ * when the automatic choice showed the wrong meaning (the owner's ask). Kept
+ * per card (made on first use); none means the automatic senses.
+ */
+let promptTable = false;
+async function ensurePrompts(sql: Sql) {
+  if (promptTable) return;
+  await sql`
+    create table if not exists chongfuxi_card_prompt (
+      owner_email text not null,
+      card_id bigint not null,
+      senses text[] not null,
+      at timestamptz not null default now(),
+      primary key (owner_email, card_id)
+    )
+  `;
+  promptTable = true;
+}
+
+async function promptsOf(sql: Sql, owner: string, ids: number[]): Promise<Map<number, string[]>> {
+  if (!ids.length) return new Map();
+  await ensurePrompts(sql);
+  const rows = (await sql`
+    select card_id::int as id, senses from chongfuxi_card_prompt where owner_email = ${owner} and card_id = any(${ids}::bigint[])
+  `) as unknown as Array<{ id: number; senses: string[] }>;
+  return new Map(rows.map((r) => [r.id, r.senses]));
+}
+
+/** Set a Recall card's prompt to these senses of its word, or (none) back to the automatic ones. Owner only. */
+export async function setPrompt(sql: Sql, owner: string, cardId: number, senses: string[]): Promise<void> {
+  await ensurePrompts(sql);
+  const [card] = (await sql`
+    select c.kind, w.defs from chongfuxi_card c join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word
+    where c.owner_email = ${owner} and c.id = ${cardId}
+  `) as unknown as Array<{ kind: string; defs: Definition[] }>;
+  if (!card || card.kind !== "produce") throw new ReviewError("That isn't a Recall card.");
+  // Only senses the word has, in its own order.
+  const all = card.defs.flatMap((d) => d.senses);
+  const kept = all.filter((s, i) => senses.includes(s) && all.indexOf(s) === i).slice(0, 6);
+  if (!kept.length) {
+    await sql`delete from chongfuxi_card_prompt where owner_email = ${owner} and card_id = ${cardId}`;
+    return;
+  }
+  await sql`
+    insert into chongfuxi_card_prompt (owner_email, card_id, senses) values (${owner}, ${cardId}, ${kept}::text[])
+    on conflict (owner_email, card_id) do update set senses = excluded.senses, at = now()
   `;
 }
 

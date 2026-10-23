@@ -9876,3 +9876,59 @@ button.cf-how-text {
   font-weight: 600;
   color: var(--cf-warn);
 }
+
+/* A Recall card's own prompt: "Wrong meaning?", then every sense as a chip, those it asks with filled. */
+.cfx .cf-prompt-fix {
+  margin: 4px auto 0;
+  display: block;
+}
+
+.cf-prompt-pick {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  text-align: left;
+}
+
+.cfx .cf-prompt-pick > p {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.cf-prompt-entry + .cf-prompt-entry {
+  margin-top: 8px;
+}
+
+.cf-prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cfx .cf-prompt-chip {
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--cf-ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cfx .cf-prompt-chip.is-on {
+  border-color: var(--cf-recall);
+  background: color-mix(in srgb, var(--cf-recall) 18%, transparent);
+  color: var(--cf-recall);
+  font-weight: 600;
+}
+
+.cf-prompt-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

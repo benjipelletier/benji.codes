@@ -246,6 +246,8 @@ export interface SessionCard {
   why?: QueueWhy;
   /** Word cards of a rescued word still recovering: the rescue's memory hook, shown on the back. */
   hook?: string | null;
+  /** Recall: the senses the owner chose for this card to ask with, instead of the automatic ones; null when not chosen. */
+  prompt?: string[] | null;
   /** Word cards of a word in a synonym group already compared: each word's core, this one first (synonyms.ts). */
   contrast?: { key: string; items: Array<{ zh: string; core: string }> } | null;
 }
