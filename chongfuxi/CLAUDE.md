@@ -220,7 +220,8 @@ in between count as they do; gaps over 3 minutes are breaks, Fast review is
 left out, and a kind with under 10 answers takes the overall median. It
 counts the due word cards (Read and Recall in their proportion), the due
 sentences and the new sentences mixed in with them (one per `DUE_PER_NEW`
-due). Above them, the days either
+due). Shown bare under Start ("~1h 56m", "~25m"): the owner wanted just the
+time. Above them, the days either
 side of today as a strip of bars, sliding sideways with today in the middle
 (`components/DayStrip.tsx`, route `days`): cards reviewed each day before
 (grey), cards falling due each day after (blue), today's done and still to

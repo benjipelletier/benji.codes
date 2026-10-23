@@ -177,7 +177,7 @@ function sessionTime(s: Summary, kinds: SessionKinds): string | null {
   const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace);
   if (!seconds) return null;
   const minutes = Math.max(1, Math.round(seconds / 60));
-  return minutes < 60 ? `about ${minutes} min` : `about ${Math.floor(minutes / 60)} h ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim();
+  return minutes < 60 ? `~${minutes}m` : `~${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
 }
 
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
