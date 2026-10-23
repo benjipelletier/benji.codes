@@ -1544,7 +1544,9 @@ text; a new source needs its reader, a `source` value and its add form.
 The owner's agent writes word lists through `/api/chongfuxi/agent/lists`
 (`app/api/chongfuxi/agent.ts`), at the owner's request. Every method needs
 `Authorization: Bearer <CHONGFUXI_AGENT_TOKEN>` (set on Vercel, at least 32
-characters; compared in constant time; unset or short, nothing gets in, 401):
+characters, a stray space or newline around it trimmed; compared in constant
+time; unset or short, nothing gets in and the answer is 503 "agent token not
+set on the server", so it can be told from a wrong token's 401):
 a bearer secret over HTTPS, since Vercel offers no client certificates for
 this. The owner's login is never involved, so the token is the agent's only.
 

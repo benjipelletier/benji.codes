@@ -28,15 +28,21 @@ export const MAX_WORDS = 500;
 const MAX_WORD = 12;
 const HAN = /^[㐀-鿿豈-﫿]+$/;
 
+/** The agent's token as set on the server (a stray space or newline pasted with it trimmed), or null when unset or too short to trust. */
+export function agentToken(): string | null {
+  const want = process.env.CHONGFUXI_AGENT_TOKEN?.trim();
+  return want && want.length >= 32 ? want : null;
+}
+
 /**
  * Whether the request carries the agent's token (`Authorization: Bearer
  * <token>`), compared in constant time. Without CHONGFUXI_AGENT_TOKEN set
  * nothing is accepted.
  */
 export function agentAllowed(req: NextRequest): boolean {
-  const want = process.env.CHONGFUXI_AGENT_TOKEN;
+  const want = agentToken();
   const got = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-  if (!want || want.length < 32 || !got || got.length !== want.length) return false;
+  if (!want || !got || got.length !== want.length) return false;
   return timingSafeEqual(Buffer.from(got), Buffer.from(want));
 }
 
