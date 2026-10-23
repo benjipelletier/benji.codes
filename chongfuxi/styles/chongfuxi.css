@@ -9,6 +9,9 @@
 
 :root {
   --cf-bg: #f3f5fa;
+  /* Behind a sheet: the page dimmed, and the sheet's own edge. */
+  --cf-scrim: rgba(8, 10, 16, 0.45);
+  --cf-sheet-edge: transparent;
   --cf-surface: #ffffff;
   --cf-sunken: rgba(20, 24, 34, 0.05);
   --cf-ink: #14171d;
@@ -37,6 +40,8 @@
   :root:not([data-theme="light"]) {
     --cf-bg: #0e1014;
     --cf-surface: #181b21;
+    --cf-scrim: rgba(0, 0, 0, 0.72);
+    --cf-sheet-edge: rgba(242, 243, 245, 0.16);
     --cf-sunken: rgba(242, 243, 245, 0.07);
     --cf-ink: #f2f3f5;
     --cf-ink-soft: #a3aab5;
@@ -63,6 +68,8 @@
 :root[data-theme="dark"] {
   --cf-bg: #0e1014;
   --cf-surface: #181b21;
+  --cf-scrim: rgba(0, 0, 0, 0.72);
+  --cf-sheet-edge: rgba(242, 243, 245, 0.16);
   --cf-sunken: rgba(242, 243, 245, 0.07);
   --cf-ink: #f2f3f5;
   --cf-ink-soft: #a3aab5;
@@ -4318,7 +4325,7 @@ label.cf-kind {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(8, 10, 16, 0.45);
+  background: var(--cf-scrim);
   animation: cf-fade 0.15s ease both;
 }
 
@@ -4337,9 +4344,23 @@ label.cf-kind {
   overscroll-behavior: contain;
   padding: 20px 18px calc(24px + env(safe-area-inset-bottom));
   border-radius: 22px 22px 0 0;
+  border-top: 1px solid var(--cf-sheet-edge);
   background: var(--cf-bg);
   box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25);
   animation: cf-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* A grab handle at the top: it reads as a sheet over the page, not the page. */
+.cf-sheet::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--cf-rule-strong);
 }
 
 @media (min-width: 700px) {

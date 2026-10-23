@@ -1669,7 +1669,10 @@ the session), `Learn` (the ladder: `useLadder` for the session, and a list's
 drill), `CardsPanel` (`WordsPanel`, `SentencesPanel` with its sentence
 page and `UnlockPanel`'s Unlock next page and blocker sheet, `ListsPanel`),
 `LookupPanel` (Look up), `StatsPanel`, `SettingsPanel` (with `Algorithm`). `Sheet` in `shared.tsx` is the sheet over the
-page (back, Escape, a tap outside close it).
+page (back, Escape, a tap outside close it). It has a grab handle and,
+in dark mode, a lit top edge over a darker backdrop (`--cf-scrim`,
+`--cf-sheet-edge`): the owner found the recap hard to tell from the page
+behind it, the sheet and the page sharing a background.
 
 Scripts (`npx tsx --env-file=.env.local chongfuxi/scripts/<name>`):
 
