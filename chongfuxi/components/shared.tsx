@@ -497,12 +497,27 @@ export function HskTags({ hsk }: { hsk: WordInfo["hsk"] }) {
 }
 
 /** The word, large, on one line: its length sets its size. */
-export function Word({ word }: { word: string }) {
+/** A card's headword, sized to its length. With `onOpen` (once the answer shows) a tap opens its word page, a faint › after it. */
+export function Word({ word, onOpen }: { word: string; onOpen?: () => void }) {
   const n = [...word].length;
+  const style = { "--n": Math.min(n, 6) } as React.CSSProperties;
+  const cls = `cf-card-word${n > 6 ? " is-long" : ""}`;
+  if (!onOpen) {
+    return (
+      <div className={cls} style={style}>
+        {word}
+      </div>
+    );
+  }
   return (
-    <div className={`cf-card-word${n > 6 ? " is-long" : ""}`} style={{ "--n": Math.min(n, 6) } as React.CSSProperties}>
-      {word}
-    </div>
+    <button className={`${cls} is-link`} style={style} onClick={onOpen} aria-label={`${word}: word page`}>
+      <span className="cf-card-word-in">
+        {word}
+        <span className="cf-card-word-go" aria-hidden="true">
+          ›
+        </span>
+      </span>
+    </button>
   );
 }
 

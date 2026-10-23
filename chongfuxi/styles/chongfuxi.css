@@ -2481,8 +2481,7 @@ label.cf-kind {
 .cf-card-foot {
   display: flex;
   justify-content: center;
-  /* Five tiles (with 词) must fit a phone's card: the gap gives way first. */
-  gap: clamp(2px, 2.4vw, 18px);
+  gap: 18px;
   margin-top: auto;
   padding-top: 16px;
 }
@@ -2561,15 +2560,6 @@ label.cf-kind {
 
 .cf-foot-btn.is-inline small {
   font-size: 13px;
-}
-
-.cfx .cf-card-foot .cf-foot-btn {
-  min-width: 48px;
-}
-
-/* 词: the word's page. */
-.cfx .cf-foot-btn.is-page {
-  --hue: var(--cf-sentence);
 }
 
 .cfx .cf-foot-btn.is-suspend {
@@ -9800,4 +9790,38 @@ button.cf-how-text {
   background: var(--cf-accent-soft);
   font-size: 16px;
   font-weight: 600;
+}
+
+/* The headword on a revealed card opens its word page: a plain button, a faint › after it. */
+/* `.cfx button` resets the font: the headword's own face and size again. */
+.cfx .cf-card-word.is-link {
+  display: block;
+  width: 100%;
+  font-family: var(--cf-zh);
+  font-weight: 600;
+  font-size: min(clamp(64px, 24vw, 96px), calc((min(100vw, 560px) - 80px) / var(--n, 2)));
+  line-height: 1.15;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The › hangs past the word, so the word stays centred. */
+.cf-card-word-in {
+  position: relative;
+}
+
+.cf-card-word-go {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.08em;
+  font-family: var(--cf-font-latin, system-ui);
+  font-size: 0.32em;
+  font-weight: 400;
+  vertical-align: middle;
+  color: var(--cf-ink-faint);
 }

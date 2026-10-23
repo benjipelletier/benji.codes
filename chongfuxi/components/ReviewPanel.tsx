@@ -987,7 +987,7 @@ export function Session({
 
           {card.kind === "read" && card.word && (
             <>
-              <Word word={card.word.word} />
+              <Word word={card.word.word} onOpen={revealed ? () => wordpage.openWordPage(card.word!.word) : undefined} />
               {card.meaning && !revealed && <p className="cf-card-hint">One of its other meanings, one you split off.</p>}
               {card.sentence && (
                 <>
@@ -1045,7 +1045,7 @@ export function Session({
               )}
               {revealed && (
                 <div className="cf-back">
-                  <Word word={card.word.word} />
+                  <Word word={card.word.word} onOpen={() => wordpage.openWordPage(card.word!.word)} />
                   {card.word.pinyin && <div className="cf-card-pinyin">{displayPinyin(card.word.pinyin)}</div>}
                   {card.alternatives && card.alternatives.length > 0 && (
                     <p className="cf-muted cf-also">Also means this: {card.alternatives.join("、")}</p>
@@ -1124,15 +1124,6 @@ export function Session({
             <div className="cf-card-foot">
               {card.word && (
                 <PlecoTile word={card.word.word} />
-              )}
-              {/* 词: the word's own page, over the session (its memory kit is there), back returning to the card. */}
-              {card.word && (
-                <button className="cf-foot-btn is-page" onClick={() => wordpage.openWordPage(card.word!.word)} aria-label="Word page">
-                  <span className="cf-foot-zh" aria-hidden="true">
-                    词
-                  </span>
-                  <small>Word</small>
-                </button>
               )}
               {canWrite && noting === null && (
                 <button className="cf-foot-btn is-note" onClick={() => setNoting(card.note ?? "")} aria-label={card.note ? "Edit note" : "Add a note"}>
