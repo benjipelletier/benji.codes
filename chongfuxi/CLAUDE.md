@@ -732,6 +732,21 @@ doesn't add much, I rly like the mnemonic"); the kit's hook shows on the
 word's cards and the schedule stays FSRS's; card misses and sentence
 trips both count.
 
+- **Memory kits** (the owner reframed Words to revive: "would be useful
+  for new words too"): Today's one button is "Memory kits", with how many
+  new and stuck words (`StuckWords`), opening one screen with two sections:
+  **New words**, the `IN_PLAY` words the Learn ladder takes next (part way
+  up first, then the next to meet; `newWords`, sent as `fresh` with the
+  list), each with whether it has a kit; then **Stuck words** by category
+  as below. The speed round and the story take both (`kitWords`: the stuck
+  ones, then the new). A word never answered gets a kit aimed at a first
+  impression rather than a rescue. **Any word, on demand**: a word's page
+  has a "Memory kit" button opening its kit over the page (`cf-kit-over`,
+  back closing it), made for the owner on opening; that works for a word
+  on a list, a name, or one only in sentences or the dictionary (the kit
+  reads back with the dictionary's reading and meaning when there is no
+  word row). Its hook only shows on cards, so a word not in the deck just
+  keeps the kit.
 - **Words to revive**, by category (`lib/revive.ts`, the owner's idea:
   "3 fails in a row is different from getting a word right a ton then
   failing it, which is different from failing it in context or on a

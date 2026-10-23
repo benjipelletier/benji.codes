@@ -14,13 +14,15 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Sql } from "./db";
-import type { Rescue, RescueChar, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue, RescueChar, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import { IN_PLAY } from "@chongfuxi/lib/learn";
+import { LEARN_ORDER } from "./learn";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES, REVIVE, classify, type ReviveCategory, type ReviveEvent } from "@chongfuxi/lib/revive";
 import { EFFORT, MODEL, ensureLookupTables, lookupWords } from "./lookup";
-import { promptSenses, shownPinyin } from "./review";
+import { ACTIVE, WAITING_TO_LEARN, promptSenses, shownPinyin } from "./review";
 import { dictEntries, traditionalOf } from "./headwords";
 import { SUSPENDED_WORD } from "./suspended";
 import { wordPage, wordSentences } from "./wordpage";
@@ -207,7 +209,8 @@ const FOCUS: Record<ReviveCategory, (partner: string | null) => string> = {
 
 async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<StuckWord, "category" | "why" | "partner"> | null) {
   const page = await wordPage(sql, owner, word);
-  if (!page || page.status !== "deck") throw new RescueError(`${word} isn't in the deck.`);
+  // Any word with a page: a deck word, one on a list, or one only in the dictionary (asked for from its page).
+  if (!page) throw new RescueError(`${word} isn't a word here.`);
   await ensureLookupTables(sql);
   const lookups = page.lookups.length
     ? ((await sql`
@@ -256,7 +259,15 @@ async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<St
         defs: Definition[];
       }>)[0]
     : undefined;
+  // A word never answered is new: the kit is its first impression, not a rescue.
+  const fresh = !place && page.answers.length === 0;
   const lines = [
+    ...(fresh
+      ? [
+          "It is new to them: they are learning it now or about to. Make the kit its first impression: a hook that ties its sound and characters to its meaning from the start, sentences that show its core use plainly, and contrasts with the words it is most likely to be confused with later.",
+          "",
+        ]
+      : []),
     ...(place
       ? [
           `Their trouble with it: ${CATEGORIES.find((c) => c.key === place.category)!.label} (${place.why}).`,
@@ -307,7 +318,7 @@ async function evidenceFor(sql: Sql, owner: string, word: string, place: Pick<St
   };
 }
 
-const SYSTEM = `You help a learner of Chinese hold on to a word they keep getting wrong. You are told what kind of trouble it is and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, its characters' dictionary entries, and their own sentences with it.
+const SYSTEM = `You help a learner of Chinese hold on to a word: one they keep getting wrong, or one they are just learning. You are told what kind of trouble it is, or that it is new, and what to aim at; then you are given everything their study app knows about it: its meanings, their answers on its cards, what they wrote after forgetting it, the sentences they forgot because of it, what they looked up, the words it travels with, its characters' dictionary entries, and their own sentences with it.
 
 Make a memory kit of four parts, each short enough to take in at a glance:
 - hook: one mnemonic, one or two short sentences for the back of a flashcard. Vivid and concrete, linking the word's sound and/or characters to its meaning, aimed at why it slips (e.g. "fāxiàn sounds like 'far she ran': she ran far and found it"). This is the place for invention; nowhere else is.
@@ -482,7 +493,7 @@ type Row = {
   stale: boolean;
   outdated: boolean;
   pinyin: string | null;
-  defs: Definition[];
+  defs: Definition[] | null;
 };
 
 async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescue | null> {
@@ -495,16 +506,18 @@ async function savedRescue(sql: Sql, owner: string, word: string): Promise<Rescu
                         and ${RESULTS} and r.grade = 'forgot' and r.at > x.at)) as stale,
             coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} as outdated,
             w.pinyin, w.defs
-     from chongfuxi_rescue x join chongfuxi_word w on w.owner_email = x.owner_email and w.word = x.word
+     from chongfuxi_rescue x left join chongfuxi_word w on w.owner_email = x.owner_email and w.word = x.word
      where x.owner_email = $1 and x.word = $2`,
     [owner, word],
   )) as unknown as Row[];
   if (!row) return null;
-  const p = shownPinyin(row.pinyin, row.defs);
+  // A word with no row (asked for from its page: only in sentences or the dictionary) takes the dictionary's.
+  const defs: Definition[] = row.defs ?? dictEntries(word).map((e) => ({ p: e.p, senses: e.senses }));
+  const p = shownPinyin(row.pinyin, defs);
   return {
     word: row.word,
     pinyin: p,
-    gloss: promptSenses(row.defs, p).slice(0, 2).join("; ") || null,
+    gloss: promptSenses(defs, p).slice(0, 2).join("; ") || null,
     at: Math.round(row.at),
     model: row.model,
     hook: row.rescue.hook,
@@ -603,11 +616,46 @@ export async function checkOwnSentence(sql: Sql, owner: string, word: string, zh
 }
 
 /**
- * The speed round's cards: every word to revive, with its rescue's hook,
- * none for a word never rescued. Nothing here touches a schedule. Readable by anyone.
+ * The words on the Learn ladder next (the IN_PLAY it takes first: those part
+ * way up, then the next to meet), for Memory kits' New words, each with
+ * whether it has a kit. Readable by anyone.
+ */
+export async function newWords(sql: Sql, owner: string): Promise<KitNewWord[]> {
+  await ensureRescueTable(sql);
+  const rows = (await sql.query(
+    `select c.word, w.pinyin, w.defs, c.learn_step as step,
+            case when x.word is null then 'none'
+                 when coalesce((x.rescue->>'version')::int, 1) < ${RESCUE_VERSION} then 'stale'
+                 else 'done' end as kit
+     from chongfuxi_card c
+     join chongfuxi_word w on w.owner_email = c.owner_email and w.word = c.word and w.status = 'deck'
+     left join chongfuxi_rescue x on x.owner_email = c.owner_email and x.word = c.word
+     where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN}
+     order by ${LEARN_ORDER}
+     limit $2`,
+    [owner, IN_PLAY],
+  )) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[]; step: string | null; kit: KitNewWord["kit"] }>;
+  return rows.map((r) => {
+    const pinyin = shownPinyin(r.pinyin, r.defs);
+    return { word: r.word, pinyin, gloss: promptSenses(r.defs, pinyin).slice(0, 2).join("; ") || null, step: r.step, kit: r.kit };
+  });
+}
+
+/** The words the speed round and the story go through: the stuck ones (longest streaks first), then the new ones. */
+async function kitWords(sql: Sql, owner: string, stuckMax = Infinity): Promise<Array<{ word: string; pinyin: string | null; gloss: string | null }>> {
+  const [stuck, fresh] = await Promise.all([stuckWords(sql, owner), newWords(sql, owner)]);
+  const out = stuck.slice(0, stuckMax).map((w) => ({ word: w.word, pinyin: w.pinyin, gloss: w.gloss }));
+  for (const w of fresh) if (!out.some((o) => o.word === w.word)) out.push({ word: w.word, pinyin: w.pinyin, gloss: w.gloss });
+  return out;
+}
+
+/**
+ * The speed round's cards: every word to revive and every new word on the
+ * Learn ladder, with its kit's hook, none for a word without a kit. Nothing
+ * here touches a schedule. Readable by anyone.
  */
 export async function speedWords(sql: Sql, owner: string): Promise<Array<{ word: string; pinyin: string | null; gloss: string | null; hook: string | null }>> {
-  const words = await stuckWords(sql, owner);
+  const words = await kitWords(sql, owner);
   if (!words.length) return [];
   const hooks = (await sql`
     select word, rescue->>'hook' as hook from chongfuxi_rescue where owner_email = ${owner} and word = any(${words.map((w) => w.word)}::text[])
@@ -640,10 +688,10 @@ export async function rescueHooks(sql: Sql, owner: string, words: string[]): Pro
 
 // ------------------------------------------------------------------ story --
 
-/** Stuck words a story is written around, the longest streaks first. */
+/** Stuck words a story is written around, the longest streaks first; the new words on the Learn ladder go in too. */
 const STORY_WORDS = 15;
 
-const STORY_SYSTEM = `You write a short story in simplified Chinese for a learner, to help them remember words they keep forgetting. Use every one of the given words, each in a sentence where its meaning is clear from what happens (not just mentioned), in the sense given. Everything else in the story should be simple, common vocabulary (HSK 1–4), so the given words stand out. Exactly two paragraphs, each four to seven sentences, telling one connected story with a little humour or tension. Give a short Chinese title, and for each paragraph a natural English translation. Write the words exactly as given, with no spaces or pinyin in the Chinese.`;
+const STORY_SYSTEM = `You write a short story in simplified Chinese for a learner, to help them remember words they keep forgetting or are just learning. Use every one of the given words, each in a sentence where its meaning is clear from what happens (not just mentioned), in the sense given. Everything else in the story should be simple, common vocabulary (HSK 1–4), so the given words stand out. Exactly two paragraphs, each four to seven sentences, telling one connected story with a little humour or tension. Give a short Chinese title, and for each paragraph a natural English translation. Write the words exactly as given, with no spaces or pinyin in the Chinese.`;
 
 const STORY_SCHEMA = {
   type: "object",
@@ -671,7 +719,7 @@ export async function storyOf(sql: Sql, owner: string): Promise<StuckStory | nul
     from chongfuxi_rescue_story where owner_email = ${owner}
   `) as unknown as Array<{ at: number; model: string; words: string[]; story: { title: string; paragraphs: Array<{ zh: string; en: string }> } }>;
   if (!row) return null;
-  const now = (await stuckWords(sql, owner)).slice(0, STORY_WORDS).map((w) => w.word);
+  const now = (await kitWords(sql, owner, STORY_WORDS)).map((w) => w.word);
   const text = row.story.paragraphs.map((p) => p.zh).join("");
   return {
     at: Math.round(row.at),
@@ -686,8 +734,8 @@ export async function storyOf(sql: Sql, owner: string): Promise<StuckStory | nul
 
 /** Write a story with the stuck words in it, and keep it. Owner only: it costs money. */
 export async function makeStory(sql: Sql, owner: string): Promise<StuckStory> {
-  const stuck = (await stuckWords(sql, owner)).slice(0, STORY_WORDS);
-  if (!stuck.length) throw new RescueError("No word is stuck, so there is nothing to write a story around.");
+  const stuck = await kitWords(sql, owner, STORY_WORDS);
+  if (!stuck.length) throw new RescueError("No word is stuck or new, so there is nothing to write a story around.");
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new RescueError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
 

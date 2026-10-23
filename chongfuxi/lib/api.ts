@@ -297,6 +297,17 @@ export interface RescueContrast {
   pair: { mine: { zh: string; en: string }; theirs: { zh: string; en: string } } | null;
 }
 
+/** A word on the Learn ladder now, for Memory kits' New words. */
+export interface KitNewWord {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  /** Its next Learn step, or null when it hasn't been met yet. */
+  step: string | null;
+  /** Whether it has a kit: none yet, made, or of an older shape. */
+  kit: "none" | "done" | "stale";
+}
+
 /** Two paragraphs the model wrote around the stuck words, to meet them all in one story. */
 export interface StuckStory {
   at: number;

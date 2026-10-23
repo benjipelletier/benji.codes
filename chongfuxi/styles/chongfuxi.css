@@ -9667,3 +9667,24 @@ button.cf-how-text {
 .cf-card-sentence:has(.cf-ruby) {
   line-height: 1.25;
 }
+
+/* Memory kits: the list's Stuck words heading, the word page's button, and a kit over the word page. */
+.cf-kits-h {
+  margin: 22px 0 4px;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.cfx .cf-wp-kit {
+  margin: 0 0 18px;
+}
+
+.cf-kit-over {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--cf-bg);
+  animation: cf-fade 0.15s ease both;
+}

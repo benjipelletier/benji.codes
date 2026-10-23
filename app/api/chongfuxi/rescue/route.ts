@@ -2,13 +2,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { RescueError, checkOwnSentence, makeRescue, makeStory, rescueOf, speedWords, storyOf, stuckWords } from "../rescue";
+import { RescueError, checkOwnSentence, makeRescue, makeStory, newWords, rescueOf, speedWords, storyOf, stuckWords } from "../rescue";
 
 export const dynamic = "force-dynamic";
 // One model call, at Look up's effort.
 export const maxDuration = 120;
 
-/** The stuck words; with ?w=, that word's rescue (null if none yet); with ?story=1, their story. Readable by anyone. */
+/** Memory kits: the stuck words and the new words on the Learn ladder (`fresh`); with ?w=, that word's rescue (null if none yet); with ?story=1, their story. Readable by anyone. */
 export async function GET(req: NextRequest) {
   const gate = ownersLog();
   if ("refused" in gate) return gate.refused;
@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     if (!w || w.length > 20) return bad("which word?");
     return NextResponse.json({ rescue: await rescueOf(gate.sql, gate.owner, w) });
   }
-  return NextResponse.json({ words: await stuckWords(gate.sql, gate.owner) });
+  const [words, fresh] = await Promise.all([stuckWords(gate.sql, gate.owner), newWords(gate.sql, gate.owner)]);
+  return NextResponse.json({ words, fresh });
 }
 
 /**

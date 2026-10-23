@@ -16,6 +16,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainFirst } from "@chongfuxi/lib/senses";
 import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 import { SameEnglish } from "./Synonyms";
+import { Rescue } from "./Rescue";
 
 const DAY = 86_400_000;
 /** Tiles drawn per group before "Show all". */
@@ -319,6 +320,9 @@ export function WordSheet({
   const [error, setError] = useState<string | null>(null);
   const [bringing, setBringing] = useState(false);
   const [more, setMore] = useState(false);
+  // Its memory kit, over the page (any word, on demand: the owner's ask); back closes it.
+  const [kit, setKit] = useState(false);
+  useBackLayer(kit, () => setKit(false));
   // Its sentences a panel at a time (readable, one away, locked), each loaded when first opened.
   const [panel, setPanel] = useState<Standing>("readable");
   const [rows, setRows] = useState<Partial<Record<Standing, WordPageSentence[]>>>({});
@@ -452,6 +456,21 @@ export function WordSheet({
 
         {error && <p className="cf-error">{error}</p>}
         {!d && !error && !missing && <Loading label="Gathering everything about it…" />}
+
+        {d && (
+          <button className="cf-stuck cf-wp-kit" onClick={() => setKit(true)}>
+            <span className="cf-stuck-text">
+              <b>Memory kit</b>
+              <small>A hook, where its characters come from, sentences, what not to mix it up with</small>
+            </span>
+            <i aria-hidden="true">›</i>
+          </button>
+        )}
+        {kit && (
+          <div className="cf-kit-over">
+            <Rescue canWrite={canWrite} word={word} onEnd={() => setKit(false)} />
+          </div>
+        )}
 
         {/* Not in the deck: added from here, at the top, where it is looked for (the owner's request). */}
         {(missing || (d && d.status !== "deck")) && (

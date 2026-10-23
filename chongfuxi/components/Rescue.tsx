@@ -13,7 +13,7 @@
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Rescue as RescueData, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue as RescueData, RescueChar, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
@@ -21,7 +21,8 @@ import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
-const STATE: Record<StuckWord["rescue"], string> = { none: "Rescue", ready: "Ready", done: "Done", stale: "Missed again" };
+const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
+const NEW_STATE: Record<KitNewWord["kit"], string> = { none: "Make kit", done: "Kit ready", stale: "Make kit" };
 const FORMATION: Record<RescueChar["formation"], string> = {
   pictograph: "Pictograph",
   ideograph: "Ideograph",
@@ -32,29 +33,34 @@ const FORMATION: Record<RescueChar["formation"], string> = {
 };
 const ROLE: Record<RescueChar["parts"][number]["role"], string> = { meaning: "meaning", sound: "sound", form: "shape" };
 
-/** The stuck words, loaded once per mount. */
-function useStuck(): StuckWord[] | null {
-  const [words, setWords] = useState<StuckWord[] | null>(null);
+/** Memory kits' words: the stuck ones and the new ones on the Learn ladder, loaded once per mount. */
+function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
+  const [kits, setKits] = useState<{ stuck: StuckWord[]; fresh: KitNewWord[] } | null>(null);
   useEffect(() => {
-    get<{ words: StuckWord[] }>("rescue")
-      .then((r) => setWords(r.words))
-      .catch(() => setWords([]));
+    get<{ words: StuckWord[]; fresh?: KitNewWord[] }>("rescue")
+      .then((r) => setKits({ stuck: r.words, fresh: r.fresh ?? [] }))
+      .catch(() => setKits({ stuck: [], fresh: [] }));
   }, []);
-  return words;
+  return kits;
 }
 
-/** On Today: one button with how many words need reviving, by kind, opening their list. Nothing when none do. */
+/**
+ * On Today: one Memory kits button with how many new and stuck words there
+ * are, opening their list (the owner reframed Words to revive to take in new
+ * words too). Nothing when there are none.
+ */
 export function StuckWords({ onOpen }: { onOpen: () => void }) {
-  const words = useStuck();
-  if (!words?.length) return null;
-  const kinds = CATEGORIES.map((c) => ({ label: c.label, n: words.filter((w) => w.category === c.key).length })).filter((k) => k.n);
+  const kits = useKits();
+  const total = kits ? kits.stuck.length + kits.fresh.length : 0;
+  if (!kits || !total) return null;
+  const parts = [kits.fresh.length && `${fmt(kits.fresh.length)} new`, kits.stuck.length && `${fmt(kits.stuck.length)} stuck`].filter(Boolean);
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
-        <b>Words to revive</b>
-        <small>{kinds.map((k) => `${fmt(k.n)} ${k.label.toLowerCase()}`).join(" · ")}</small>
+        <b>Memory kits</b>
+        <small>{parts.join(" · ")}</small>
       </span>
-      <span className="cf-stuck-count">{fmt(words.length)}</span>
+      <span className="cf-stuck-count">{fmt(total)}</span>
       <i aria-hidden="true">›</i>
     </button>
   );
@@ -75,7 +81,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
     setLoads((n) => n + 1);
   }, []);
   useBackLayer(open !== null || story || speed, close);
-  if (open) return <Rescue shell={shell} word={open} onEnd={close} />;
+  if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (story) return <StoryView shell={shell} onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   return <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onEnd={onEnd} />;
@@ -194,7 +200,9 @@ function StuckRows({
   onSpeed: () => void;
   onEnd: () => void;
 }) {
-  const words = useStuck();
+  const kits = useKits();
+  const words = kits?.stuck ?? null;
+  const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   return (
     <div className="cf-rescue">
       <div className="cf-fast-top">
@@ -203,17 +211,17 @@ function StuckRows({
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="cf-rescue-top">Words to revive{words ? ` · ${fmt(words.length)}` : ""}</p>
+        <p className="cf-rescue-top">Memory kits{kits ? ` · ${fmt(total)}` : ""}</p>
       </div>
       <div className="cf-rescue-in">
-        {!words && <Loading label="Finding them…" />}
-        {words && !words.length && <p className="cf-muted">Nothing needs reviving.</p>}
-        {words && words.length > 0 && (
+        {!kits && <Loading label="Finding them…" />}
+        {kits && !total && <p className="cf-muted">No new or stuck words right now.</p>}
+        {kits && total > 0 && (
           <>
             <button className="cf-stuck cf-story-btn cf-speed-btn" onClick={onSpeed}>
               <span className="cf-stuck-text">
                 <b>Speed round</b>
-                <small>Flip through all {fmt(words.length)} fast, saying each out loud</small>
+                <small>Flip through all {fmt(total)} fast, saying each out loud</small>
               </span>
               <i aria-hidden="true">›</i>
             </button>
@@ -224,8 +232,32 @@ function StuckRows({
               </span>
               <i aria-hidden="true">›</i>
             </button>
+            {kits.fresh.length > 0 && (
+              <section className="cf-revive-group">
+                <h3 className="cf-revive-h">
+                  New words <span>{fmt(kits.fresh.length)}</span>
+                </h3>
+                <p className="cf-muted cf-stuck-about">On the Learn ladder now: a kit to meet each one with.</p>
+                <ul className="cf-stuck-list">
+                  {kits.fresh.map((w) => (
+                    <li key={w.word}>
+                      <button onClick={() => onOpen(w.word)}>
+                        <span className="cf-stuck-zh cf-zh">{w.word}</span>
+                        <span className="cf-stuck-body">
+                          {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
+                          {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
+                          <span className="cf-stuck-why">{w.step ? "Learning it" : "Not met yet"}</span>
+                        </span>
+                        <span className={`cf-stuck-state is-${w.kit === "done" ? "done" : "none"}`}>{NEW_STATE[w.kit]}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {words!.length > 0 && <h2 className="cf-kits-h">Stuck words</h2>}
             {CATEGORIES.map((c) => {
-              const these = words.filter((w) => w.category === c.key);
+              const these = words!.filter((w) => w.category === c.key);
               if (!these.length) return null;
               return (
                 <section key={c.key} className="cf-revive-group">
@@ -271,8 +303,7 @@ export function RescueHook({ hook }: { hook: string }) {
 }
 
 /** A word's rescue, full screen: why it slips, the handles to pick from, a sentence of one's own, its confusions. */
-export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onEnd: () => void }) {
-  const { canWrite } = shell;
+export function Rescue({ canWrite, word, onEnd }: { canWrite: boolean; word: string; onEnd: () => void }) {
   const [r, setR] = useState<RescueData | null>(null);
   const [making, setMaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -329,13 +360,13 @@ export function Rescue({ shell, word, onEnd }: { shell: Shell; word: string; onE
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="cf-rescue-top">Word to revive</p>
+        <p className="cf-rescue-top">Memory kit</p>
       </div>
 
       <div className="cf-rescue-in">
         {error && <p className="cf-error">{error}</p>}
         {making && <Loading label="Going through everything about it… this can take a minute." />}
-        {!r && !making && !error && !canWrite && <p className="cf-muted">No rescue has been made for {word} yet.</p>}
+        {!r && !making && !error && !canWrite && <p className="cf-muted">No memory kit has been made for {word} yet.</p>}
         {!r && !making && !error && canWrite && <Loading label="Opening…" />}
 
         {r && !making && (
