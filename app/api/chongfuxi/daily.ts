@@ -41,7 +41,7 @@ async function ensureTable(sql: Sql) {
 }
 
 /** The owner's study day now, by the clock their last answer was given on (day.ts: it turns over at ROLLOVER_HOUR). */
-async function ownersDay(sql: Sql, owner: string, at = Date.now()): Promise<string> {
+export async function ownersDay(sql: Sql, owner: string, at = Date.now()): Promise<string> {
   const [last] = (await sql`
     select utc_offset from chongfuxi_review where owner_email = ${owner} and utc_offset is not null order by at desc limit 1
   `) as unknown as Array<{ utc_offset: number }>;

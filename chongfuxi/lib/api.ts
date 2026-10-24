@@ -1100,3 +1100,39 @@ export interface SynonymCompare {
   /** Which one fits: the owner's sentences blanked, the group's words as options. */
   quiz: Array<{ prompt: string; choices: string[]; answer: string; explain: string; sentence: { id: number; en: string | null } | null }>;
 }
+
+/**
+ * A card in Muse's review (app/api/chongfuxi/drill.ts): any of a few shapes,
+ * whichever the agent judges most useful for the problem it aims at. Each
+ * says what it aims at (`why`), the words it is about (`focus`) and, after
+ * the answer, what to take from it (`explain`).
+ */
+export type DrillCard = { focus: string[]; why: string; explain: string } & (
+  | { type: "flip"; front: string; back: string; hint: string }
+  | { type: "cloze"; zh: string; answer: string; en: string; options: string[] }
+  | { type: "choice"; prompt: string; options: string[]; answer: number }
+  | { type: "order"; pieces: string[]; en: string }
+  | { type: "produce"; en: string; answer: string; accept: string[]; hint: string }
+  | { type: "listen"; zh: string; en: string }
+);
+
+export interface DrillResult {
+  grade: "got" | "missed";
+  /** What was typed, for a produce card. */
+  given: string | null;
+  at: number;
+}
+
+/** A day's review, written by Muse. */
+export interface Drill {
+  day: string;
+  at: number;
+  model: string;
+  title: string;
+  /** A line from Muse on what it aimed at today. */
+  note: string;
+  cards: DrillCard[];
+  /** By card index: the latest result. */
+  results: Record<number, DrillResult>;
+  today: boolean;
+}

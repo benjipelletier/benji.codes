@@ -9949,3 +9949,202 @@ button.cf-how-text {
   margin: 0 0 6px;
   font-size: 13px;
 }
+
+/* Muse's review: one card at a time, in whatever shape Muse chose. */
+.cf-drill .cf-speed-stage {
+  overflow-y: auto;
+}
+
+.cf-drill-intro p {
+  margin: 0 0 2px;
+}
+
+.cf-drill-title {
+  font-family: var(--cf-zh);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cf-drill-card {
+  flex: 1 0 auto;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 18px 16px;
+  cursor: default;
+  user-select: text;
+}
+
+.cf-drill-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cf-accent);
+}
+
+.cf-drill-label span {
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+.cf-drill-front,
+.cf-drill-back {
+  font-size: 19px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.cf-drill-back {
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-drill-zh.cf-zh {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.cf-drill-gap {
+  display: inline-block;
+  min-width: 2.2em;
+  margin: 0 2px;
+  border-bottom: 2px dashed var(--cf-accent);
+  color: var(--cf-ink-faint);
+}
+
+.cf-drill-gap.is-filled {
+  border-bottom-style: solid;
+  color: var(--cf-up);
+}
+
+.cf-drill-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cf-drill-options.is-list {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+.cfx .cf-drill-option,
+.cfx .cf-drill-piece {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.cfx .cf-drill-option.cf-zh,
+.cfx .cf-drill-piece {
+  font-family: var(--cf-zh);
+  font-size: 20px;
+}
+
+.cfx .cf-drill-option.is-right {
+  border-color: var(--cf-up);
+  background: var(--cf-up-soft);
+}
+
+.cfx .cf-drill-option.is-wrong {
+  border-color: var(--cf-down);
+  background: var(--cf-down-soft);
+  text-decoration: line-through;
+}
+
+.cfx .cf-drill-option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.cf-drill-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 52px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--cf-sunken);
+}
+
+.cf-drill-line.is-right {
+  background: var(--cf-up-soft);
+}
+
+.cf-drill-line.is-wrong {
+  background: var(--cf-down-soft);
+}
+
+.cfx .cf-drill-piece.is-placed {
+  border-color: var(--cf-accent);
+}
+
+.cf-drill-typed.cf-zh {
+  font-size: 20px;
+  color: var(--cf-down);
+  text-decoration: line-through;
+}
+
+.cf-drill-explain {
+  max-width: 34em;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.cf-drill-focus {
+  justify-content: center;
+}
+
+.cf-drill .cf-rescue-type {
+  width: 100%;
+}
+
+.cfx .cf-answer-btn.is-suggested {
+  box-shadow: 0 0 0 3px var(--cf-accent-soft);
+}
+
+.cfx .cf-answer-forgot.is-suggested {
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+}
+
+.cfx .cf-speed-answers .cf-drill-show {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin: 0;
+}
+
+.cf-drill-missed {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.cf-drill-missed li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cf-rule);
+  font-size: 15px;
+}
+
+.cf-drill-missed p {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.cfx .cf-drill-btn {
+  border-color: var(--cf-accent);
+}

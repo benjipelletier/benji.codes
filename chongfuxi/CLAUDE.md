@@ -881,6 +881,8 @@ trips both count.
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
+- **Muse's review** heads the screen: cards Muse writes from the problem
+  areas (see Lists written by the owner's agent).
 - Settings › Algorithm has the Rescue group.
 
 ## Synonyms: words with the same English
@@ -1589,6 +1591,41 @@ it) and `written`. POST `{ title, paragraphs: [{ zh, en }], day?, model? }`
 keeps it as that day's story (one already there replaced; up to 3
 paragraphs, 600 characters of Chinese each; refused without Chinese), its
 targets the material as it stands then.
+
+**Muse's review** (`app/api/chongfuxi/drill.ts`, `/api/chongfuxi/agent/drill`,
+same token; the owner's ask: cards made from their "specific problem areas",
+with "the freedom to make any type of card"). GET gives the material
+(`drillMaterial`): `day`, `brief` (the card shapes and how to write them),
+`written`, and the problem areas: `stuck` (the words to revive with their
+category, why and partner), `notes` (what was written after a Forgot, 30
+days), `trips` (sentences forgotten with the words tapped), `lookups` (with
+the owner's verdict and note), `attempts` (their own kit sentences graded
+almost or wrong), `last` (the last review, card by card, and how each went,
+so Muse can follow up) and `known` (strong words to write the rest with).
+POST `{ title?, note?, cards, day?, model? }` keeps up to `DRILL_MAX` (40)
+cards as that day's review (one already there replaced, its results with
+it); Muse can write once a day or whenever it likes. A card is one of six
+shapes (`DrillCard` in `lib/api.ts`, checked by `checkCard`, anything else
+dropped and counted back as `dropped`), each with `focus` (its words), `why`
+(the problem it aims at) and `explain` (shown after answering):
+**flip** (front, back, hint: anything at all), **cloze** (a sentence with
+`___`, its English, options or none), **choice** (2–6 options, the index of
+the right one), **order** (the pieces in order; the app shuffles them),
+**produce** (English to Chinese, typed and compared without spaces or
+punctuation against the answer and `accept`, or said and self-graded),
+**listen** (read aloud by the phone's zh-CN voice, then shown).
+
+In the app it heads the Memory kits screen, "Muse's review" with the
+cards left (also counted on Today's Memory kits button, which shows when
+there is a review to do even with no new or stuck words), and opens full
+screen (`DrillView` in `components/Drill.tsx`): the title, Muse's note and
+date over the first card, then each card in its own way. A card that can
+tell (cloze or choice picked, order checked, produce typed) marks Got it or
+Missed as suggested; the owner still taps one. Each answer is kept, the
+latest per card (`chongfuxi_drill_answer`, route `drill`, POST owner only;
+GET, anyone, the latest review with its results). It opens on the first
+card not yet answered; the end shows the score, the missed with what to take
+from each, and "Go over the N missed". Nothing touches a schedule.
 
 ## Bug reports
 

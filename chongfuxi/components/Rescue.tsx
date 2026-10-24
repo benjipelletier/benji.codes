@@ -20,6 +20,7 @@ import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import { DrillView, drillLeft, say, useDrill } from "./Drill";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
@@ -44,16 +45,22 @@ function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
  */
 export function StuckWords({ onOpen }: { onOpen: () => void }) {
   const kits = useKits();
+  const drill = useDrill();
+  const left = drillLeft(drill);
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
-  if (!kits || !total) return null;
-  const parts = [kits.fresh.length && `${fmt(kits.fresh.length)} new`, kits.stuck.length && `${fmt(kits.stuck.length)} stuck`].filter(Boolean);
+  if (!kits || (!total && !left)) return null;
+  const parts = [
+    left && `${fmt(left)} from Muse`,
+    kits.fresh.length && `${fmt(kits.fresh.length)} new`,
+    kits.stuck.length && `${fmt(kits.stuck.length)} stuck`,
+  ].filter(Boolean);
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
         <b>Memory kits</b>
         <small>{parts.join(" · ")}</small>
       </span>
-      <span className="cf-stuck-count">{fmt(total)}</span>
+      <span className="cf-stuck-count">{fmt(total + left)}</span>
       <i aria-hidden="true">›</i>
     </button>
   );
@@ -65,19 +72,24 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
   const [open, setOpen] = useState<string | null>(null);
   const [story, setStory] = useState(false);
   const [speed, setSpeed] = useState(false);
+  const [drill, setDrill] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
     setOpen(null);
     setStory(false);
     setSpeed(false);
+    setDrill(false);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || story || speed, close);
+  useBackLayer(open !== null || story || speed || drill, close);
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (story) return <StoryView onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
-  return <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onEnd={onEnd} />;
+  if (drill) return <DrillView canWrite={shell.canWrite} onEnd={close} />;
+  return (
+    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onEnd={onEnd} />
+  );
 }
 
 /** A paragraph with the stuck words in it marked, each opening its page. */
@@ -159,14 +171,18 @@ function StuckRows({
   onOpen,
   onStory,
   onSpeed,
+  onDrill,
   onEnd,
 }: {
   onOpen: (word: string) => void;
   onStory: () => void;
   onSpeed: () => void;
+  onDrill: () => void;
   onEnd: () => void;
 }) {
   const kits = useKits();
+  const drill = useDrill();
+  const left = drillLeft(drill);
   const words = kits?.stuck ?? null;
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   return (
@@ -181,6 +197,20 @@ function StuckRows({
       </div>
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
+        {drill && (
+          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={onDrill}>
+            <span className="cf-stuck-text">
+              <b>Muse&apos;s review</b>
+              <small>
+                {left
+                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards to go, aimed at your problem areas`
+                  : `All ${fmt(drill.cards.length)} done${drill.today ? "" : " · today's isn't written yet"}`}
+              </small>
+            </span>
+            {left > 0 && <span className="cf-stuck-count">{fmt(left)}</span>}
+            <i aria-hidden="true">›</i>
+          </button>
+        )}
         {kits && !total && <p className="cf-muted">No new or stuck words right now.</p>}
         {kits && total > 0 && (
           <>
@@ -496,22 +526,6 @@ const SPEED_DONE = 2;
 const SPEED_BACK = 3;
 
 /** The word said by the phone's own Chinese voice, after the owner has said it. */
-function say(word: string) {
-  try {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(word);
-    u.lang = "zh-CN";
-    const voice = synth.getVoices().find((v) => v.lang.toLowerCase().startsWith("zh"));
-    if (voice) u.voice = voice;
-    u.rate = 0.9;
-    synth.speak(u);
-  } catch {
-    // No voice: the round goes on silently.
-  }
-}
-
 type SpeedCard = { word: string; pinyin: string | null; gloss: string | null; hook: string | null };
 
 /**
