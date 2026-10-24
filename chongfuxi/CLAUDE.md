@@ -1616,9 +1616,21 @@ dropped and counted back as `dropped`), each with `focus` (its words), `why`
 **flip** (front, back, hint: anything at all), **cloze** (a sentence with
 `___`, its English, options or none), **choice** (2–6 options, the index of
 the right one), **order** (the pieces in order; the app shuffles them),
-**produce** (English to Chinese, typed and compared without spaces or
-punctuation against the answer and `accept`, or said and self-graded),
+**produce** (English to Chinese, said out loud, then "One way to say it"
+and `accept` shown and self-graded: typing was taken out, since a sentence
+has too many right versions to match and the owner's correct 慢慢地走 was
+struck through),
 **listen** (read aloud by the phone's zh-CN voice, then shown).
+
+The first review (36 cards) showed what goes wrong, and the brief now
+makes Muse check each card against it: exactly one right answer (搭, 坐 and
+乘 all fit 她要___火车), distractors that are the real confusion, not filler
+(乘客 for 乘坐), nothing giving it away, the actual failure tested, one angle
+per word, an explanation of why the near misses are wrong. The owner chose
+this over a check by the app's model. `checkCard` also drops what code can
+see: duplicate options, an order card of single characters or under 6
+characters (来 日 方 长), and a hint whose parts are in the prompt or answer
+("theme, subject" on "The theme of this article…").
 
 In the app it heads the Muse reviews screen, "Today's review" with the
 cards left (also counted on Today's Muse reviews button, which shows when

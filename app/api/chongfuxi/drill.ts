@@ -55,13 +55,23 @@ async function ensureTables(sql: Sql) {
   ready = true;
 }
 
-const BRIEF = `Write today's review for a Chinese learner, aimed at their problem areas below. You have free rein over what to test and how: pick, for each problem, the card shape that will help most, and mix shapes. Between 10 and ${DRILL_MAX} cards, as many as the problems deserve. Card shapes (every card also has "focus": the Chinese words it is about, "why": the problem it targets in a few words, "explain": one or two sentences shown after answering, saying what to take from it):
-- flip {front, back, hint}: anything at all, a question on the front, the answer on the back. The catch-all.
-- cloze {zh, answer, en, options}: a Chinese sentence with ___ where the answer goes, its English, and optionally 2-5 options to choose from (the answer among them; [] to make them recall it).
-- choice {prompt, options, answer}: a question with 2-6 options, answer the index of the right one. Good for telling near-synonyms apart.
-- order {pieces, en}: a sentence cut into 3-10 pieces in the right order (the app shuffles them), with its English. Good for word order and grammar.
-- produce {en, answer, accept, hint}: English to say in Chinese; answer is the best Chinese, accept other correct versions. They type it, or say it and check.
-- listen {zh, en}: a sentence read aloud by the phone; they say what it means, then see it.
+const BRIEF = `Write today's review for a Chinese learner, aimed at their problem areas below. You choose what to test and how: for each problem, the card shape that will help most. Between 10 and ${DRILL_MAX} cards, as many as the problems deserve; fewer good cards beat many weak ones.
+
+Card shapes (every card also has "focus": the Chinese words it is about, "why": the problem it targets in a few words, "explain": one or two sentences shown after answering, saying what to take from it):
+- flip {front, back, hint}: a question on the front, the answer on the back. The catch-all.
+- cloze {zh, answer, en, options}: a Chinese sentence with ___ where the answer goes, its English, and 2-5 options (the answer among them), or [] to make them recall it.
+- choice {prompt, options, answer}: a question with 2-6 options, answer the index of the right one.
+- order {pieces, en}: a sentence of 8+ characters cut into 4-8 pieces (whole words or phrases, never single characters), in the right order; the app shuffles them.
+- produce {en, answer, accept, hint}: English they say out loud in Chinese, then compare with your answer and grade themselves. Keep it to a short phrase that needs the target word.
+- listen {zh, en}: a sentence the phone reads aloud; they say what it means, then see it.
+
+Every card must pass these checks; check each one before you send it:
+1. Exactly one right answer. Every other option must be clearly wrong in that very sentence, not just less usual: 坐, 乘 and 搭 all fit 她要___火车, and 避免 and 预防 both fit ___生病, so neither is a test. If a native speaker could defend another option, rewrite the sentence until only the target fits, or use another shape.
+2. Distractors are the real confusion: the word they mixed it up with, or a near-synonym that fails here for a reason the explanation names. Never filler (乘客 for 乘坐, 坐车) or words of the wrong kind.
+3. Nothing gives it away: no hint that repeats the English or the answer, no English in a cloze or choice prompt that translates the gap word by word when the point is choosing between near-synonyms, no definition that is the dictionary gloss of the answer.
+4. Test the actual failure. A word they read but can't produce: a context where they must come up with it. A word mixed up with another: the two side by side in sentences only one fits. A sentence that tripped them: that sentence, or one built on the same use. Don't test a word they have no trouble with, and don't ask for a bare word from its definition.
+5. One angle per word: don't test the same thing twice the same way.
+6. "explain" says why the answer is right and why the near misses are wrong, in their terms. A flip's back teaches something, not just the word.
 Use their own words and sentences where you can, keep everything else simple (the known words), and write natural, correct Mandarin in simplified characters. Follow up on how the last review went: bring back what was missed in a new form.`;
 
 export interface DrillMaterial {
@@ -158,34 +168,45 @@ export function checkCard(raw: unknown): DrillCard | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const base = { focus: strs(r.focus, 6, 12).filter((w) => HAN.test(w)), why: str(r.why, 120), explain: str(r.explain) };
+  // A hint that only repeats the English (or the answer) gives nothing.
+  const hintFor = (prompt: string, answer: string) => {
+    const h = str(r.hint, 120);
+    const low = (t: string) => t.toLowerCase().replace(/[^a-z\u3400-\u9fff]/g, "");
+    const parts = h.split(/[,;/、，]/).map(low).filter((x) => x.length >= 3);
+    return h && !low(prompt).includes(low(h)) && !low(h).includes(low(answer)) && !parts.some((x) => low(prompt).includes(x)) ? h : "";
+  };
   switch (r.type) {
     case "flip": {
       const front = str(r.front);
       const back = str(r.back);
-      return front && back ? { ...base, type: "flip", front, back, hint: str(r.hint, 120) } : null;
+      return front && back ? { ...base, type: "flip", front, back, hint: hintFor(front, back) } : null;
     }
     case "cloze": {
       const zh = str(r.zh).replace(/_{2,}|＿+/g, "___");
       const answer = str(r.answer, SHORT_MAX);
       if (!zh.includes("___") || !answer) return null;
-      let options = strs(r.options, 6);
+      let options = [...new Set(strs(r.options, 6))];
       if (options.length && !options.includes(answer)) options = [...options.slice(0, 5), answer];
       return { ...base, type: "cloze", zh, answer, en: str(r.en), options: options.length >= 2 ? options : [] };
     }
     case "choice": {
       const options = strs(r.options, 6, 120);
+      if (new Set(options).size !== options.length) return null;
       const answer = typeof r.answer === "number" ? Math.trunc(r.answer) : Number.NaN;
       const prompt = str(r.prompt);
       return prompt && options.length >= 2 && answer >= 0 && answer < options.length ? { ...base, type: "choice", prompt, options, answer } : null;
     }
     case "order": {
+      // Whole words or phrases, not a short sentence cut into characters (来日方长 as 来 日 方 长).
       const pieces = strs(r.pieces, 10, 30);
-      return pieces.length >= 3 && new Set(pieces).size > 1 ? { ...base, type: "order", pieces, en: str(r.en) } : null;
+      const han = pieces.join("").replace(/[^\u3400-\u9fff]/g, "").length;
+      const single = pieces.filter((p) => p.replace(/[^\u3400-\u9fff]/g, "").length <= 1).length;
+      return pieces.length >= 3 && new Set(pieces).size > 1 && han >= 6 && single * 2 < pieces.length ? { ...base, type: "order", pieces, en: str(r.en) } : null;
     }
     case "produce": {
       const answer = str(r.answer, 120);
       const en = str(r.en);
-      return en && HAN.test(answer) ? { ...base, type: "produce", en, answer, accept: strs(r.accept, 6, 120).filter((a) => HAN.test(a)), hint: str(r.hint, 120) } : null;
+      return en && HAN.test(answer) ? { ...base, type: "produce", en, answer, accept: strs(r.accept, 6, 120).filter((a) => HAN.test(a)), hint: hintFor(en, answer) } : null;
     }
     case "listen": {
       const zh = str(r.zh);

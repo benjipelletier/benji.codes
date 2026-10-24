@@ -227,7 +227,7 @@ function Body({ card, shown, onReveal }: { card: DrillCard; shown: boolean; onRe
     case "order":
       return <Order card={card} shown={shown} onReveal={onReveal} />;
     case "produce":
-      return <Produce card={card} shown={shown} onReveal={onReveal} />;
+      return <Produce card={card} shown={shown} />;
     case "listen":
       return <Listen card={card} shown={shown} />;
   }
@@ -349,31 +349,17 @@ function Order({ card, shown, onReveal }: { card: Extract<DrillCard, { type: "or
   );
 }
 
-function Produce({ card, shown, onReveal }: { card: Extract<DrillCard, { type: "produce" }>; shown: boolean; onReveal: (right: boolean | null, typed?: string | null) => void }) {
-  const [typed, setTyped] = useState("");
+/** Said, not typed (the owner's call: a typed sentence has too many right versions to match), then graded by the owner. */
+function Produce({ card, shown }: { card: Extract<DrillCard, { type: "produce" }>; shown: boolean }) {
   const [hint, setHint] = useState(false);
-  const ok = [card.answer, ...card.accept].map(bare);
   return (
     <>
       <p className="cf-drill-front">{card.en}</p>
       {!shown && card.hint && (hint ? <p className="cf-muted">{card.hint}</p> : <button className="cf-link" onClick={() => setHint(true)}>Hint</button>)}
-      {!shown && (
-        <form
-          className="cf-rescue-type"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (typed.trim()) onReveal(ok.includes(bare(typed)), typed.trim());
-          }}
-        >
-          <input lang="zh" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Type it, or say it and show" aria-label="Your answer" />
-          <button className="cf-btn" type="submit" disabled={!typed.trim()}>
-            Check
-          </button>
-        </form>
-      )}
-      {shown && typed.trim() && !ok.includes(bare(typed)) && <p className="cf-drill-typed cf-zh">{typed}</p>}
+      {!shown && <p className="cf-muted">Say it out loud, then show.</p>}
       {shown && (
         <>
+          <p className="cf-muted cf-drill-way">One way to say it</p>
           <p className="cf-drill-zh cf-zh">{card.answer}</p>
           {card.accept.length > 0 && <p className="cf-muted cf-zh">Also: {card.accept.join(" · ")}</p>}
         </>

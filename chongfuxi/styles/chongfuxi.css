@@ -10088,10 +10088,9 @@ button.cf-how-text {
   border-color: var(--cf-accent);
 }
 
-.cf-drill-typed.cf-zh {
-  font-size: 20px;
-  color: var(--cf-down);
-  text-decoration: line-through;
+.cf-drill-way {
+  margin-top: 4px !important;
+  font-size: 13px;
 }
 
 .cf-drill-explain {
