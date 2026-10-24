@@ -322,15 +322,18 @@ export interface KitNewWord {
 
 /** Two paragraphs the model wrote around the stuck words, to meet them all in one story. */
 export interface StuckStory {
+  /** The study day it is for (YYYY-MM-DD), Muse writing one each morning. */
+  day: string;
   at: number;
+  /** Who wrote it: "Muse", or the model it named. */
   model: string;
   title: string;
   paragraphs: Array<{ zh: string; en: string }>;
-  /** The stuck words it was written for, and which of them it really uses. */
+  /** The words it was written for (stuck, new, due), and those of them it leaves out. */
   words: string[];
   missing: string[];
-  /** The stuck words have changed since: a new one can be written. */
-  stale: boolean;
+  /** Whether it is today's: an older one is shown until Muse writes the next. */
+  today: boolean;
 }
 
 /** What the model made for a stuck word, from everything known about it: its memory kit. */

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AgentError, MAX_LISTS, agentAllowed, agentLists, agentToken, removeList, writeList, type WrittenList } from "../../agent";
+import { AgentError, MAX_LISTS, agentGate, agentLists, removeList, writeList, type WrittenList } from "../../agent";
 import { loadDict } from "../../dictfile";
-import { ownersLog } from "../../guard";
 import { bad, body } from "../../params";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +17,7 @@ export const maxDuration = 60;
  *   way); replace takes off it what isn't given, and its lists below.
  * DELETE { path }: take a list (and those below it) off every word.
  */
-function gate(req: NextRequest) {
-  // Unset (or under 32 characters) on the server: say so, so a refused token can be told from a missing one.
-  if (!agentToken()) return { refused: NextResponse.json({ error: "agent token not set on the server" }, { status: 503 }) } as const;
-  if (!agentAllowed(req)) return { refused: NextResponse.json({ error: "not allowed" }, { status: 401 }) } as const;
-  return ownersLog();
-}
+const gate = agentGate;
 
 export async function GET(req: NextRequest) {
   const g = gate(req);

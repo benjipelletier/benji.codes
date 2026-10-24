@@ -9943,3 +9943,9 @@ button.cf-how-text {
   gap: 8px;
   margin-top: 10px;
 }
+
+/* The daily story's date and author, above its title. */
+.cfx .cf-story-by {
+  margin: 0 0 6px;
+  font-size: 13px;
+}

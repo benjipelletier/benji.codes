@@ -872,15 +872,15 @@ trips both count.
   it by button, swipe or arrow keys: a miss comes back 3 cards later
   (`SPEED_BACK`), a word is done at 2 right in a row (`SPEED_DONE`). It
   ends with the flips and minutes taken, and touches no schedule.
-- **A story with them** (the owner's idea): at the top of the list, two
-  paragraphs the model writes using every stuck word (the 15 longest
-  streaks), each in a sentence that shows its meaning, everything else kept
-  to HSK 1–4, with a Chinese title and an English translation under each
-  paragraph shown on a tap. The stuck words are marked and open their word
-  pages; any the model left out are named. Kept (`chongfuxi_rescue_story`,
-  one per owner) and offered again ("Write a new one", primary once the
-  stuck words have changed). Same model call pattern as the rescue, owner
-  only; `rescue?story=1` reads it, `POST {story: true}` writes one.
+- **Today's story** (the owner's idea, first written by the app's model
+  on demand; since replaced by one the owner's agent writes each morning,
+  `daily.ts`): at the top of the Memory kits list, two short paragraphs
+  using the day's words, each in a sentence that shows its meaning, the rest
+  simple, with a Chinese title and an English translation under each
+  paragraph shown on a tap. The words are marked and open their word pages;
+  any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
+  made on first use); the latest is shown, dated, "by Muse", with a line
+  when today's isn't written yet. `rescue?story=1` reads it.
 - Settings › Algorithm has the Rescue group.
 
 ## Synonyms: words with the same English
@@ -1571,6 +1571,17 @@ this. The owner's login is never involved, so the token is the agent's only.
   the words stay.
 - In the app the Muse lists sit under "From your content" beside Spotify
   (`source: "muse"`), browsed, added, learnt and reviewed like any list.
+
+**The daily story** (`/api/chongfuxi/agent/story`, same token): GET gives
+the day's material (`storyMaterial`): `day` (the owner's study day, by the
+UTC offset of their last answer, turning over at `ROLLOVER_HOUR`), `targets`
+(the stuck words, up to 8, the new words on the Learn ladder, and up to 6 of
+the weakest due, each with pinyin, gloss and `why`), `known` (up to 200 deck
+words strong for 30+ days, to write the rest with), `brief` (how to write
+it) and `written`. POST `{ title, paragraphs: [{ zh, en }], day?, model? }`
+keeps it as that day's story (one already there replaced; up to 3
+paragraphs, 600 characters of Chinese each; refused without Chinese), its
+targets the material as it stands then.
 
 ## Bug reports
 

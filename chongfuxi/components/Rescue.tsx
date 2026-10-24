@@ -75,7 +75,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
   }, []);
   useBackLayer(open !== null || story || speed, close);
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
-  if (story) return <StoryView shell={shell} onEnd={close} />;
+  if (story) return <StoryView onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   return <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onEnd={onEnd} />;
 }
@@ -101,37 +101,16 @@ function Marked({ zh, words }: { zh: string; words: string[] }) {
 }
 
 /** Two paragraphs the model wrote with every stuck word in them; the English under each, on a tap. */
-function StoryView({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
-  const { canWrite } = shell;
-  const [story, setStory] = useState<StuckStory | null>(null);
-  const [making, setMaking] = useState(false);
+function StoryView({ onEnd }: { onEnd: () => void }) {
+  const [story, setStory] = useState<StuckStory | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [english, setEnglish] = useState<Set<number>>(new Set());
-  const make = async () => {
-    setMaking(true);
-    setError(null);
-    try {
-      setStory((await send<{ story: StuckStory }>("rescue", { story: true })).story);
-      setEnglish(new Set());
-    } catch (e) {
-      setError(message(e));
-    } finally {
-      setMaking(false);
-    }
-  };
-  // The one written, or, for the owner, one written now (once: React runs this twice in development).
-  const asked = useRef(false);
   useEffect(() => {
-    if (asked.current) return;
-    asked.current = true;
     get<{ story: StuckStory | null }>("rescue", { story: 1 })
-      .then((r) => {
-        if (r.story) setStory(r.story);
-        else if (canWrite) void make();
-      })
+      .then((r) => setStory(r.story))
       .catch((e) => setError(message(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const dated = story ? new Date(`${story.day}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "";
 
   return (
     <div className="cf-rescue">
@@ -141,14 +120,18 @@ function StoryView({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="cf-rescue-top">A story with them</p>
+        <p className="cf-rescue-top">{story && !story.today ? "Latest story" : "Today's story"}</p>
       </div>
       <div className="cf-rescue-in">
         {error && <p className="cf-error">{error}</p>}
-        {making && <Loading label="Writing a story with every one of them…" />}
-        {!story && !making && !error && !canWrite && <p className="cf-muted">No story has been written yet.</p>}
-        {story && !making && (
+        {story === undefined && !error && <Loading label="Opening…" />}
+        {story === null && <p className="cf-muted">No story yet. Muse writes one each morning with your stuck, new and due words.</p>}
+        {story && (
           <>
+            <p className="cf-muted cf-story-by">
+              {dated} · by {story.model}
+              {!story.today && " · today's isn't written yet"}
+            </p>
             {story.title && <h1 className="cf-story-title cf-zh">{story.title}</h1>}
             {story.paragraphs.map((p, i) => (
               <div key={i} className="cf-story-p">
@@ -164,17 +147,7 @@ function StoryView({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
                 )}
               </div>
             ))}
-            {story.missing.length > 0 && (
-              <p className="cf-muted cf-story-note">Left out: {story.missing.join("、")}</p>
-            )}
-            {story.stale && <p className="cf-muted cf-story-note">Your stuck words have changed since this was written.</p>}
-            {canWrite && (
-              <div className="cf-buttons cf-rescue-go">
-                <button className={`cf-btn${story.stale ? "" : " cf-btn-ghost"}`} onClick={() => void make()}>
-                  Write a new one
-                </button>
-              </div>
-            )}
+            {story.missing.length > 0 && <p className="cf-muted cf-story-note">Left out: {story.missing.join("、")}</p>}
           </>
         )}
       </div>
@@ -220,8 +193,8 @@ function StuckRows({
             </button>
             <button className="cf-stuck cf-story-btn" onClick={onStory}>
               <span className="cf-stuck-text">
-                <b>A story with them</b>
-                <small>Two paragraphs using every one, written by AI</small>
+                <b>Today&apos;s story</b>
+                <small>Muse writes one each morning with your stuck, new and due words</small>
               </span>
               <i aria-hidden="true">›</i>
             </button>

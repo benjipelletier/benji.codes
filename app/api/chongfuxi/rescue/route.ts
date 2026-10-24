@@ -2,17 +2,18 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
-import { RescueError, checkOwnSentence, makeRescue, makeStory, newWords, rescueOf, speedWords, storyOf, stuckWords } from "../rescue";
+import { dailyStory } from "../daily";
+import { RescueError, checkOwnSentence, makeRescue, newWords, rescueOf, speedWords, stuckWords } from "../rescue";
 
 export const dynamic = "force-dynamic";
 // One model call, at Look up's effort.
 export const maxDuration = 120;
 
-/** Memory kits: the stuck words and the new words on the Learn ladder (`fresh`); with ?w=, that word's rescue (null if none yet); with ?story=1, their story. Readable by anyone. */
+/** Memory kits: the stuck words and the new words on the Learn ladder (`fresh`); with ?w=, that word's rescue (null if none yet); with ?story=1, the latest daily story (Muse's, daily.ts). Readable by anyone. */
 export async function GET(req: NextRequest) {
   const gate = ownersLog();
   if ("refused" in gate) return gate.refused;
-  if (req.nextUrl.searchParams.get("story") === "1") return NextResponse.json({ story: await storyOf(gate.sql, gate.owner) });
+  if (req.nextUrl.searchParams.get("story") === "1") return NextResponse.json({ story: await dailyStory(gate.sql, gate.owner) });
   if (req.nextUrl.searchParams.get("speed") === "1") return NextResponse.json({ words: await speedWords(gate.sql, gate.owner) });
   const w = req.nextUrl.searchParams.get("w")?.trim();
   if (w !== undefined) {
@@ -26,16 +27,14 @@ export async function GET(req: NextRequest) {
 /**
  * { word, fresh? }: make the word's rescue (or give back the one made). Owner only: it costs money.
  * { word, own: "…" }: the owner's own sentence with the word, checked by the model.
- * { story: true }: write a story with the stuck words in it (owner only, it costs money).
  */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = await body<{ word?: string; fresh?: boolean; story?: boolean; own?: string }>(req);
+  const input = await body<{ word?: string; fresh?: boolean; own?: string }>(req);
   const word = input?.word?.trim();
-  if (!input?.story && (!word || word.length > 20)) return bad("which word?");
+  if (!word || word.length > 20) return bad("which word?");
   try {
-    if (input?.story) return NextResponse.json({ story: await makeStory(gate.sql, gate.owner) });
     if (!word) return bad("which word?");
     if (typeof input?.own === "string") {
       if (!input.own.trim()) return bad("write a sentence");

@@ -9,10 +9,11 @@
 // like any list.
 
 import { timingSafeEqual } from "node:crypto";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { definitionsFor, type Definition, type Dict } from "@chongfuxi/lib/dict";
 import { mainEntry } from "@chongfuxi/lib/senses";
 import type { Sql } from "./db";
+import { ownersLog } from "./guard";
 
 export class AgentError extends Error {}
 
@@ -44,6 +45,17 @@ export function agentAllowed(req: NextRequest): boolean {
   const got = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
   if (!want || !got || got.length !== want.length) return false;
   return timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+/**
+ * The gate every agent route goes through: the token, then the owner's
+ * store. Unset (or under 32 characters) on the server says so (503), so a
+ * refused token (401) can be told from a missing one.
+ */
+export function agentGate(req: NextRequest) {
+  if (!agentToken()) return { refused: NextResponse.json({ error: "agent token not set on the server" }, { status: 503 }) } as const;
+  if (!agentAllowed(req)) return { refused: NextResponse.json({ error: "not allowed" }, { status: 401 }) } as const;
+  return ownersLog();
 }
 
 /**

@@ -14,7 +14,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Sql } from "./db";
-import type { KitNewWord, Rescue, RescueAttempt, RescueContrast, RescueSentence, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { KitNewWord, Rescue, RescueAttempt, RescueContrast, RescueSentence, StuckWord } from "@chongfuxi/lib/api";
 import { IN_PLAY } from "@chongfuxi/lib/learn";
 import { LEARN_ORDER } from "./learn";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -722,91 +722,4 @@ export async function rescueHooks(sql: Sql, owner: string, words: string[]): Pro
   return new Map(rows.filter((r) => r.hook).map((r) => [r.word, r.hook!]));
 }
 
-// ------------------------------------------------------------------ story --
-
-/** Stuck words a story is written around, the longest streaks first; the new words on the Learn ladder go in too. */
-const STORY_WORDS = 15;
-
-const STORY_SYSTEM = `You write a short story in simplified Chinese for a learner, to help them remember words they keep forgetting or are just learning. Use every one of the given words, each in a sentence where its meaning is clear from what happens (not just mentioned), in the sense given. Everything else in the story should be simple, common vocabulary (HSK 1–4), so the given words stand out. Exactly two paragraphs, each four to seven sentences, telling one connected story with a little humour or tension. Give a short Chinese title, and for each paragraph a natural English translation. Write the words exactly as given, with no spaces or pinyin in the Chinese.`;
-
-const STORY_SCHEMA = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    paragraphs: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: { zh: { type: "string" }, en: { type: "string" } },
-        required: ["zh", "en"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["title", "paragraphs"],
-  additionalProperties: false,
-} as const;
-
-/** The story last written, or null; stale once the stuck words aren't the ones it was written for. */
-export async function storyOf(sql: Sql, owner: string): Promise<StuckStory | null> {
-  await ensureRescueTable(sql);
-  const [row] = (await sql`
-    select (extract(epoch from at) * 1000)::double precision as at, model, words, story
-    from chongfuxi_rescue_story where owner_email = ${owner}
-  `) as unknown as Array<{ at: number; model: string; words: string[]; story: { title: string; paragraphs: Array<{ zh: string; en: string }> } }>;
-  if (!row) return null;
-  const now = (await kitWords(sql, owner, STORY_WORDS)).map((w) => w.word);
-  const text = row.story.paragraphs.map((p) => p.zh).join("");
-  return {
-    at: Math.round(row.at),
-    model: row.model,
-    title: row.story.title,
-    paragraphs: row.story.paragraphs,
-    words: row.words,
-    missing: row.words.filter((w) => !text.includes(w)),
-    stale: now.length !== row.words.length || now.some((w) => !row.words.includes(w)),
-  };
-}
-
-/** Write a story with the stuck words in it, and keep it. Owner only: it costs money. */
-export async function makeStory(sql: Sql, owner: string): Promise<StuckStory> {
-  const stuck = await kitWords(sql, owner, STORY_WORDS);
-  if (!stuck.length) throw new RescueError("No word is stuck or new, so there is nothing to write a story around.");
-  const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new RescueError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
-
-  const content = [
-    "The words to use, each in this sense:",
-    ...stuck.map((w) => `- ${w.word}${w.pinyin ? ` (${w.pinyin.replace(/@/g, " ")})` : ""}${w.gloss ? `: ${w.gloss}` : ""}`),
-  ].join("\n");
-  const client = new Anthropic({ apiKey });
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: 6000,
-    system: STORY_SYSTEM,
-    output_config: { effort: EFFORT, format: { type: "json_schema", schema: STORY_SCHEMA as unknown as Record<string, unknown> } },
-    messages: [{ role: "user", content }],
-  });
-  const text = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
-  let given: { title?: unknown; paragraphs?: unknown };
-  try {
-    given = JSON.parse(text);
-  } catch {
-    throw new RescueError(message.stop_reason === "refusal" ? "The model declined." : "The story came back malformed.");
-  }
-  const paragraphs = (Array.isArray(given.paragraphs) ? given.paragraphs : [])
-    .map((p) => p as Record<string, unknown>)
-    .map((p) => ({ zh: typeof p.zh === "string" ? p.zh.trim() : "", en: typeof p.en === "string" ? p.en.trim() : "" }))
-    .filter((p) => p.zh)
-    .slice(0, 2);
-  if (!paragraphs.length) throw new RescueError("The story came back empty.");
-  const story = { title: typeof given.title === "string" ? given.title.trim().slice(0, 40) : "", paragraphs };
-  const words = stuck.map((w) => w.word);
-  await sql`
-    insert into chongfuxi_rescue_story (owner_email, at, model, words, story)
-    values (${owner}, now(), ${MODEL}, ${words}::text[], ${JSON.stringify(story)}::jsonb)
-    on conflict (owner_email) do update set at = now(), model = excluded.model, words = excluded.words, story = excluded.story
-  `;
-  console.log("rescue story", JSON.stringify({ words: words.length, usage: message.usage }));
-  return (await storyOf(sql, owner))!;
-}
+// The story the stuck words were written into is now Muse's daily story (daily.ts).
