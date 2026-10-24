@@ -881,6 +881,8 @@ trips both count.
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
+- **Read** heads the Muse reviews screen: native pieces Muse found, to
+  read and then retell (see Lists written by the owner's agent).
 - **Muse reviews** (the owner reframed the screen around Muse): Today's
   button and the screen are called that (they were Memory kits), headed by
   "Today's review" ("Latest review" until today's is written), the cards
@@ -1643,6 +1645,46 @@ latest per card (`chongfuxi_drill_answer`, route `drill`, POST owner only;
 GET, anyone, the latest review with its results). It opens on the first
 card not yet answered; the end shows the score, the missed with what to take
 from each, and "Go over the N missed". Nothing touches a schedule.
+
+**Reading with retelling** (`app/api/chongfuxi/reading.ts`,
+`components/Reading.tsx`; the owner's idea: "muse could find native content
+to get me to read", with production by retelling, which the owner chose
+over typed cards). Muse finds real Chinese written for natives (articles,
+posts, YouTube videos with Chinese captions), checks each link with POST
+`/api/chongfuxi/agent/reading/check` `{ url }` (`checkLink`: the page or
+captions fetched as the text analyser fetches them and measured against
+the deck: `known`, the share of word occurrences known, `readable`,
+`chars`, `newWords`, and `fits`, inside `READING_TARGET`, 90–98% known),
+and hands the picks in with POST `/api/chongfuxi/agent/reading` `{ items:
+[{ url, why, questions: [{ zh, en }] }] }` (up to `READINGS_MAX`, 5, a day;
+1–4 questions each; a link that can't be fetched or has no Chinese
+question is named back in `failed`). GET there gives the material: `brief`,
+`target`, `focus` (stuck and new words), `today` and `recent` (two weeks:
+opened, finished, the words tapped, each retelling with its grade). Same
+token as the lists.
+
+Only the link, why, the questions and how it measured are kept
+(`chongfuxi_reading`): the text is fetched again when it is opened (kept
+half an hour in the server's memory, `FETCH_KEEP_MS`, so reading then
+retelling fetch once), and opening one (route `reading?id=`) is owner only,
+since the app is readable by anyone and the pieces aren't ours to serve.
+The list of links is public. On the Muse reviews screen they come first,
+under **Read** (the latest day's), each with its site, % known, length,
+Muse's why and its state (New, Started, Read, N/M retold, Retold); Today's
+Muse reviews button counts those not yet read ("2 to read"). A piece opens
+full screen with every word marked as the analyser marks it (not known,
+still learning), a tap giving reading and meaning with Word page ›; the
+words tapped that aren't known go back (`tapped`), and "Done reading ·
+retell it" marks it finished and scrolls to the questions. Each question
+(its English on a tap) takes an answer in Chinese, said through the
+phone's speech recognition (zh-CN, `webkitSpeechRecognition`, "🎙 Say it")
+or typed, and Check grades it at Look up's model and effort
+(`gradeRetell`, never lower): correct / almost / wrong, whether it fits
+what the piece says (`understood`), how a native would say what was meant,
+and why; every try is kept (`chongfuxi_retell`) and shown under the
+question, newest first. Speech recognition slips are to be ignored by the
+grader, real word mistakes not. Tested with a stand-in page and model
+reply: the cloud session can't reach the web.
 
 ## Bug reports
 

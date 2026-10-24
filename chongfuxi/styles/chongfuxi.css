@@ -10147,3 +10147,146 @@ button.cf-how-text {
 .cfx .cf-drill-btn {
   border-color: var(--cf-accent);
 }
+
+/* Reading with retelling: a native piece Muse found, then questions to answer in Chinese. */
+.cf-read-list .cf-stuck-body {
+  min-width: 0;
+}
+
+.cf-read-title.cf-zh {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cf-read-why {
+  color: var(--cf-ink-soft);
+}
+
+.cf-read-h.cf-zh {
+  margin: 4px 0 6px;
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.cf-read-meta {
+  margin: 0 0 8px;
+}
+
+.cf-read-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-read-body {
+  margin-top: 10px;
+}
+
+.cf-reading .cf-read-picked {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+.cf-read-retell {
+  margin-top: 28px;
+  padding-bottom: 120px;
+}
+
+.cf-read-q {
+  margin: 18px 0;
+  padding: 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-read-q p {
+  margin: 0 0 6px;
+}
+
+.cf-read-qzh.cf-zh {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.cf-read-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cfx .cf-read-answer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 12px;
+  background: var(--cf-bg);
+  color: var(--cf-ink);
+  font-family: var(--cf-zh);
+  font-size: 17px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.cf-read-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cfx .cf-read-mic.is-on {
+  border-color: var(--cf-down);
+  color: var(--cf-down);
+}
+
+.cf-read-try {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--cf-rule-strong);
+  border-radius: 0 10px 10px 0;
+  background: var(--cf-sunken);
+}
+
+.cf-read-try.is-correct {
+  border-left-color: var(--cf-up);
+}
+
+.cf-read-try.is-almost {
+  border-left-color: var(--cf-warn);
+}
+
+.cf-read-try.is-wrong {
+  border-left-color: var(--cf-down);
+}
+
+.cf-read-grade {
+  font-size: 13px;
+}
+
+.cf-read-said.cf-zh {
+  font-size: 16px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-read-fixed.cf-zh {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--cf-up);
+}

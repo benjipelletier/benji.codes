@@ -1136,3 +1136,41 @@ export interface Drill {
   results: Record<number, DrillResult>;
   today: boolean;
 }
+
+/** A retelling of a reading, graded by the app's model. */
+export interface Retell {
+  /** Which question (index), what was said or typed. */
+  q: number;
+  answer: string;
+  grade: "correct" | "almost" | "wrong";
+  /** How a native speaker would say it, keeping their meaning. */
+  fixed: string;
+  /** What was wrong and why, or what was good. */
+  why: string;
+  /** Whether it answers the question, as the text has it. */
+  understood: boolean;
+  at: number;
+}
+
+/** A native piece Muse found for the owner to read (app/api/chongfuxi/reading.ts). */
+export interface Reading {
+  id: number;
+  day: string;
+  url: string;
+  kind: "web" | "youtube";
+  title: string | null;
+  /** Why Muse picked it. */
+  why: string;
+  /** Questions to retell it by, in Chinese with their English. */
+  questions: Array<{ zh: string; en: string }>;
+  /** When it was found: share of its words known, its length, its new words. */
+  knownPct: number;
+  chars: number;
+  newWords: string[];
+  /** Words tapped while reading it. */
+  tapped: string[];
+  model: string;
+  openedAt: number | null;
+  doneAt: number | null;
+  retells: Retell[];
+}

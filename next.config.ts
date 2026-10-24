@@ -129,6 +129,10 @@ const nextConfig: NextConfig = {
     // Removing a word, or undoing an addition, unlinks it from 龙库.
     "/api/chongfuxi/word": ["./longku/data/chengyu.json"],
     "/api/chongfuxi/additions/[id]": ["./longku/data/chengyu.json"],
+    // Muse's reading: each page split into words and measured against the deck.
+    "/api/chongfuxi/reading": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/reading": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/reading/check": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/imports/[id]/ingest": [
       "./node_modules/sql.js/dist/sql-wasm.wasm",
       "./chongfuxi/data/cedict.txt",
