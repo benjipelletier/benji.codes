@@ -134,6 +134,13 @@ export function spreadEvery<T>(cards: T[], picked: (c: T) => boolean, every: num
   return out;
 }
 
+/** Lists taken in turn, one card from each while it has any, each keeping its order. */
+export function takeTurns<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  for (let i = 0; out.length < lists.reduce((n, l) => n + l.length, 0); i++) for (const l of lists) if (i < l.length) out.push(l[i]);
+  return out;
+}
+
 /** Spread the missed cards through the others, one in every MISS_EVERY, keeping each group's order. */
 export const spreadMisses = <T,>(cards: T[], missed: (c: T) => boolean): T[] => spreadEvery(cards, missed, MISS_EVERY);
 /** Due word cards read per batch, as a multiple of the batch, before one card per word is kept. */

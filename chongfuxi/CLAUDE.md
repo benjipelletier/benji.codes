@@ -1221,13 +1221,14 @@ the design was silent and are still to be confirmed.
   their odds are the lowest and they all came first, a wall of them; the
   owner chose to spread them instead: at most one in every `MISS_EVERY` (3)
   word cards is one (`spreadMisses`, per batch's pool), so they still come
-  early, with other cards between. Cards never answered (a Recall card
-  just opened, with no odds) used to rank first too, and once thousands
-  had opened they filled every batch, so due Read cards never came up (the
-  owner: "not seeing Read cards", with 164 Read due against 3,208 Recall).
-  They are now a pool of their own, at most one in every
-  `UNANSWERED_EVERY` (2) word cards among the cards already on a schedule
-  (`spreadEvery`), the misses spread after that. Fast review goes the other way: best known
+  early, with other cards between. Read and Recall take turns
+  (`takeTurns`), each kind in its own order, while both have cards due:
+  in one order Recall always came first, since it starts at half the
+  stability and so has the lower odds, and with 3,208 Recall due against
+  164 Read no Read card came up (the owner: "not seeing Read cards").
+  Within a kind, cards never answered (no odds, which used to rank first
+  of all) are at most one in every `UNANSWERED_EVERY` (2) (`spreadEvery`);
+  the misses are spread after that. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten

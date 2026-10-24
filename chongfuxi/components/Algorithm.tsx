@@ -182,6 +182,7 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
       ["Cycle", CYCLE.join(" · "), "CYCLE"],
       ["New sentences", `⌈due ÷ ${DUE_PER_NEW}⌉`, "DUE_PER_NEW"],
       ["Word order", "Retrievability ↑", "LEAST_LIKELY_FIRST"],
+      ["Read / Recall", "take turns", "takeTurns"],
       ["Never answered", `≤ 1 / ${UNANSWERED_EVERY} word cards`, "UNANSWERED_EVERY"],
       ["Last misses", `≤ 1 / ${MISS_EVERY} word cards`, "MISS_EVERY"],
       ["Sentence order", "Due ↑", "nextCards()"],

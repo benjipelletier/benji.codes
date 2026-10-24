@@ -55,6 +55,7 @@ import {
   readSentence,
   spreadMisses,
   spreadEvery,
+  takeTurns,
   UNANSWERED_EVERY,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
@@ -302,16 +303,17 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   const cutoff = day.cutoff;
   const inList = o.list === undefined ? null : onList(o.list, "c.word", 9);
 
-  // Two pools: cards answered before (each by its odds), and cards never
-  // answered (a Recall card just opened, which has no odds). In one order the
-  // never answered all came first, and thousands of opened Recall cards kept
-  // every due Read card out of the batch.
-  const pool = async (answered: boolean) =>
+  // A pool per kind, Read and Recall taking turns (TAKE_TURNS): in one order
+  // Recall always came first, since it starts at half the stability and so
+  // has the lower odds, and thousands of due Recall cards kept the due Read
+  // cards out of the batch. Within a kind, cards answered before (each by its
+  // odds) and cards never answered (no odds), spread through them.
+  const pool = async (kind: "read" | "produce", answered: boolean) =>
     (await sql.query(
       `select ${CARD_COLUMNS},
               (select r.grade from chongfuxi_review r where r.owner_email = c.owner_email and r.card_id = c.id order by r.seq desc limit 1) = 'forgot' as missed
        from chongfuxi_card c
-       where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE} and not ${WAITING_TO_LEARN}
+       where c.owner_email = $1 and c.kind = $7 and ${ACTIVE} and not ${WAITING_TO_LEARN}
          and c.due <= to_timestamp($2::double precision / 1000)
          and not (c.id = any($3::bigint[]))
          and not (c.word = any($4::text[]))
@@ -330,19 +332,20 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
         o.skipWords,
         day.day,
         o.limit * WORD_POOL_FACTOR,
-        [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
+        kind,
         at,
         ...(inList?.params ?? []),
       ],
     )) as unknown as Array<CardRow & { missed: boolean | null }>;
-  const [answered, unanswered] = await Promise.all([pool(true), pool(false)]);
-  // Never-answered cards spread through the rest (UNANSWERED_EVERY), then last
-  // time's misses through that (MISS_EVERY); one card per word, the first kept.
+  const ofKind = async (kind: "read" | "produce") => {
+    const [answered, unanswered] = await Promise.all([pool(kind, true), pool(kind, false)]);
+    return spreadEvery([...answered, ...unanswered], (c) => unanswered.includes(c), UNANSWERED_EVERY);
+  };
+  const kinds = [...(o.read === false ? [] : (["read"] as const)), ...(o.recall === false ? [] : (["produce"] as const))];
+  // Then last time's misses spread through them (MISS_EVERY); one card per word, the first kept.
   const seen = new Set<string>();
   const wordCards = spreadMisses(
-    spreadEvery([...answered, ...unanswered], (c) => !(c.last_review && c.stability > 0), UNANSWERED_EVERY).filter(
-      (c) => !seen.has(c.word!) && seen.add(c.word!),
-    ),
+    takeTurns(await Promise.all(kinds.map(ofKind))).filter((c) => !seen.has(c.word!) && seen.add(c.word!)),
     (c) => c.missed === true,
   );
 
