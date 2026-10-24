@@ -39,7 +39,7 @@ function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
 }
 
 /**
- * On Today: one Memory kits button with how many new and stuck words there
+ * On Today: one Muse reviews button (it was Memory kits) with how many new and stuck words there
  * are, opening their list (the owner reframed Words to revive to take in new
  * words too). Nothing when there are none.
  */
@@ -57,7 +57,7 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
-        <b>Memory kits</b>
+        <b>Muse reviews</b>
         <small>{parts.join(" · ")}</small>
       </span>
       <span className="cf-stuck-count">{fmt(total + left)}</span>
@@ -193,17 +193,17 @@ function StuckRows({
             <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-        <p className="cf-rescue-top">Memory kits{kits ? ` · ${fmt(total)}` : ""}</p>
+        <p className="cf-rescue-top">Muse reviews</p>
       </div>
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
         {drill && (
           <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={onDrill}>
             <span className="cf-stuck-text">
-              <b>Muse&apos;s review</b>
+              <b>{drill.today ? "Today's review" : "Latest review"}</b>
               <small>
                 {left
-                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards to go, aimed at your problem areas`
+                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards to go, written for your problem areas`
                   : `All ${fmt(drill.cards.length)} done${drill.today ? "" : " · today's isn't written yet"}`}
               </small>
             </span>
@@ -251,7 +251,6 @@ function StuckRows({
                 </ul>
               </section>
             )}
-            {words!.length > 0 && <h2 className="cf-kits-h">Stuck words</h2>}
             {CATEGORIES.map((c) => {
               const these = words!.filter((w) => w.category === c.key);
               if (!these.length) return null;

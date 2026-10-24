@@ -881,8 +881,13 @@ trips both count.
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
-- **Muse's review** heads the screen: cards Muse writes from the problem
-  areas (see Lists written by the owner's agent).
+- **Muse reviews** (the owner reframed the screen around Muse): Today's
+  button and the screen are called that (they were Memory kits), headed by
+  "Today's review" ("Latest review" until today's is written), the cards
+  Muse writes from the problem areas (see Lists written by the owner's
+  agent), then the speed round, the story, New words, and the stuck words'
+  categories with no "Stuck words" heading over them (the owner had it
+  taken out).
 - Settings › Algorithm has the Rescue group.
 
 ## Synonyms: words with the same English
@@ -1615,8 +1620,8 @@ the right one), **order** (the pieces in order; the app shuffles them),
 punctuation against the answer and `accept`, or said and self-graded),
 **listen** (read aloud by the phone's zh-CN voice, then shown).
 
-In the app it heads the Memory kits screen, "Muse's review" with the
-cards left (also counted on Today's Memory kits button, which shows when
+In the app it heads the Muse reviews screen, "Today's review" with the
+cards left (also counted on Today's Muse reviews button, which shows when
 there is a review to do even with no new or stuck words), and opens full
 screen (`DrillView` in `components/Drill.tsx`): the title, Muse's note and
 date over the first card, then each card in its own way. A card that can

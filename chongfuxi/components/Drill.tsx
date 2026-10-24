@@ -94,7 +94,7 @@ export function DrillView({ canWrite, onEnd }: { canWrite: boolean; onEnd: () =>
           </svg>
         </button>
         <p className="cf-rescue-top">
-          Muse&apos;s review{drill && queue.length > 0 && card ? ` · ${fmt(at + 1)} of ${fmt(queue.length)}` : ""}
+          {drill && !drill.today ? "Latest review" : "Today's review"}{drill && queue.length > 0 && card ? ` · ${fmt(at + 1)} of ${fmt(queue.length)}` : ""}
         </p>
       </div>
       {error && <p className="cf-error cf-rescue-in">{error}</p>}
