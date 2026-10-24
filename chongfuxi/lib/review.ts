@@ -115,18 +115,27 @@ export const REFILL_AT = 3;
  */
 export const MISS_EVERY = 3;
 
-/** Spread the missed cards through the others, one in every MISS_EVERY, keeping each group's order. */
-export function spreadMisses<T>(cards: T[], missed: (c: T) => boolean): T[] {
-  const misses = cards.filter(missed);
-  const others = cards.filter((c) => !missed(c));
+/**
+ * Word cards never answered (a Recall card just opened): at most one in this
+ * many, so a backlog of them doesn't hold back the cards already on a schedule.
+ */
+export const UNANSWERED_EVERY = 2;
+
+/** Spread the picked cards through the others, at most one in every `every`, keeping each group's order. */
+export function spreadEvery<T>(cards: T[], picked: (c: T) => boolean, every: number): T[] {
+  const some = cards.filter(picked);
+  const others = cards.filter((c) => !picked(c));
   const out: T[] = [];
-  while (misses.length || others.length) {
-    if (misses.length) out.push(misses.shift()!);
-    for (let k = 1; k < MISS_EVERY && others.length; k++) out.push(others.shift()!);
-    if (!others.length) out.push(...misses.splice(0));
+  while (some.length || others.length) {
+    if (some.length) out.push(some.shift()!);
+    for (let k = 1; k < every && others.length; k++) out.push(others.shift()!);
+    if (!others.length) out.push(...some.splice(0));
   }
   return out;
 }
+
+/** Spread the missed cards through the others, one in every MISS_EVERY, keeping each group's order. */
+export const spreadMisses = <T,>(cards: T[], missed: (c: T) => boolean): T[] => spreadEvery(cards, missed, MISS_EVERY);
 /** Due word cards read per batch, as a multiple of the batch, before one card per word is kept. */
 export const WORD_POOL_FACTOR = 4;
 /** A word card rotates through this many of its readable sentences, best first. */

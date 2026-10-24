@@ -54,6 +54,8 @@ import {
   piecesOf,
   readSentence,
   spreadMisses,
+  spreadEvery,
+  UNANSWERED_EVERY,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
@@ -300,37 +302,47 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   const cutoff = day.cutoff;
   const inList = o.list === undefined ? null : onList(o.list, "c.word", 9);
 
-  const words = (await sql.query(
-    `select ${CARD_COLUMNS},
-            (select r.grade from chongfuxi_review r where r.owner_email = c.owner_email and r.card_id = c.id order by r.seq desc limit 1) = 'forgot' as missed
-     from chongfuxi_card c
-     where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE} and not ${WAITING_TO_LEARN}
-       and c.due <= to_timestamp($2::double precision / 1000)
-       and not (c.id = any($3::bigint[]))
-       and not (c.word = any($4::text[]))
-       and not exists (
-         select 1 from chongfuxi_review r
-         where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
-       )
-       ${inList ? `and ${inList.where}` : ""}
-     order by ${LEAST_LIKELY_FIRST("$8", "$5")}
-     limit $6`,
-    [
-      owner,
-      cutoff,
-      o.exclude,
-      o.skipWords,
-      day.day,
-      o.limit * WORD_POOL_FACTOR,
-      [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
-      at,
-      ...(inList?.params ?? []),
-    ],
-  )) as unknown as Array<CardRow & { missed: boolean | null }>;
+  // Two pools: cards answered before (each by its odds), and cards never
+  // answered (a Recall card just opened, which has no odds). In one order the
+  // never answered all came first, and thousands of opened Recall cards kept
+  // every due Read card out of the batch.
+  const pool = async (answered: boolean) =>
+    (await sql.query(
+      `select ${CARD_COLUMNS},
+              (select r.grade from chongfuxi_review r where r.owner_email = c.owner_email and r.card_id = c.id order by r.seq desc limit 1) = 'forgot' as missed
+       from chongfuxi_card c
+       where c.owner_email = $1 and c.kind = any($7::text[]) and ${ACTIVE} and not ${WAITING_TO_LEARN}
+         and c.due <= to_timestamp($2::double precision / 1000)
+         and not (c.id = any($3::bigint[]))
+         and not (c.word = any($4::text[]))
+         and not exists (
+           select 1 from chongfuxi_review r
+           where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
+         )
+         and ${answered ? "" : "not "}(c.last_review is not null and c.stability > 0)
+         ${inList ? `and ${inList.where}` : ""}
+       order by ${LEAST_LIKELY_FIRST("$8", "$5")}
+       limit $6`,
+      [
+        owner,
+        cutoff,
+        o.exclude,
+        o.skipWords,
+        day.day,
+        o.limit * WORD_POOL_FACTOR,
+        [...(o.read === false ? [] : ["read"]), ...(o.recall === false ? [] : ["produce"])],
+        at,
+        ...(inList?.params ?? []),
+      ],
+    )) as unknown as Array<CardRow & { missed: boolean | null }>;
+  const [answered, unanswered] = await Promise.all([pool(true), pool(false)]);
+  // Never-answered cards spread through the rest (UNANSWERED_EVERY), then last
+  // time's misses through that (MISS_EVERY); one card per word, the first kept.
   const seen = new Set<string>();
-  // Last time's misses spread through the rest, not all first (MISS_EVERY).
   const wordCards = spreadMisses(
-    words.filter((c) => !seen.has(c.word!) && seen.add(c.word!)),
+    spreadEvery([...answered, ...unanswered], (c) => !(c.last_review && c.stability > 0), UNANSWERED_EVERY).filter(
+      (c) => !seen.has(c.word!) && seen.add(c.word!),
+    ),
     (c) => c.missed === true,
   );
 
