@@ -32,6 +32,7 @@ import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
+import { SplitEditor } from "./SplitEditor";
 import { RecapSheet, worthRecap, type SessionReport } from "./Recap";
 import { RescueHook, StuckList, StuckWords } from "./Rescue";
 import { SynonymContrast } from "./Synonyms";
@@ -1100,6 +1101,13 @@ export function Session({
                           </button>
                         ))}
                       </div>
+                      <SplitEditor
+                        sentence={card.sentence}
+                        onSaved={(sentence) => {
+                          setQueue((q) => q.map((c) => (c.sentence?.id === sentence.id ? { ...c, sentence: { ...c.sentence, ...sentence } } : c)));
+                          setTapped(new Set([...tapped].filter((w) => sentence.words.includes(w))));
+                        }}
+                      />
                     </>
                   )}
                 </div>

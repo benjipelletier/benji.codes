@@ -1059,7 +1059,20 @@ the design was silent and are still to be confirmed.
   (made on first use), since a sentence card is also suspended while locked
   and woken as it unlocks: `recomputeUnlocks` leaves marked ones asleep.
   Retires after two clean reads on different days. Forgot → tap
-  the words that tripped you → those words' Read cards lapse. A tapped compound
+  the words that tripped you → those words' Read cards lapse. **Fix the words** (the owner met 乱翻 cut into 乱 +
+  翻 and couldn't tap the word that tripped them): under those chips, and
+  on a sentence's page, the owner can split the sentence anew
+  (`SplitEditor`): the words as pieces, + between two joins them, a tap on
+  one of two or more characters cuts it into its characters; Save sends
+  the new split (`sentence` POST `{id, action: "split", words}`,
+  `resplitSentence` in `resplit.ts`: the same characters in the same order,
+  each word 1 to 12 characters), which replaces the sentence's tokens (an
+  import writes them once and never again, so the edit stays), is logged
+  with the split before it (`chongfuxi_split_edit`, made on first use), and
+  is followed by `recomputeUnlocks`. A joined word that isn't known locks
+  the sentence as any unknown word does, and the editor says so with the
+  word linking to its page (where it can be added). The tripped chips and
+  the readings on the card follow the new split at once. A tapped compound
   not in the deck (孩子们) passes the lapse to the deck words inside it.
 - **Forgetting a word** brings back the sentence it was shown in, if retired,
   and one other retired sentence that has it.

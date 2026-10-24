@@ -9585,14 +9585,14 @@ button.cf-how-text {
 }
 
 /* A sentence card's back: each word's reading over it, small and quiet. */
-.cf-ruby {
+.cf-pyword {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   vertical-align: bottom;
 }
 
-.cf-ruby > small {
+.cf-pyword > small {
   font-family: var(--cf-font-latin, system-ui);
   font-size: 0.42em;
   font-weight: 500;
@@ -9603,11 +9603,11 @@ button.cf-how-text {
   user-select: none;
 }
 
-.cf-ruby > span {
+.cf-pyword > span {
   line-height: 1.25;
 }
 
-.cf-card-sentence:has(.cf-ruby) {
+.cf-card-sentence:has(.cf-pyword) {
   line-height: 1.25;
 }
 
@@ -10289,4 +10289,56 @@ button.cf-how-text {
   font-size: 17px;
   font-weight: 600;
   color: var(--cf-up);
+}
+
+/* Fixing how a sentence is split into words: + between two joins them, a tap cuts one. */
+.cf-split {
+  margin-top: 10px;
+}
+
+.cf-split.is-editing {
+  padding: 12px;
+  border: 1px dashed var(--cf-rule-strong);
+  border-radius: 14px;
+}
+
+.cf-split .cf-muted {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.cf-split-pieces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 8px;
+}
+
+.cf-split-piece {
+  display: inline-flex;
+  align-items: center;
+}
+
+.cfx .cf-split-join {
+  width: 28px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cf-split-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.cf-split-note {
+  margin-top: 8px !important;
 }

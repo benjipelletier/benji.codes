@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
+import { SplitEditor } from "./SplitEditor";
 import type { Blocker, SentenceDetail, SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
@@ -403,11 +404,13 @@ function SentenceSheet({
   // A word removed or added from its page (opened over this one) changes what this sentence needs.
   useEffect(() => wordpage.onChange(({ change }) => change !== "resumed" && onChanged()), [onChanged]);
 
+  // Loaded again after its words are split anew (SplitEditor), as their standings change.
+  const [loads, setLoads] = useState(0);
   useEffect(() => {
     get<SentenceDetail>("sentence", { id })
       .then(setD)
       .catch((e) => setError(message(e)));
-  }, [id]);
+  }, [id, loads]);
 
   const pieces = d ? piecesOf(d.sentence) : [];
   const groups: Piece[][] = [];
@@ -463,6 +466,15 @@ function SentenceSheet({
               ))}
             </p>
             {d.sentence.en && <p className="cf-sheet-en">{d.sentence.en}</p>}
+            {shell.canWrite && (
+              <SplitEditor
+                sentence={d.sentence}
+                onSaved={() => {
+                  setPicked(null);
+                  setLoads((n) => n + 1);
+                }}
+              />
+            )}
 
             {pickedWord && pw && (
               <div className="cf-wordcard">

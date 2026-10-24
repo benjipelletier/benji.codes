@@ -197,7 +197,7 @@ export function SentenceText({
             }}
           >
             {pinyin ? (
-              <span className="cf-ruby">
+              <span className="cf-pyword">
                 <small>{displayPinyin(sentence.looks[i]!.p)}</small>
                 <span>{marked(b)}</span>
               </span>
