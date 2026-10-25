@@ -11610,3 +11610,19 @@ button.cf-how-text {
   background: var(--cf-sunken);
   color: var(--cf-ink-soft);
 }
+
+/* Something new from Muse since it was last opened here: a small pill after the title. */
+.cf-new-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+  font-family: Inter, var(--cf-zh), sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  vertical-align: 2px;
+}

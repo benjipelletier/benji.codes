@@ -54,8 +54,13 @@ const ENGLISH_KEY = "cfx-episode-english";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+/** Something Muse added or changed since it was last opened here. */
+export function NewBadge() {
+  return <span className="cf-new-badge">New</span>;
+}
+
 /** The episodes as rows on the Muse reviews screen. */
-export function EpisodeRows({ episodes, onOpen }: { episodes: EpisodeListed[]; onOpen: (id: number) => void }) {
+export function EpisodeRows({ episodes, isNew, onOpen }: { episodes: EpisodeListed[]; isNew: (e: EpisodeListed) => boolean; onOpen: (id: number) => void }) {
   if (!episodes.length) return null;
   return (
     <section className="cf-revive-group cf-read-group">
@@ -69,6 +74,7 @@ export function EpisodeRows({ episodes, onOpen }: { episodes: EpisodeListed[]; o
               <span className="cf-stuck-body">
                 <span className="cf-read-title cf-zh">
                   {e.show} · {e.episode}
+                  {isNew(e) && <NewBadge />}
                 </span>
                 <span className="cf-stuck-gloss">
                   {clock(e.duration)} · {fmt(e.lineCount)} lines{e.known !== null && <> · {pct(e.known)} known</>}

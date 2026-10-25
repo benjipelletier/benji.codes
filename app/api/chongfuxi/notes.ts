@@ -141,7 +141,12 @@ async function entriesOf(sql: Sql, owner: string, rows: NoteRow[]): Promise<Note
 }
 
 /** The owner's notes, newest first, with Muse's answers. Readable by anyone, like the rest of the log. */
-export async function listNotes(sql: Sql, owner: string, offset = 0, limit = NOTES_PAGE): Promise<{ notes: NoteEntry[]; total: number; answered: number }> {
+export async function listNotes(
+  sql: Sql,
+  owner: string,
+  offset = 0,
+  limit = NOTES_PAGE,
+): Promise<{ notes: NoteEntry[]; total: number; answered: number; lastAnswer: number | null }> {
   await ensureTable(sql);
   const rows = (await sql.query(
     `select ${NOTE_COLUMNS} ${NOTE_FROM}
@@ -151,10 +156,11 @@ export async function listNotes(sql: Sql, owner: string, offset = 0, limit = NOT
   )) as unknown as NoteRow[];
   const [counts] = (await sql`
     select count(*)::int as total,
-           count(*) filter (where exists (select 1 from chongfuxi_note_answer a where a.owner_email = r.owner_email and a.review_id = r.id))::int as answered
+           count(*) filter (where exists (select 1 from chongfuxi_note_answer a where a.owner_email = r.owner_email and a.review_id = r.id))::int as answered,
+           (select (extract(epoch from max(a.at)) * 1000)::double precision from chongfuxi_note_answer a where a.owner_email = ${owner}) as "lastAnswer"
     from chongfuxi_review r where r.owner_email = ${owner} and r.comment is not null and r.cause = 'answer'
-  `) as unknown as Array<{ total: number; answered: number }>;
-  return { notes: await entriesOf(sql, owner, rows), ...counts };
+  `) as unknown as Array<{ total: number; answered: number; lastAnswer: number | null }>;
+  return { notes: await entriesOf(sql, owner, rows), ...counts, lastAnswer: counts.lastAnswer === null ? null : Math.round(counts.lastAnswer) };
 }
 
 /**

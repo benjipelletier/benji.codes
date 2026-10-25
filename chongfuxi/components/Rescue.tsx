@@ -14,16 +14,17 @@
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { Drill, EpisodeListed, KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import { markSeen, onSeen, seenAt } from "@chongfuxi/lib/museSeen";
 import { DrillView, drillLeft, say, useDrill } from "./Drill";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ReadingRows, ReadingView, latestReadings, unread, useReadings } from "./Reading";
-import { EpisodeRows, EpisodeView, useEpisodes } from "./Watch";
+import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
@@ -41,6 +42,39 @@ function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
   return kits;
 }
 
+/** The latest story Muse wrote, for whether it is new. */
+function useStory(): StuckStory | null {
+  const [story, setStory] = useState<StuckStory | null>(null);
+  useEffect(() => {
+    get<{ story: StuckStory | null }>("rescue", { story: 1 })
+      .then((r) => setStory(r.story))
+      .catch(() => setStory(null));
+  }, []);
+  return story;
+}
+
+/**
+ * What Muse has added or changed since it was last opened on this device
+ * (lib/museSeen.ts): today's review, the story, answers to notes, an
+ * episode. Readings say New by themselves until opened.
+ */
+function useMuseNews(
+  drill: Drill | null | undefined,
+  story: StuckStory | null,
+  lastAnswer: number | null | undefined,
+  episodes: EpisodeListed[] | null,
+) {
+  const [, redraw] = useState(0);
+  useEffect(() => onSeen(() => redraw((n) => n + 1)), []);
+  const news = {
+    drill: !!drill && !seenAt(`drill:${drill.at}`),
+    story: !!story && !seenAt(`story:${story.at}`),
+    notes: !!lastAnswer && lastAnswer > seenAt("notes"),
+    episode: (e: EpisodeListed) => e.updatedAt > seenAt(`episode:${e.id}`),
+  };
+  return { ...news, any: news.drill || news.story || news.notes || (episodes ?? []).some(news.episode) };
+}
+
 /**
  * On Today: one Muse reviews button (it was Memory kits) with how many new and stuck words there
  * are, opening their list (the owner reframed Words to revive to take in new
@@ -52,6 +86,8 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
   const left = drillLeft(drill);
   const toRead = unread(latestReadings(useReadings()));
   const episodes = useEpisodes();
+  const noteCounts = useNoteCounts();
+  const news = useMuseNews(drill, useStory(), noteCounts?.lastAnswer, episodes);
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   if (!kits || (!total && !left && !toRead && !episodes?.length)) return null;
   const parts = [
@@ -64,7 +100,10 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
-        <b>Muse reviews</b>
+        <b>
+          Muse reviews
+          {(news.any || toRead > 0) && <NewBadge />}
+        </b>
         <small>{parts.join(" · ")}</small>
       </span>
       {total + left + toRead > 0 && <span className="cf-stuck-count">{fmt(total + left + toRead)}</span>}
@@ -205,10 +244,18 @@ function StuckRows({
   const kits = useKits();
   const noteCounts = useNoteCounts();
   const readings = latestReadings(useReadings());
-  const episodes = useEpisodes() ?? [];
+  const episodesOrNull = useEpisodes();
+  const episodes = episodesOrNull ?? [];
   const drill = useDrill();
+  const story = useStory();
+  const news = useMuseNews(drill, story, noteCounts?.lastAnswer, episodesOrNull);
   const left = drillLeft(drill);
   const words = kits?.stuck ?? null;
+  // Opening something marks it seen here, so its New badge goes.
+  const open = (key: string | null, go: () => void) => () => {
+    if (key) markSeen(key);
+    go();
+  };
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   return (
     <div className="cf-rescue">
@@ -224,9 +271,12 @@ function StuckRows({
         {!kits && <Loading label="Finding them…" />}
         {/* Muse's cards for the day lead; reading and watching next; the smaller things as one list. */}
         {drill && (
-          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={onDrill}>
+          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={open(`drill:${drill.at}`, onDrill)}>
             <span className="cf-stuck-text">
-              <b>{drill.today ? "Today's review" : "Latest review"}</b>
+              <b>
+                {drill.today ? "Today's review" : "Latest review"}
+                {news.drill && <NewBadge />}
+              </b>
               <small>
                 {left
                   ? `${fmt(left)} of ${fmt(drill.cards.length)} cards left`
@@ -238,7 +288,14 @@ function StuckRows({
           </button>
         )}
         <ReadingRows readings={readings} onOpen={onRead} />
-        <EpisodeRows episodes={episodes} onOpen={onWatch} />
+        <EpisodeRows
+          episodes={episodes}
+          isNew={news.episode}
+          onOpen={(id) => {
+            markSeen(`episode:${id}`);
+            onWatch(id);
+          }}
+        />
         {(total > 0 || (noteCounts?.total ?? 0) > 0) && (
           <ul className="cf-muse-tools">
             {total > 0 && (
@@ -252,8 +309,11 @@ function StuckRows({
             )}
             {total > 0 && (
               <li>
-                <button onClick={onStory}>
-                  <b>Today&apos;s story</b>
+                <button onClick={open(story ? `story:${story.at}` : null, onStory)}>
+                  <b>
+                    Today&apos;s story
+                    {news.story && <NewBadge />}
+                  </b>
                   <small>by Muse</small>
                   <i aria-hidden="true">›</i>
                 </button>
@@ -261,8 +321,11 @@ function StuckRows({
             )}
             {noteCounts && noteCounts.total > 0 && (
               <li>
-                <button onClick={onNotes}>
-                  <b>Your notes</b>
+                <button onClick={open("notes", onNotes)}>
+                  <b>
+                    Your notes
+                    {news.notes && <NewBadge />}
+                  </b>
                   <small>
                     {fmt(noteCounts.answered)}/{fmt(noteCounts.total)} answered
                   </small>

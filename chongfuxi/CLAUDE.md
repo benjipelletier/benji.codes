@@ -909,6 +909,16 @@ trips both count.
   a row each with a short figure (`cf-muse-tools`); then New words and the
   stuck words' categories with no "Stuck words" heading over them (the
   owner had it taken out).
+- **New from Muse** (the owner asked for a little badge): a "New" pill
+  (`NewBadge`) after the title of whatever Muse added or changed since it
+  was last opened on this device: today's review (by its `at`), the story
+  (by its `at`), Your notes (an answer newer than the last opening, from
+  `lastAnswer` on the notes route), an episode (its `updatedAt`: new
+  subtitles, a prep or line notes, `notes_at`). Readings keep their own
+  New state until opened. Today's Muse reviews button has the pill when
+  anything inside is new or a reading is unread. What was opened is kept
+  per device in localStorage (`lib/museSeen.ts`, key `cfx-muse-seen`),
+  marked as each is opened; with no storage everything reads as new.
 - Settings › Algorithm has the Rescue group.
 
 ## Synonyms: words with the same English

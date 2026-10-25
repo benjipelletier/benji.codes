@@ -86,6 +86,7 @@ async function ensureTables(sql: Sql) {
   `;
   // Muse's notes on lines, like Genius annotations.
   await sql`alter table chongfuxi_episode add column if not exists notes jsonb`;
+  await sql`alter table chongfuxi_episode add column if not exists notes_at timestamptz`;
   // How ready the owner was for an episode, one row a study day (the latest measure that day).
   await sql`
     create table if not exists chongfuxi_episode_progress (
@@ -245,12 +246,15 @@ type Row = {
   model: string | null;
   known: number | null;
   notes: EpisodeLineNote[] | null;
+  /** When it last changed: subtitles, prep or line notes. */
+  updated: number;
 };
 
 async function rowOf(sql: Sql, owner: string, id: number): Promise<Row> {
   await ensureTables(sql);
   const [row] = (await sql`
-    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes
+    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes,
+           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated
     from chongfuxi_episode where owner_email = ${owner} and id = ${id}
   `) as unknown as Row[];
   if (!row) throw new EpisodeError("No such episode.");
@@ -267,6 +271,7 @@ const listed = (r: Row): EpisodeListed => ({
   duration: r.lines.length ? r.lines[r.lines.length - 1].e : 0,
   prepped: r.prep !== null,
   known: r.known,
+  updatedAt: Math.round(r.updated),
 });
 
 /** The episodes, newest first: names and figures only. Readable by anyone. */
@@ -276,10 +281,11 @@ export async function listEpisodes(sql: Sql, owner: string, dict?: Dict): Promis
   const rows = (await sql`
     select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at,
            jsonb_build_array() as lines, prep is not null as prepped, model, known,
-           jsonb_array_length(lines)::int as n, coalesce((lines->-1->>'e')::double precision, 0) as duration
+           jsonb_array_length(lines)::int as n, coalesce((lines->-1->>'e')::double precision, 0) as duration,
+           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated
     from chongfuxi_episode where owner_email = ${owner}
     order by show, episode
-  `) as unknown as Array<Omit<Row, "prep"> & { prepped: boolean; n: number; duration: number }>;
+  `) as unknown as Array<Omit<Row, "prep"> & { prepped: boolean; n: number; duration: number; updated: number }>;
   return rows.map((r) => ({
     id: r.id,
     show: r.show,
@@ -290,6 +296,7 @@ export async function listEpisodes(sql: Sql, owner: string, dict?: Dict): Promis
     duration: r.duration,
     prepped: r.prepped,
     known: r.known,
+    updatedAt: Math.round(r.updated),
   }));
 }
 
@@ -730,7 +737,7 @@ export async function writeLineNotes(sql: Sql, owner: string, input: Record<stri
   const byLine = new Map<number, EpisodeLineNote>(input.replace === true ? [] : (r.notes ?? []).map((n) => [n.i, n]));
   for (const n of given) byLine.set(n.i, n);
   const notes = [...byLine.values()].sort((a, b) => a.i - b.i).slice(0, LINE_NOTES_MAX);
-  await sql`update chongfuxi_episode set notes = ${JSON.stringify(notes)}::jsonb where owner_email = ${owner} and id = ${id}`;
+  await sql`update chongfuxi_episode set notes = ${JSON.stringify(notes)}::jsonb, notes_at = now() where owner_email = ${owner} and id = ${id}`;
   return { written: given.length, notes: notes.length, failed };
 }
 

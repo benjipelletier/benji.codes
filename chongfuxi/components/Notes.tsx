@@ -114,11 +114,11 @@ export function NoteItem({ n, showWord = true }: { n: NoteEntry; showWord?: bool
   );
 }
 
-export function useNoteCounts(): { total: number; answered: number } | null {
-  const [counts, setCounts] = useState<{ total: number; answered: number } | null>(null);
+export function useNoteCounts(): { total: number; answered: number; lastAnswer: number | null } | null {
+  const [counts, setCounts] = useState<{ total: number; answered: number; lastAnswer: number | null } | null>(null);
   useEffect(() => {
-    get<{ total: number; answered: number }>("notes", { offset: 0 })
-      .then((r) => setCounts({ total: r.total, answered: r.answered }))
+    get<{ total: number; answered: number; lastAnswer: number | null }>("notes", { offset: 0 })
+      .then((r) => setCounts({ total: r.total, answered: r.answered, lastAnswer: r.lastAnswer ?? null }))
       .catch(() => setCounts(null));
   }, []);
   return counts;

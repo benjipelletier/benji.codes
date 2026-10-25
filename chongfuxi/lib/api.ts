@@ -1271,6 +1271,8 @@ export interface EpisodeListed {
   prepped: boolean;
   /** Share of its words known when last opened (0–1). */
   known: number | null;
+  /** When Muse last changed it (subtitles, prep or line notes), for the New badge. */
+  updatedAt: number;
 }
 
 /** What a Muse note on a line is about, like a Genius annotation's kind. */
