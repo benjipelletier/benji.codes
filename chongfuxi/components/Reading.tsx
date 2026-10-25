@@ -60,7 +60,6 @@ export function ReadingRows({ readings, onOpen }: { readings: Reading[]; onOpen:
       <h3 className="cf-revive-h">
         Read <span>{fmt(readings.length)}</span>
       </h3>
-      <p className="cf-muted cf-stuck-about">Native pieces Muse found that you can mostly read, then retell.</p>
       <ul className="cf-stuck-list cf-read-list">
         {readings.map((r) => {
           const s = stateOf(r);

@@ -222,50 +222,59 @@ function StuckRows({
       </div>
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
-        <ReadingRows readings={readings} onOpen={onRead} />
-        <EpisodeRows episodes={episodes} onOpen={onWatch} />
+        {/* Muse's cards for the day lead; reading and watching next; the smaller things as one list. */}
         {drill && (
           <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={onDrill}>
             <span className="cf-stuck-text">
               <b>{drill.today ? "Today's review" : "Latest review"}</b>
               <small>
                 {left
-                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards to go, written for your problem areas`
-                  : `All ${fmt(drill.cards.length)} done${drill.today ? "" : " · today's isn't written yet"}`}
+                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards left`
+                  : `All ${fmt(drill.cards.length)} done${drill.today ? "" : " · today's not written yet"}`}
               </small>
             </span>
             {left > 0 && <span className="cf-stuck-count">{fmt(left)}</span>}
             <i aria-hidden="true">›</i>
           </button>
         )}
-        {noteCounts && noteCounts.total > 0 && (
-          <button className="cf-stuck cf-story-btn" onClick={onNotes}>
-            <span className="cf-stuck-text">
-              <b>Your notes</b>
-              <small>
-                What you wrote after a Forgot · {fmt(noteCounts.answered)} of {fmt(noteCounts.total)} answered by Muse
-              </small>
-            </span>
-            <i aria-hidden="true">›</i>
-          </button>
+        <ReadingRows readings={readings} onOpen={onRead} />
+        <EpisodeRows episodes={episodes} onOpen={onWatch} />
+        {(total > 0 || (noteCounts?.total ?? 0) > 0) && (
+          <ul className="cf-muse-tools">
+            {total > 0 && (
+              <li>
+                <button onClick={onSpeed}>
+                  <b>Speed round</b>
+                  <small>{fmt(total)} words</small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
+            {total > 0 && (
+              <li>
+                <button onClick={onStory}>
+                  <b>Today&apos;s story</b>
+                  <small>by Muse</small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
+            {noteCounts && noteCounts.total > 0 && (
+              <li>
+                <button onClick={onNotes}>
+                  <b>Your notes</b>
+                  <small>
+                    {fmt(noteCounts.answered)}/{fmt(noteCounts.total)} answered
+                  </small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
+          </ul>
         )}
         {kits && !total && !drill && !readings.length && !episodes.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
         {kits && total > 0 && (
           <>
-            <button className="cf-stuck cf-story-btn cf-speed-btn" onClick={onSpeed}>
-              <span className="cf-stuck-text">
-                <b>Speed round</b>
-                <small>Flip through all {fmt(total)} fast, saying each out loud</small>
-              </span>
-              <i aria-hidden="true">›</i>
-            </button>
-            <button className="cf-stuck cf-story-btn" onClick={onStory}>
-              <span className="cf-stuck-text">
-                <b>Today&apos;s story</b>
-                <small>Muse writes one each morning with your stuck, new and due words</small>
-              </span>
-              <i aria-hidden="true">›</i>
-            </button>
             {kits.fresh.length > 0 && (
               <section className="cf-revive-group">
                 <h3 className="cf-revive-h">

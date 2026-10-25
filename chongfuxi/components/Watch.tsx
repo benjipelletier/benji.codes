@@ -51,7 +51,6 @@ export function EpisodeRows({ episodes, onOpen }: { episodes: EpisodeListed[]; o
       <h3 className="cf-revive-h">
         Watch <span>{fmt(episodes.length)}</span>
       </h3>
-      <p className="cf-muted cf-stuck-about">Episodes Muse found the subtitles for, to get ready for before watching.</p>
       <ul className="cf-stuck-list cf-read-list">
         {episodes.map((e) => (
           <li key={e.id}>

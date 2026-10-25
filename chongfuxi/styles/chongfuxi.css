@@ -11018,3 +11018,66 @@ button.cf-how-text {
   margin: 2px 0 0;
   font-size: 12px;
 }
+
+/* Muse reviews' smaller things (speed round, story, notes) as one grouped list. */
+.cf-muse-tools {
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-muse-tools li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-muse-tools button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+}
+
+.cf-muse-tools b {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.cf-muse-tools small {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-muse-tools i {
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+
+/* Read and Watch on Muse reviews: spaced like sections, the count quiet (it isn't trouble). */
+.cf-rescue-in > .cf-read-group {
+  margin-top: 22px;
+}
+
+.cf-read-group .cf-revive-h {
+  margin-bottom: 8px;
+}
+
+.cf-read-group .cf-revive-h span {
+  color: var(--cf-ink-faint);
+}
+
+.cf-muse-tools + .cf-revive-group {
+  margin-top: 26px;
+}

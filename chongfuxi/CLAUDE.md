@@ -898,12 +898,15 @@ trips both count.
   Episodes to get ready for come under it, as **Watch** (see Getting
   ready to watch a drama).
 - **Muse reviews** (the owner reframed the screen around Muse): Today's
-  button and the screen are called that (they were Memory kits), headed by
-  "Today's review" ("Latest review" until today's is written), the cards
-  Muse writes from the problem areas (see Lists written by the owner's
-  agent), then the speed round, the story, New words, and the stuck words'
-  categories with no "Stuck words" heading over them (the owner had it
-  taken out).
+  button and the screen are called that (they were Memory kits). Cleaned
+  up at the owner's request: "Today's review" first ("Latest review" until
+  today's is written; "32 of 36 cards left"), the cards Muse writes from the
+  problem areas (see Lists written by the owner's agent); then Read and
+  Watch, each a heading with a quiet count and its rows, no line explaining
+  it; then the speed round, the story and Your notes as one grouped list,
+  a row each with a short figure (`cf-muse-tools`); then New words and the
+  stuck words' categories with no "Stuck words" heading over them (the
+  owner had it taken out).
 - Settings › Algorithm has the Rescue group.
 
 ## Synonyms: words with the same English
