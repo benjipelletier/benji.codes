@@ -135,6 +135,10 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/agent/drill": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/word/page": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/rescue": ["./chongfuxi/data/cedict.txt"],
+    // Episodes: subtitles split into words and measured against the deck, traditional made simplified.
+    "/api/chongfuxi/episodes": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/episodes": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/episodes/prep": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
     // Muse's reading: each page split into words and measured against the deck.
     "/api/chongfuxi/reading": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/reading": ["./chongfuxi/data/cedict.txt"],

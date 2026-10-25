@@ -308,23 +308,25 @@ const RETELL_SYSTEM = `You check a Chinese learner's spoken or typed answer to a
 - fixed: how a native speaker would say what they meant, keeping their ideas and as many of their words as possible; the same as theirs when it is correct.
 - why: in English, one to three short sentences: what exactly is wrong and why (name the word or pattern), and if they misread the text, what it actually says. When it is correct, what was good about it.`;
 
-/** A retelling graded by the app's model, at Look up's model and effort (never lower). Owner only. */
-export async function gradeRetell(sql: Sql, owner: string, dict: Dict, id: number, q: number, answer: string): Promise<Retell> {
-  await ensureTables(sql);
-  const said = answer.trim().slice(0, 600);
-  if (!HAN.test(said)) throw new ReadingError("Answer in Chinese.");
-  const { reading, text } = await openReading(sql, owner, dict, id);
-  const question = reading.questions[q];
-  if (!question) throw new ReadingError("No such question.");
+/**
+ * An answer in Chinese to a question about a text, graded by the app's model
+ * at Look up's model and effort (never lower): its Chinese, and whether it
+ * fits what the text says. Shared by readings and episodes (episodes.ts).
+ */
+export async function gradeAnswer(
+  body: string,
+  title: string,
+  question: { zh: string; en: string },
+  said: string,
+): Promise<Omit<Retell, "q" | "answer" | "at">> {
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new ReadingError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
-  const body = text.paragraphs.map((p) => p.flat().map((t) => t.t).join("")).join("\n").slice(0, CONTEXT_MAX);
   const message = await new Anthropic({ apiKey }).messages.create({
     model: MODEL,
     max_tokens: 2000,
     system: RETELL_SYSTEM,
     output_config: { effort: EFFORT, format: { type: "json_schema", schema: RETELL_SCHEMA as unknown as Record<string, unknown> } },
-    messages: [{ role: "user", content: `<text title="${reading.title ?? ""}">\n${body}\n</text>\n\nQuestion: ${question.zh} (${question.en})\nTheir answer: ${said}` }],
+    messages: [{ role: "user", content: `<text title="${title}">\n${body.slice(0, CONTEXT_MAX)}\n</text>\n\nQuestion: ${question.zh} (${question.en})\nTheir answer: ${said}` }],
   });
   const raw = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
   let given: Record<string, unknown>;
@@ -333,13 +335,26 @@ export async function gradeRetell(sql: Sql, owner: string, dict: Dict, id: numbe
   } catch {
     throw new ReadingError(message.stop_reason === "refusal" ? "The model declined." : "The check came back malformed.");
   }
-  const result = {
+  console.log("retell graded", JSON.stringify({ title, usage: message.usage }));
+  return {
     grade: given.grade === "correct" || given.grade === "almost" || given.grade === "wrong" ? given.grade : "almost",
     understood: given.understood !== false,
     fixed: str(given.fixed, 600) || said,
     why: str(given.why, 800),
-  } as const;
+  };
+}
+
+/** A retelling graded by the app's model, at Look up's model and effort (never lower). Owner only. */
+export async function gradeRetell(sql: Sql, owner: string, dict: Dict, id: number, q: number, answer: string): Promise<Retell> {
+  await ensureTables(sql);
+  const said = answer.trim().slice(0, 600);
+  if (!HAN.test(said)) throw new ReadingError("Answer in Chinese.");
+  const { reading, text } = await openReading(sql, owner, dict, id);
+  const question = reading.questions[q];
+  if (!question) throw new ReadingError("No such question.");
+  const body = text.paragraphs.map((p) => p.flat().map((t) => t.t).join("")).join("\n");
+  const result = await gradeAnswer(body, reading.title ?? "", question, said);
   await sql`insert into chongfuxi_retell (owner_email, reading_id, q, answer, result) values (${owner}, ${id}, ${q}, ${said}, ${JSON.stringify(result)}::jsonb)`;
-  console.log("retell", JSON.stringify({ id, q, grade: result.grade, usage: message.usage }));
+  console.log("retell", JSON.stringify({ id, q, grade: result.grade }));
   return { ...result, q, answer: said, at: Date.now() };
 }

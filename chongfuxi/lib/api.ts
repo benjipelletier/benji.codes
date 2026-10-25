@@ -1224,3 +1224,69 @@ export interface CardNoteAnswer {
   pair: NotePair | null;
   at: number;
 }
+
+/** A subtitle line of an episode (app/api/chongfuxi/episodes.ts): times in ms, its Chinese (simplified), its English if the file had one. */
+export interface EpisodeLine {
+  s: number;
+  e: number;
+  zh: string;
+  en: string | null;
+}
+
+/** A scene, as a chapter to scrub to: from line `start` to the next scene's. */
+export interface EpisodeScene {
+  start: number;
+  title: string;
+  /** What happens, in simple Chinese and in English (spoilers are fine: the owner's choice). */
+  summary: string;
+  summaryEn: string;
+  /** Slang, dialect, culture: what the lines take for granted. */
+  notes: string[];
+}
+
+/** A word of the episode not known yet, as Muse ranked it: must know, nice to know, or skip. */
+export interface EpisodeWord {
+  word: string;
+  tier: "must" | "nice" | "skip";
+  note: string | null;
+  /** How often it is said in the episode. */
+  count: number;
+  pinyin: string | null;
+  gloss: string | null;
+  inDeck: boolean;
+}
+
+/** An episode in the list (links and figures only: readable by anyone). */
+export interface EpisodeListed {
+  id: number;
+  show: string;
+  episode: string;
+  title: string | null;
+  at: number;
+  lineCount: number;
+  /** Length, ms. */
+  duration: number;
+  prepped: boolean;
+  /** Share of its words known when last opened (0–1). */
+  known: number | null;
+}
+
+/** An episode opened for study. Owner only: the subtitles aren't ours to serve. */
+export interface EpisodeView extends EpisodeListed {
+  model: string | null;
+  /** Each line with its words marked as the text analyser marks them (names as known). */
+  lines: Array<EpisodeLine & { tokens: TextToken[] }>;
+  /** Muse's scenes, or, until it has prepped the episode, scenes cut at the pauses. */
+  scenes: Array<EpisodeScene & { end: number; known: number }>;
+  autoScenes: boolean;
+  /** Words not known, Muse's must-knows first, then by how often they are said. */
+  words: EpisodeWord[];
+  names: string[];
+  questions: Array<{ zh: string; en: string }>;
+  retells: Retell[];
+  /** Shares (0–1): words known now; known once the must-knows are learnt; lines readable now. */
+  coverage: { known: number; ready: number; lines: number };
+  looks: Record<string, { p: string; gloss: string | null } | null>;
+  /** The Muse list its must-know words are filed under, for Learn and Review. */
+  list: string | null;
+}

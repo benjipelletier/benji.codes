@@ -10464,3 +10464,416 @@ button.cf-how-text {
   font-weight: 600;
   cursor: pointer;
 }
+
+/* Getting ready to watch an episode: readiness, must-know words, chapters to scrub through. */
+.cf-ep-num {
+  color: var(--cf-ink-soft);
+  font-weight: 500;
+}
+
+.cf-ep-ready {
+  margin: 4px 0 18px;
+}
+
+.cf-ep-big {
+  margin: 0 0 8px;
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.cf-ep-big small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cf-ink-soft);
+}
+
+.cf-ep-meter {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--cf-sunken);
+}
+
+.cf-ep-meter span.is-known {
+  background: var(--cf-accent);
+}
+
+.cf-ep-meter span.is-ready {
+  background: var(--cf-new);
+}
+
+.cf-ep-figs {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.cf-ep-ready-key {
+  color: var(--cf-warn);
+}
+
+.cf-ep-words ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-kits-h span {
+  margin-left: 4px;
+  color: var(--cf-ink-faint);
+  font-weight: 500;
+}
+
+.cfx .cf-ep-word {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 12px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  text-align: left;
+  font: inherit;
+}
+
+.cf-ep-word-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cf-ep-word-head .cf-zh {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.cf-ep-py {
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+}
+
+.cf-ep-count,
+.cf-ep-in {
+  margin-left: auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cf-ink-faint);
+}
+
+.cf-ep-in {
+  color: var(--cf-up);
+}
+
+.cf-ep-gloss {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-ep-note {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cfx .cf-ep-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  text-decoration: none;
+}
+
+.cf-ep-names {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+/* The chapter bar: a segment per scene, as long as it runs, filled along its foot by how much is known. */
+.cf-ch {
+  position: relative;
+  margin: 34px 0 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cf-ch-bar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 28px;
+  align-items: center;
+  touch-action: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.cf-ch-bar:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.cf-ch-seg {
+  position: relative;
+  flex-basis: 0;
+  min-width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--cf-rule-strong);
+  overflow: hidden;
+  transition: height 0.12s ease;
+}
+
+.cf-ch-seg i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--cf-ink-faint);
+}
+
+.cf-ch-seg.is-past {
+  background: color-mix(in srgb, var(--cf-accent) 45%, var(--cf-rule-strong));
+}
+
+.cf-ch-seg.is-on {
+  height: 14px;
+  background: var(--cf-accent);
+}
+
+.cf-ch-seg.is-on i,
+.cf-ch-seg.is-past i {
+  background: color-mix(in srgb, var(--cf-on-accent) 70%, transparent);
+}
+
+.cf-ch-bar.is-scrubbing .cf-ch-seg {
+  height: 12px;
+}
+
+.cf-ch-bar.is-scrubbing .cf-ch-seg.is-on {
+  height: 18px;
+}
+
+.cf-ch-head {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: var(--cf-accent);
+  box-shadow: 0 0 0 3px var(--cf-surface);
+  pointer-events: none;
+}
+
+.cf-ch-tipline {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  right: 0;
+  height: 26px;
+  pointer-events: none;
+}
+
+.cf-ch-tip {
+  position: absolute;
+  max-width: 140px;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--cf-ink);
+  color: var(--cf-bg);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-ch-tip b {
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-ch-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-ep-scene {
+  margin: 16px 0 0;
+  padding: 14px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  scroll-margin-top: 64px;
+}
+
+.cf-ep-scene-at {
+  margin: 0;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-ep-scene-h.cf-zh {
+  margin: 4px 0 8px;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.cf-ep-summary {
+  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.cf-ep-summary-en {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-ep-notes {
+  margin: 10px 0 0;
+  padding: 10px 12px 10px 28px;
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-ep-notes li + li {
+  margin-top: 4px;
+}
+
+.cfx .cf-ep-lines-toggle {
+  margin-top: 12px;
+}
+
+.cf-ep-lines {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-ep-line {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-ep-at {
+  flex: none;
+  min-width: 44px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  align-self: flex-start;
+  line-height: 28px;
+}
+
+.cf-ep-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-ep-text .cf-zh {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.cf-ep-en {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cfx .cf-an-w.is-unknown.is-must {
+  background: color-mix(in srgb, var(--cf-new) 40%, transparent);
+  box-shadow: inset 0 -2px 0 var(--cf-new);
+}
+
+.cf-ep-step {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cf-ep-step .cf-btn {
+  flex: 1;
+}
+
+.cf-ep-chapters {
+  margin: 14px 0 22px;
+  padding: 0;
+  list-style: none;
+}
+
+.cfx .cf-ep-chapters button {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+}
+
+.cfx .cf-ep-chapters button.is-on {
+  background: var(--cf-accent-soft);
+}
+
+.cf-ep-ch-at {
+  flex: none;
+  min-width: 44px;
+  font-size: 13px;
+  color: var(--cf-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 24px;
+}
+
+.cf-ep-ch-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cf-ep-ch-body .cf-zh {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.cf-ep-ch-body small {
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-ep-run {
+  white-space: nowrap;
+}

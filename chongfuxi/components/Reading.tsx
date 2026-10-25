@@ -193,7 +193,14 @@ export function ReadingView({ id, canWrite, onEnd }: { id: number; canWrite: boo
               <h2 className="cf-kits-h">Retell it</h2>
               <p className="cf-muted">Answer in Chinese, out loud or typed. Each answer is checked for the Chinese and for whether you got the piece.</p>
               {r.questions.map((q, i) => (
-                <Question key={i} reading={r} q={i} canWrite={canWrite} />
+                <Question
+                  key={i}
+                  question={q}
+                  q={i}
+                  initial={r.retells.filter((t) => t.q === i)}
+                  canWrite={canWrite}
+                  check={(answer) => send<{ retell: Retell }>("reading", { id: r.id, q: i, answer }).then((x) => x.retell)}
+                />
               ))}
             </section>
           </>
@@ -242,11 +249,23 @@ function recogniser(): Recognition | null {
   return r;
 }
 
-function Question({ reading, q, canWrite }: { reading: Reading; q: number; canWrite: boolean }) {
-  const question = reading.questions[q];
+/** A question to answer in Chinese, by voice or keyboard, each try graded (`check`) and kept, newest first. Used by readings and episodes. */
+export function Question({
+  question,
+  q,
+  initial,
+  canWrite,
+  check,
+}: {
+  question: { zh: string; en: string };
+  q: number;
+  initial: Retell[];
+  canWrite: boolean;
+  check: (answer: string) => Promise<Retell>;
+}) {
   const [answer, setAnswer] = useState("");
   const [english, setEnglish] = useState(false);
-  const [tries, setTries] = useState<Retell[]>(() => reading.retells.filter((t) => t.q === q).reverse());
+  const [tries, setTries] = useState<Retell[]>(() => [...initial].reverse());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
@@ -279,13 +298,13 @@ function Question({ reading, q, canWrite }: { reading: Reading; q: number; canWr
     r.start();
   };
 
-  const check = async () => {
+  const submit = async () => {
     rec.current?.stop();
     if (!answer.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      const { retell } = await send<{ retell: Retell }>("reading", { id: reading.id, q, answer: answer.trim() });
+      const retell = await check(answer.trim());
       setTries((t) => [retell, ...t]);
       setAnswer("");
     } catch (e) {
@@ -313,7 +332,7 @@ function Question({ reading, q, canWrite }: { reading: Reading; q: number; canWr
           className="cf-read-answer"
           onSubmit={(e) => {
             e.preventDefault();
-            void check();
+            void submit();
           }}
         >
           <textarea

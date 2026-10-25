@@ -23,6 +23,7 @@ import * as wordpage from "@chongfuxi/lib/wordpage";
 import { DrillView, drillLeft, say, useDrill } from "./Drill";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ReadingRows, ReadingView, latestReadings, unread, useReadings } from "./Reading";
+import { EpisodeRows, EpisodeView, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
@@ -50,21 +51,23 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
   const drill = useDrill();
   const left = drillLeft(drill);
   const toRead = unread(latestReadings(useReadings()));
+  const episodes = useEpisodes();
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
-  if (!kits || (!total && !left && !toRead)) return null;
+  if (!kits || (!total && !left && !toRead && !episodes?.length)) return null;
   const parts = [
     toRead && `${fmt(toRead)} to read`,
     left && `${fmt(left)} cards`,
     kits.fresh.length && `${fmt(kits.fresh.length)} new`,
     kits.stuck.length && `${fmt(kits.stuck.length)} stuck`,
   ].filter(Boolean);
+  if (!parts.length && episodes?.length) parts.push(`${fmt(episodes.length)} ${episodes.length === 1 ? "episode" : "episodes"} to watch`);
   return (
     <button className="cf-stuck" onClick={onOpen}>
       <span className="cf-stuck-text">
         <b>Muse reviews</b>
         <small>{parts.join(" · ")}</small>
       </span>
-      <span className="cf-stuck-count">{fmt(total + left + toRead)}</span>
+      {total + left + toRead > 0 && <span className="cf-stuck-count">{fmt(total + left + toRead)}</span>}
       <i aria-hidden="true">›</i>
     </button>
   );
@@ -79,6 +82,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
   const [drill, setDrill] = useState(false);
   const [reading, setReading] = useState<number | null>(null);
   const [notes, setNotes] = useState(false);
+  const [episode, setEpisode] = useState<number | null>(null);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
@@ -88,17 +92,19 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
     setDrill(false);
     setReading(null);
     setNotes(false);
+    setEpisode(null);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || story || speed || drill || reading !== null || notes, close);
+  useBackLayer(open !== null || story || speed || drill || reading !== null || notes || episode !== null, close);
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (story) return <StoryView onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   if (drill) return <DrillView canWrite={shell.canWrite} onEnd={close} />;
   if (reading !== null) return <ReadingView id={reading} canWrite={shell.canWrite} onEnd={close} />;
   if (notes) return <NotesView onEnd={close} />;
+  if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={close} />;
   return (
-    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onEnd={onEnd} />
+    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onWatch={setEpisode} onEnd={onEnd} />
   );
 }
 
@@ -184,6 +190,7 @@ function StuckRows({
   onDrill,
   onRead,
   onNotes,
+  onWatch,
   onEnd,
 }: {
   onOpen: (word: string) => void;
@@ -192,11 +199,13 @@ function StuckRows({
   onDrill: () => void;
   onRead: (id: number) => void;
   onNotes: () => void;
+  onWatch: (id: number) => void;
   onEnd: () => void;
 }) {
   const kits = useKits();
   const noteCounts = useNoteCounts();
   const readings = latestReadings(useReadings());
+  const episodes = useEpisodes() ?? [];
   const drill = useDrill();
   const left = drillLeft(drill);
   const words = kits?.stuck ?? null;
@@ -214,6 +223,7 @@ function StuckRows({
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
         <ReadingRows readings={readings} onOpen={onRead} />
+        <EpisodeRows episodes={episodes} onOpen={onWatch} />
         {drill && (
           <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={onDrill}>
             <span className="cf-stuck-text">
@@ -239,7 +249,7 @@ function StuckRows({
             <i aria-hidden="true">›</i>
           </button>
         )}
-        {kits && !total && !drill && !readings.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
+        {kits && !total && !drill && !readings.length && !episodes.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
         {kits && total > 0 && (
           <>
             <button className="cf-stuck cf-story-btn cf-speed-btn" onClick={onSpeed}>

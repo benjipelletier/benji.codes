@@ -895,6 +895,8 @@ trips both count.
   when today's isn't written yet. `rescue?story=1` reads it.
 - **Read** heads the Muse reviews screen: native pieces Muse found, to
   read and then retell (see Lists written by the owner's agent).
+  Episodes to get ready for come under it, as **Watch** (see Getting
+  ready to watch a drama).
 - **Muse reviews** (the owner reframed the screen around Muse): Today's
   button and the screen are called that (they were Memory kits), headed by
   "Today's review" ("Latest review" until today's is written), the cards
@@ -1749,6 +1751,56 @@ pair is dropped), and an unknown id or empty difference is named back in
   this yet".
 - Muse's review material carries `answered` (the latest answer to recent
   notes) so it can test those pairs.
+
+**Getting ready to watch a drama** (`app/api/chongfuxi/episodes.ts`,
+`components/Watch.tsx`; the owner: "pre study a script or subtitles, using
+my corpus as a backbone and muse analysis helping", e.g. 隐秘的角落 episode
+1). Choices the owner made: Muse finds the subtitles; the lines stay out of
+sentence cards for now; spoilers are fine; and scenes to scrub through "like
+YouTube chapter feature".
+
+- **In** (same token): POST `/api/chongfuxi/agent/episodes` `{ show,
+  episode, subtitles, title?, source? }`. `parseSubtitles` reads SRT, VTT,
+  ASS or plain lines: tags and `\N` dropped, traditional made simplified
+  (`simplified`), a bilingual line's English kept as its `en`, the Chinese
+  deduplicated, up to `LINES_MAX` (3000). One row per show and episode
+  (`chongfuxi_episode`, made on first use); sending it again replaces the
+  lines and clears the prep. Refused without Chinese.
+- **Material**: GET there lists them; `?id=` gives `brief`, every line (index,
+  time, Chinese) and up to 400 words not known, each with its count and up to
+  4 lines it is in (`episodeMaterial`). Measured as the text analyser
+  measures (`analyse`, one paragraph a line), names counting as known.
+- **Prep**: POST `/api/chongfuxi/agent/episodes/prep` `{ id, words: [{ word,
+  tier: must | nice | skip, note }], names, scenes: [{ start, title, summary,
+  summaryEn, notes }], questions: [{ zh, en }], model? }` (`writePrep`).
+  Scenes are sorted by `start`, the first forced to 0, out-of-range ones
+  dropped, at most 40; questions at most 8. The must-know words are written
+  whole to the Muse list `Muse/<show>/<episode>` (`writeList`, `replace`), so
+  they learn and review like any list. Until it is prepped, scenes are cut
+  at pauses of 8 s or more with at least 8 lines between (`autoScenes`).
+- **On screen** (owner only, since subtitles aren't ours to serve; the list
+  of episodes is public): "Watch" rows on Muse reviews (show, episode,
+  length, lines, % known, Prepped or Waiting for Muse); Today's Muse reviews
+  button shows for them too. An episode (`openEpisode`) opens with how ready
+  the owner is: the share of the words they'll hear that are known (large),
+  a bar with what learning the must-knows adds (amber), and the share of
+  lines readable; then the must-know words (pinyin, meaning, how often said,
+  Muse's note, ✓ learnt once in the deck), each opening its word page, and a
+  button to their list; the names. Then **Chapters**: one bar, a segment per
+  scene as long as it runs, a thin fill along each segment's foot for how
+  much of it is known; drag along it and the scene under the finger shows
+  above with its start time, let go (or tap) to open it; arrow keys step
+  (`ChapterBar`). The open scene: its time, % known, title, what happens in
+  simple Chinese (English on a tap), Muse's notes, and its lines with their
+  times (a tap on a time reads the line aloud), every word marked as the
+  analyser marks it, must-know words stronger, a tap giving reading and
+  meaning with Word page ›. ‹ and › step a chapter; under them the list of
+  chapters (start, title, lines, % known). Then the other words not known,
+  folded, and **After watching**: Muse's questions, answered by voice or
+  typing and graded against the lines like a reading's retelling (the same
+  `Question`, `gradeAnswer`; kept in `chongfuxi_episode_retell`).
+- Tested against a local Postgres (parsing, prep, the list, coverage) and in
+  the browser with stand-in data: the cloud session can't fetch subtitles.
 
 ## Bug reports
 
