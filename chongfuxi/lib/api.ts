@@ -1309,6 +1309,8 @@ export interface LineWordInfo {
   sentences: { readable: number; all: number; example: { zh: string; en: string | null } | null };
   /** Times it is said in this episode. */
   inEpisode: number;
+  /** Not a deck word but read through these deck words (福利 + 院); null otherwise. */
+  parts: string[] | null;
 }
 
 /** How ready the owner was for an episode on a study day. */

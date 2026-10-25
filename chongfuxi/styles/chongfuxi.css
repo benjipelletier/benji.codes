@@ -11605,3 +11605,8 @@ button.cf-how-text {
 .cf-wchip .cf-wchip-grades {
   margin-top: auto;
 }
+
+.cf-lw-state.is-parts {
+  background: var(--cf-sunken);
+  color: var(--cf-ink-soft);
+}

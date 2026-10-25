@@ -294,11 +294,37 @@ export async function listEpisodes(sql: Sql, owner: string, dict?: Dict): Promis
 }
 
 /** An episode's lines measured against the deck: each line's tokens, the words not known with counts and where, the looks. */
+/** Which of these words are deck words. */
+async function inDeck(sql: Sql, owner: string, words: string[]): Promise<Set<string>> {
+  if (!words.length) return new Set();
+  const rows = (await sql`
+    select word from chongfuxi_word where owner_email = ${owner} and status = 'deck' and word = any(${words}::text[])
+  `) as unknown as Array<{ word: string }>;
+  return new Set(rows.map((x) => x.word));
+}
+
+/**
+ * Muse's must-know words not in the deck. They count as new in the episode
+ * even when they read through their parts (福利院 from 福利 + 院, by the
+ * unlock rule for a known word with something added): Muse picked them
+ * because they aren't known.
+ */
+async function mustNew(sql: Sql, owner: string, prep: Prep | null): Promise<Set<string>> {
+  const must = (prep?.words ?? []).filter((w) => w.tier === "must").map((w) => w.word);
+  const deck = await inDeck(sql, owner, must);
+  return new Set(must.filter((w) => !deck.has(w)));
+}
+
+/** A word's standing in an episode: names known, a must-know not in the deck new, else as the analyser has it. */
+const standingIn = (t: TextToken, names: Set<string>, fresh: Set<string>): TextToken =>
+  !t.k ? t : names.has(t.t) ? { t: t.t, k: "known" } : fresh.has(t.t) ? { t: t.t, k: "unknown" } : t;
+
 async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
   const a = await analyse(sql, owner, dict, { text: r.lines.map((l) => l.zh).join("\n"), kind: "paste", title: r.title, url: null });
   // analyse makes a paragraph of each line (none is empty), so they pair up in order.
   const names = new Set(r.prep?.names ?? []);
-  const tokens: TextToken[][] = a.paragraphs.map((p) => p.flat().map((t) => (t.k && names.has(t.t) ? { t: t.t, k: "known" as const } : t)));
+  const fresh = await mustNew(sql, owner, r.prep);
+  const tokens: TextToken[][] = a.paragraphs.map((p) => p.flat().map((t) => standingIn(t, names, fresh)));
   const where = new Map<string, number[]>();
   tokens.forEach((line, i) => {
     for (const t of line) {
@@ -715,10 +741,32 @@ export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number,
   if (!line) throw new EpisodeError("No such line.");
   const a = await analyse(sql, owner, dict, { text: line.zh, kind: "paste", title: null, url: null });
   const names = new Set(r.prep?.names ?? []);
-  const toks = a.paragraphs.flat(2).filter((t) => t.k);
+  const fresh = await mustNew(sql, owner, r.prep);
+  const toks = a.paragraphs.flat(2).filter((t) => t.k).map((t) => standingIn(t, names, fresh));
   const words = [...new Set(toks.map((t) => t.t))];
   if (!words.length) return [];
-  const standing = new Map(toks.map((t) => [t.t, names.has(t.t) ? ("known" as const) : t.k!]));
+  const standing = new Map(toks.map((t) => [t.t, t.k!]));
+  // A word read through its parts rather than in the deck: the deck words it splits into, longest first.
+  const throughParts = words.filter((w) => standing.get(w) !== "unknown" && !names.has(w) && [...w].length > 1);
+  const pieces = throughParts.flatMap((w) => {
+    const c = [...w];
+    const out: string[] = [];
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j <= c.length; j++) out.push(c.slice(i, j).join(""));
+    return out;
+  });
+  const deckPieces = await inDeck(sql, owner, [...new Set(pieces)]);
+  const partsOf = (w: string): string[] | null => {
+    if (deckPieces.has(w)) return null;
+    const c = [...w];
+    const out: string[] = [];
+    for (let i = 0; i < c.length; ) {
+      let j = c.length;
+      while (j > i + 1 && !deckPieces.has(c.slice(i, j).join(""))) j--;
+      out.push(c.slice(i, j).join(""));
+      i = j;
+    }
+    return out.length > 1 ? out : null;
+  };
   const [status, cards, lookups, sentences, hooks] = await Promise.all([
     sql`select word, status from chongfuxi_word where owner_email = ${owner} and word = any(${words}::text[])` as unknown as Promise<Array<{ word: string; status: LineWordInfo["status"] }>>,
     sql`
@@ -767,6 +815,7 @@ export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number,
       lookups: lookups.filter((x) => x.word === w).map((x) => ({ query: x.query, verdict: x.verdict })),
       sentences: { readable: sen?.readable ?? 0, all: sen?.all ?? 0, example: sen?.example ?? null },
       inEpisode: said(w),
+      parts: throughParts.includes(w) ? partsOf(w) : null,
     };
   });
 }

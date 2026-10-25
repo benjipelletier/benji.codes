@@ -1806,6 +1806,14 @@ YouTube chapter feature".
   it is said in), each line's count of new words, and the lines already
   annotated; the brief has it annotate the trouble lines first, then slang,
   grammar, culture, meaning and listening.
+- **Must-knows count as new** in the episode while they aren't in the deck
+  (`mustNew`, `standingIn`), even when they read through their parts: the
+  owner saw 福利院 marked Known, read as 福利 + 院 by the unlock rule for a
+  known word with something added (准备好了), though Muse had picked it as
+  a word to learn. Elsewhere a word known only through its parts says so
+  in the line panel: "From its parts", and "Not in your deck: read as 福利
+  + 院" (`parts` on `LineWordInfo`, the deck words it splits into, longest
+  first).
 - **Grading a line** by its words (no model): **Clear** (every word known),
   **Learning** (known, some still being learnt), **1 new**, **2+ new**
   (`gradeOf` in `Watch.tsx`), shown as a bar down each line's left in the

@@ -430,7 +430,13 @@ const dueIn = (at: number) => {
 /** One word of the selected line, as it lives in the corpus; opened, everything the corpus has on it. */
 function CorpusWord({ w, trouble, open, onToggle }: { w: LineWordInfo; trouble: EpisodeTrouble | undefined; open: boolean; onToggle: () => void }) {
   const state =
-    w.standing === "unknown" ? { cls: "new", label: w.status === "listed" ? "On a list" : "New" } : w.standing === "learning" ? { cls: "learning", label: "Learning" } : { cls: "known", label: "Known" };
+    w.standing === "unknown"
+      ? { cls: "new", label: w.status === "listed" ? "On a list" : "New" }
+      : w.parts
+        ? { cls: "parts", label: "From its parts" }
+        : w.standing === "learning"
+          ? { cls: "learning", label: "Learning" }
+          : { cls: "known", label: "Known" };
   return (
     <li className={`cf-lw${open ? " is-open" : ""}`}>
       <button className="cf-lw-head" onClick={onToggle} aria-expanded={open}>
@@ -453,6 +459,11 @@ function CorpusWord({ w, trouble, open, onToggle }: { w: LineWordInfo; trouble: 
                   </button>
                 </>
               )}
+            </p>
+          )}
+          {w.parts && (
+            <p className="cf-lw-line">
+              Not in your deck: read as <span className="cf-zh">{w.parts.join(" + ")}</span>, which you know. It may mean more than its parts.
             </p>
           )}
           {w.cards.length > 0 && (
@@ -553,7 +564,7 @@ function LinePanel({
   }, [cache, ep.id, i]);
   const nextNote = ep.notes.find((n) => n.i > i) ?? ep.notes[0];
   const rank = (w: LineWordInfo) => (ep.trouble[w.word] ? 0 : must.has(w.word) ? 1 : w.standing === "unknown" ? 2 : w.standing === "learning" ? 3 : 4);
-  const worth = (w: LineWordInfo) => rank(w) < 4 || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
+  const worth = (w: LineWordInfo) => rank(w) < 4 || w.parts !== null || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
   const shown = (words ?? []).filter(worth).sort((a, b) => rank(a) - rank(b));
   const rest = (words ?? []).filter((w) => !worth(w));
   return (
