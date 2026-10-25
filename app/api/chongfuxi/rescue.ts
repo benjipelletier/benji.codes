@@ -20,7 +20,8 @@ import { LEARN_ORDER } from "./learn";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
-import { CATEGORIES, REVIVE, classify, type ReviveCategory, type ReviveEvent } from "@chongfuxi/lib/revive";
+import { CATEGORIES, REVIVE, classify, inOneWord, type ReviveCategory, type ReviveEvent } from "@chongfuxi/lib/revive";
+import { loadDict } from "./dictfile";
 import { EFFORT, MODEL, ensureLookupTables, lookupWords } from "./lookup";
 import { ACTIVE, WAITING_TO_LEARN, promptSenses, shownPinyin } from "./review";
 import { notePartners } from "./notes";
@@ -136,9 +137,11 @@ export async function stuckWords(sql: Sql, owner: string, at = Date.now()): Prom
     where l.owner_email = ${owner} and strpos(l.query, c.word) > 0
   `) as unknown as Array<{ query: string; word: string }>;
   const named = await lookupWords(sql, owner, [...new Set(asked.map((a) => a.query))]);
+  const dict = asked.length ? loadDict() : null;
   for (const a of asked) {
     const others = (named.get(a.query) ?? []).filter((w) => w !== a.word && !w.includes(a.word) && !a.word.includes(w));
-    if (others.length === 1) vote(a.word, others[0], 2);
+    // Both inside one word asked about (不 and 着 in 不着痕迹) is a question about that word, not a mix-up.
+    if (others.length === 1 && !inOneWord(a.query, a.word, others[0], (w) => dict!.has(w))) vote(a.word, others[0], 2);
   }
   const together = (await sql`
     select c.word, t.w as other, count(*)::int as n

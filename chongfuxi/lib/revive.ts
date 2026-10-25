@@ -93,3 +93,22 @@ export function classify(
   if (misses >= REVIVE.leechMisses) return { category: "leech", why: `Forgotten ${misses} times in all` };
   return null;
 }
+
+/**
+ * Whether two words of a lookup are both parts of one longer word in it: a
+ * question about 不着痕迹 names 不 and 着 without comparing them, so it is
+ * no sign the two are mixed up. `isWord` says whether a run is a dictionary
+ * headword.
+ */
+export function inOneWord(query: string, a: string, b: string, isWord: (w: string) => boolean): boolean {
+  for (const run of query.match(/\p{Script=Han}+/gu) ?? []) {
+    const c = [...run];
+    for (let i = 0; i < c.length; i++) {
+      for (let j = i + 2; j <= Math.min(c.length, i + 8); j++) {
+        const w = c.slice(i, j).join("");
+        if (w !== a && w !== b && w.includes(a) && w.includes(b) && isWord(w)) return true;
+      }
+    }
+  }
+  return false;
+}

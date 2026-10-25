@@ -803,7 +803,9 @@ trips both count.
   `answer`, a Forgot, or `tapped`, a lapse from being tapped in a forgotten
   sentence; each row's `before` strength), in the first that fits:
   **Mixed up** (2 of the last 6 wrong, and a partner word: a lookup naming
-  just the two, 2 votes, or each sentence forgotten with both tapped, 1;
+  just the two, 2 votes, unless both are parts of one longer word in it
+  (`inOneWord`: three lookups about 不着痕迹 had 不 filed as mixed up with
+  着), or each sentence forgotten with both tapped, 1;
   2 votes needed), **Can't produce** (Recall wrong 2 of its last 3, Read
   mostly right), **Breaks in context** (2+ trips in 30 days, Read mostly
   right), **Slipping** (2 of the last 3 wrong after 4 right in a row, or
