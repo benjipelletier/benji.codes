@@ -15,9 +15,11 @@ export const maxDuration = 60;
  * GET: every episode, with whether it is prepped. GET ?id=: the material to
  *   prep it from: brief, lines (i, at, zh) and the words not known (count,
  *   pinyin, gloss, the lines they are said in).
- * POST { show, episode, subtitles, title?, source? }: the episode's
- *   subtitles (SRT, WebVTT, ASS, or a line each); the same show and episode
- *   again replaces them. Answers with the material.
+ * POST { show, episode, subtitles, english?, title?, source? }: the episode's
+ *   Chinese subtitles (SRT best; WebVTT, ASS, or a line each), and English
+ *   ones of the same release to pair with them by time (a bilingual file
+ *   needs none); the same show and episode again replaces them. Answers with
+ *   the material, `english` saying how many lines got a translation.
  */
 export async function GET(req: NextRequest) {
   const g = agentGate(req);

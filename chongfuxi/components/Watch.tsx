@@ -39,6 +39,8 @@ export function clock(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
+const ENGLISH_KEY = "cfx-episode-english";
+
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 /** The episodes as rows on the Muse reviews screen. */
@@ -219,7 +221,21 @@ function glued(tokens: TextToken[]): TextToken[][] {
   return runs;
 }
 
-function Line({ line, must, picked, onPick }: { line: Episode["lines"][number]; must: Set<string>; picked: string | null; onPick: (w: string) => void }) {
+function Line({
+  line,
+  must,
+  picked,
+  english,
+  onPick,
+}: {
+  line: Episode["lines"][number];
+  must: Set<string>;
+  picked: string | null;
+  english: boolean;
+  onPick: (w: string) => void;
+}) {
+  // With English hidden, a line's translation is blurred until tapped, to check yourself against.
+  const [shown, setShown] = useState(false);
   return (
     <li className="cf-ep-line">
       <button className="cf-ep-at" onClick={() => say(line.zh)} aria-label={`Hear the line at ${clock(line.s)}`}>
@@ -245,15 +261,38 @@ function Line({ line, must, picked, onPick }: { line: Episode["lines"][number]; 
             </span>
           ))}
         </span>
-        {line.en && <span className="cf-ep-en">{line.en}</span>}
+        {line.en &&
+          (english || shown ? (
+            <span className="cf-ep-en">{line.en}</span>
+          ) : (
+            <button className="cf-ep-en is-hidden" onClick={() => setShown(true)} aria-label="Show the English">
+              {line.en}
+            </button>
+          ))}
       </span>
     </li>
   );
 }
 
-function ScenePanel({ ep, i, must, picked, onPick }: { ep: Episode; i: number; must: Set<string>; picked: string | null; onPick: (w: string) => void }) {
+function ScenePanel({
+  ep,
+  i,
+  must,
+  picked,
+  english,
+  onEnglish,
+  onPick,
+}: {
+  ep: Episode;
+  i: number;
+  must: Set<string>;
+  picked: string | null;
+  english: boolean;
+  onEnglish: (on: boolean) => void;
+  onPick: (w: string) => void;
+}) {
   const sc: Scene = ep.scenes[i];
-  const [english, setEnglish] = useState(false);
+  const [summaryShown, setSummaryShown] = useState(false);
   const [lines, setLines] = useState(true);
   const times = spans(ep)[i];
   const shown = ep.lines.slice(sc.start, sc.end);
@@ -265,11 +304,11 @@ function ScenePanel({ ep, i, must, picked, onPick }: { ep: Episode; i: number; m
       <h2 className="cf-ep-scene-h cf-zh">{sc.title}</h2>
       {sc.summary && <p className="cf-zh cf-ep-summary">{sc.summary}</p>}
       {sc.summaryEn &&
-        (english ? (
+        (english || summaryShown ? (
           <p className="cf-muted cf-ep-summary-en">{sc.summaryEn}</p>
         ) : (
-          <button className="cf-link" onClick={() => setEnglish(true)}>
-            English
+          <button className="cf-ep-en is-hidden cf-ep-summary-en" onClick={() => setSummaryShown(true)} aria-label="Show the English">
+            {sc.summaryEn}
           </button>
         ))}
       {sc.notes.length > 0 && (
@@ -279,13 +318,20 @@ function ScenePanel({ ep, i, must, picked, onPick }: { ep: Episode; i: number; m
           ))}
         </ul>
       )}
-      <button className="cf-link cf-ep-lines-toggle" onClick={() => setLines(!lines)}>
-        {lines ? "Hide the lines" : `Show the ${fmt(shown.length)} lines`}
-      </button>
+      <div className="cf-ep-lines-bar">
+        <button className="cf-link" onClick={() => setLines(!lines)}>
+          {lines ? "Hide the lines" : `Show the ${fmt(shown.length)} lines`}
+        </button>
+        {lines && ep.lines.some((l) => l.en) && (
+          <button className={`cf-ep-entoggle${english ? " is-on" : ""}`} onClick={() => onEnglish(!english)} aria-pressed={english}>
+            English
+          </button>
+        )}
+      </div>
       {lines && (
         <ol className="cf-ep-lines">
           {shown.map((l, j) => (
-            <Line key={sc.start + j} line={l} must={must} picked={picked} onPick={onPick} />
+            <Line key={sc.start + j} line={l} must={must} picked={picked} english={english} onPick={onPick} />
           ))}
         </ol>
       )}
@@ -299,6 +345,23 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const [scene, setScene] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [nice, setNice] = useState(false);
+  // English under each line, or blurred until tapped; remembered on the device.
+  const [english, setEnglishState] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(ENGLISH_KEY) === "off") setEnglishState(false);
+    } catch {
+      // No storage: English stays on.
+    }
+  }, []);
+  const setEnglish = (on: boolean) => {
+    setEnglishState(on);
+    try {
+      localStorage.setItem(ENGLISH_KEY, on ? "on" : "off");
+    } catch {
+      // Not remembered.
+    }
+  };
   const sceneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -377,7 +440,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             <h2 className="cf-kits-h">Chapters</h2>
             <ChapterBar ep={ep} current={scene} onPick={pickScene} />
             <div ref={sceneRef}>
-              <ScenePanel key={scene} ep={ep} i={scene} must={must} picked={picked} onPick={(w) => setPicked(picked === w ? null : w)} />
+              <ScenePanel key={scene} ep={ep} i={scene} must={must} picked={picked} english={english} onEnglish={setEnglish} onPick={(w) => setPicked(picked === w ? null : w)} />
             </div>
             <div className="cf-ep-step">
               <button className="cf-btn cf-btn-ghost" disabled={scene === 0} onClick={() => jump(scene - 1)}>

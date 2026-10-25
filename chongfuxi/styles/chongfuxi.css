@@ -10761,8 +10761,44 @@ button.cf-how-text {
   margin-top: 4px;
 }
 
-.cfx .cf-ep-lines-toggle {
+.cf-ep-lines-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 12px;
+}
+
+/* English on or off: a small switch-like pill, filled when on. */
+.cfx .cf-ep-entoggle {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--cf-ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cfx .cf-ep-entoggle.is-on {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
+
+.cfx button.cf-ep-en.is-hidden {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  filter: blur(4px);
+  cursor: pointer;
+  user-select: none;
 }
 
 .cf-ep-lines {

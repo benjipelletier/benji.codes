@@ -1760,10 +1760,17 @@ sentence cards for now; spoilers are fine; and scenes to scrub through "like
 YouTube chapter feature".
 
 - **In** (same token): POST `/api/chongfuxi/agent/episodes` `{ show,
-  episode, subtitles, title?, source? }`. `parseSubtitles` reads SRT, VTT,
-  ASS or plain lines: tags and `\N` dropped, traditional made simplified
-  (`simplified`), a bilingual line's English kept as its `en`, the Chinese
-  deduplicated, up to `LINES_MAX` (3000). One row per show and episode
+  episode, subtitles, english?, title?, source? }`, SRT asked for (timed,
+  the commonest; plain lines have no times for the chapter bar).
+  `parseSubtitles` reads SRT, VTT, ASS or plain lines: tags and `\N`
+  dropped, traditional made simplified (`simplified`), a bilingual line's
+  English kept as its `en`, the Chinese deduplicated, up to `LINES_MAX`
+  (3000). `english`, an English file of the same release (the owner wanted
+  the translation at hand), is put onto the lines by time (`addEnglish`):
+  each English cue to the line it overlaps most, or the nearest within a
+  second (`NEAR_MS`), after any English the line has; the material's
+  `english` counts the lines that got one, so Muse can tell a file timed to
+  another release. One row per show and episode
   (`chongfuxi_episode`, made on first use); sending it again replaces the
   lines and clears the prep. Refused without Chinese.
 - **Material**: GET there lists them; `?id=` gives `brief`, every line (index,
@@ -1791,10 +1798,13 @@ YouTube chapter feature".
   much of it is known; drag along it and the scene under the finger shows
   above with its start time, let go (or tap) to open it; arrow keys step
   (`ChapterBar`). The open scene: its time, % known, title, what happens in
-  simple Chinese (English on a tap), Muse's notes, and its lines with their
+  simple Chinese and in English, Muse's notes, and its lines with their
   times (a tap on a time reads the line aloud), every word marked as the
   analyser marks it, must-know words stronger, a tap giving reading and
-  meaning with Word page ›. ‹ and › step a chapter; under them the list of
+  meaning with Word page ›, the English under each. An English pill beside
+  Hide the lines turns it off (remembered on the device, `ENGLISH_KEY`):
+  then each translation, and the summary's, is blurred until tapped, to
+  check yourself against. ‹ and › step a chapter; under them the list of
   chapters (start, title, lines, % known). Then the other words not known,
   folded, and **After watching**: Muse's questions, answered by voice or
   typing and graded against the lines like a reading's retelling (the same

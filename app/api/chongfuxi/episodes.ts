@@ -93,29 +93,19 @@ function cue(text: string[]): { zh: string; en: string | null } | null {
 }
 
 /**
- * Subtitles as timed lines: SRT or WebVTT (cues with "-->"), ASS/SSA
+ * A subtitle file's cues: SRT or WebVTT (cues with "-->"), ASS/SSA
  * ("Dialogue:" lines), or plain text, a line each, spaced 2.5 s apart.
- * Lines without Chinese are dropped, and a line said again at once is one.
  */
-export function parseSubtitles(raw: string): EpisodeLine[] {
+function cues(raw: string): Array<{ s: number; e: number; text: string[] }> {
   const text = raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
-  const out: EpisodeLine[] = [];
-  const push = (s: number, e: number, c: { zh: string; en: string | null } | null) => {
-    if (!c) return;
-    const last = out[out.length - 1];
-    if (last && last.zh === c.zh && s - last.e < 1500) {
-      last.e = Math.max(last.e, e);
-      return;
-    }
-    out.push({ s, e: Math.max(e, s), zh: c.zh, en: c.en });
-  };
+  const out: Array<{ s: number; e: number; text: string[] }> = [];
   if (/^Dialogue:/m.test(text)) {
     for (const line of text.split("\n")) {
       const m = line.match(/^Dialogue:\s*[^,]*,([^,]+),([^,]+),(?:[^,]*,){6}(.*)$/);
       if (!m) continue;
       const s = stamp(m[1]);
       const e = stamp(m[2]);
-      if (s !== null && e !== null) push(s, e, cue([m[3]]));
+      if (s !== null && e !== null) out.push({ s, e: Math.max(e, s), text: [m[3]] });
     }
   } else if (text.includes("-->")) {
     for (const block of text.split(/\n\s*\n/)) {
@@ -125,12 +115,71 @@ export function parseSubtitles(raw: string): EpisodeLine[] {
       const [a, b] = lines[at].split("-->");
       const s = stamp(a);
       const e = stamp(b.trim().split(/\s+/)[0]);
-      if (s !== null && e !== null) push(s, e, cue(lines.slice(at + 1)));
+      if (s !== null && e !== null) out.push({ s, e: Math.max(e, s), text: lines.slice(at + 1) });
     }
   } else {
-    text.split("\n").forEach((l, i) => push(i * 2500, i * 2500 + 2400, cue([l])));
+    text.split("\n").forEach((l, i) => out.push({ s: i * 2500, e: i * 2500 + 2400, text: [l] }));
   }
-  return out.sort((x, y) => x.s - y.s).slice(0, LINES_MAX);
+  return out.sort((x, y) => x.s - y.s);
+}
+
+/**
+ * Subtitles as timed lines. Lines without Chinese are dropped, and a line
+ * said again at once is one. A bilingual file's English stays with its line.
+ */
+export function parseSubtitles(raw: string): EpisodeLine[] {
+  const out: EpisodeLine[] = [];
+  for (const { s, e, text } of cues(raw)) {
+    const c = cue(text);
+    if (!c) continue;
+    const last = out[out.length - 1];
+    if (last && last.zh === c.zh && s - last.e < 1500) {
+      last.e = Math.max(last.e, e);
+      continue;
+    }
+    out.push({ s, e, zh: c.zh, en: c.en });
+  }
+  return out.slice(0, LINES_MAX);
+}
+
+/** How far apart a line and an English cue may be and still be paired when they don't overlap. */
+const NEAR_MS = 1000;
+
+/**
+ * An English subtitle file put onto the Chinese lines by time: each English
+ * cue goes to the line it overlaps most (or the nearest, within a second),
+ * a line's own English (a bilingual file's) kept first. Both must be timed
+ * to the same release. Gives how many lines have English after.
+ */
+export function addEnglish(lines: EpisodeLine[], raw: string): number {
+  const mid = (x: { s: number; e: number }) => (x.s + x.e) / 2;
+  const extra = new Map<number, string[]>();
+  for (const c of cues(raw)) {
+    const en = c.text
+      .flatMap((l) => l.split(/\\[Nn]/))
+      .map((l) => l.replace(/\{[^}]*\}/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim())
+      .filter((l) => l && !HAN.test(l) && /[a-z]/i.test(l))
+      .join(" ");
+    if (!en) continue;
+    let best = -1;
+    let score = -Infinity;
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (l.s > c.e + NEAR_MS) break;
+      if (l.e < c.s - NEAR_MS) continue;
+      const overlap = Math.min(l.e, c.e) - Math.max(l.s, c.s);
+      const sc = overlap > 0 ? overlap : -Math.abs(mid(l) - mid(c));
+      if (sc > score) [best, score] = [i, sc];
+    }
+    if (best < 0) continue;
+    const got = extra.get(best) ?? extra.set(best, []).get(best)!;
+    if (!got.includes(en)) got.push(en);
+  }
+  for (const [i, ens] of extra) {
+    const own = lines[i].en;
+    lines[i].en = [own, ...ens.filter((x) => x !== own)].filter(Boolean).join(" ").slice(0, LINE_MAX) || null;
+  }
+  return lines.filter((l) => l.en).length;
 }
 
 /** Scenes cut at the pauses, as chapters until Muse preps the episode. */
@@ -228,7 +277,7 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
   return { a, tokens, where, unknown };
 }
 
-const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
+const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
 { "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "note" }], "names": [...], "scenes": [{ "start", "title", "summary", "summaryEn", "notes": [...] }], "questions": [{ "zh", "en" }] }
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
@@ -246,7 +295,9 @@ export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: n
     brief: BRIEF,
     prepped: r.prep !== null,
     known: a.words.total ? Math.round((a.words.known / a.words.total) * 1000) / 1000 : 0,
-    lines: r.lines.map((l, i) => ({ i, at: clock(l.s), zh: l.zh })),
+    lines: r.lines.map((l, i) => ({ i, at: clock(l.s), zh: l.zh, ...(l.en ? { en: l.en } : {}) })),
+    // How many lines have English: few means the English file was missing or timed to another release.
+    english: r.lines.filter((l) => l.en).length,
     unknown: unknown.slice(0, WORDS_FOR_MUSE).map((u) => ({
       word: u.word,
       count: u.count,
@@ -271,7 +322,7 @@ export async function writeEpisode(
   sql: Sql,
   owner: string,
   dict: Dict,
-  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; source?: unknown },
+  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; english?: unknown; source?: unknown },
 ) {
   await ensureTables(sql);
   const show = str(input.show, 60);
@@ -280,6 +331,7 @@ export async function writeEpisode(
   if (typeof input.subtitles !== "string" || !input.subtitles.trim()) throw new AgentError("Give the subtitles as text (SRT, WebVTT, ASS, or a line each).");
   const lines = parseSubtitles(input.subtitles);
   if (lines.length < 5) throw new AgentError(`Only ${lines.length} lines with Chinese were found: is it the Chinese track?`);
+  if (typeof input.english === "string" && input.english.trim()) addEnglish(lines, input.english);
   const [row] = (await sql`
     insert into chongfuxi_episode (owner_email, show, episode, title, source, lines)
     values (${owner}, ${show}, ${episode}, ${str(input.title, 120) || null}, ${str(input.source, 500) || null}, ${JSON.stringify(lines)}::jsonb)
