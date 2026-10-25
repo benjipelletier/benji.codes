@@ -289,7 +289,19 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
       if (at[at.length - 1] !== i) at.push(i);
     }
   });
-  const unknown = a.unknown.filter((u) => !names.has(u.word));
+  // Every word not known, from the lines themselves: the analyser lists only its top 300, and a
+  // must-know said once or twice fell off that list and read as learnt.
+  const said = new Map<string, number>();
+  const info = new Map(a.unknown.map((u) => [u.word, u]));
+  for (const line of tokens) for (const t of line) if (t.k === "unknown") said.set(t.t, (said.get(t.t) ?? 0) + 1);
+  const unknown = [...said]
+    .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+    .map(([word, count]) => ({
+      word,
+      count,
+      pinyin: info.get(word)?.pinyin ?? a.looks[word]?.p ?? null,
+      gloss: info.get(word)?.gloss ?? a.looks[word]?.gloss ?? null,
+    }));
   return { a, tokens, where, unknown };
 }
 
@@ -489,13 +501,26 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
       inDeck: false,
     }))
     .sort((x, y) => order[x.tier] - order[y.tier] || y.count - x.count);
-  // Must-know words now in the deck still show, as learnt, so the list says what was done.
+  // Must-know words no longer unknown still show: as learnt when they are in the deck now, so the
+  // list says what was done; otherwise (read through their parts, or split differently in the
+  // lines) as they are, with how often they are said.
   const must = (prep?.words ?? []).filter((w) => w.tier === "must");
-  for (const w of must) {
-    if (words.some((x) => x.word === w.word)) continue;
-    const look = a.looks[w.word];
-    words.unshift({ word: w.word, tier: "must", note: w.note, count: 0, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, inDeck: true });
+  const rest = must.filter((w) => !words.some((x) => x.word === w.word));
+  const deck = rest.length
+    ? new Set(
+        ((await sql`
+          select word from chongfuxi_word where owner_email = ${owner} and status = 'deck' and word = any(${rest.map((w) => w.word)}::text[])
+        `) as unknown as Array<{ word: string }>).map((x) => x.word),
+      )
+    : new Set<string>();
+  const saidAll = new Map<string, number>();
+  for (const line of tokens) for (const t of line) if (t.k) saidAll.set(t.t, (saidAll.get(t.t) ?? 0) + 1);
+  for (const w of [...rest].reverse()) {
+    const entry = dict.lookup(w.word)[0];
+    const look = a.looks[w.word] ?? (entry ? { p: entry.p, gloss: entry.senses.slice(0, 2).join("; ") } : null);
+    words.unshift({ word: w.word, tier: "must", note: w.note, count: saidAll.get(w.word) ?? 0, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, inDeck: deck.has(w.word) });
   }
+  words.sort((x, y) => order[x.tier] - order[y.tier] || Number(x.inDeck) - Number(y.inDeck) || y.count - x.count);
   const measured = readiness(tokens, mustOf(prep));
   const lineKnown = measured.perLine;
   const sceneList = prep?.scenes.length ? prep.scenes : autoScenes(r.lines);
