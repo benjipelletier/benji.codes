@@ -871,20 +871,6 @@ function Suggestions({
 }) {
   return (
     <>
-    {/* A situation ("flight delayed"): the owner's own sentences that say it, the words for it marked, each to its page. */}
-    {sentences.length > 0 && (
-      <ul className="cf-lk-suggest cf-lk-sg-sents" aria-label="Your sentences">
-        {sentences.map((x) => (
-          <li key={x.id}>
-            <p className="cf-zh cf-lk-sg-sent">
-              <MarkedWords zh={x.zh} words={x.marked} />
-              {!x.readable && <span className="cf-lk-sg-locked">locked</span>}
-            </p>
-            <p className="cf-lk-sg-en">{x.en}</p>
-          </li>
-        ))}
-      </ul>
-    )}
     <ul className="cf-lk-suggest" role="listbox" aria-label="Your words">
       {words.map((w) => (
         <li key={w.word}>
@@ -904,6 +890,20 @@ function Suggestions({
         </button>
       </li>
     </ul>
+    {/* Under the words (the owner's order), a situation ("flight delayed"): the owner's own sentences that say it, the words for it marked, each to its page. */}
+    {sentences.length > 0 && (
+      <ul className="cf-lk-suggest cf-lk-sg-sents" aria-label="Your sentences">
+        {sentences.map((x) => (
+          <li key={x.id}>
+            <p className="cf-zh cf-lk-sg-sent">
+              <MarkedWords zh={x.zh} words={x.marked} />
+              {!x.readable && <span className="cf-lk-sg-locked">locked</span>}
+            </p>
+            <p className="cf-lk-sg-en">{x.en}</p>
+          </li>
+        ))}
+      </ul>
+    )}
     </>
   );
 }

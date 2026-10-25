@@ -518,8 +518,9 @@ Built on the owner's corpus alone, since that is what answers lead with:
   found, two signals at least, readable first, up to 6), the found words in
   them marked and opening their pages; words sitting together in those
   sentences are lifted (`TOGETHER_LIFT`: 航班 above 飞行 for "flight
-  delayed", from 我的航班延误了). Above the word rows; a whole pinyin match
-  still comes first (hang → 航班). No model; the AI row stays last. Chosen
+  delayed", from 我的航班延误了). Under the word rows (they were above,
+  and the owner wanted the words first); a whole pinyin match still comes
+  first among the words (hang → 航班). No model; the AI row stays last. Chosen
   over an AI pass after a pause and over embeddings, for now. Not reached:
   words with no English in common (晚点 for "delayed"). **Pinyin isn't
   English**: "huilü" was read as English too, its ü dropped, "huil" taken
@@ -530,7 +531,7 @@ Built on the owner's corpus alone, since that is what answers lead with:
   the English side takes words only as typed, no typos (`typos` on
   `fuzzyWords` and `stemsFor`); "hang" still finds hang as English. Typed
   and stored pinyin are compared as letters with ü, v and u: all as u and
-  no tone marks, so huilü, hui lv and huìlǜ all find 汇率.
+  no tone marks, so huilü, huilv, hui lv and huìlǜ all find 汇率.
 - **Lookups show the words they were about** (the owner asked for the
   history to make it obvious): each history row carries chips of up to four
   corpus words (`lookupWords` in `lookup.ts`: the cards it was asked from,
