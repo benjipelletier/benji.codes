@@ -10913,3 +10913,108 @@ button.cf-how-text {
 .cf-ep-run {
   white-space: nowrap;
 }
+
+/* Readiness over time: words known (blue), with the must-knows (amber, dashed), lines readable (green). */
+.cf-ep-chart {
+  margin: 14px 0 0;
+}
+
+.cf-ep-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-ep-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cf-ep-legend b {
+  color: var(--cf-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-ep-legend i {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--cf-read);
+}
+
+.cf-ep-legend .is-ready i {
+  border-top: 2px dashed var(--cf-new);
+}
+
+.cf-ep-legend .is-lines i {
+  border-top-color: var(--cf-sentence);
+}
+
+.cf-ep-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+  overflow: visible;
+}
+
+.cf-ep-grid {
+  stroke: var(--cf-rule);
+  stroke-width: 1;
+}
+
+.cf-ep-tick {
+  fill: var(--cf-ink-faint);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-ep-cross {
+  stroke: var(--cf-rule-strong);
+  stroke-width: 1;
+}
+
+.cf-ep-series polyline {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cf-ep-series circle {
+  stroke: var(--cf-surface);
+  stroke-width: 2;
+}
+
+.cf-ep-series.is-known polyline {
+  stroke: var(--cf-read);
+}
+
+.cf-ep-series.is-known circle {
+  fill: var(--cf-read);
+}
+
+.cf-ep-series.is-ready polyline {
+  stroke: var(--cf-new);
+  stroke-dasharray: 4 3;
+}
+
+.cf-ep-series.is-ready circle {
+  fill: var(--cf-new);
+}
+
+.cf-ep-series.is-lines polyline {
+  stroke: var(--cf-sentence);
+}
+
+.cf-ep-series.is-lines circle {
+  fill: var(--cf-sentence);
+}
+
+.cf-ep-chart-day {
+  margin: 2px 0 0;
+  font-size: 12px;
+}

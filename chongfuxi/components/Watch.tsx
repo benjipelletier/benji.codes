@@ -11,7 +11,7 @@
 // are graded like a reading's retelling.
 
 import { useEffect, useRef, useState } from "react";
-import type { EpisodeListed, EpisodeView as Episode, EpisodeWord, Retell, TextToken } from "@chongfuxi/lib/api";
+import type { EpisodeListed, EpisodeProgress, EpisodeView as Episode, EpisodeWord, Retell, TextToken } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
@@ -171,6 +171,104 @@ function ChapterBar({ ep, current, onPick }: { ep: Episode; current: number; onP
   );
 }
 
+const SERIES = [
+  { key: "known", label: "Words known", cls: "is-known" },
+  { key: "ready", label: "With must-knows", cls: "is-ready" },
+  { key: "lines", label: "Lines readable", cls: "is-lines" },
+] as const;
+
+const dayMs = (d: string) => Date.parse(`${d}T00:00:00Z`);
+const shortDay = (d: string) => new Date(dayMs(d)).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+
+/**
+ * Readiness over time: words known, known with the must-knows, and lines
+ * readable, a point per study day it was measured, spaced by date. A tap or
+ * drag picks the nearest day and reads it out under the chart.
+ */
+function ProgressChart({ points }: { points: EpisodeProgress[] }) {
+  const [at, setAt] = useState<number | null>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  if (!points.length) return null;
+  const W = 320;
+  const H = 120;
+  const pad = { l: 30, r: 8, t: 8, b: 18 };
+  const t0 = dayMs(points[0].day);
+  const span = Math.max(dayMs(points[points.length - 1].day) - t0, 1);
+  const x = (p: EpisodeProgress) => (points.length === 1 ? (pad.l + W - pad.r) / 2 : pad.l + ((dayMs(p.day) - t0) / span) * (W - pad.l - pad.r));
+  // From a round step below the lowest value to 100%, so small gains show.
+  const low = Math.min(...points.map((p) => Math.min(p.known, p.lines)));
+  const floor = Math.max(0, Math.floor((low - 0.05) * 10) / 10);
+  const y = (v: number) => pad.t + (1 - (v - floor) / (1 - floor)) * (H - pad.t - pad.b);
+  const ticks = [floor, (floor + 1) / 2, 1];
+  const shown = points[at ?? points.length - 1];
+  const pick = (clientX: number) => {
+    const box = svg.current!.getBoundingClientRect();
+    const vx = ((clientX - box.left) / box.width) * W;
+    let best = 0;
+    points.forEach((p, i) => Math.abs(x(p) - vx) < Math.abs(x(points[best]) - vx) && (best = i));
+    setAt(best);
+  };
+  return (
+    <figure className="cf-ep-chart">
+      <figcaption className="cf-ep-legend">
+        {SERIES.map((s) => (
+          <span key={s.key} className={s.cls}>
+            <i aria-hidden="true" />
+            {s.label} <b>{pct(shown[s.key])}</b>
+          </span>
+        ))}
+      </figcaption>
+      <svg
+        ref={svg}
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label={`Readiness over ${points.length} ${points.length === 1 ? "day" : "days"}: words known from ${pct(points[0].known)} to ${pct(points[points.length - 1].known)}`}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          pick(e.clientX);
+        }}
+        onPointerMove={(e) => e.buttons && pick(e.clientX)}
+      >
+        {ticks.map((v) => (
+          <g key={v}>
+            <line className="cf-ep-grid" x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} />
+            <text className="cf-ep-tick" x={pad.l - 4} y={y(v) + 3} textAnchor="end">
+              {Math.round(v * 100)}%
+            </text>
+          </g>
+        ))}
+        <text className="cf-ep-tick" x={pad.l} y={H - 4}>
+          {shortDay(points[0].day)}
+        </text>
+        {points.length > 1 && (
+          <text className="cf-ep-tick" x={W - pad.r} y={H - 4} textAnchor="end">
+            {shortDay(points[points.length - 1].day)}
+          </text>
+        )}
+        <line className="cf-ep-cross" x1={x(shown)} x2={x(shown)} y1={pad.t} y2={H - pad.b} />
+        {SERIES.map((s) => (
+          <g key={s.key} className={`cf-ep-series ${s.cls}`}>
+            {points.length > 1 && <polyline points={points.map((p) => `${x(p)},${y(p[s.key])}`).join(" ")} />}
+            {points.map((p, i) => (
+              <circle key={i} cx={x(p)} cy={y(p[s.key])} r={p === shown ? 4.5 : points.length > 12 ? 0 : 3} />
+            ))}
+          </g>
+        ))}
+      </svg>
+      <p className="cf-muted cf-ep-chart-day">
+        {shortDay(shown.day)}
+        {shown.mustLeft > 0 && (
+          <>
+            {" "}
+            · {fmt(shown.mustLeft)} must-know {shown.mustLeft === 1 ? "word" : "words"} left
+          </>
+        )}
+        {points.length === 1 && " · a point is added each day you open this or Muse reviews"}
+      </p>
+    </figure>
+  );
+}
+
 function Readiness({ ep }: { ep: Episode }) {
   const must = ep.words.filter((w) => w.tier === "must" && !w.inDeck).length;
   return (
@@ -191,6 +289,7 @@ function Readiness({ ep }: { ep: Episode }) {
         )}
         {pct(ep.coverage.lines)} of lines readable now
       </p>
+      <ProgressChart points={ep.progress} />
     </div>
   );
 }

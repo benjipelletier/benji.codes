@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   try {
     if (id) return NextResponse.json(await episodeMaterial(g.sql, g.owner, loadDict(), id));
-    return NextResponse.json({ episodes: await listEpisodes(g.sql, g.owner) });
+    return NextResponse.json({ episodes: await listEpisodes(g.sql, g.owner, loadDict()) });
   } catch (e) {
     if (e instanceof EpisodeError) return NextResponse.json({ error: e.message }, { status: 404 });
     throw e;

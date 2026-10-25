@@ -13,11 +13,12 @@
 // cards (the owner's choice for now), and are served to the owner only: the
 // app is readable by anyone, and subtitles aren't ours to publish.
 
-import type { EpisodeLine, EpisodeListed, EpisodeScene, EpisodeView, EpisodeWord, Retell, TextToken } from "@chongfuxi/lib/api";
+import type { EpisodeLine, EpisodeListed, EpisodeProgress, EpisodeScene, EpisodeView, EpisodeWord, Retell, TextToken } from "@chongfuxi/lib/api";
 import type { Dict } from "@chongfuxi/lib/dict";
 import type { Sql } from "./db";
 import { AgentError, MUSE_LIST, writeList } from "./agent";
 import { analyse } from "./analyse";
+import { ownersDay } from "./daily";
 import { ReadingError, gradeAnswer } from "./reading";
 import { simplified } from "./spotify";
 
@@ -66,6 +67,20 @@ async function ensureTables(sql: Sql) {
       at timestamptz not null default now(),
       answer text not null,
       result jsonb not null
+    )
+  `;
+  // How ready the owner was for an episode, one row a study day (the latest measure that day).
+  await sql`
+    create table if not exists chongfuxi_episode_progress (
+      owner_email text not null,
+      episode_id bigint not null,
+      day date not null,
+      at timestamptz not null default now(),
+      known real not null,
+      ready real not null,
+      lines real not null,
+      must_left int not null,
+      primary key (owner_email, episode_id, day)
     )
   `;
   ready = true;
@@ -237,8 +252,9 @@ const listed = (r: Row): EpisodeListed => ({
 });
 
 /** The episodes, newest first: names and figures only. Readable by anyone. */
-export async function listEpisodes(sql: Sql, owner: string): Promise<EpisodeListed[]> {
+export async function listEpisodes(sql: Sql, owner: string, dict?: Dict): Promise<EpisodeListed[]> {
   await ensureTables(sql);
+  if (dict) await measureStale(sql, owner, dict);
   const rows = (await sql`
     select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at,
            jsonb_build_array() as lines, prep is not null as prepped, model, known,
@@ -388,6 +404,74 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
 }
 
 /** The episode opened for study, measured against the deck now. Owner only. */
+/** Episodes measured on the list each time it is read, at most, when today's measure is missing (each is a full analysis). */
+const MEASURE_ON_LIST = 3;
+
+/** Shares (0–1) of an episode's word occurrences known, known once the must-knows are learnt, and lines readable. */
+function readiness(tokens: TextToken[][], must: Set<string>) {
+  let all = 0;
+  let known = 0;
+  let ready = 0;
+  let readable = 0;
+  const left = new Set<string>();
+  const perLine = tokens.map((line) => {
+    const ws = line.filter((t) => t.k);
+    all += ws.length;
+    const k = ws.filter((t) => t.k !== "unknown").length;
+    known += k;
+    const m = ws.filter((t) => t.k === "unknown" && must.has(t.t));
+    for (const t of m) left.add(t.t);
+    ready += k + m.length;
+    if (ws.length && k === ws.length) readable++;
+    return { words: ws.length, known: k };
+  });
+  return {
+    coverage: { known: all ? known / all : 0, ready: all ? ready / all : 0, lines: tokens.length ? readable / tokens.length : 0 },
+    mustLeft: left.size,
+    perLine,
+  };
+}
+
+const round3 = (x: number) => Math.round(x * 1000) / 1000;
+
+/** Today's measure of an episode, kept (one a study day, the latest wins), and the share known on the episode's row. */
+async function record(sql: Sql, owner: string, id: number, r: ReturnType<typeof readiness>) {
+  const day = await ownersDay(sql, owner);
+  const c = r.coverage;
+  await sql`
+    insert into chongfuxi_episode_progress (owner_email, episode_id, day, known, ready, lines, must_left)
+    values (${owner}, ${id}, ${day}, ${round3(c.known)}, ${round3(c.ready)}, ${round3(c.lines)}, ${r.mustLeft})
+    on conflict (owner_email, episode_id, day) do update set
+      at = now(), known = excluded.known, ready = excluded.ready, lines = excluded.lines, must_left = excluded.must_left
+  `;
+  await sql`update chongfuxi_episode set known = ${round3(c.known)} where owner_email = ${owner} and id = ${id}`;
+}
+
+async function progressOf(sql: Sql, owner: string, id: number): Promise<EpisodeProgress[]> {
+  return (await sql`
+    select to_char(day, 'YYYY-MM-DD') as day, known, ready, lines, must_left as "mustLeft"
+    from chongfuxi_episode_progress where owner_email = ${owner} and episode_id = ${id} order by day
+  `) as unknown as EpisodeProgress[];
+}
+
+const mustOf = (prep: Prep | null) => new Set((prep?.words ?? []).filter((w) => w.tier === "must").map((w) => w.word));
+
+/** Measure the episodes not yet measured today, a few at a time, so their graphs grow without opening each. */
+async function measureStale(sql: Sql, owner: string, dict: Dict) {
+  const day = await ownersDay(sql, owner);
+  const stale = (await sql`
+    select e.id::int as id from chongfuxi_episode e
+    where e.owner_email = ${owner}
+      and not exists (select 1 from chongfuxi_episode_progress p where p.owner_email = e.owner_email and p.episode_id = e.id and p.day = ${day})
+    order by e.at desc limit ${MEASURE_ON_LIST}
+  `) as unknown as Array<{ id: number }>;
+  for (const { id } of stale) {
+    const r = await rowOf(sql, owner, id);
+    const { tokens } = await measure(sql, owner, dict, r);
+    await record(sql, owner, id, readiness(tokens, mustOf(r.prep)));
+  }
+}
+
 export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: number): Promise<EpisodeView> {
   const r = await rowOf(sql, owner, id);
   const { a, tokens, unknown } = await measure(sql, owner, dict, r);
@@ -412,20 +496,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     const look = a.looks[w.word];
     words.unshift({ word: w.word, tier: "must", note: w.note, count: 0, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, inDeck: true });
   }
-  const mustSet = new Set(must.map((w) => w.word));
-  let all = 0;
-  let known = 0;
-  let readyCount = 0;
-  let readable = 0;
-  const lineKnown = tokens.map((line) => {
-    const ws = line.filter((t) => t.k);
-    all += ws.length;
-    const k = ws.filter((t) => t.k !== "unknown").length;
-    known += k;
-    readyCount += k + ws.filter((t) => t.k === "unknown" && mustSet.has(t.t)).length;
-    if (ws.length && k === ws.length) readable++;
-    return { words: ws.length, known: k };
-  });
+  const measured = readiness(tokens, mustOf(prep));
+  const lineKnown = measured.perLine;
   const sceneList = prep?.scenes.length ? prep.scenes : autoScenes(r.lines);
   const scenes = sceneList.map((sc, i) => {
     const end = i + 1 < sceneList.length ? sceneList[i + 1].start : r.lines.length;
@@ -433,8 +505,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     const w = part.reduce((n, x) => n + x.words, 0);
     return { ...sc, end, known: w ? part.reduce((n, x) => n + x.known, 0) / w : 1 };
   });
-  const knownShare = all ? known / all : 0;
-  await sql`update chongfuxi_episode set known = ${Math.round(knownShare * 1000) / 1000} where owner_email = ${owner} and id = ${id}`;
+  const knownShare = measured.coverage.known;
+  await record(sql, owner, id, measured);
   const retells = (await sql`
     select q, answer, result, (extract(epoch from at) * 1000)::double precision as at
     from chongfuxi_episode_retell where owner_email = ${owner} and episode_id = ${id} order by at
@@ -449,7 +521,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     names: prep?.names ?? [],
     questions: prep?.questions ?? [],
     retells: retells.map((t) => ({ ...t.result, q: t.q, answer: t.answer, at: Math.round(t.at) })),
-    coverage: { known: knownShare, ready: all ? readyCount / all : 0, lines: r.lines.length ? readable / r.lines.length : 0 },
+    coverage: measured.coverage,
+    progress: await progressOf(sql, owner, id),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
   };

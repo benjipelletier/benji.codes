@@ -1809,6 +1809,18 @@ YouTube chapter feature".
   folded, and **After watching**: Muse's questions, answered by voice or
   typing and graded against the lines like a reading's retelling (the same
   `Question`, `gradeAnswer`; kept in `chongfuxi_episode_retell`).
+- **Readiness over time** (the owner wanted to see it go up): each measure
+  is kept, one row per study day, the latest that day winning
+  (`chongfuxi_episode_progress`: words known, known with the must-knows,
+  lines readable, must-knows left; `record`). An episode is measured when
+  opened, and reading the episode list measures up to `MEASURE_ON_LIST` (3)
+  not yet measured today (`measureStale`), so the graph grows on days it
+  isn't opened. Nothing is filled in for days before the first measure.
+  Under the readiness figures, a line chart (`ProgressChart`): the three
+  shares by date, words known blue, with must-knows amber and dashed, lines
+  readable green, from a round step under the lowest to 100%; a tap or drag
+  picks the nearest day, its values in the legend and the must-knows left
+  under it.
 - Tested against a local Postgres (parsing, prep, the list, coverage) and in
   the browser with stand-in data: the cloud session can't fetch subtitles.
 

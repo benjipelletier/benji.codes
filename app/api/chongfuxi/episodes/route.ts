@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!id) {
     const gate = ownersLog();
     if ("refused" in gate) return gate.refused;
-    return NextResponse.json({ episodes: await listEpisodes(gate.sql, gate.owner) });
+    return NextResponse.json({ episodes: await listEpisodes(gate.sql, gate.owner, loadDict()) });
   }
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;

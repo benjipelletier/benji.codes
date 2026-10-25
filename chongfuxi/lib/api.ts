@@ -1271,6 +1271,16 @@ export interface EpisodeListed {
   known: number | null;
 }
 
+/** How ready the owner was for an episode on a study day. */
+export interface EpisodeProgress {
+  day: string;
+  known: number;
+  ready: number;
+  lines: number;
+  /** Must-know words not learnt yet. */
+  mustLeft: number;
+}
+
 /** An episode opened for study. Owner only: the subtitles aren't ours to serve. */
 export interface EpisodeView extends EpisodeListed {
   model: string | null;
@@ -1286,6 +1296,8 @@ export interface EpisodeView extends EpisodeListed {
   retells: Retell[];
   /** Shares (0–1): words known now; known once the must-knows are learnt; lines readable now. */
   coverage: { known: number; ready: number; lines: number };
+  /** The same, a point per study day it was measured (opened, or the list read), oldest first. */
+  progress: EpisodeProgress[];
   looks: Record<string, { p: string; gloss: string | null } | null>;
   /** The Muse list its must-know words are filed under, for Learn and Review. */
   list: string | null;
