@@ -104,3 +104,29 @@ export function wordsByPinyin(
   }
   return words;
 }
+
+/** Every toneless syllable CC-CEDICT reads a single character as (ü written v), for telling typed pinyin from English. */
+const SYLLABLES = new Set("a ai an ang ao ba bai baike baimi baiwa ban bang bao bei ben beng bi bia bian biao bie bin bing bo bu ca cai can cang cao ce cen ceng cha chai chan chang chao che chen cheng chi chong chou chu chua chuai chuan chuang chui chun chuo ci cong cou cu cuan cui cun cuo da dai dan dang dao de dei den deng di dia dian diao die ding diu dong dou du duan dui dun duo e ei en eng er fa fan fang fei fen feng fenke fenwa fiao fo fou fu ga gai gan gang gao ge gei gen geng gong gou gu gua guai guan guang gui gun guo ha hai han hang hao haoke haowa he hei hen heng hong hou hu hua huai huan huang hui hun huo ji jia jian jiang jiao jie jin jing jiong jiu ju juan jue jun ka kai kan kang kao ke kei ken keng kong kou ku kua kuai kuan kuang kui kun kuo la lai lan lang lao le lei leng li lia lian liang liao lie like lin ling liu liwa lo long lou lu luan lun luo lv lve ma mai man mang mao me mei men meng mi mian miao mie min ming miu mo mou mu na nai nan nang nao ne nei nen neng ni nian niang niao nie nin ning niu nong nou nu nuan nun nuo nv nve o ou pa pai pan pang pao pei pen peng pi pian piao pie pin ping po pou pu qi qia qian qiang qianke qianwa qiao qie qin qing qiong qiu qu quan que qun ran rang rao re ren reng ri rong rou ru rua ruan rui run ruo sa sai san sang sao se sen seng sha shai shan shang shao she shei shen sheng shi shike shiwa shou shu shua shuai shuan shuang shui shun shuo si song sou su suan sui sun suo ta tai tan tang tao te tei teng ti tian tiao tie ting tong tou tu tuan tui tun tuo wa wai wan wang wei wen weng wo wu xi xia xian xiang xiao xie xin xing xiong xiu xu xuan xue xun ya yan yang yao ye yi yin ying yo yong you yu yuan yue yun za zai zan zang zao ze zei zen zeng zha zhai zhan zhang zhao zhe zhei zhen zheng zhi zhong zhou zhu zhua zhuai zhuan zhuang zhui zhun zhuo zi zong zou zu zuan zui zun zuo".split(" "));
+const LONGEST_SYLLABLE = 6;
+
+/**
+ * Whether what was typed is pinyin: letters (tone marks, ü or v, spaces,
+ * tone numbers and apostrophes allowed) that split wholly into syllables
+ * ("huilü", "hui lv", "hui4lv4"). English that happens to spell pinyin
+ * ("hang", "fan") is pinyin too.
+ */
+export function isPinyin(typed: string): boolean {
+  const s = typed
+    .toLowerCase()
+    .replace(/ü|u:/g, "v")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s\d'’-]/g, "");
+  if (!s || !/^[a-z]+$/.test(s)) return false;
+  const ok: boolean[] = [true];
+  for (let i = 1; i <= s.length; i++) {
+    ok[i] = false;
+    for (let n = 1; n <= Math.min(LONGEST_SYLLABLE, i) && !ok[i]; n++) ok[i] = ok[i - n] && SYLLABLES.has(s.slice(i - n, i));
+  }
+  return ok[s.length];
+}

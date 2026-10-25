@@ -521,7 +521,16 @@ Built on the owner's corpus alone, since that is what answers lead with:
   delayed", from 我的航班延误了). Above the word rows; a whole pinyin match
   still comes first (hang → 航班). No model; the AI row stays last. Chosen
   over an AI pass after a pause and over embeddings, for now. Not reached:
-  words with no English in common (晚点 for "delayed").
+  words with no English in common (晚点 for "delayed"). **Pinyin isn't
+  English**: "huilü" was read as English too, its ü dropped, "huil" taken
+  for a typo of hail and hill, and the owner got 冰雹 and sentences about
+  hills. Now when everything typed splits into pinyin syllables (`isPinyin`
+  in `lib/pinyin.ts`: the toneless readings CC-CEDICT gives single
+  characters, ü as v, tone marks, numbers, spaces and apostrophes allowed),
+  the English side takes words only as typed, no typos (`typos` on
+  `fuzzyWords` and `stemsFor`); "hang" still finds hang as English. Typed
+  and stored pinyin are compared as letters with ü, v and u: all as u and
+  no tone marks, so huilü, hui lv and huìlǜ all find 汇率.
 - **Lookups show the words they were about** (the owner asked for the
   history to make it obvious): each history row carries chips of up to four
   corpus words (`lookupWords` in `lookup.ts`: the cards it was asked from,

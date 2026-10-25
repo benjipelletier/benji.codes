@@ -95,10 +95,10 @@ export function buildIndex(rows: KeyRow[]): KeyIndex {
   return { rows, byStem, byKey, byWord };
 }
 
-/** The stems in the index a typed stem stands for: itself, else those a typo away (the closest only). */
-export function stemsFor(index: KeyIndex, s: string): Array<{ stem: string; typo: boolean }> {
+/** The stems in the index a typed stem stands for: itself, else those a typo away (the closest only; none when `typos` is off). */
+export function stemsFor(index: KeyIndex, s: string, typos = true): Array<{ stem: string; typo: boolean }> {
   if (index.byStem.has(s)) return [{ stem: s, typo: false }];
-  const max = typosAllowed(s.length);
+  const max = typos ? typosAllowed(s.length) : 0;
   if (!max) return [];
   let best = max + 1;
   let found: string[] = [];
@@ -118,7 +118,7 @@ export function stemsFor(index: KeyIndex, s: string): Array<{ stem: string; typo
  * sense, no typo), then their neighbours through their first keys; summed
  * over the terms, so a word matching more of them comes first.
  */
-export function fuzzyWords(index: KeyIndex, terms: string[], limit = 30): FuzzyHit[] {
+export function fuzzyWords(index: KeyIndex, terms: string[], limit = 30, typos = true): FuzzyHit[] {
   const total = new Map<string, { score: number; via: Set<string> }>();
   for (const term of terms) {
     const best = new Map<string, { score: number; via: string }>();
@@ -126,7 +126,7 @@ export function fuzzyWords(index: KeyIndex, terms: string[], limit = 30): FuzzyH
       const had = best.get(word);
       if (!had || had.score < score) best.set(word, { score, via });
     };
-    for (const { stem: s, typo } of stemsFor(index, term)) {
+    for (const { stem: s, typo } of stemsFor(index, term, typos)) {
       for (const key of index.byStem.get(s) ?? []) {
         const exact = key.split(" ").length === 1;
         for (const r of index.byKey.get(key) ?? []) {

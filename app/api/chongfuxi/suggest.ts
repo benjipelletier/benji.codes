@@ -18,6 +18,7 @@ import type { SentenceSuggestion, WordSuggestion } from "@chongfuxi/lib/api";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { buildIndex, fuzzyWords, stem, stemsFor, type KeyIndex } from "@chongfuxi/lib/fuzzy";
+import { isPinyin } from "@chongfuxi/lib/pinyin";
 import { promptSenses, shownPinyin } from "./review";
 import { glossKeys, glossStamp } from "./synonyms";
 
@@ -64,18 +65,24 @@ export async function suggestWords(sql: Sql, owner: string, typed: string): Prom
   const q = typed.trim();
   if (!q || q.length > 40) return { words: [], sentences: [] };
   const han = HAN.test(q);
-  const letters = q.toLowerCase().replace(/[\s\d@'’:-]/g, "");
+  // Pinyin as letters only: no tones, spaces or numbers, and ü (typed ü, v or u:) as u, as the stored readings are compared.
+  const letters = q
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u0307\u0309-\u036f]/g, "")
+    .replace(/u\u0308|v/g, "u")
+    .replace(/[\s\d@'’:-]/g, "");
   // Characters and pinyin: as a dictionary matches them.
   const exact = (await sql.query(
     `select w.word, w.pinyin, w.defs, w.status,
             ($2::boolean and strpos(w.word, $3) > 0) as by_han,
-            lower(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g')) = $4 as whole_pinyin
+            lower(translate(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g'), 'üÜvV', 'uuuu')) = $4 as whole_pinyin
      from chongfuxi_word w
      where w.owner_email = $1 and w.status in ('deck', 'listed')
        and (($2::boolean and strpos(w.word, $3) > 0)
-         or ($4 <> '' and lower(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g')) like $4 || '%'))
+         or ($4 <> '' and lower(translate(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g'), 'üÜvV', 'uuuu')) like $4 || '%'))
      order by (w.word = $3) desc, (strpos(w.word, $3) = 1) desc,
-              (lower(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g')) = $4) desc,
+              (lower(translate(regexp_replace(coalesce(w.pinyin, w.defs->0->>'p', ''), '[0-9@ :]', '', 'g'), 'üÜvV', 'uuuu')) = $4) desc,
               (w.status = 'deck') desc, char_length(w.word), w.exposures desc, w.word
      limit ${SUGGEST_MAX}`,
     [owner, han, q, han ? "" : letters],
@@ -86,12 +93,14 @@ export async function suggestWords(sql: Sql, owner: string, typed: string): Prom
   const index = await keyIndex(sql, owner);
   const terms = termsOf(q);
   if (!index || !terms.length) return { words: exact.map((r) => toSuggestion(r, "pinyin")), sentences: [] };
-  const hits = fuzzyWords(index, terms, FUZZY_POOL);
+  // Pinyin ("huilü") is read as English only word for word: as typos it found hail and hill.
+  const typos = !isPinyin(q);
+  const hits = fuzzyWords(index, terms, FUZZY_POOL, typos);
   const score = new Map(hits.map((h) => [h.word, h.score]));
 
   // The owner's sentences saying it: their English has the terms (any form, typos read as meant), or they hold a word
   // found for it; two signals at least, readable first. Each with the found words in it marked.
-  const variants = [...new Set(terms.flatMap((t) => [t, ...stemsFor(index, t).map((x) => x.stem)]))];
+  const variants = [...new Set(terms.flatMap((t) => [t, ...stemsFor(index, t, typos).map((x) => x.stem)]))];
   const found = (await sql.query(
     `with s as (
        select s.id::int as id, s.zh, s.en, cardinality(coalesce(s.blockers, '{}')) = 0 as readable,
