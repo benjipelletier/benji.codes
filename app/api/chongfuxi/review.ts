@@ -188,11 +188,6 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
        (select count(*) from active a where a.kind = 'sentence' and a.state = 0)::int as new_sentences,
        (select count(*) from chongfuxi_card where owner_email = $1 and retired is not null)::int as retired,
        (select count(*) from chongfuxi_card where owner_email = $1 and flagged is not null)::int as flagged,
-       -- All-time figures under each kind on Today: mature (past YOUNG_DAYS of stability, as on the Words tab) and in review.
-       (select count(*) from active a where a.kind = 'read' and a.meaning_id is null)::int as read_cards,
-       (select count(*) from active a where a.kind = 'read' and a.meaning_id is null and a.state <> 0 and a.stability >= $4)::int as read_mature,
-       (select count(*) from active a where a.kind = 'produce' and a.state <> 0 and a.stability >= $4)::int as recall_mature,
-       (select count(*) from active a where a.kind = 'sentence' and a.state <> 0)::int as sentences_reviewing,
        (select count(*) from today t where t.cause = 'answer')::int as answered_today,
        (select count(*) from chongfuxi_review
           where owner_email = $1 and day = $2::date - 1 and cause = 'answer')::int as answered_yesterday,
@@ -208,7 +203,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
                   and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
        (select count(*) from chongfuxi_card c
           where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn`,
-    [owner, day.day, day.cutoff, YOUNG_DAYS],
+    [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
   return {
@@ -234,11 +229,6 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     cameDueToday: r.came_due_today,
     dueTomorrow: r.due_tomorrow,
     toLearn: r.to_learn,
-    totals: {
-      read: { cards: r.read_cards, mature: r.read_mature },
-      recall: { cards: r.recall_cards, mature: r.recall_mature },
-      sentences: { reviewing: r.sentences_reviewing, retired: r.retired },
-    },
   };
 }
 

@@ -272,19 +272,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
 }
 
 /** Before a session: what is due, what to include, and how many new sentences a day. */
-/** A figure in few characters: 1.2k from a thousand, so two short lines fit beside a kind's words. */
-const short = (n: number) => (n < 1000 ? fmt(n) : `${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, "")}k`);
-
-/** A kind's count on Today, with its all-time figures small beneath, a line each (the owner's ask). */
-function Count({ n, sub }: { n: number; sub?: string[] | false }) {
-  return (
-    <b className="cf-kind-count">
-      {fmt(n)}
-      {sub && sub.map((line) => <small key={line}>{line}</small>)}
-    </b>
-  );
-}
-
 function Today({
   shell,
   kinds,
@@ -371,7 +358,7 @@ function Today({
               Words to read
               <small>See the word, know what it means</small>
             </span>
-            <Count n={s.dueRead} sub={s.totals && [`${short(s.totals.read.mature)} mature`, `of ${short(s.totals.read.cards)}`]} />
+            <b>{fmt(s.dueRead)}</b>
           </label>
         </li>
         <li>
@@ -382,7 +369,7 @@ function Today({
               Words to recall
               <small>See the meaning, produce the word</small>
             </span>
-            <Count n={s.dueRecall} sub={s.totals && [`${short(s.totals.recall.mature)} mature`, `of ${short(s.totals.recall.cards)}`]} />
+            <b>{fmt(s.dueRecall)}</b>
           </label>
         </li>
         <li>
@@ -395,7 +382,7 @@ function Today({
                 {fmt(s.dueSentences)} due again; new ones mixed in, from {fmt(s.newSentences)} readable
               </small>
             </span>
-            <Count n={s.dueSentences} sub={s.totals && [`${short(s.totals.sentences.retired)} retired`, `${short(s.totals.sentences.reviewing)} reviewing`]} />
+            <b>{fmt(s.dueSentences)}</b>
           </label>
         </li>
         {/* New words wait out of the review until they have been learned with sentences: in the session, a step every fifth card. */}

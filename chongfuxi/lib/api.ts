@@ -56,12 +56,6 @@ export interface Summary {
    * session would take. Null for a kind with too few answers to say.
    */
   pace: { read: number | null; produce: number | null; sentence: number | null };
-  /** All-time figures under each kind on Today: word cards in review and how many are mature (past 3 weeks, as on the Words tab); sentences in review and retired. */
-  totals: {
-    read: { cards: number; mature: number };
-    recall: { cards: number; mature: number };
-    sentences: { reviewing: number; retired: number };
-  };
 }
 
 export interface WordInfo {
