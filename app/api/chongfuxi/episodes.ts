@@ -13,13 +13,28 @@
 // cards (the owner's choice for now), and are served to the owner only: the
 // app is readable by anyone, and subtitles aren't ours to publish.
 
-import type { EpisodeLine, EpisodeListed, EpisodeProgress, EpisodeScene, EpisodeView, EpisodeWord, Retell, TextToken } from "@chongfuxi/lib/api";
+import type {
+  EpisodeLine,
+  EpisodeLineNote,
+  EpisodeListed,
+  EpisodeProgress,
+  EpisodeScene,
+  EpisodeTrouble,
+  EpisodeView,
+  EpisodeWord,
+  LineNoteKind,
+  LineWordInfo,
+  Retell,
+  TextToken,
+} from "@chongfuxi/lib/api";
 import type { Dict } from "@chongfuxi/lib/dict";
 import type { Sql } from "./db";
 import { AgentError, MUSE_LIST, writeList } from "./agent";
 import { analyse } from "./analyse";
 import { ownersDay } from "./daily";
+import { notesForWord } from "./notes";
 import { ReadingError, gradeAnswer } from "./reading";
+import { rescueHooks, stuckWords } from "./rescue";
 import { simplified } from "./spotify";
 
 /** Lines an episode may have, and characters a line. */
@@ -69,6 +84,8 @@ async function ensureTables(sql: Sql) {
       result jsonb not null
     )
   `;
+  // Muse's notes on lines, like Genius annotations.
+  await sql`alter table chongfuxi_episode add column if not exists notes jsonb`;
   // How ready the owner was for an episode, one row a study day (the latest measure that day).
   await sql`
     create table if not exists chongfuxi_episode_progress (
@@ -227,12 +244,13 @@ type Row = {
   prep: Prep | null;
   model: string | null;
   known: number | null;
+  notes: EpisodeLineNote[] | null;
 };
 
 async function rowOf(sql: Sql, owner: string, id: number): Promise<Row> {
   await ensureTables(sql);
   const [row] = (await sql`
-    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known
+    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes
     from chongfuxi_episode where owner_email = ${owner} and id = ${id}
   `) as unknown as Row[];
   if (!row) throw new EpisodeError("No such episode.");
@@ -310,12 +328,20 @@ const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
 - scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" short, in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
-- questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.`;
+- questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
+
+Then annotate lines like Genius annotates lyrics, in as many POSTs as you like to /api/chongfuxi/agent/episodes/lines:
+{ "id": …, "lines": [{ "i": <line index>, "quote": "<the exact run of the line it is about, or omit for the whole line>", "kind": "trouble" | "slang" | "grammar" | "culture" | "meaning" | "listening", "text": "…", "words": ["corpus words it is about"] }], "replace": false }
+- First every line with one of their trouble words ("trouble" in the material, with why: a stuck word's pattern, a recent Forgot, their own note): kind "trouble", saying how the word is used here and what to tell it apart from, in their terms (the partner they mix it up with, what they wrote).
+- Then lines that are hard to follow for other reasons: slang or dialect, a grammar point, a cultural reference, a meaning other than the dictionary's, or something hard to catch by ear (fast, swallowed, a homophone).
+- "text" is 1 to 3 sentences in English, Chinese in Chinese; don't translate the line (the English is shown already). Skip lines with nothing worth saying. A note replaces the one already on its line.`;
 
 /** What Muse needs to prep an episode, or the list of episodes and whether each is prepped. Readable by the agent. */
 export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: number) {
   const r = await rowOf(sql, owner, id);
-  const { a, where, unknown } = await measure(sql, owner, dict, r);
+  const { a, tokens, where, unknown } = await measure(sql, owner, dict, r);
+  const at = wordLines(tokens);
+  const trouble = await troubleIn(sql, owner, [...at.keys()]);
   return {
     id: r.id,
     show: r.show,
@@ -323,7 +349,18 @@ export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: n
     brief: BRIEF,
     prepped: r.prep !== null,
     known: a.words.total ? Math.round((a.words.known / a.words.total) * 1000) / 1000 : 0,
-    lines: r.lines.map((l, i) => ({ i, at: clock(l.s), zh: l.zh, ...(l.en ? { en: l.en } : {}) })),
+    lines: r.lines.map((l, i) => ({
+      i,
+      at: clock(l.s),
+      zh: l.zh,
+      ...(l.en ? { en: l.en } : {}),
+      // Words in it not known yet.
+      new: (tokens[i] ?? []).filter((t) => t.k === "unknown").length,
+    })),
+    // Words in the episode they have had trouble with, and the lines they are said in: annotate those lines first.
+    trouble: [...trouble.values()].map((t) => ({ ...t, lines: (at.get(t.word) ?? []).slice(0, TROUBLE_LINES) })),
+    // Lines you have already annotated.
+    annotated: (r.notes ?? []).map((n) => n.i),
     // How many lines have English: few means the English file was missing or timed to another release.
     english: r.lines.filter((l) => l.en).length,
     unknown: unknown.slice(0, WORDS_FOR_MUSE).map((u) => ({
@@ -548,6 +585,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     retells: retells.map((t) => ({ ...t.result, q: t.q, answer: t.answer, at: Math.round(t.at) })),
     coverage: measured.coverage,
     progress: await progressOf(sql, owner, id),
+    notes: r.notes ?? [],
+    trouble: Object.fromEntries(await troubleIn(sql, owner, [...wordLines(tokens).keys()])),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
   };
@@ -563,4 +602,160 @@ export async function gradeEpisodeAnswer(sql: Sql, owner: string, id: number, q:
   const result = await gradeAnswer(r.lines.map((l) => l.zh).join("\n"), `${r.show} ${r.episode}`, question, said);
   await sql`insert into chongfuxi_episode_retell (owner_email, episode_id, q, answer, result) values (${owner}, ${id}, ${q}, ${said}, ${JSON.stringify(result)}::jsonb)`;
   return { ...result, q, answer: said, at: Date.now() };
+}
+
+const TROUBLE_DAYS = 30;
+const NOTE_DAYS = 90;
+/** Lines named for each trouble word in Muse's material. */
+const TROUBLE_LINES = 8;
+const LINE_NOTE_KINDS: LineNoteKind[] = ["trouble", "slang", "grammar", "culture", "meaning", "listening"];
+const LINE_NOTES_MAX = 1500;
+const LINE_NOTE_TEXT = 500;
+
+/**
+ * Words among these the owner has had trouble with: a stuck word (its
+ * category and why), else a Forgot on its cards lately, else a note written
+ * about it after a Forgot.
+ */
+export async function troubleIn(sql: Sql, owner: string, words: string[]): Promise<Map<string, EpisodeTrouble>> {
+  const out = new Map<string, EpisodeTrouble>();
+  if (!words.length) return out;
+  const set = new Set(words);
+  for (const s of await stuckWords(sql, owner)) {
+    if (set.has(s.word)) out.set(s.word, { word: s.word, kind: s.category, why: s.why, partner: s.partner });
+  }
+  const forgot = (await sql`
+    select word, count(*)::int as n from chongfuxi_review
+    where owner_email = ${owner} and kind in ('read', 'produce') and grade = 'forgot' and cause = 'answer'
+      and at > now() - ${`${TROUBLE_DAYS} days`}::interval and word = any(${words}::text[])
+    group by word
+  `) as unknown as Array<{ word: string; n: number }>;
+  for (const f of forgot) {
+    if (!out.has(f.word)) out.set(f.word, { word: f.word, kind: "forgot", why: `Forgot ${f.n} ${f.n === 1 ? "time" : "times"} in ${TROUBLE_DAYS} days`, partner: null });
+  }
+  const noted = (await sql`
+    select word, comment from chongfuxi_review
+    where owner_email = ${owner} and comment is not null and word = any(${words}::text[]) and at > now() - ${`${NOTE_DAYS} days`}::interval
+    order by at desc
+  `) as unknown as Array<{ word: string; comment: string }>;
+  for (const n of noted) {
+    if (!out.has(n.word)) out.set(n.word, { word: n.word, kind: "note", why: `You wrote: “${n.comment.slice(0, 120)}”`, partner: null });
+  }
+  return out;
+}
+
+/** The distinct words of the lines (tokens with a standing), and the lines each is said in. */
+function wordLines(tokens: TextToken[][]): Map<string, number[]> {
+  const at = new Map<string, number[]>();
+  tokens.forEach((line, i) => {
+    for (const t of line) {
+      if (!t.k) continue;
+      const list = at.get(t.t) ?? at.set(t.t, []).get(t.t)!;
+      if (list[list.length - 1] !== i) list.push(i);
+    }
+  });
+  return at;
+}
+
+/**
+ * Muse's notes on lines, like Genius annotations (POST agent/episodes/lines):
+ * { id, lines: [{ i, quote?, kind, text, words? }], replace? }. A note
+ * replaces the one on its line; `replace` drops every other. The quote must
+ * be a run of the line as written, else the note is on the whole line.
+ */
+export async function writeLineNotes(sql: Sql, owner: string, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const failed: Array<{ i: unknown; why: string }> = [];
+  const given: EpisodeLineNote[] = [];
+  for (const raw of Array.isArray(input.lines) ? input.lines : []) {
+    const x = (raw ?? {}) as Record<string, unknown>;
+    const i = typeof x.i === "number" && Number.isInteger(x.i) ? x.i : -1;
+    const line = r.lines[i];
+    if (!line) {
+      failed.push({ i: x.i, why: "no such line" });
+      continue;
+    }
+    const text = str(x.text, LINE_NOTE_TEXT);
+    if (!text) {
+      failed.push({ i, why: "no text" });
+      continue;
+    }
+    const kind = LINE_NOTE_KINDS.includes(x.kind as LineNoteKind) ? (x.kind as LineNoteKind) : "meaning";
+    const q = str(x.quote, 200);
+    const quote = q && line.zh.includes(q) && q !== line.zh ? q : null;
+    const words = (Array.isArray(x.words) ? x.words : [])
+      .map((w) => str(w, 12))
+      .filter((w) => HAN.test(w))
+      .slice(0, 6);
+    given.push({ i, quote, kind, text, words });
+  }
+  const byLine = new Map<number, EpisodeLineNote>(input.replace === true ? [] : (r.notes ?? []).map((n) => [n.i, n]));
+  for (const n of given) byLine.set(n.i, n);
+  const notes = [...byLine.values()].sort((a, b) => a.i - b.i).slice(0, LINE_NOTES_MAX);
+  await sql`update chongfuxi_episode set notes = ${JSON.stringify(notes)}::jsonb where owner_email = ${owner} and id = ${id}`;
+  return { written: given.length, notes: notes.length, failed };
+}
+
+/** A line's words as they live in the owner's corpus: cards, notes, lookups, sentences, a kit's hook. Owner only. */
+export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number, i: number): Promise<LineWordInfo[]> {
+  const r = await rowOf(sql, owner, id);
+  const line = r.lines[i];
+  if (!line) throw new EpisodeError("No such line.");
+  const a = await analyse(sql, owner, dict, { text: line.zh, kind: "paste", title: null, url: null });
+  const names = new Set(r.prep?.names ?? []);
+  const toks = a.paragraphs.flat(2).filter((t) => t.k);
+  const words = [...new Set(toks.map((t) => t.t))];
+  if (!words.length) return [];
+  const standing = new Map(toks.map((t) => [t.t, names.has(t.t) ? ("known" as const) : t.k!]));
+  const [status, cards, lookups, sentences, hooks] = await Promise.all([
+    sql`select word, status from chongfuxi_word where owner_email = ${owner} and word = any(${words}::text[])` as unknown as Promise<Array<{ word: string; status: LineWordInfo["status"] }>>,
+    sql`
+      select word, kind, stability, (extract(epoch from due) * 1000)::double precision as due, answered, lapses, suspended
+      from chongfuxi_card where owner_email = ${owner} and kind in ('read', 'produce') and meaning_id is null and word = any(${words}::text[])
+      order by kind desc
+    ` as unknown as Promise<Array<{ word: string } & LineWordInfo["cards"][number]>>,
+    sql`
+      select w as word, l.query, l.verdict from unnest(${words}::text[]) as w
+      join lateral (select query, verdict from chongfuxi_lookup where owner_email = ${owner} and strpos(query, w) > 0 order by at desc limit 2) l on true
+      where char_length(w) > 1
+    ` as unknown as Promise<Array<{ word: string; query: string; verdict: string | null }>>,
+    sql`
+      select t.word, count(distinct s.id)::int as "all",
+             count(distinct s.id) filter (where cardinality(s.blockers) = 0)::int as readable,
+             (array_agg(json_build_object('zh', s.zh, 'en', s.en) order by abs(char_length(s.zh) - 12))
+               filter (where cardinality(s.blockers) = 0 and s.en is not null))[1] as example
+      from chongfuxi_token t join chongfuxi_sentence s on s.owner_email = t.owner_email and s.id = t.sentence_id
+      where t.owner_email = ${owner} and t.word = any(${words}::text[])
+      group by t.word
+    ` as unknown as Promise<Array<{ word: string; all: number; readable: number; example: { zh: string; en: string | null } | null }>>,
+    rescueHooks(sql, owner, words),
+  ]);
+  const statusOf = new Map(status.map((x) => [x.word, x.status]));
+  // Notes only for the words worth it (one a single character is in nearly every note).
+  const notes = new Map(
+    await Promise.all(
+      words.map(async (w): Promise<[string, LineWordInfo["notes"]]> => [w, [...w].length > 1 || standing.get(w) !== "known" ? (await notesForWord(sql, owner, w)).slice(0, 2) : []]),
+    ),
+  );
+  const said = (w: string) => r.lines.reduce((n, l) => n + (l.zh.split(w).length - 1), 0);
+  return words.map((w) => {
+    const look = a.looks[w];
+    const sen = sentences.find((x) => x.word === w);
+    return {
+      word: w,
+      standing: standing.get(w)!,
+      pinyin: look?.p ?? null,
+      gloss: look?.gloss ?? null,
+      status: statusOf.get(w) ?? null,
+      cards: cards
+        .filter((c) => c.word === w)
+        .map((c) => ({ kind: c.kind, stability: c.stability, due: Math.round(c.due), answered: c.answered, lapses: c.lapses, suspended: c.suspended })),
+      hook: hooks.get(w) ?? null,
+      notes: notes.get(w) ?? [],
+      lookups: lookups.filter((x) => x.word === w).map((x) => ({ query: x.query, verdict: x.verdict })),
+      sentences: { readable: sen?.readable ?? 0, all: sen?.all ?? 0, example: sen?.example ?? null },
+      inEpisode: said(w),
+    };
+  });
 }

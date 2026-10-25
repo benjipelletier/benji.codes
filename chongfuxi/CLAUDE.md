@@ -1788,30 +1788,59 @@ YouTube chapter feature".
   whole to the Muse list `Muse/<show>/<episode>` (`writeList`, `replace`), so
   they learn and review like any list. Until it is prepped, scenes are cut
   at pauses of 8 s or more with at least 8 lines between (`autoScenes`).
+- **Line notes, like Genius** (the owner wanted it to work like Genius
+  does for lyrics, with Muse writing from what it knows they have trouble
+  with): POST `/api/chongfuxi/agent/episodes/lines` `{ id, lines: [{ i,
+  quote?, kind, text, words? }], replace? }` (`writeLineNotes`, in as many
+  posts as Muse likes; a note replaces the one on its line, `replace` drops
+  the rest; kept as `chongfuxi_episode.notes`, up to 1500). `kind` is
+  trouble, slang, grammar, culture, meaning or listening (else meaning);
+  `quote` must be a run of the line as written, else the note is on the
+  whole line. The material gives Muse `trouble` (`troubleIn`: the episode's
+  words that are stuck words, with their category and why, else forgotten
+  in 30 days, else written about after a Forgot in 90, each with the lines
+  it is said in), each line's count of new words, and the lines already
+  annotated; the brief has it annotate the trouble lines first, then slang,
+  grammar, culture, meaning and listening.
+- **Grading a line** by its words (no model): **Clear** (every word known),
+  **Learning** (known, some still being learnt), **1 new**, **2+ new**
+  (`gradeOf` in `Watch.tsx`), shown as a bar down each line's left in the
+  Sentence green, Read blue, amber and red, as a stacked bar on each
+  chapter's chip, and as the episode's share of each on the Words tab.
 - **On screen** (owner only, since subtitles aren't ours to serve; the list
   of episodes is public): "Watch" rows on Muse reviews (show, episode,
   length, lines, % known, Prepped or Waiting for Muse); Today's Muse reviews
-  button shows for them too. An episode (`openEpisode`) opens with how ready
-  the owner is: the share of the words they'll hear that are known (large),
-  a bar with what learning the must-knows adds (amber), and the share of
-  lines readable; then the must-know words (pinyin, meaning, how often said,
-  Muse's note, ✓ learnt once in the deck), each opening its word page, and a
-  button to their list; the names. Then **Chapters**: one bar, a segment per
-  scene as long as it runs, a thin fill along each segment's foot for how
-  much of it is known; drag along it and the scene under the finger shows
-  above with its start time, let go (or tap) to open it; arrow keys step
-  (`ChapterBar`). The open scene: its time, % known, title, what happens in
-  simple Chinese and in English, Muse's notes, and its lines with their
-  times (a tap on a time reads the line aloud), every word marked as the
-  analyser marks it, must-know words stronger, a tap giving reading and
-  meaning with Word page ›, the English under each. An English pill beside
-  Hide the lines turns it off (remembered on the device, `ENGLISH_KEY`):
-  then each translation, and the summary's, is blurred until tapped, to
-  check yourself against. ‹ and › step a chapter; under them the list of
-  chapters (start, title, lines, % known). Then the other words not known,
-  folded, and **After watching**: Muse's questions, answered by voice or
-  typing and graded against the lines like a reading's retelling (the same
-  `Question`, `gradeAnswer`; kept in `chongfuxi_episode_retell`).
+  button shows for them too. An episode (`EpisodeView`) is one screen like
+  an app, not a page that scrolls (the owner's ask): a bar on top (close,
+  the show and episode, "% known" opening Words), then three tabs:
+  - **Script**: the chapters fixed under the tabs (`ChapterStrip`): the
+    scrub bar (as before, its time and title showing only while scrubbing)
+    and a chip per chapter (start, title, its lines' grades), scrolled
+    sideways, the chapter in view lit and brought to the middle. Under it
+    the whole script scrolls on its own: a key (the grades, ✦ for Muse,
+    the English switch), then each chapter's heading (time, % known, title,
+    what happens folded to two lines, a tap opening it with the English and
+    Muse's notes) and its lines: time, ✦ when Muse has a note, the words
+    marked as the analyser marks them, must-knows stronger, the owner's
+    trouble words with a red wavy underline, the run Muse's note quotes on
+    a grey wash, the English under it (blurred until tapped with English
+    off). A chip or the bar scrolls the script to its chapter; scrolling
+    lights the chapter in view.
+  - A tap on a line (or a word in it) opens it at the foot of the screen
+    (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next
+    note, the line large with 🔊, its English, Muse's note (its kind,
+    the quote, the text), then its words as they live in the corpus
+    (`lineWords`, GET `episodes?id=&line=`, kept per line while open):
+    trouble words first, then must-knows, new, learning; each with
+    pinyin, gloss and where it stands (the trouble category, New, On a
+    list, Learning, Known), opening to its Read and Recall cards (how
+    strong, when due, lapses), its kit's hook, the owner's notes on it
+    with Muse's answer, its lookups, how many of the owner's sentences
+    have it (and readable) with one, how often it is said in the episode,
+    and Word page ›. Known words with nothing to say fold into one line.
+  - **Words**: readiness and its graph, how the lines read, the
+    must-knows and their list, the names, the other words not known.
+  - **After watching**: Muse's questions, graded as before.
 - **Readiness over time** (the owner wanted to see it go up): each measure
   is kept, one row per study day, the latest that day winning
   (`chongfuxi_episode_progress`: words known, known with the must-knows,

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
-import { EpisodeError, gradeEpisodeAnswer, listEpisodes, openEpisode } from "../episodes";
+import { EpisodeError, gradeEpisodeAnswer, lineWords, listEpisodes, openEpisode } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
 import { ReadingError } from "../reading";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // An episode measured against the deck, and a model call to grade an answer.
 export const maxDuration = 120;
 
-/** The episodes (names and figures: readable by anyone); with ?id=, one opened for study (owner only: the subtitles aren't ours to serve). */
+/** The episodes (names and figures: readable by anyone); with ?id=, one opened for study, and with &line=, that line's words in the corpus (owner only: the subtitles aren't ours to serve). */
 export async function GET(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!id) {
@@ -20,7 +20,10 @@ export async function GET(req: NextRequest) {
   }
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
+  const line = req.nextUrl.searchParams.get("line");
   try {
+    // A line's words as they live in the corpus.
+    if (line !== null) return NextResponse.json({ words: await lineWords(gate.sql, gate.owner, loadDict(), id, Number(line)) });
     return NextResponse.json({ episode: await openEpisode(gate.sql, gate.owner, loadDict(), id) });
   } catch (e) {
     if (e instanceof EpisodeError) return bad(e.message, 404);

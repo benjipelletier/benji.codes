@@ -1271,6 +1271,44 @@ export interface EpisodeListed {
   known: number | null;
 }
 
+/** What a Muse note on a line is about, like a Genius annotation's kind. */
+export type LineNoteKind = "trouble" | "slang" | "grammar" | "culture" | "meaning" | "listening";
+
+/** Muse's note on a subtitle line: the part it is about (a run of the line, or the whole line), what kind, and what to know. */
+export interface EpisodeLineNote {
+  i: number;
+  /** The run of the line it is about, exactly as written; null for the whole line. */
+  quote: string | null;
+  kind: LineNoteKind;
+  text: string;
+  /** Corpus words it is about. */
+  words: string[];
+}
+
+/** A word in an episode the owner has had trouble with: a stuck word's category, a recent Forgot, or a note written about it. */
+export interface EpisodeTrouble {
+  word: string;
+  kind: ReviveCategory | "forgot" | "note";
+  why: string;
+  partner: string | null;
+}
+
+/** A word of a subtitle line, as it lives in the owner's corpus. */
+export interface LineWordInfo {
+  word: string;
+  standing: WordStanding;
+  pinyin: string | null;
+  gloss: string | null;
+  status: "deck" | "listed" | "name" | null;
+  cards: Array<{ kind: "read" | "produce"; stability: number; due: number; answered: number; lapses: number; suspended: boolean }>;
+  hook: string | null;
+  notes: NoteEntry[];
+  lookups: Array<{ query: string; verdict: string | null }>;
+  sentences: { readable: number; all: number; example: { zh: string; en: string | null } | null };
+  /** Times it is said in this episode. */
+  inEpisode: number;
+}
+
 /** How ready the owner was for an episode on a study day. */
 export interface EpisodeProgress {
   day: string;
@@ -1301,4 +1339,8 @@ export interface EpisodeView extends EpisodeListed {
   looks: Record<string, { p: string; gloss: string | null } | null>;
   /** The Muse list its must-know words are filed under, for Learn and Review. */
   list: string | null;
+  /** Muse's notes on lines, by line. */
+  notes: EpisodeLineNote[];
+  /** Words in the episode the owner has had trouble with, by word. */
+  trouble: Record<string, EpisodeTrouble>;
 }
