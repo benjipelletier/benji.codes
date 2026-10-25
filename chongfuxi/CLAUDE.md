@@ -1820,7 +1820,7 @@ YouTube chapter feature".
   - **Script**: the chapters fixed under the tabs (`ChapterStrip`): the
     scrub bar (as before, its time and title showing only while scrubbing)
     and a chip per chapter (start, the whole title on up to two lines,
-    its lines' grades; the tip while scrubbing shows it whole too), scrolled
+    its English under it while English is on, its lines' grades; the tip while scrubbing shows it whole too), scrolled
     sideways, the chapter in view lit and brought to the middle. Under it
     the whole script scrolls on its own: a key (the grades, ✦ for Muse,
     the English switch), then each chapter's heading (time, % known, title,

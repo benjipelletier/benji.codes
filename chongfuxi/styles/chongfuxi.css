@@ -11590,3 +11590,18 @@ button.cf-how-text {
   font-size: 13px;
   color: var(--cf-ink-soft);
 }
+
+/* A chip's English title under the Chinese, while English is on. */
+.cf-wchip-en {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--cf-ink-soft);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cf-wchip .cf-wchip-grades {
+  margin-top: auto;
+}

@@ -626,7 +626,7 @@ function LinePanel({
 }
 
 /** The chapters across the top: the bar to scrub, and a chip each (start, title, how its lines grade), the one in view lit. */
-function ChapterStrip({ ep, current, grades, onPick }: { ep: Episode; current: number; grades: Grade[]; onPick: (i: number) => void }) {
+function ChapterStrip({ ep, current, grades, english, onPick }: { ep: Episode; current: number; grades: Grade[]; english: boolean; onPick: (i: number) => void }) {
   const strip = useRef<HTMLDivElement>(null);
   const times = spans(ep);
   useEffect(() => {
@@ -644,6 +644,7 @@ function ChapterStrip({ ep, current, grades, onPick }: { ep: Episode; current: n
             <button key={i} className={`cf-wchip${i === current ? " is-on" : ""}`} onClick={() => onPick(i)}>
               <span className="cf-wchip-at">{clock(times[i].from)}</span>
               <span className="cf-wchip-title cf-zh">{sc.title}</span>
+              {english && sc.titleEn && sc.titleEn !== sc.title && <span className="cf-wchip-en">{sc.titleEn}</span>}
               <span className="cf-wchip-grades" aria-label={`${pct(sc.known)} known`}>
                 {GRADES.map((g) => {
                   const n = part.filter((x) => x === g.key).length;
@@ -802,7 +803,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {!ep && !error && <Loading label="Reading the subtitles…" />}
       {ep && tab === "script" && (
         <>
-          <ChapterStrip ep={ep} current={scene} grades={grades} onPick={toChapter} />
+          <ChapterStrip ep={ep} current={scene} grades={grades} english={english} onPick={toChapter} />
           <div className="cf-watch-script" ref={script} onScroll={onScroll}>
             <div className="cf-watch-key">
               {GRADES.map((g) => (
