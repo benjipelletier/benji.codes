@@ -211,7 +211,12 @@ sentences with no daily limit, learn-next, the sentence browser and stats.
 
 Review opens on Today: what is due by kind of card, with the Recall and
 Sentences rows doubling as the choice to leave them out (remembered on the
-device), then Start. The choices only filter
+device), then Start. Under each kind's count, small, its all-time figures
+(the owner's ask; `totals` on the summary, `Count` in `ReviewPanel.tsx`):
+Read and Recall, how many cards are mature (past 3 weeks of stability,
+`YOUNG_DAYS`, the Words tab's line) of how many in review; Sentences, how
+many retired and how many in review. Two short lines with figures cut to
+1.2k (`short`), so the row stays the height it was. The choices only filter
 the queue; nothing about the schedule changes. Start says about how long the session
 would take at the owner's own pace (the owner's ask; `sessionTime` in
 `ReviewPanel.tsx`, from `pace` on the summary, `paceOf` in review.ts): the

@@ -1804,6 +1804,21 @@ label.cf-kind {
   font-variant-numeric: tabular-nums;
 }
 
+/* Under a kind's count: its all-time figures, small and quiet. */
+.cf-kind > .cf-kind-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cf-kind > .cf-kind-count small {
+  font-size: 11.5px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--cf-ink-faint);
+}
+
 .cf-kind.is-read {
   --cf-kind: var(--cf-read);
 }
