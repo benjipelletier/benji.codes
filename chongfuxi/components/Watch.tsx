@@ -564,7 +564,7 @@ function LinePanel({
   }, [cache, ep.id, i]);
   const nextNote = ep.notes.find((n) => n.i > i) ?? ep.notes[0];
   const rank = (w: LineWordInfo) => (ep.trouble[w.word] ? 0 : must.has(w.word) ? 1 : w.standing === "unknown" ? 2 : w.standing === "learning" ? 3 : 4);
-  const worth = (w: LineWordInfo) => rank(w) < 4 || w.parts !== null || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
+  const worth = (w: LineWordInfo) => rank(w) < 4 || !!w.parts?.length || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
   const shown = (words ?? []).filter(worth).sort((a, b) => rank(a) - rank(b));
   const rest = (words ?? []).filter((w) => !worth(w));
   return (
