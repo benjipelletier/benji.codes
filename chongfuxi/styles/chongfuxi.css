@@ -10342,3 +10342,125 @@ button.cf-how-text {
 .cf-split-note {
   margin-top: 8px !important;
 }
+
+/* Notes after a Forgot, with Muse's answers: on a card's back, the word page and the list. */
+.cf-note-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.cf-note-answer {
+  padding: 10px 12px;
+  border-left: 3px solid var(--cf-recall);
+  border-radius: 0 10px 10px 0;
+  background: var(--cf-sunken);
+  text-align: left;
+}
+
+.cf-note-answer p {
+  margin: 0 0 4px;
+}
+
+.cf-note-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cf-recall);
+}
+
+.cf-note-label span {
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+.cf-note-label .cf-zh {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cf-ink);
+}
+
+.cf-note-diff {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cf-note-pair {
+  margin-top: 6px;
+}
+
+.cf-note-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-note-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cf-note-item p {
+  margin: 0 0 6px;
+}
+
+.cf-note-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.cf-note-kind {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cf-note-kind.is-read {
+  background: color-mix(in srgb, var(--cf-read) 14%, transparent);
+  color: var(--cf-read);
+}
+
+.cf-note-kind.is-produce {
+  background: color-mix(in srgb, var(--cf-recall) 14%, transparent);
+  color: var(--cf-recall);
+}
+
+.cf-note-kind.is-sentence {
+  background: color-mix(in srgb, var(--cf-sentence) 14%, transparent);
+  color: var(--cf-sentence);
+}
+
+.cf-note-head .cf-word-link {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cf-note-sentence.cf-zh {
+  font-size: 16px;
+}
+
+.cf-note-text {
+  font-size: 15px;
+  font-style: italic;
+}
+
+.cf-note-waiting {
+  font-size: 13px;
+}
+
+/* A word that opens its page, inside a line of text: just the word, in the accent. */
+.cfx .cf-word-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-family: var(--cf-zh);
+  font-weight: 600;
+  cursor: pointer;
+}

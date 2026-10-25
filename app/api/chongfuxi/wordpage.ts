@@ -5,6 +5,7 @@
 // about it, how it came into the deck, its Learn, and the words around it.
 // Read-only, and readable by anyone like the sheet.
 
+import { notesForWord } from "./notes";
 import type { Sql } from "./db";
 import type { WordPage, WordPageSentence } from "@chongfuxi/lib/api";
 import { zhShown } from "@chongfuxi/lib/hanzi";
@@ -160,6 +161,7 @@ export async function wordPage(sql: Sql, owner: string, word: string): Promise<W
     origin: origin.map((o) => ({ source: o.source, at: Math.round(o.at), undone: o.undone })),
     answers: answers.map((a) => ({ kind: a.kind, meaning: a.gloss, at: Math.round(a.at), grade: a.grade })),
     notes: answers.filter((a) => a.comment).map((a) => ({ kind: a.kind, at: Math.round(a.at), comment: a.comment! })),
+    noteEntries: await notesForWord(sql, owner, word),
     // The first panel with any: readable, else one away, else locked.
     sentencesAll: { total, status: firstStatus, rows: firstRows },
     tripped: tripped.map((t) => ({ id: t.id, zh: zhShown(t.zh), en: t.en, at: Math.round(t.at), comment: t.comment })),

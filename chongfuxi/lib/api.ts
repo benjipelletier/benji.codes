@@ -246,6 +246,8 @@ export interface SessionCard {
   why?: QueueWhy;
   /** Word cards of a rescued word still recovering: the rescue's memory hook, shown on the back. */
   hook?: string | null;
+  /** Word cards: Muse's answers to notes about this word (written after a Forgot on it, or naming it), newest first, until it is got right twice in a row after them (notes.ts). */
+  answered?: CardNoteAnswer[];
   /** Recall: the senses the owner chose for this card to ask with, instead of the automatic ones; null when not chosen. */
   prompt?: string[] | null;
   /** Word cards of a word in a synonym group already compared: each word's core, this one first (synonyms.ts). */
@@ -473,6 +475,8 @@ export interface WordPage extends WordDetail {
   answers: Array<{ kind: CardKind; meaning: string | null; at: number; grade: Grade }>;
   /** What was written after a Forgot on its cards ("what tripped you up?"). */
   notes: Array<{ kind: CardKind; at: number; comment: string }>;
+  /** Notes about it (on its cards, a sentence it tripped, naming it, or answered as its partner), with Muse's answers (notes.ts). */
+  noteEntries: NoteEntry[];
   /** Its sentences, a panel at a time: the first panel with any, and its first rows; more with `word/page?status=&sentences=<offset>`. */
   sentencesAll: { total: number; status: WordPageSentence["status"]; rows: WordPageSentence[] };
   /** Sentence cards forgotten with this word tapped as the trouble. */
@@ -1173,4 +1177,50 @@ export interface Reading {
   openedAt: number | null;
   doneAt: number | null;
   retells: Retell[];
+}
+
+/** A sentence with one word, then the same with the other: the pair a note's answer shows. */
+export interface NotePair {
+  mine: { zh: string; en: string };
+  theirs: { zh: string; en: string };
+}
+
+/** Muse's answer to a note written after a Forgot (app/api/chongfuxi/notes.ts). Every answer is kept. */
+export interface NoteAnswer {
+  id: number;
+  at: number;
+  model: string;
+  /** The word it was mixed up with, when there was one. */
+  partner: string | null;
+  /** How they differ, or what the note was asking, in a sentence or two. */
+  difference: string;
+  pair: NotePair | null;
+}
+
+/** A note the owner wrote after forgetting a card, with Muse's answers (none until Muse gets to it). */
+export interface NoteEntry {
+  /** The answer it was written with (chongfuxi_review.id). */
+  id: string;
+  at: number;
+  kind: CardKind;
+  /** The card's word; null for a sentence card. */
+  word: string | null;
+  sentence: { id: number; zh: string; en: string | null } | null;
+  /** A sentence card's words marked as the trouble. */
+  tapped: string[];
+  note: string;
+  /** Words the note names (other than the card's own). */
+  named: string[];
+  answers: NoteAnswer[];
+}
+
+/** An answer shown on a word card's back. */
+export interface CardNoteAnswer {
+  /** The note's card word, and what it was taken for. */
+  word: string;
+  partner: string | null;
+  note: string;
+  difference: string;
+  pair: NotePair | null;
+  at: number;
 }

@@ -32,6 +32,7 @@ import { isStudyDay, type StudyDay } from "@chongfuxi/lib/day";
 import type { Definition } from "@chongfuxi/lib/dict";
 import { zhShown } from "@chongfuxi/lib/hanzi";
 import { longkuWords } from "./longku";
+import { cardAnswers } from "./notes";
 import { rescueHooks } from "./rescue";
 import { contrastsFor } from "./synonyms";
 import { SPOTIFY_LIST, moveSongLists, songsOf } from "./spotify";
@@ -623,6 +624,8 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
   // A rescued word still recovering shows its rescue's hook (rescue.ts); a compared one, how it differs (synonyms.ts).
   const hooks = await rescueHooks(sql, owner, wordList);
   const contrasts = await contrastsFor(sql, owner, wordList);
+  // Muse's answers to notes about the word (notes.ts), until it is got right twice in a row after them.
+  const answered = await cardAnswers(sql, owner, wordList);
   const prompts = await promptsOf(sql, owner, cards.filter((c) => c.kind === "produce").map((c) => c.id));
   const out: SessionCard[] = [];
   for (const c of cards) {
@@ -653,6 +656,7 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       sentence: sentenceOf(chosen.get(c.id)),
       hook: hooks.get(c.word!) ?? null,
       contrast: contrasts.get(c.word!) ?? null,
+      answered: answered.get(c.word!) ?? [],
       prompt: prompts.get(c.id) ?? null,
     };
     if (c.kind === "produce") {

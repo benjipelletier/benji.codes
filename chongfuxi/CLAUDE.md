@@ -1699,6 +1699,45 @@ question, newest first. Speech recognition slips are to be ignored by the
 grader, real word mistakes not. Tested with a stand-in page and model
 reply: the cloud session can't reach the web.
 
+**Notes, answered** (`app/api/chongfuxi/notes.ts`, `components/Notes.tsx`;
+the owner: "I will mark a card wrong and explain which word I thought it
+was… I'm basically asking an ai but we don't ever use those notes"). A
+note written after a Forgot (`chongfuxi_review.comment`) is a question
+Muse now answers. GET `/api/chongfuxi/agent/notes` (same token) gives the
+unanswered ones, oldest first, up to 60 (`?all=1` for every note), each
+with the card's word (pinyin, gloss), the sentence, the words tapped, the
+note and the words it names with their meanings, plus `brief` and `left`.
+POST `{ answers: [{ id, partner, difference, pair: { mine, theirs } }] }`
+keeps them (`chongfuxi_note_answer`, made on first use): every answer is
+kept, several to a note if Muse answers again; the partner must be Chinese
+and not the word itself, each pair sentence must hold its word (else the
+pair is dropped), and an unknown id or empty difference is named back in
+`failed`.
+
+- **Named words, no AI** (`namedIn`): each run of Chinese in a note, whole
+  if it is a corpus word or a CC-CEDICT headword, else the longest words
+  inside it, the card's own word left out ("thought it was 发现" → 发现).
+  With Muse's partners, they vote for Words to revive's Mixed up partner
+  at 2 votes a note, as strong as a lookup (`notePartners` in
+  `stuckWords`), so a note alone files the word under Mixed up.
+- **On the card** (`cardAnswers`, `answered` on `SessionCard`): Read and
+  Recall backs show the answers to notes on the word's cards or naming it
+  as the partner, newest first, two at most: "You thought 发现" (or "Taken
+  for this on 发觉" on the partner's card), the difference and the pair,
+  in Recall's colour, until the word is got right `RESCUE_CLEAR` (2) times
+  in a row after the answer, like a kit's hook.
+- **On the word page**: "Your notes" (`noteEntries`, `notesForWord`):
+  notes on its cards, on sentence cards where it was marked as the
+  trouble, naming it, or answered with it as the partner, each with every
+  answer, newest first. "Where it tripped you" keeps the sentences.
+- **The list**: "Your notes" on Muse reviews ("N of M answered by Muse"),
+  full screen (`NotesView`, route `notes`, readable by anyone, 50 at a
+  time): every note newest first, its kind, word (opening its page), the
+  sentence, what was written, and every answer, or "Muse hasn't answered
+  this yet".
+- Muse's review material carries `answered` (the latest answer to recent
+  notes) so it can test those pairs.
+
 ## Bug reports
 
 The owner files bugs from any screen: a slim tab on the right edge (owner

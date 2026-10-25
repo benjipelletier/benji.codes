@@ -23,6 +23,7 @@ import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES, REVIVE, classify, type ReviveCategory, type ReviveEvent } from "@chongfuxi/lib/revive";
 import { EFFORT, MODEL, ensureLookupTables, lookupWords } from "./lookup";
 import { ACTIVE, WAITING_TO_LEARN, promptSenses, shownPinyin } from "./review";
+import { notePartners } from "./notes";
 import { dictEntries, traditionalOf } from "./headwords";
 import { SUSPENDED_WORD } from "./suspended";
 import { wordPage, wordSentences } from "./wordpage";
@@ -148,6 +149,8 @@ export async function stuckWords(sql: Sql, owner: string, at = Date.now()): Prom
     group by c.word, t.w
   `) as unknown as Array<{ word: string; other: string; n: number }>;
   for (const t of together) vote(t.word, t.other, t.n);
+  // A note after a Forgot naming the word it was taken for ("thought it was 发现"), or Muse's answer to one: as strong as a lookup.
+  for (const n of await notePartners(sql, owner, candidates)) vote(n.word, n.other, 2);
   const partnerOf = (word: string) => {
     const best = [...(votes.get(word) ?? new Map<string, number>())].sort((a, b) => b[1] - a[1])[0];
     return best && best[1] >= PARTNER_VOTES ? best[0] : null;

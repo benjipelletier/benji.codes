@@ -46,7 +46,7 @@ export function SplitEditor({ sentence, onSaved }: { sentence: SentenceInfo; onS
             {locked.map((w, i) => (
               <span key={w}>
                 {i > 0 && "、"}
-                <button className="cf-story-w" onClick={() => wordpage.openWordPage(w)}>
+                <button className="cf-word-link cf-zh" onClick={() => wordpage.openWordPage(w)}>
                   {w}
                 </button>
               </span>

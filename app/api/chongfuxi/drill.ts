@@ -9,6 +9,7 @@ import type { Drill, DrillCard, DrillResult } from "@chongfuxi/lib/api";
 import type { Sql } from "./db";
 import { AgentError } from "./agent";
 import { ownersDay } from "./daily";
+import { listNotes } from "./notes";
 import { ensureLookupTables } from "./lookup";
 import { ACTIVE } from "./review";
 import { ensureRescueTable, stuckWords } from "./rescue";
@@ -88,6 +89,8 @@ export interface DrillMaterial {
   lookups: Array<{ query: string; kind: string | null; verdict: string | null; note: string | null; day: string }>;
   /** Their own sentences graded almost or wrong in a memory kit. */
   attempts: Array<{ word: string; zh: string; grade: string; fixed: string; why: string }>;
+  /** Your answers to their notes lately: the word, what it was taken for, and how they differ. Test these pairs. */
+  answered: Array<{ word: string | null; partner: string | null; note: string; difference: string }>;
   /** The last review, card by card, with how each went (null: not answered). */
   last: { day: string; cards: Array<{ type: string; focus: string[]; why: string; result: "got" | "missed" | null }> } | null;
   /** Words they know well, to write the rest with. */
@@ -99,6 +102,9 @@ export async function drillMaterial(sql: Sql, owner: string): Promise<DrillMater
   await Promise.all([ensureTables(sql), ensureRescueTable(sql), ensureLookupTables(sql)]);
   const day = await ownersDay(sql, owner);
   const since = `${LOOKBACK_DAYS} days`;
+  const answered = (await listNotes(sql, owner, 0, NOTES_MAX)).notes
+    .filter((n) => n.answers.length)
+    .map((n) => ({ word: n.word, partner: n.answers[0].partner, note: n.note, difference: n.answers[0].difference }));
   const [stuck, notes, trips, lookups, kits, known, written, lastDrill] = await Promise.all([
     stuckWords(sql, owner),
     sql.query(
@@ -154,6 +160,7 @@ export async function drillMaterial(sql: Sql, owner: string): Promise<DrillMater
     trips: trips as unknown as DrillMaterial["trips"],
     lookups: lookups as unknown as DrillMaterial["lookups"],
     attempts,
+    answered,
     last,
     known: (known as unknown as Array<{ word: string }>).map((k) => k.word),
   };

@@ -6,6 +6,7 @@
 // pinyin or meaning. A tile opens the word's sheet: its cards and how they
 // stand, Pleco's record, and the sentences it is in.
 
+import { NoteItem } from "./Notes";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import * as wordpage from "@chongfuxi/lib/wordpage";
@@ -597,18 +598,22 @@ export function WordSheet({
               )}
             </section>
 
-            {/* What was written after forgetting it, and the sentences it tripped. */}
-            {(d.notes.length > 0 || d.tripped.length > 0) && (
+            {/* Notes about it, with Muse's answers (notes.ts), newest first. */}
+            {d.noteEntries.length > 0 && (
+              <section className="cf-wp-section">
+                <h3>Your notes</h3>
+                <ul className="cf-note-list">
+                  {d.noteEntries.map((n) => (
+                    <NoteItem key={n.id} n={n} showWord={n.word !== word} />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* The sentences it tripped. */}
+            {d.tripped.length > 0 && (
               <section className="cf-wp-section">
                 <h3>Where it tripped you</h3>
-                {d.notes.map((n, i) => (
-                  <p key={`n${i}`} className="cf-wp-note">
-                    <span>
-                      {KIND[n.kind]} · {date(n.at)}
-                    </span>
-                    “{n.comment}”
-                  </p>
-                ))}
                 {d.tripped.length > 0 && (
                   <>
                     <p className="cf-muted">

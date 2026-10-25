@@ -21,6 +21,7 @@ import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { DrillView, drillLeft, say, useDrill } from "./Drill";
+import { NotesView, useNoteCounts } from "./Notes";
 import { ReadingRows, ReadingView, latestReadings, unread, useReadings } from "./Reading";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -77,6 +78,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
   const [speed, setSpeed] = useState(false);
   const [drill, setDrill] = useState(false);
   const [reading, setReading] = useState<number | null>(null);
+  const [notes, setNotes] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
@@ -85,16 +87,18 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
     setSpeed(false);
     setDrill(false);
     setReading(null);
+    setNotes(false);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || story || speed || drill || reading !== null, close);
+  useBackLayer(open !== null || story || speed || drill || reading !== null || notes, close);
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (story) return <StoryView onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   if (drill) return <DrillView canWrite={shell.canWrite} onEnd={close} />;
   if (reading !== null) return <ReadingView id={reading} canWrite={shell.canWrite} onEnd={close} />;
+  if (notes) return <NotesView onEnd={close} />;
   return (
-    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onEnd={onEnd} />
+    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onEnd={onEnd} />
   );
 }
 
@@ -179,6 +183,7 @@ function StuckRows({
   onSpeed,
   onDrill,
   onRead,
+  onNotes,
   onEnd,
 }: {
   onOpen: (word: string) => void;
@@ -186,9 +191,11 @@ function StuckRows({
   onSpeed: () => void;
   onDrill: () => void;
   onRead: (id: number) => void;
+  onNotes: () => void;
   onEnd: () => void;
 }) {
   const kits = useKits();
+  const noteCounts = useNoteCounts();
   const readings = latestReadings(useReadings());
   const drill = useDrill();
   const left = drillLeft(drill);
@@ -218,6 +225,17 @@ function StuckRows({
               </small>
             </span>
             {left > 0 && <span className="cf-stuck-count">{fmt(left)}</span>}
+            <i aria-hidden="true">›</i>
+          </button>
+        )}
+        {noteCounts && noteCounts.total > 0 && (
+          <button className="cf-stuck cf-story-btn" onClick={onNotes}>
+            <span className="cf-stuck-text">
+              <b>Your notes</b>
+              <small>
+                What you wrote after a Forgot · {fmt(noteCounts.answered)} of {fmt(noteCounts.total)} answered by Muse
+              </small>
+            </span>
             <i aria-hidden="true">›</i>
           </button>
         )}

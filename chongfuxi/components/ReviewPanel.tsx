@@ -33,6 +33,7 @@ import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
 import { ReviewedSheet, type Answered } from "./Reviewed";
 import { SplitEditor } from "./SplitEditor";
+import { CardAnswers } from "./Notes";
 import { RecapSheet, worthRecap, type SessionReport } from "./Recap";
 import { RescueHook, StuckList, StuckWords } from "./Rescue";
 import { SynonymContrast } from "./Synonyms";
@@ -1016,6 +1017,7 @@ export function Session({
                   />
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
+                  {card.answered && card.word && <CardAnswers answers={card.answered} word={card.word.word} />}
                 </div>
               )}
             </>
@@ -1059,6 +1061,7 @@ export function Session({
                   )}
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
+                  {card.answered && card.word && <CardAnswers answers={card.answered} word={card.word.word} />}
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">
