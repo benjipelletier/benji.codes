@@ -1236,7 +1236,9 @@ export interface EpisodeLine {
 /** A scene, as a chapter to scrub to: from line `start` to the next scene's. */
 export interface EpisodeScene {
   start: number;
+  /** A short title in Chinese (episodes prepped before then have English here); its English. */
   title: string;
+  titleEn?: string;
   /** What happens, in simple Chinese and in English (spoilers are fine: the owner's choice). */
   summary: string;
   summaryEn: string;

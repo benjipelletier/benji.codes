@@ -222,7 +222,7 @@ export function autoScenes(lines: EpisodeLine[]): EpisodeScene[] {
   }
   // The last scene too short: joined to the one before.
   if (starts.length > 1 && lines.length - starts[starts.length - 1] < SCENE_MIN_LINES) starts.pop();
-  return starts.map((start, n) => ({ start, title: `Scene ${n + 1}`, summary: "", summaryEn: "", notes: [] }));
+  return starts.map((start, n) => ({ start, title: `第${n + 1}段`, titleEn: `Scene ${n + 1}`, summary: "", summaryEn: "", notes: [] }));
 }
 
 const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
@@ -324,10 +324,11 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
 }
 
 const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
-{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "note" }], "names": [...], "scenes": [{ "start", "title", "summary", "summaryEn", "notes": [...] }], "questions": [{ "zh", "en" }] }
+{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...] }], "questions": [{ "zh", "en" }] }
+Any of words, names, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
-- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" short, in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
+- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
 
 Then annotate lines like Genius annotates lyrics, in as many POSTs as you like to /api/chongfuxi/agent/episodes/lines:
@@ -428,6 +429,7 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
     .map((x) => ({
       start: typeof x.start === "number" ? Math.trunc(x.start) : -1,
       title: str(x.title, 60),
+      titleEn: str(x.titleEn, 80),
       summary: str(x.summary, 400),
       summaryEn: str(x.summaryEn, 600),
       notes: (Array.isArray(x.notes) ? x.notes : []).map((t) => str(t, 300)).filter(Boolean).slice(0, 6),
@@ -441,18 +443,26 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
     .map((q) => ({ zh: str(q.zh, 200), en: str(q.en, 300) }))
     .filter((q) => HAN.test(q.zh))
     .slice(0, QUESTIONS_MAX);
-  if (!words.length && !scenes.length) throw new AgentError("Give at least the words or the scenes.");
-  const prep: Prep = { words, names, scenes, questions };
+  // A part left out keeps what was there, so the scenes (say) can be sent again alone.
+  const given = (k: string) => Array.isArray(input[k]);
+  const old = r.prep;
+  if (!old && !words.length && !scenes.length) throw new AgentError("Give at least the words or the scenes.");
+  if (!given("words") && !given("names") && !given("scenes") && !given("questions")) throw new AgentError("Give the words, names, scenes or questions.");
+  const prep: Prep = {
+    words: given("words") || !old ? words : old.words,
+    names: given("names") || !old ? names : old.names,
+    scenes: given("scenes") || !old ? scenes : old.scenes,
+    questions: given("questions") || !old ? questions : old.questions,
+  };
   await sql`
     update chongfuxi_episode set prep = ${JSON.stringify(prep)}::jsonb, prepped_at = now(), model = ${str(input.model, 60) || "Muse"}
     where owner_email = ${owner} and id = ${id}
   `;
-  const must = words.filter((w) => w.tier === "must").map((w) => w.word);
-  const list = must.length ? await writeList(sql, owner, dict, { path: [r.show, r.episode], words: must, replace: true }) : null;
-  return { id, words: words.length, must: must.length, names: names.length, scenes: scenes.length, questions: questions.length, list };
+  const must = prep.words.filter((w) => w.tier === "must").map((w) => w.word);
+  const list = given("words") && must.length ? await writeList(sql, owner, dict, { path: [r.show, r.episode], words: must, replace: true }) : null;
+  return { id, words: prep.words.length, must: must.length, names: prep.names.length, scenes: prep.scenes.length, questions: prep.questions.length, list };
 }
 
-/** The episode opened for study, measured against the deck now. Owner only. */
 /** Episodes measured on the list each time it is read, at most, when today's measure is missing (each is a full analysis). */
 const MEASURE_ON_LIST = 3;
 
@@ -521,6 +531,7 @@ async function measureStale(sql: Sql, owner: string, dict: Dict) {
   }
 }
 
+/** The episode opened for study, measured against the deck now. Owner only. */
 export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: number): Promise<EpisodeView> {
   const r = await rowOf(sql, owner, id);
   const { a, tokens, unknown } = await measure(sql, owner, dict, r);

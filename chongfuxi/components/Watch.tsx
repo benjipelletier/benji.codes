@@ -120,7 +120,7 @@ function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; cur
   const shown = hover?.i ?? current;
   // Over the finger while scrubbing, else over the open chapter's middle; kept clear of the ends.
   const at = hover ? `${hover.x}px` : `${((times[current].from + times[current].to) / 2 / total) * 100}%`;
-  const tipLeft = `clamp(70px, ${at}, calc(100% - 70px))`;
+  const tipLeft = `clamp(${compact ? 120 : 70}px, ${at}, calc(100% - ${compact ? 120 : 70}px))`;
   return (
     <div className={`cf-ch${compact ? " is-compact" : ""}`}>
       <div
@@ -941,6 +941,7 @@ function SceneHead({ sc, n, from, english }: { sc: Episode["scenes"][number]; n:
         Chapter {n + 1} · {clock(from)} · {pct(sc.known)} known
       </p>
       <h3 className="cf-zh">{sc.title}</h3>
+      {english && sc.titleEn && sc.titleEn !== sc.title && <p className="cf-watch-head-en">{sc.titleEn}</p>}
       {(sc.summary || sc.notes.length > 0) && (
         <button className={`cf-watch-sum${open ? " is-open" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
           {sc.summary && <span className="cf-zh">{sc.summary}</span>}

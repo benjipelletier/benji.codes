@@ -11054,7 +11054,7 @@ button.cf-how-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  width: 132px;
+  width: 150px;
   padding: 6px 10px 8px;
   border: 1px solid var(--cf-rule);
   border-radius: 10px;
@@ -11076,12 +11076,16 @@ button.cf-how-text {
   font-variant-numeric: tabular-nums;
 }
 
+/* The whole title, on up to two lines (the chips keep one height). */
 .cf-wchip-title {
+  display: -webkit-box;
+  min-height: 2.8em;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* How a chapter's lines grade, as a thin stacked bar. */
@@ -11564,6 +11568,25 @@ button.cf-how-text {
 
 .cf-lw-rest {
   margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+/* Over the script, the scrub tip carries the whole chapter title. */
+.cf-ch.is-compact .cf-ch-tip {
+  width: max-content;
+  max-width: 240px;
+  white-space: normal;
+  line-height: 18px;
+  padding: 5px 10px;
+}
+
+.cf-ch-tip .cf-zh {
+  font-size: inherit;
+}
+
+.cf-watch-head-en {
+  margin: -2px 0 4px;
   font-size: 13px;
   color: var(--cf-ink-soft);
 }

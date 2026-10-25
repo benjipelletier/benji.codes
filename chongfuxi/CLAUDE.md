@@ -1784,7 +1784,11 @@ YouTube chapter feature".
   tier: must | nice | skip, note }], names, scenes: [{ start, title, summary,
   summaryEn, notes }], questions: [{ zh, en }], model? }` (`writePrep`).
   Scenes are sorted by `start`, the first forced to 0, out-of-range ones
-  dropped, at most 40; questions at most 8. The must-know words are written
+  dropped, at most 40; questions at most 8. A scene's `title` is a short
+  Chinese title and `titleEn` its English (the owner wanted the chapters
+  named in full and in Chinese; episodes prepped before have English in
+  `title`). Any of words, names, scenes and questions left out of a post
+  keeps what was there, so the scenes can be sent again alone. The must-know words are written
   whole to the Muse list `Muse/<show>/<episode>` (`writeList`, `replace`), so
   they learn and review like any list. Until it is prepped, scenes are cut
   at pauses of 8 s or more with at least 8 lines between (`autoScenes`).
@@ -1815,7 +1819,8 @@ YouTube chapter feature".
   the show and episode, "% known" opening Words), then three tabs:
   - **Script**: the chapters fixed under the tabs (`ChapterStrip`): the
     scrub bar (as before, its time and title showing only while scrubbing)
-    and a chip per chapter (start, title, its lines' grades), scrolled
+    and a chip per chapter (start, the whole title on up to two lines,
+    its lines' grades; the tip while scrubbing shows it whole too), scrolled
     sideways, the chapter in view lit and brought to the middle. Under it
     the whole script scrolls on its own: a key (the grades, ✦ for Muse,
     the English switch), then each chapter's heading (time, % known, title,
