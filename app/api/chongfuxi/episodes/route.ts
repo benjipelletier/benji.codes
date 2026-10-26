@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
-import { EpisodeError, gradeEpisodeAnswer, lineWords, listEpisodes, openEpisode } from "../episodes";
+import { EpisodeError, answerEpisodeCard, gradeEpisodeAnswer, lineWords, listEpisodes, openEpisode } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
 import { ReadingError } from "../reading";
@@ -31,11 +31,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** { id, q, answer }: an answer to one of the episode's questions, graded. Owner only. */
+/** { id, q, answer }: an answer to one of the episode's questions, graded; or { id, card, result }: a practice line answered. Owner only. */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = (await body<{ id?: unknown; q?: unknown; answer?: unknown }>(req)) ?? {};
+  const input = (await body<{ id?: unknown; q?: unknown; answer?: unknown; card?: unknown; result?: unknown }>(req)) ?? {};
+  if (typeof input.id === "number" && typeof input.card === "number") {
+    try {
+      return NextResponse.json(await answerEpisodeCard(gate.sql, gate.owner, input.id, input.card, input.result));
+    } catch (e) {
+      if (e instanceof EpisodeError) return bad(e.message, 422);
+      throw e;
+    }
+  }
   if (typeof input.id !== "number" || typeof input.q !== "number" || typeof input.answer !== "string") return bad("give { id, q, answer }");
   try {
     return NextResponse.json({ retell: await gradeEpisodeAnswer(gate.sql, gate.owner, input.id, input.q, input.answer) });

@@ -11626,3 +11626,122 @@ button.cf-how-text {
   letter-spacing: 0.02em;
   vertical-align: 2px;
 }
+
+/* Practice: the picked lines, heard first then read, one card at a time. */
+.cf-pr-home .cf-ep-big {
+  margin-top: 8px;
+}
+
+.cf-pr-done {
+  margin: 14px 0 0;
+  font-weight: 600;
+}
+
+.cf-pr-starts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.cf-pr {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+}
+
+.cf-pr-top {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-pr-top .cf-zh {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.cf-pr-card {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 18px;
+  background: var(--cf-surface);
+}
+
+.cf-pr-front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  text-align: center;
+}
+
+.cfx .cf-pr-play {
+  width: 96px;
+  height: 96px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cf-accent-soft);
+  font-size: 40px;
+}
+
+.cf-pr-for {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-pr-line {
+  margin: 0 0 4px;
+}
+
+.cf-pr-line .cf-zh {
+  font-size: 24px;
+  line-height: 1.6;
+}
+
+.cf-pr-word {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.cf-pr-word .cf-zh {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cf-pr-trouble {
+  color: var(--cf-down);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cf-pr-why {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-pr-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.cf-pr-buttons .cf-btn {
+  flex: 1;
+  min-height: 52px;
+}

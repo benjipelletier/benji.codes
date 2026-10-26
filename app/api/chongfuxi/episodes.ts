@@ -14,6 +14,7 @@
 // app is readable by anyone, and subtitles aren't ours to publish.
 
 import type {
+  EpisodeCard,
   EpisodeLine,
   EpisodeLineNote,
   EpisodeListed,
@@ -87,6 +88,18 @@ async function ensureTables(sql: Sql) {
   // Muse's notes on lines, like Genius annotations.
   await sql`alter table chongfuxi_episode add column if not exists notes jsonb`;
   await sql`alter table chongfuxi_episode add column if not exists notes_at timestamptz`;
+  // How each practice line was last answered.
+  await sql`
+    create table if not exists chongfuxi_episode_card (
+      owner_email text not null,
+      episode_id bigint not null,
+      i int not null,
+      result text not null,
+      tries int not null default 1,
+      at timestamptz not null default now(),
+      primary key (owner_email, episode_id, i)
+    )
+  `;
   // How ready the owner was for an episode, one row a study day (the latest measure that day).
   await sql`
     create table if not exists chongfuxi_episode_progress (
@@ -395,6 +408,10 @@ export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: n
     trouble: [...trouble.values()].map((t) => ({ ...t, lines: (at.get(t.word) ?? []).slice(0, TROUBLE_LINES) })),
     // Lines you have already annotated.
     annotated: (r.notes ?? []).map((n) => n.i),
+    // Practice lines they last marked Again (heard, then read): worth a note if they have none.
+    again: ((await sql`
+      select i, tries from chongfuxi_episode_card where owner_email = ${owner} and episode_id = ${id} and result = 'again' order by i
+    `) as unknown as Array<{ i: number; tries: number }>),
     // How many lines have English: few means the English file was missing or timed to another release.
     english: r.lines.filter((l) => l.en).length,
     unknown: unknown.slice(0, WORDS_FOR_MUSE).map((u) => ({
@@ -613,6 +630,11 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
   });
   const knownShare = measured.coverage.known;
   await record(sql, owner, id, measured);
+  // The words worth a practice line: must-knows not learnt, then the owner's trouble words.
+  const trouble = await troubleIn(sql, owner, [...wordLines(tokens).keys()]);
+  const targets = new Map<string, "must" | "trouble">();
+  for (const w of words) if (w.tier === "must" && !w.inDeck) targets.set(w.word, "must");
+  for (const w of trouble.keys()) if (!targets.has(w)) targets.set(w, "trouble");
   const retells = (await sql`
     select q, answer, result, (extract(epoch from at) * 1000)::double precision as at
     from chongfuxi_episode_retell where owner_email = ${owner} and episode_id = ${id} order by at
@@ -630,7 +652,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     coverage: measured.coverage,
     progress: await progressOf(sql, owner, id),
     notes: r.notes ?? [],
-    trouble: Object.fromEntries(await troubleIn(sql, owner, [...wordLines(tokens).keys()])),
+    trouble: Object.fromEntries(trouble),
+    deck: await deckOf(sql, owner, id, pickDeck(r.lines, tokens, targets, (r.notes ?? []).map((n) => n.i))),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
   };
@@ -825,4 +848,71 @@ export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number,
       parts: throughParts.includes(w) ? partsOf(w) : null,
     };
   });
+}
+
+/** A word said this many times or more gets a second practice line. */
+const SECOND_LINE_AT = 3;
+/** The length a practice line is best at, in characters. */
+const LINE_IDEAL = 12;
+
+/**
+ * The lines to practise (the owner: "a lot of sentences to get through…
+ * only do the tough ones"): for each target word its easiest line (the
+ * fewest other words not known, then nearest twelve characters, then one
+ * with English), a second for a word said three times or more, and every
+ * line Muse annotated. A line serving several words is one card. Story order.
+ */
+export function pickDeck(
+  lines: EpisodeLine[],
+  tokens: TextToken[][],
+  targets: Map<string, "must" | "trouble">,
+  noteLines: number[],
+): Array<{ i: number; words: string[]; why: EpisodeCard["why"] }> {
+  const at = wordLines(tokens);
+  const picked = new Map<number, { words: Set<string>; why: Set<EpisodeCard["why"][number]> }>();
+  const add = (i: number, word: string | null, why: EpisodeCard["why"][number]) => {
+    const card = picked.get(i) ?? picked.set(i, { words: new Set(), why: new Set() }).get(i)!;
+    if (word) card.words.add(word);
+    card.why.add(why);
+  };
+  const han = (s: string) => (s.match(/\p{Script=Han}/gu) ?? []).length;
+  for (const [word, why] of targets) {
+    const found = at.get(word) ?? [];
+    if (!found.length) continue;
+    const cost = (i: number) =>
+      (tokens[i] ?? []).filter((t) => t.k === "unknown" && t.t !== word).length * 10 +
+      Math.abs(han(lines[i].zh) - LINE_IDEAL) / 3 +
+      (lines[i].en ? 0 : 2);
+    const best = [...found].sort((x, y) => cost(x) - cost(y) || x - y);
+    add(best[0], word, why);
+    // A second line away from the first, so it is heard in another moment.
+    const second = found.length >= SECOND_LINE_AT ? best.find((i) => Math.abs(i - best[0]) > 2) : undefined;
+    if (second !== undefined) add(second, word, why);
+  }
+  for (const i of noteLines) if (lines[i]) add(i, null, "note");
+  return [...picked.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([i, c]) => ({ i, words: [...c.words], why: [...c.why] }));
+}
+
+/** The picked lines with how each was last answered. */
+async function deckOf(sql: Sql, owner: string, id: number, cards: ReturnType<typeof pickDeck>): Promise<EpisodeCard[]> {
+  const rows = (await sql`
+    select i, result, tries from chongfuxi_episode_card where owner_email = ${owner} and episode_id = ${id}
+  `) as unknown as Array<{ i: number; result: "got" | "again"; tries: number }>;
+  const done = new Map(rows.map((r) => [r.i, r]));
+  return cards.map((c) => ({ ...c, result: done.get(c.i)?.result ?? null, tries: done.get(c.i)?.tries ?? 0 }));
+}
+
+/** A practice line answered: Got it or Again. Touches no schedule. Owner only. */
+export async function answerEpisodeCard(sql: Sql, owner: string, id: number, i: number, result: unknown) {
+  const r = await rowOf(sql, owner, id);
+  if (!r.lines[i]) throw new EpisodeError("No such line.");
+  if (result !== "got" && result !== "again") throw new EpisodeError("Give got or again.");
+  await sql`
+    insert into chongfuxi_episode_card (owner_email, episode_id, i, result)
+    values (${owner}, ${id}, ${i}, ${result})
+    on conflict (owner_email, episode_id, i) do update set result = excluded.result, tries = chongfuxi_episode_card.tries + 1, at = now()
+  `;
+  return { ok: true };
 }

@@ -16,6 +16,7 @@ import type {
   EpisodeListed,
   EpisodeProgress,
   EpisodeTrouble,
+  EpisodeCard,
   EpisodeView as Episode,
   EpisodeWord,
   LineNoteKind,
@@ -698,7 +699,166 @@ function GradeBar({ grades }: { grades: Grade[] }) {
   );
 }
 
-type Tab = "script" | "words" | "after";
+/** A practice line Again comes back this many cards later in the round. */
+const AGAIN_AFTER = 3;
+
+const WHY_LABEL: Record<EpisodeCard["why"][number], string> = { must: "Must-know", trouble: "Your trouble", note: "Muse's note" };
+
+/**
+ * Practice (the owner: "a lot of sentences to get through… only do the
+ * tough ones"): the lines the server picked, one card each. The line is
+ * heard first (the phone's voice), as it will be when watching; Show gives
+ * the Chinese with its words marked, the English, the words it was picked
+ * for and Muse's note. Again brings it back a few cards later; Got it is
+ * kept. Nothing touches a schedule.
+ */
+function Practice({ ep, onAnswered }: { ep: Episode; onAnswered: (i: number, result: "got" | "again") => void }) {
+  const left = ep.deck.filter((c) => c.result !== "got");
+  const [round, setRound] = useState<number[] | null>(null);
+  const [shown, setShown] = useState(false);
+  const [missed, setMissed] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const must = useMemo(() => new Set(ep.deck.flatMap((c) => c.words)), [ep]);
+  const noteAt = useMemo(() => new Map(ep.notes.map((n) => [n.i, n])), [ep]);
+
+  const start = (lines: number[]) => {
+    setRound(lines);
+    setShown(false);
+    setMissed(new Set());
+    if (lines.length) say(ep.lines[lines[0]].zh);
+  };
+  const answer = (result: "got" | "again") => {
+    if (!round) return;
+    const [i, ...rest] = round;
+    send("episodes", { id: ep.id, card: i, result }).catch((e) => setError(message(e)));
+    onAnswered(i, result);
+    const next = result === "again" ? [...rest.slice(0, AGAIN_AFTER), i, ...rest.slice(AGAIN_AFTER)] : rest;
+    if (result === "again") setMissed((m) => new Set(m).add(i));
+    setRound(next);
+    setShown(false);
+    if (next.length) say(ep.lines[next[0]].zh);
+  };
+
+  if (!ep.deck.length)
+    return (
+      <div className="cf-watch-pane">
+        <p className="cf-muted">Nothing to practise yet: once Muse marks the must-knows, or you have trouble words in it, their lines show up here.</p>
+      </div>
+    );
+
+  if (!round || !round.length) {
+    const got = ep.deck.length - left.length;
+    return (
+      <div className="cf-watch-pane cf-pr-home">
+        <p className="cf-ep-big">
+          {fmt(ep.deck.length)}
+          <small> lines of {fmt(ep.lines.length)} to practise</small>
+        </p>
+        <p className="cf-muted">One or two of the easiest lines for each must-know and trouble word, and the lines Muse wrote a note on. Hear each, then read it.</p>
+        <div className="cf-ep-meter" aria-hidden="true">
+          <span className="is-known" style={{ width: pct(got / ep.deck.length) }} />
+        </div>
+        <p className="cf-muted cf-ep-figs">
+          {fmt(got)} got · {fmt(ep.deck.filter((c) => c.result === "again").length)} to go over again · {fmt(ep.deck.filter((c) => !c.result).length)} not tried
+        </p>
+        {round && <p className="cf-pr-done">Round done{missed.size ? `: ${fmt(missed.size)} needed again` : ", every line got"}.</p>}
+        {error && <p className="cf-error">{error}</p>}
+        <div className="cf-pr-starts">
+          {left.length > 0 && (
+            <button className="cf-btn" onClick={() => start(left.map((c) => c.i))}>
+              {got ? `Carry on · ${fmt(left.length)} left` : `Start · ${fmt(left.length)} lines`}
+            </button>
+          )}
+          {missed.size > 0 && (
+            <button className="cf-btn cf-btn-ghost" onClick={() => start([...missed])}>
+              Go over the {fmt(missed.size)} again
+            </button>
+          )}
+          {!left.length && (
+            <button className="cf-btn cf-btn-ghost" onClick={() => start(ep.deck.map((c) => c.i))}>
+              Go through all {fmt(ep.deck.length)} again
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const i = round[0];
+  const line = ep.lines[i];
+  const card = ep.deck.find((c) => c.i === i)!;
+  const note = noteAt.get(i);
+  const scene = ep.scenes.find((sc) => i >= sc.start && i < sc.end);
+  return (
+    <div className="cf-pr">
+      <p className="cf-pr-top">
+        <span>{fmt(round.length)} left</span>
+        <span className="cf-zh">{scene?.title}</span>
+        <span>{clock(line.s)}</span>
+      </p>
+      <div className="cf-pr-card">
+        {!shown ? (
+          <div className="cf-pr-front">
+            <button className="cf-pr-play" onClick={() => say(line.zh)} aria-label="Hear the line again">
+              🔊
+            </button>
+            <p className="cf-muted">Listen. What did they say?</p>
+            {card.words.length > 0 && <p className="cf-pr-for">For {card.words.length === 1 ? "a word" : `${card.words.length} words`} you&apos;re learning</p>}
+          </div>
+        ) : (
+          <div className="cf-pr-back">
+            <p className="cf-pr-line">
+              <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
+              <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
+                🔊
+              </button>
+            </p>
+            {line.en && <p className="cf-lp-en">{line.en}</p>}
+            {card.words.map((w) => {
+              const look = ep.looks[w];
+              const t = ep.trouble[w];
+              return (
+                <p key={w} className="cf-pr-word">
+                  <span className="cf-zh">{w}</span> {look?.p && <b>{displayPinyin(look.p)}</b>} <span className="cf-muted">{look?.gloss}</span>
+                  {t && <span className="cf-pr-trouble"> · {TROUBLE_LABEL[t.kind]}</span>}
+                </p>
+              );
+            })}
+            {note && (
+              <div className={`cf-lp-note is-${note.kind}`}>
+                <p className="cf-lp-note-head">
+                  <span>✦ {KIND_LABEL[note.kind]}</span>
+                  {note.quote && <span className="cf-zh">「{note.quote}」</span>}
+                </p>
+                <p className="cf-lp-note-text">{note.text}</p>
+              </div>
+            )}
+            <p className="cf-pr-why">{card.why.map((w) => WHY_LABEL[w]).join(" · ")}</p>
+          </div>
+        )}
+      </div>
+      {error && <p className="cf-error">{error}</p>}
+      <div className="cf-pr-buttons">
+        {!shown ? (
+          <button className="cf-btn" onClick={() => setShown(true)}>
+            Show
+          </button>
+        ) : (
+          <>
+            <button className="cf-btn cf-btn-ghost" onClick={() => answer("again")}>
+              Again
+            </button>
+            <button className="cf-btn" onClick={() => answer("got")}>
+              Got it
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Tab = "script" | "practice" | "words" | "after";
 
 /**
  * An episode as one screen, like an app: a bar on top (close, the episode,
@@ -801,8 +961,9 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
           {(
             [
               ["script", "Script"],
-              ["words", `Words${mustWords.length ? ` · ${mustWords.filter((w) => !w.inDeck).length}` : ""}`],
-              ["after", "After watching"],
+              ["practice", `Practice${ep.deck.some((c) => c.result !== "got") ? ` · ${ep.deck.filter((c) => c.result !== "got").length}` : ""}`],
+              ["words", "Words"],
+              ["after", "After"],
             ] as Array<[Tab, string]>
           ).map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "is-on" : ""} onClick={() => setTab(k)}>
@@ -868,6 +1029,14 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             ))}
           </div>
         </>
+      )}
+      {ep && tab === "practice" && (
+        <Practice
+          ep={ep}
+          onAnswered={(i, result) =>
+            setEp((e) => (e ? { ...e, deck: e.deck.map((c) => (c.i === i ? { ...c, result, tries: c.tries + 1 } : c)) } : e))
+          }
+        />
       )}
       {ep && tab === "words" && (
         <div className="cf-watch-pane">

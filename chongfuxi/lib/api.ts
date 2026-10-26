@@ -1315,6 +1315,22 @@ export interface LineWordInfo {
   parts: string[] | null;
 }
 
+/**
+ * A line picked to practise before watching: heard, then read. The lines
+ * are the easiest one or two for each must-know and trouble word, and every
+ * line Muse annotated.
+ */
+export interface EpisodeCard {
+  /** The line. */
+  i: number;
+  /** The words it was picked for. */
+  words: string[];
+  why: Array<"must" | "trouble" | "note">;
+  /** The latest answer, and how many times it was answered. */
+  result: "got" | "again" | null;
+  tries: number;
+}
+
 /** How ready the owner was for an episode on a study day. */
 export interface EpisodeProgress {
   day: string;
@@ -1349,4 +1365,6 @@ export interface EpisodeView extends EpisodeListed {
   notes: EpisodeLineNote[];
   /** Words in the episode the owner has had trouble with, by word. */
   trouble: Record<string, EpisodeTrouble>;
+  /** The lines to practise, in story order. */
+  deck: EpisodeCard[];
 }

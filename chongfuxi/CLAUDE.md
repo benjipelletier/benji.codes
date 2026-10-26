@@ -1863,6 +1863,24 @@ YouTube chapter feature".
     with Muse's answer, its lookups, how many of the owner's sentences
     have it (and readable) with one, how often it is said in the episode,
     and Word page ›. Known words with nothing to say fold into one line.
+  - **Practice** (the owner: "a lot of sentences to get through… only do
+    the tough ones"; they chose the best line per word, heard then read):
+    the lines the server picks (`pickDeck`, sent as `deck`): for each
+    must-know not in the deck and each trouble word, its easiest line (the
+    fewest other words not known, then nearest twelve characters, then one
+    with English), a second, away from the first, for a word said three
+    times or more (`SECOND_LINE_AT`), and every line Muse annotated; a line
+    serving several is one card, in story order. A card plays the line
+    with the phone's voice ("Listen. What did they say?", 🔊 again); Show
+    gives the Chinese with its words marked (a tap opens the word page),
+    the English, the words it was picked for with pinyin, gloss and trouble,
+    Muse's note, and why it was picked; Again brings it back
+    `AGAIN_AFTER` (3) cards later, Got it moves on. Each answer is kept,
+    the latest per line with the tries (`chongfuxi_episode_card`, POST
+    `episodes` `{ id, card, result }`); the tab counts the lines not yet
+    got, the home shows got / again / not tried, Carry on, and after a
+    round "Go over the N again". Nothing touches a schedule. Muse's
+    material lists the lines last marked Again (`again`).
   - **Words**: readiness and its graph, how the lines read, the
     must-knows and their list, the names, the other words not known.
   - **After watching**: Muse's questions, graded as before.
