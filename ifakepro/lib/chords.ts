@@ -4,7 +4,8 @@
 
 import { type Cell, DEFAULT_BAR_CELLS, isBlank } from './chart';
 
-export const CHORD_RE = /^[A-GW][b#]?(?:sus|add|alt|[0-9b#^\-ho+])*(?:\/[A-G][b#]?)?/;
+// iReal also allows a custom quality between asterisks: C*-^*.
+export const CHORD_RE = /^[A-GW][b#]?(?:\*[^*|]{0,12}\*|(?:sus|add|alt|[0-9b#^\-ho+])*)(?:\/[A-G][b#]?)?/;
 const FULL_CHORD_RE = new RegExp(`${CHORD_RE.source}$`);
 
 const SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -96,6 +97,7 @@ export function chordParts(ch: string, style: ChordStyle = 'jazz'): ChordParts {
   if (!m) return { root: ch, quality: '', bass: '' };
   const root = m[1] === 'W' ? '' : m[1] + acc(m[2]);
   let q = m[3];
+  if (/^\*.*\*$/.test(q)) return { root, quality: q.slice(1, -1), bass: m[4] ? acc(m[4]) : '' };
   if (style === 'jazz') {
     q = q.replace(/\^/g, '△').replace(/h/g, 'ø').replace(/o/g, '°').replace(/-/g, '–');
   } else {

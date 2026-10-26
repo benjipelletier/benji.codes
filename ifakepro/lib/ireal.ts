@@ -220,6 +220,12 @@ export function parseMusic(raw: string): { chart: Chart; unknown: string } {
     }
   }
   pushBar();
+  // A stray barline at the very end ("Z[ ") leaves a bar with nothing in it.
+  while (bars.length > 1) {
+    const b = bars[bars.length - 1];
+    if (b.cells.some((c) => Object.keys(c).length) || b.section || b.time || b.ending != null) break;
+    bars.pop();
+  }
   // Marks after the last cell (a closing "Fine", say) go on the last cell.
   const tail = bars[bars.length - 1]?.cells.at(-1);
   if (tail) {
@@ -269,7 +275,6 @@ export function serializeMusic(chart: Chart): string {
     if (bar.close) out += bar.close;
     prev = bar;
   }
-  if (prev && !prev.close) out += ' ';
   return out;
 }
 
@@ -324,7 +329,7 @@ function parseOldSong(fields: string[]): ParsedSong {
 
 /** Every iReal link in some text: a pasted link, or the HTML page iReal exports. */
 export function findLinks(text: string): string[] {
-  return text.match(/irealb(?:ook)?:\/\/[^"'<>\s]+/g) ?? [];
+  return text.match(/irealb(?:ook)?:\/\/[^"<>\s]+/g) ?? [];
 }
 
 function decode(s: string): string {
