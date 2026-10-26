@@ -1,3 +1,8 @@
+// iFake Pro's tables. Every statement is idempotent: the API runs them on a
+// fresh database the first time it's used (ensureSchema in app/api/ifakepro/db.ts),
+// and ifakepro/scripts/setup-db.ts runs them by hand.
+
+export const SCHEMA = `
 -- iFake Pro. Every table is prefixed ifp_. Apply with ifakepro/scripts/setup-db.ts
 -- (idempotent). Users come from the site-wide Neon Auth, whose own user table
 -- lives in another database, so the people who have used the app are copied
@@ -37,7 +42,7 @@ CREATE TABLE IF NOT EXISTS ifp_members (
 CREATE INDEX IF NOT EXISTS ifp_members_user ON ifp_members(user_id);
 
 -- A song belongs to one playlist; copying it to another makes a new song.
--- `revision` goes up by one on every save: a save names the revision it
+-- revision goes up by one on every save: a save names the revision it
 -- started from and only lands if that is still current.
 CREATE TABLE IF NOT EXISTS ifp_songs (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,3 +121,12 @@ CREATE TABLE IF NOT EXISTS ifp_presence (
     seen_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (song_id, user_id)
 );
+`;
+
+/** One statement at a time, for drivers that take a single statement per query. */
+export function schemaStatements(): string[] {
+  return SCHEMA.replace(/--.*$/gm, '')
+    .split(/;\s*$/m)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}

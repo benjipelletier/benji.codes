@@ -22,7 +22,7 @@ IFAKEPRO_ADMIN_EMAILS=a@x.com,b@y.com     # who can create playlists; unset = no
 IFAKEPRO_NEON_FETCH_ENDPOINT=http://…     # optional, local dev only: a Neon HTTP proxy in front of a plain Postgres
 ```
 
-Set up the tables (idempotent): `IFAKEPRO_DATABASE_URL=… npx tsx ifakepro/scripts/setup-db.ts`.
+The API creates its tables the first time it meets an empty database (`ensureSchema` in `app/api/ifakepro/db.ts`, run by every route's `handle()`). To set them up ahead of time, or after a schema change, run `IFAKEPRO_DATABASE_URL=… npx tsx ifakepro/scripts/setup-db.ts` (idempotent).
 
 ## Who can do what
 
@@ -66,7 +66,7 @@ Chords stay in iReal spelling (`C-7`, `Bb^7`, `F#h7`, `Eb7b9/G`, `W/C`). `lib/ch
 - `ifp_activity` is the edit log, per playlist, per song, and across everything (`/ifakepro/activity`). Edit entries point at their version and fold along with it.
 - Other kinds: create, import, copy, delete, undelete, reorder, comment add/reply/resolve, member join, playlist create/update.
 
-## Schema (`db/schema.sql`)
+## Schema (`db/schema.ts`)
 
 | Table | What it holds |
 |---|---|

@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from './db';
+import { ensureSchema, getDb } from './db';
 import { HttpError, type SessionUser, isAdmin, roleIn } from '@ifakepro/lib/session';
 import { type Chart, type SongMeta, canon, sanitizeChart, sanitizeMeta } from '@ifakepro/lib/chart';
 import { summarize } from '@ifakepro/lib/diff';
@@ -16,6 +16,7 @@ type Ctx<P> = { params: Promise<P> };
 export function handle<P = Record<string, never>>(fn: (req: NextRequest, params: P) => Promise<unknown>) {
   return async (req: NextRequest, ctx: Ctx<P>) => {
     try {
+      await ensureSchema();
       const out = await fn(req, (await ctx?.params) as P);
       return out instanceof NextResponse ? out : NextResponse.json(out);
     } catch (e) {

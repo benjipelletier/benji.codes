@@ -63,6 +63,7 @@
     "chongfuxi/lib/**/*.ts",
     "chongfuxi/components/**/*.tsx",
     "ifakepro/lib/**/*.ts",
+    "ifakepro/db/**/*.ts",
     "ifakepro/components/**/*.ts",
     "ifakepro/components/**/*.tsx",
     "projects.config.ts",

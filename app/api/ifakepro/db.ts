@@ -1,4 +1,5 @@
 import { neon, neonConfig, type NeonQueryFunction } from '@neondatabase/serverless';
+import { schemaStatements } from '@ifakepro/db/schema';
 
 let _sql: NeonQueryFunction<false, false> | null = null;
 
@@ -13,3 +14,24 @@ export function getDb() {
 }
 
 export type Sql = ReturnType<typeof getDb>;
+
+let ready: Promise<void> | null = null;
+
+/**
+ * Create the tables if this database has none yet, once per server instance:
+ * a new database works without running setup-db.ts first. The check is one
+ * cheap query; the statements are all IF NOT EXISTS.
+ */
+export function ensureSchema(): Promise<void> {
+  ready ??= (async () => {
+    const sql = getDb();
+    const rows = await sql`SELECT to_regclass('public.ifp_presence') IS NOT NULL AS ok`;
+    if (rows[0]?.ok) return;
+    await sql.transaction(schemaStatements().map((s) => sql.query(s)));
+    console.log('[ifakepro] created the tables');
+  })().catch((e) => {
+    ready = null;
+    throw e;
+  });
+  return ready;
+}
