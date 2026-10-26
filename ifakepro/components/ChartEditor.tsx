@@ -5,7 +5,7 @@
 // endings, sections, time signatures and marks. Works with a keyboard on a
 // laptop and with taps and a docked entry bar on a phone.
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react';
 import { type Chart, layout } from '@ifakepro/lib/chart';
 import { type ChordStyle, barToText, parseBarText } from '@ifakepro/lib/chords';
 import {
@@ -59,7 +59,8 @@ export function ChartEditor(p: EditorProps) {
 
   // The entry shows the selected bar's chords; reset whenever another bar is picked or the bar changes under us.
   const barKey = bar ? `${bar.id}:${barToText(bar.cells)}` : '';
-  useEffect(() => {
+  // A layout effect, so the entry is up to date before the next key arrives.
+  useLayoutEffect(() => {
     setText(bar ? barToText(bar.cells) : '');
     setError(null);
   }, [barKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -98,19 +99,17 @@ export function ChartEditor(p: EditorProps) {
       change((c) => insertBars(c, c.bars.length, 1, bar?.cells.length ?? 4));
     }
     setSel({ from: Math.max(0, next), to: Math.max(0, next), cell: 0 });
-    requestAnimationFrame(() => input.current?.select());
+    requestAnimationFrame(() => {
+      input.current?.select();
+      wrap.current?.querySelector(`[data-bar="${Math.max(0, next)}"]`)?.scrollIntoView({ block: 'nearest' });
+    });
   };
 
-  const focusEntry = (initial?: string) => {
+  const focusEntry = () => {
     setEntryOpen(true);
     requestAnimationFrame(() => {
-      const el = input.current;
-      if (!el) return;
-      el.focus();
-      if (initial !== undefined) {
-        setText(initial);
-        requestAnimationFrame(() => el.setSelectionRange(initial.length, initial.length));
-      } else el.select();
+      input.current?.focus();
+      input.current?.select();
     });
   };
 
@@ -259,9 +258,12 @@ export function ChartEditor(p: EditorProps) {
         }
         return;
     }
-    if (sel && editable && e.key.length === 1 && /[A-Ga-g/%.nN]/.test(e.key)) {
-      e.preventDefault();
-      focusEntry(e.key.toUpperCase() === e.key ? e.key : e.key.toUpperCase());
+    // Typing on a selected bar replaces its chords: move focus to the entry now, with its text
+    // selected, and let the key itself land there — nothing typed quickly gets lost.
+    if (sel && editable && e.key.length === 1 && /[A-Ga-g/%.nN]/.test(e.key) && input.current) {
+      input.current.focus();
+      input.current.select();
+      setEntryOpen(true);
     }
   };
 
@@ -408,9 +410,11 @@ export function ChartEditor(p: EditorProps) {
               }}
               onFocus={() => setEntryOpen(true)}
               onBlur={(e) => {
-                if (e.relatedTarget && (e.relatedTarget as HTMLElement).closest('.ifp-entry')) return;
+                const to = e.relatedTarget as HTMLElement | null;
+                if (to?.closest('.ifp-entry')) return;
                 commit();
-                setEntryOpen(false);
+                // Tapping another bar keeps the panel up: closing it would shift the page under the tap.
+                if (!to || !wrap.current?.contains(to)) setEntryOpen(false);
               }}
               onKeyDown={onEntryKey}
               placeholder="C-7 F7"

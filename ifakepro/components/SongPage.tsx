@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type SongMeta, sanitizeMeta } from '@ifakepro/lib/chart';
-import { ALL_KEYS, type ChordStyle, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
+import { ALL_KEYS, type ChordStyle, keyRoot, noteIndex, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
 import { api, copyText, displayKey, download, personColor, usePref, when } from '@ifakepro/lib/client';
 import { diffCharts } from '@ifakepro/lib/diff';
 import { transposeChart } from '@ifakepro/lib/edit';
@@ -12,7 +12,7 @@ import { exportHtml, serializeSong } from '@ifakepro/lib/ireal';
 import type { Doc } from '@ifakepro/lib/merge';
 import type { CommentDTO, PlaylistSummary, SongDetail, VersionDetail } from '@ifakepro/lib/types';
 import { ChartEditor } from './ChartEditor';
-import { ChartView, type Selection } from './ChartView';
+import { ChartHead, ChartView, type Selection } from './ChartView';
 import { ActivityFeed, CommentsPanel, VersionsPanel } from './Panels';
 import { Avatar, Dialog, Menu, Spinner, Tabs, useToast, useViewer } from './ui';
 import { useSongSync } from './useSongSync';
@@ -179,15 +179,9 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           </span>
         </nav>
 
-        <header className="song-head">
-          <div className="song-style">{meta.style}{meta.bpm ? ` · ♩=${meta.bpm}` : ''}</div>
-          <h1 className="song-title">{meta.title}</h1>
-          <div className="song-composer">{meta.composer}</div>
-        </header>
-
         <div className="song-bar">
-          <label className="keysel" title="Show the chart in another key (just for you)">
-            Key
+          <label className="keysel" title="Show the chart in another key, just for you. To change the song's key for everyone, tap its title.">
+            View in
             <select value={shift} onChange={(e) => setShift(Number(e.target.value))}>
               {Array.from({ length: 12 }, (_, i) => i - 5).map((s) => (
                 <option key={s} value={s}>
@@ -210,7 +204,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             ⬇ iReal Pro
           </button>
           <Menu label="⋯">
-            {member && !deleted && <button onClick={() => setDialog('info')}>Song info &amp; key…</button>}
+            {member && !deleted && <button onClick={() => setDialog('info')}>Edit song info &amp; key…</button>}
             <Link href={`/ifakepro/p/${song.playlist.slug}/print?song=${song.id}&auto=1`} target="_blank">Print / PDF</Link>
             <Link href={`/ifakepro/p/${song.playlist.slug}/play?song=${song.id}`}>Setlist mode</Link>
             {viewer?.user && <button onClick={() => setDialog('copy')}>Copy to playlist…</button>}
@@ -274,6 +268,12 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
         )}
 
         <div className="song-sheet">
+          <ChartHead
+            meta={meta}
+            playlist={song.playlist.title}
+            keyShown={preview ? undefined : viewKey}
+            onEdit={member && !deleted && !preview ? () => setDialog('info') : undefined}
+          />
           {preview ? (
             <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} />
           ) : (
@@ -326,13 +326,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
         <SongInfoDialog
           meta={doc.meta}
           onClose={() => setDialog(null)}
-          onSave={(m) => sync.change((d) => ({ ...d, meta: m }))}
-          onTranspose={(s) =>
-            sync.change((d) => {
-              const key = transposeKey(d.meta.key, s);
-              return { meta: { ...d.meta, key }, chart: transposeChart(d.chart, s, prefersFlats(key)) };
-            })
-          }
+          onSave={(m, semis) => sync.change((d) => ({ meta: m, chart: semis ? transposeChart(d.chart, semis, prefersFlats(m.key)) : d.chart }))}
         />
       )}
       {dialog === 'export' && <ExportDialog song={preview ? { meta: preview.meta, chart: preview.chart } : doc} onClose={() => setDialog(null)} />}
@@ -357,10 +351,21 @@ function JoinHint({ slug }: { slug: string }) {
   );
 }
 
-function SongInfoDialog({ meta, onSave, onTranspose, onClose }: { meta: SongMeta; onSave: (m: SongMeta) => void; onTranspose: (s: number) => void; onClose: () => void }) {
+/** Half steps from one key to another, the short way round (−5 … +6). */
+function keyDistance(from: string, to: string): number {
+  const a = noteIndex(keyRoot(from).root);
+  const b = noteIndex(keyRoot(to).root);
+  if (a == null || b == null) return 0;
+  const d = (((b - a) % 12) + 12) % 12;
+  return d > 6 ? d - 12 : d;
+}
+
+function SongInfoDialog({ meta, onSave, onClose }: { meta: SongMeta; onSave: (m: SongMeta, semis: number) => void; onClose: () => void }) {
   const [m, setM] = useState(meta);
-  useEffect(() => setM((x) => ({ ...x, key: meta.key })), [meta.key]);
+  const [move, setMove] = useState(true);
   const set = (k: keyof SongMeta, v: string | number) => setM((x) => ({ ...x, [k]: v }));
+  const semis = move ? keyDistance(meta.key, m.key) : 0;
+  const keyChanged = m.key !== meta.key;
   return (
     <Dialog
       title="Song info"
@@ -371,7 +376,7 @@ function SongInfoDialog({ meta, onSave, onTranspose, onClose }: { meta: SongMeta
           <button
             className="ifp-btn primary"
             onClick={() => {
-              onSave(sanitizeMeta(m, meta));
+              onSave(sanitizeMeta(m, meta), semis);
               onClose();
             }}
           >
@@ -390,22 +395,25 @@ function SongInfoDialog({ meta, onSave, onTranspose, onClose }: { meta: SongMeta
           </label>
           <label>Tempo (BPM)<input type="number" inputMode="numeric" min={0} max={400} value={m.bpm || ''} onChange={(e) => set('bpm', Number(e.target.value) || 0)} /></label>
         </div>
-        <div className="form-row">
-          <label>Key (label only)
-            <select value={m.key} onChange={(e) => set('key', e.target.value)}>
-              {ALL_KEYS.map((k) => <option key={k} value={k}>{displayKey(k)}</option>)}
-            </select>
-          </label>
-          <div className="field">
-            <span>Transpose the chords</span>
-            <div className="stepper">
-              <button type="button" className="ifp-btn small" onClick={() => onTranspose(-1)}>− ½ step</button>
-              <b>{displayKey(meta.key)}</b>
-              <button type="button" className="ifp-btn small" onClick={() => onTranspose(1)}>+ ½ step</button>
-            </div>
-            <small>Rewrites every chord for everyone. Undo with ⌘Z.</small>
+        <label>
+          Key — the key everyone sees by default
+          <select value={m.key} onChange={(e) => set('key', e.target.value)}>
+            {ALL_KEYS.map((k) => <option key={k} value={k}>{displayKey(k)}{k === meta.key ? ' (now)' : ''}</option>)}
+          </select>
+        </label>
+        {keyChanged && (
+          <div className="key-move">
+            <label className="check">
+              <input type="checkbox" checked={move} onChange={(e) => setMove(e.target.checked)} />
+              Move the chords to {displayKey(m.key)}
+            </label>
+            <small>
+              {move
+                ? `Every chord goes ${Math.abs(semis)} half step${Math.abs(semis) === 1 ? '' : 's'} ${semis > 0 ? 'up' : 'down'} (${displayKey(meta.key)} → ${displayKey(m.key)}), for everyone. ⌘Z undoes it.`
+                : 'Only the label changes — use this when the chords are already written in that key.'}
+            </small>
           </div>
-        </div>
+        )}
       </div>
     </Dialog>
   );

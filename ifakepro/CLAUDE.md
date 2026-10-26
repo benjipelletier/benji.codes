@@ -88,8 +88,15 @@ Parses `jazz/charts_raw/jazz.ireal` once per server instance. `next.config.ts` t
 ## UI
 
 - The look is a lead sheet on cream paper (dark mode follows the system, with a toggle in the header).
-- Fonts: Barlow Condensed for chords, Fraunces for titles, Noto Music for symbols (𝄋 𝄌 𝄐 𝄎 ♭).
-- The chart (`components/ChartView.tsx`) is a 16-column grid that sizes with container units, so it reads on a phone.
+- The chart (`components/ChartView.tsx`) is set out like iReal Pro's:
+  - handwritten chords in Petaluma Script, with the flat or sharp small and raised and the quality small and dropped (`C♭△7`, `A-7`)
+  - music signs from Petaluma Text (SMuFL code points in `SMUFL`): segno, coda, fermata, the 1- and 2-bar repeat signs, time signatures, △ ø °
+  - the fonts are Steinberg's unmodified `.woff2` files in `public/ifakepro/fonts/`, under the OFL; don't subset or rename them, since a modified copy may not keep the name
+  - `ChartHead`: "(style · ♩ = bpm)" on the left, the title in the script font in the middle, the composer on the right; editors tap the title for Song info
+- Sizes are in em of `--cs` (about 7.6% of the chart's width), so chords are as big as the row allows on any screen. Bars with 3+ chords shrink to fit.
+- On phones the song sheet is edge to edge; in dark mode it's near-black, like iReal.
+- Song info edits the title, composer, style, tempo and key. Changing the key moves every chord there by default (the short way round); unticked, it only relabels.
+- "View in" next to the chart is a per-viewer transposition that isn't saved.
 - Getting charts in and out:
   - **Upload from iReal Pro**: the default tab of New playlist and Add songs. You can upload or drop the `.html` file iReal shares, or paste an `irealb://` link.
   - **⬇ iReal Pro**: a button on every playlist and song (`ExportDialog`). It offers the `irealb://` link (opens the app), the same as an `.html` file, or a copy of the link. A song is encoded in the browser from what's on screen, unsaved edits included.

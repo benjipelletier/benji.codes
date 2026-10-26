@@ -21,6 +21,7 @@
   --shadow: 0 1px 2px #3a2f1a14, 0 6px 24px #3a2f1a14;
   --radius: 10px;
   --chord: 'Barlow Condensed', 'Noto Music', 'Arial Narrow', sans-serif;
+  --sheet: #fffdf7;
   --serif: 'Fraunces', Georgia, serif;
   --music: 'Noto Music', 'Bravura Text', serif;
   color-scheme: light;
@@ -45,6 +46,7 @@
     --warn: #f0c46a;
     --warn-bg: #3a2f14;
     --shadow: 0 1px 2px #0006, 0 8px 28px #0008;
+    --sheet: #0b0a08;
     color-scheme: dark;
   }
 }
@@ -67,6 +69,7 @@
   --warn: #f0c46a;
   --warn-bg: #3a2f14;
   --shadow: 0 1px 2px #0006, 0 8px 28px #0008;
+  --sheet: #0b0a08;
   color-scheme: dark;
 }
 
@@ -363,15 +366,6 @@ body.ifp-noscroll { overflow: hidden; }
 .crumbs a { color: var(--ink-2); text-decoration: none; padding: 6px 0; }
 .crumbs > a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crumbs-nav { display: flex; gap: 14px; flex: none; }
-.song-head { display: grid; grid-template-columns: 1fr; text-align: center; padding: 8px 0 4px; }
-.song-title { font-size: clamp(26px, 7vw, 40px); }
-.song-style, .song-composer { font-size: 13px; color: var(--ink-2); font-style: italic; }
-@media (min-width: 640px) {
-  .song-head { grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; }
-  .song-style { text-align: left; order: 0; }
-  .song-title { order: 1; }
-  .song-composer { text-align: right; order: 2; }
-}
 .song-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
 .keysel { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .keysel select { width: auto !important; min-height: 32px !important; padding: 2px 8px !important; font-family: var(--chord); font-size: 17px !important; font-weight: 600; }
@@ -379,8 +373,19 @@ body.ifp-noscroll { overflow: hidden; }
 .save { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .save-saving, .save-pending { color: var(--ink-2); }
 .save-offline { color: #c0392b; font-weight: 600; }
-.song-sheet { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px 16px; box-shadow: var(--shadow); }
-@media (min-width: 640px) { .song-sheet { padding: 18px 22px 24px; } }
+.song-sheet { --chart-bg: var(--sheet); background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 12px 10px 16px; box-shadow: var(--shadow); }
+@media (min-width: 640px) { .song-sheet { padding: 18px 26px 26px; } }
+/* On a phone the chart runs edge to edge, like iReal. */
+@media (max-width: 639px) { .song-sheet { margin: 0 -12px; border-radius: 0; border-width: 1px 0; padding: 10px 4px 14px; box-shadow: none; } }
+.song-sheet .chart-head { margin-bottom: 6px; }
+.key-move { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--paper-2); border-radius: 10px; }
+.key-move small { color: var(--ink-2); }
+.form .key-move label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 15px; }
+@media (max-width: 520px) {
+  .song-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -12px; padding-right: 12px; }
+  .song-bar > * { flex: none; }
+  .song-people { margin-left: 0; }
+}
 .ifp-locked { font-size: 13px; color: var(--ink-2); padding: 4px 4px 10px; }
 
 /* Side panel: a bottom sheet on phones, a column on wide screens. */
@@ -414,91 +419,116 @@ body.ifp-noscroll { overflow: hidden; }
   .sheet-handle, .song-tabbar, .sheet-scrim { display: none; }
 }
 
-/* ---- The chart ---- */
+/* ---- The chart ----
+   iReal Pro's layout: 16 cells to a row, four bars a row, chords as big as
+   the row allows. Letters in Petaluma Script; music signs from Petaluma Text
+   (SMuFL). Everything is in em of --cs, which follows the chart's width. */
+
+@font-face { font-family: 'Petaluma Script'; src: url('/ifakepro/fonts/PetalumaScript.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'Petaluma Text'; src: url('/ifakepro/fonts/PetalumaText.woff2') format('woff2'); font-display: block; }
 
 .chart {
-  --cs: clamp(14px, 3.6cqw, 30px); /* chord size */
+  --cs: clamp(19px, 7.6cqw, 54px); /* chord size */
+  --bl: max(1.5px, 0.05em);        /* barline */
   container-type: inline-size;
-  font-family: var(--chord);
-  color: var(--ink);
-  padding-left: 0.2em;
+  font-family: 'Petaluma Script', var(--chord);
+  color: var(--chart-ink, var(--ink));
+  padding: 0 0.1em 0 0.15em;
 }
+.smufl { font-family: 'Petaluma Text'; font-style: normal; font-weight: 400; }
 .chart-row {
   display: grid; grid-template-columns: repeat(16, minmax(0, 1fr));
-  font-size: var(--cs); padding-top: 1.2em;
+  font-size: var(--cs); padding-top: 0.95em;
 }
-.spacer { min-height: 2.3em; }
+.spacer { min-height: 1.9em; }
 .bar {
-  position: relative; display: grid; align-items: end; min-height: 2.3em; padding: 0 0.12em 0.32em 0.28em;
-  border-left: max(1.5px, 0.07em) solid var(--ink);
+  position: relative; display: grid; align-items: end; min-height: 1.9em; padding: 0 0.06em 0.2em 0.16em;
+  border-left: var(--bl) solid currentColor;
   cursor: default; touch-action: manipulation;
 }
 .ifp-chart-focus .bar { cursor: pointer; }
-.bar.row-end { border-right: max(1.5px, 0.07em) solid var(--ink); }
+.bar.row-end { border-right: var(--bl) solid currentColor; }
 .bar.open-none { border-left-color: transparent; }
-/* [ and { : a thick line with a thin one inside it; ] } Z mirror that on the right. */
-.bar.open-dbl, .bar.open-rep { border-left-width: 0.17em; padding-left: 0.45em; }
-.bar.close-dbl, .bar.close-rep, .bar.close-fin { border-right: 0.17em solid var(--ink); padding-right: 0.45em; }
-.bar.close-dbl { border-right-width: max(1.5px, 0.06em); }
-.bl { position: absolute; top: 0; bottom: 0; width: max(1.5px, 0.06em); background: var(--ink); }
-.bl-open { left: 0.1em; }
-.bl-close { right: 0.1em; }
-.bar.close-dbl .bl-close { right: 0.14em; }
-.dots { position: absolute; top: 34%; height: 32%; width: 0.16em; display: block;
-  background: radial-gradient(circle, var(--ink) 0.07em, transparent 0.08em) top / 0.16em 0.16em no-repeat,
-              radial-gradient(circle, var(--ink) 0.07em, transparent 0.08em) bottom / 0.16em 0.16em no-repeat; }
-.dots-open { left: 0.24em; }
-.dots-close { right: 0.24em; }
+
+/* [ ] a double bar; { } repeats (thick + thin + dots); Z the final bar. */
+.bar.open-dbl, .bar.open-rep { border-left-width: 0.13em; padding-left: 0.36em; }
+.bar.open-dbl { border-left-width: var(--bl); }
+.bar.close-dbl, .bar.close-rep, .bar.close-fin { border-right: 0.13em solid currentColor; padding-right: 0.36em; }
+.bar.close-dbl { border-right-width: var(--bl); }
+.bl { position: absolute; top: 0; bottom: 0; width: var(--bl); background: currentColor; }
+.bl-open { left: 0.09em; }
+.bar.open-dbl .bl-open { left: 0.07em; }
+.bl-close { right: 0.09em; }
+.bar.close-dbl .bl-close { right: 0.07em; }
+.dots { position: absolute; top: 33%; height: 34%; width: 0.13em; display: block;
+  background: radial-gradient(circle, currentColor 0.055em, transparent 0.065em) top / 0.13em 0.13em no-repeat,
+              radial-gradient(circle, currentColor 0.055em, transparent 0.065em) bottom / 0.13em 0.13em no-repeat; }
+.dots-open { left: 0.2em; }
+.dots-close { right: 0.2em; }
 
 .cell { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; white-space: nowrap; line-height: 1; }
-.cell-small { font-size: 0.68em; }
-.bar.dense .cell { font-size: 0.86em; }
-.bar.dense .cell-small { font-size: 0.6em; }
-.ch { display: inline-flex; align-items: baseline; font-weight: 600; letter-spacing: -0.01em; }
+.cell-small { font-size: 0.66em; }
+.bar.dense .cell { font-size: 0.6em; }
+.bar.dense .cell-small { font-size: 0.48em; }
+.bar.dense .ch { letter-spacing: -0.04em; }
+
+/* C, then ♭ small and raised, then 7♭9 small and dropped, then /E. */
+.ch { display: inline-flex; align-items: baseline; letter-spacing: -0.02em; -webkit-text-stroke: 0.022em currentColor; paint-order: stroke fill; }
+.ch .smufl { -webkit-text-stroke: 0; }
 .ch-root { font-size: 1em; }
-.acc { font-family: var(--music); font-size: 0.72em; font-weight: 400; position: relative; top: -0.32em; margin-left: 0.02em; }
-.ch-q .acc, .ch-bass .acc { top: -0.15em; }
-.ch-q { font-size: 0.62em; font-weight: 600; align-self: flex-start; margin-top: -0.12em; margin-left: 0.03em; }
-.ch-bass { font-size: 0.68em; font-weight: 500; margin-left: 0.04em; }
-.cell-alt { font-size: 0.58em; color: var(--ink-2); margin-bottom: 0.15em; display: flex; gap: 0.3em; }
-.cell-marks { position: absolute; bottom: 100%; left: 0; display: flex; align-items: flex-end; gap: 0.2em; margin-bottom: 0.15em; pointer-events: none; }
-.cell-marks .sym { font-family: var(--music); font-size: 0.95em; line-height: 1; }
-.cell-text { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 0.5em; color: var(--ink-2); white-space: nowrap; }
-.simile { font-family: var(--music); font-size: 1.15em; line-height: 0.9; }
-.simile-center { position: absolute; left: 0; right: 0; bottom: 0.3em; text-align: center; }
-.simile-two { position: absolute; left: 50%; bottom: 0.3em; }
-.slash { font-size: 1.2em; font-weight: 500; color: var(--ink-2); }
-.nc { font-size: 0.7em; font-weight: 600; }
+.ch-acc { font-size: 0.7em; position: relative; top: -0.48em; margin-left: 0.02em; margin-right: -0.04em; }
+.ch-q { font-size: 0.56em; position: relative; top: 0.16em; margin-left: 0.04em; letter-spacing: 0; }
+.ch-q .sg-acc { font-size: 0.95em; position: relative; top: -0.3em; }
+.ch-q .sg-q { font-size: 1.1em; }
+.ch-bass { font-size: 0.66em; margin-left: 0.02em; }
+.ch-bass .ch-acc { top: -0.35em; }
+.cell-alt { font-size: 0.55em; opacity: 0.75; margin-bottom: 0.1em; display: flex; gap: 0.35em; }
+.cell-alt .ch-q { top: 0.1em; }
+
+.cell-marks { position: absolute; bottom: 100%; left: 0; display: flex; align-items: flex-end; gap: 0.2em; margin-bottom: 0.08em; pointer-events: none; }
+.cell-marks .sym { font-size: 0.8em; line-height: 1; }
+.cell-text { font-size: 0.56em; line-height: 1.1; white-space: nowrap; }
+.bar:has(.section) .c0 .cell-marks { left: 0.62em; bottom: calc(100% + 0.42em); }
+.bar:has(.section) .c0 .cell-text { font-size: 0.62em; }
+.cell.cell-free { position: static; }
+.simile { font-size: 1.15em; line-height: 1; }
+.simile-center { position: absolute; left: 0; right: 0; bottom: 0.32em; text-align: center; }
+.simile-two { position: absolute; left: 100%; bottom: 0.32em; transform: translateX(-50%); z-index: 1; }
+.cell.cell-free { min-height: 1em; }
+.slash { font-size: 1em; opacity: 0.8; }
+.nc { font-size: 0.62em; }
 
 .section {
-  position: absolute; left: -0.25em; top: -1.1em; z-index: 1;
-  font-family: var(--serif); font-weight: 700; font-size: 0.62em; line-height: 1;
-  padding: 0.12em 0.28em; border: max(1.5px, 0.09em) solid var(--ink); background: var(--card); border-radius: 0.12em;
+  position: absolute; left: -0.18em; top: -0.82em; z-index: 1;
+  font-size: 0.48em; line-height: 1; padding: 0.1em 0.18em 0.04em;
+  border: max(1.5px, 0.09em) solid currentColor; border-radius: 0.14em; background: var(--chart-bg, var(--card));
 }
-.ending { position: absolute; left: 0.25em; top: -0.95em; font-family: var(--serif); font-size: 0.5em; font-weight: 700; }
+.bar:has(.section) .cell:first-of-type .cell-marks { left: 0.55em; }
+.ending { position: absolute; left: 0.2em; top: -0.76em; font-size: 0.42em; }
 .bar.in-ending::after {
-  content: ''; position: absolute; left: 0; right: 0; top: -0.45em; height: 0.35em;
-  border-top: max(1.5px, 0.06em) solid var(--ink);
+  content: ''; position: absolute; left: 0; right: 0; top: -0.38em; height: 0.3em;
+  border-top: var(--bl) solid currentColor;
 }
-.bar.ending-start::after { border-left: max(1.5px, 0.06em) solid var(--ink); }
-.ts { position: absolute; left: calc(var(--cs) * 0.14); bottom: 0.3em; display: flex; flex-direction: column; font-family: var(--serif); font-weight: 700; font-size: 0.5em; line-height: 0.95; text-align: center; }
-.bar.has-time { padding-left: 0.85em; }
-.bar.open-dbl.has-time .ts { left: calc(var(--cs) * 0.36); }
-.bar.open-rep.has-time .ts { left: calc(var(--cs) * 0.5); }
-.bar.open-dbl.has-time { padding-left: 1em; }
-.bar.open-rep.has-time { padding-left: 1.2em; }
-.bar-no { position: absolute; left: 0.2em; top: 0.08em; font-family: Inter, sans-serif; font-size: max(8px, 0.3em); color: var(--ink-3); font-weight: 500; line-height: 1; }
+.bar.ending-start::after { border-left: var(--bl) solid currentColor; }
+.ts { position: absolute; left: calc(var(--cs) * 0.1); bottom: 0.22em; display: flex; flex-direction: column; font-family: 'Petaluma Text'; font-size: 0.8em; line-height: 0.5; text-align: center; }
+.ts b { font-weight: 400; }
+.bar.has-time { padding-left: 0.74em; }
+.bar.open-dbl.has-time .ts { left: calc(var(--cs) * 0.2); }
+.bar.open-rep.has-time .ts { left: calc(var(--cs) * 0.36); }
+.bar.open-dbl.has-time { padding-left: 0.86em; }
+.bar.open-rep.has-time { padding-left: 1em; }
+.bar-no { position: absolute; left: 0.2em; top: 0.06em; font-family: Inter, sans-serif; font-size: max(8px, 0.24em); color: var(--ink-3); font-weight: 500; line-height: 1; }
 
-.bar.sel { background: var(--sel); box-shadow: inset 0 0 0 max(1.5px, 0.06em) var(--sel-line); }
+.bar.sel { background: var(--sel); box-shadow: inset 0 0 0 max(1.5px, 0.05em) var(--sel-line); }
 .bar.changed { background: var(--changed); }
 .bar.flash { animation: ifp-flash 2.4s ease-out; }
 @keyframes ifp-flash { from { background: var(--flash); } to { background: transparent; } }
-.bar.present { box-shadow: inset 0 0 0 max(1.5px, 0.07em) var(--who); }
-.bar.present.sel { box-shadow: inset 0 0 0 max(1.5px, 0.06em) var(--sel-line), inset 0 0 0 max(3px, 0.12em) var(--who); }
-.who { position: absolute; right: 0.15em; bottom: -0.55em; z-index: 2; font-family: Inter, sans-serif; font-size: max(9px, 0.32em); font-weight: 600; background: var(--who); color: #fff; padding: 1px 4px; border-radius: 4px; line-height: 1.2; }
-.cell-cursor { position: absolute; inset: -0.08em -0.08em -0.2em -0.12em; border-bottom: max(2px, 0.08em) solid var(--accent); pointer-events: none; }
+.bar.present { box-shadow: inset 0 0 0 max(1.5px, 0.06em) var(--who); }
+.bar.present.sel { box-shadow: inset 0 0 0 max(1.5px, 0.05em) var(--sel-line), inset 0 0 0 max(3px, 0.1em) var(--who); }
+.who { position: absolute; right: 0.15em; bottom: -0.45em; z-index: 2; font-family: Inter, sans-serif; font-size: max(9px, 0.26em); font-weight: 600; background: var(--who); color: #fff; padding: 1px 4px; border-radius: 4px; line-height: 1.2; }
+.cell-cursor { position: absolute; inset: -0.06em -0.06em -0.16em -0.1em; border-bottom: max(2px, 0.07em) solid var(--accent); pointer-events: none; }
 .pin {
-  position: absolute; right: 0.08em; top: 0.08em; z-index: 3; min-width: 18px; height: 18px; padding: 0 4px;
+  position: absolute; right: 0.06em; top: 0.06em; z-index: 3; min-width: 18px; height: 18px; padding: 0 4px;
   border: 0; border-radius: 9px 9px 9px 2px; background: var(--accent); color: var(--accent-ink);
   font: 600 10px/18px Inter, sans-serif; cursor: pointer;
 }
@@ -506,6 +536,25 @@ body.ifp-noscroll { overflow: hidden; }
 
 .ifp-chart-focus { outline: none; border-radius: 6px; }
 .ifp-chart-focus:focus-visible { box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* The chart's own header, laid out like iReal's: style left, title centered, composer right. */
+.chart-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 0 10px; padding: 2px 2px 0; color: var(--chart-ink, var(--ink)); }
+.chart-head .ch-title { font-family: 'Petaluma Script', var(--serif); font-size: clamp(22px, 5.6vw, 38px); line-height: 1.05; text-align: center; grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.chart-head .ch-style, .chart-head .ch-composer { font-size: 13px; color: var(--ink-2); line-height: 1.25; }
+.chart-head .ch-style { grid-column: 1; grid-row: 2; }
+.chart-head .ch-list { grid-column: 1; grid-row: 1; font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-head .ch-composer { grid-column: 3; grid-row: 2; text-align: right; }
+.chart-head .ch-key { grid-column: 3; grid-row: 1; text-align: right; font-size: 12px; color: var(--ink-3); }
+@media (max-width: 520px) {
+  .chart-head { grid-template-columns: 1fr 1fr; }
+  .chart-head .ch-title { grid-column: 1 / span 2; grid-row: 1; padding: 2px 0 4px; }
+  .chart-head .ch-list, .chart-head .ch-key { display: none; }
+  .chart-head .ch-style { grid-column: 1; grid-row: 2; }
+  .chart-head .ch-composer { grid-column: 2; grid-row: 2; }
+}
+.chart-head button.ch-title { background: none; border: 0; color: inherit; cursor: pointer; padding: 0 4px; border-radius: 8px; }
+.chart-head button.ch-title:hover { background: var(--paper-2); }
+.chart-head button.ch-title::after { content: ' ✎'; font-family: Inter, sans-serif; font-size: 13px; color: var(--ink-3); vertical-align: middle; }
 
 /* ---- Editor ---- */
 
@@ -545,6 +594,9 @@ body.ifp-noscroll { overflow: hidden; }
 .entry-help { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
 .entry-input.bad ~ * , .ifp-entry:has(.bad) .entry-help { color: #c0392b; }
 @media (max-width: 999px) {
+  /* Room under the chart for the entry panel, so every bar can scroll above it. */
+  html:has(.ifp-entry.open) { scroll-padding-bottom: 230px; }
+  .ifp:has(.ifp-entry.open) .ifp-song { padding-bottom: 240px; }
   .ifp-entry.open { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 16px 16px 0 0; box-shadow: var(--shadow); padding-bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 90; }
 }
 @media (pointer: fine) and (min-width: 1000px) { .entry-keys { display: flex; } }
@@ -590,18 +642,15 @@ body.ifp-noscroll { overflow: hidden; }
 /* ---- Setlist mode ---- */
 
 .stage {
+  --chart-bg: var(--sheet);
   position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column;
-  background: var(--card); color: var(--ink); user-select: none; -webkit-user-select: none;
+  background: var(--sheet); color: var(--ink); user-select: none; -webkit-user-select: none;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .stage-top { display: flex; align-items: center; gap: 10px; padding: 6px 10px; transition: opacity 0.2s; }
 .stage-top.hidden { opacity: 0; pointer-events: none; }
 .stage-count { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; margin-right: auto; }
 .stage-song { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 12px 8px; }
-.stage-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 10px; padding-bottom: 4px; }
-.stage-head h1 { font-size: clamp(20px, 4.5vmin, 40px); text-align: center; }
-.stage-style { font-style: italic; color: var(--ink-2); font-size: 13px; }
-.stage-composer { font-style: italic; color: var(--ink-2); font-size: 13px; text-align: right; }
 .fit-box { flex: 1; min-height: 0; display: flex; justify-content: center; overflow: hidden; }
 .fit-inner { width: 100%; }
 .stage .chart-row { padding-top: calc(1.2em + var(--row-extra, 0px)); }
@@ -616,11 +665,8 @@ body.ifp-noscroll { overflow: hidden; }
 
 .print { max-width: 820px; margin: 0 auto; padding: 16px; }
 .print-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 6px 0 16px; font-size: 14px; color: var(--ink-2); }
-.print-page { background: #fff; color: #111; padding: 36px 32px; margin-bottom: 18px; box-shadow: var(--shadow); border-radius: 4px; --ink: #111; --ink-2: #444; --ink-3: #777; --card: #fff; }
-.print-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; margin-bottom: 8px; }
-.print-head h1 { font-size: 30px; text-align: center; }
-.print-style { font-style: italic; font-size: 13px; }
-.print-composer { font-style: italic; font-size: 13px; text-align: right; }
+.print-page { background: #fff; color: #111; padding: 36px 32px; margin-bottom: 18px; box-shadow: var(--shadow); border-radius: 4px; --ink: #111; --ink-2: #444; --ink-3: #777; --card: #fff; --sheet: #fff; --chart-bg: #fff; --chart-ink: #111; }
+.print-page .chart-head { margin-bottom: 10px; }
 .print-foot { margin-top: 18px; font-size: 10px; color: #888; text-align: right; }
 @media print {
   @page { size: letter portrait; margin: 0.5in; }
@@ -630,5 +676,4 @@ body.ifp-noscroll { overflow: hidden; }
   .print { padding: 0; max-width: none; }
   .print-page { box-shadow: none; padding: 0; margin: 0; break-after: page; }
   .print-page:last-child { break-after: auto; }
-  .chart { --cs: 23px; }
 }

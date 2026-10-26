@@ -1,13 +1,15 @@
 'use client';
 
 // Draws a chart the way iReal Pro and the Real Book do: rows of 16 cells,
-// barlines with repeats and endings, boxed section letters, chords with
-// raised extensions. Sizes scale with the chart's width (container units),
-// so the same chart reads on a phone and fills a laptop.
+// barlines with repeats and endings, boxed section letters, handwritten
+// chords (Petaluma Script) and music signs (Petaluma Text, SMuFL). Sizes scale
+// with the chart's width (container units), so the same chart reads on a
+// phone and fills a laptop.
 
 import { memo, type MouseEvent as RMouseEvent } from 'react';
-import { type Bar, type Cell, type Chart, cellText, layout, sectionLabel, timeAt } from '@ifakepro/lib/chart';
+import { type Bar, type Cell, type Chart, type SongMeta, cellText, layout, sectionLabel, timeAt } from '@ifakepro/lib/chart';
 import { type ChordStyle, chordParts, transposeCells } from '@ifakepro/lib/chords';
+import { displayKey } from '@ifakepro/lib/client';
 
 export interface Selection {
   from: number;
@@ -36,20 +38,56 @@ export interface ChartViewProps {
   className?: string;
 }
 
-/** A note name with its accidental set small and raised, the way fake books print it. */
-function Note({ name }: { name: string }) {
+// Music symbols come from Petaluma Text, a SMuFL font: these are its code points.
+export const SMUFL = {
+  flat: '\uE260',
+  sharp: '\uE262',
+  segno: '\uE047',
+  coda: '\uE048',
+  fermata: '\uE4C0',
+  repeat1: '\uE500',
+  repeat2: '\uE501',
+  maj7: '\uE873',
+  halfDim: '\uE871',
+  dim: '\uE870',
+  aug: '\uE872',
+  timeDigit: (d: string) => String.fromCharCode(0xe080 + Number(d)),
+};
+
+const SYM: Record<string, string> = { '♭': SMUFL.flat, '♯': SMUFL.sharp, '△': SMUFL.maj7, 'ø': SMUFL.halfDim, '°': SMUFL.dim };
+
+/** Text with its music signs (♭ ♯ △ ø °) drawn from the music font. */
+function Signs({ text }: { text: string }) {
   return (
     <>
-      {name[0]}
-      {name.length > 1 && <span className="acc">{name.slice(1)}</span>}
+      {text.split(/([♭♯△ø°])/).map((t, i) =>
+        SYM[t] ? (
+          <span key={i} className={`smufl sg-${t === '♭' || t === '♯' ? 'acc' : 'q'}`}>
+            {SYM[t]}
+          </span>
+        ) : (
+          t.replace(/–/g, '-')
+        ),
+      )}
     </>
   );
 }
 
-function withAcc(text: string) {
-  return text.split(/([♭♯])/).map((t, i) => (t === '♭' || t === '♯' ? <span key={i} className="acc">{t}</span> : t));
+/** A note name: the letter, then its accidental small and raised. */
+function Note({ name }: { name: string }) {
+  return (
+    <>
+      {name[0]}
+      {name.length > 1 && <span className="ch-acc smufl">{name[1] === '♭' ? SMUFL.flat : SMUFL.sharp}</span>}
+    </>
+  );
 }
 
+/**
+ * A chord the way iReal and the Real Book write it: a big letter, its flat or
+ * sharp small and raised, the quality small and dropped below the line, and a
+ * bass note after a slash.
+ */
 export function Chord({ ch, style = 'jazz' }: { ch: string; style?: ChordStyle }) {
   const p = chordParts(ch, style);
   return (
@@ -59,7 +97,11 @@ export function Chord({ ch, style = 'jazz' }: { ch: string; style?: ChordStyle }
           <Note name={p.root} />
         </span>
       )}
-      {p.quality && <span className="ch-q">{withAcc(p.quality)}</span>}
+      {p.quality && (
+        <span className="ch-q">
+          <Signs text={p.quality} />
+        </span>
+      )}
       {p.bass && (
         <span className="ch-bass">
           /<Note name={p.bass} />
@@ -69,14 +111,34 @@ export function Chord({ ch, style = 'jazz' }: { ch: string; style?: ChordStyle }
   );
 }
 
-function CellView({ cell, style, alone, cursor }: { cell: Cell; style: ChordStyle; alone: boolean; cursor: boolean }) {
+/** The chart's heading, set out like iReal's: (style) on the left, the title in the middle, the composer on the right. */
+export function ChartHead({ meta, playlist, keyShown, onEdit }: { meta: SongMeta; playlist?: string; keyShown?: string; onEdit?: () => void }) {
+  const style = [meta.style, meta.bpm ? `♩ = ${meta.bpm}` : ''].filter(Boolean).join(' · ');
+  return (
+    <header className="chart-head">
+      {playlist && <span className="ch-list">{playlist}</span>}
+      {onEdit ? (
+        <button className="ch-title" onClick={onEdit} title="Edit the title, composer, style, tempo and key">
+          {meta.title}
+        </button>
+      ) : (
+        <h1 className="ch-title">{meta.title}</h1>
+      )}
+      <span className="ch-key">Key of {displayKey(keyShown ?? meta.key)}</span>
+      <span className="ch-style">{style ? `(${style})` : ''}</span>
+      <span className="ch-composer">{meta.composer}</span>
+    </header>
+  );
+}
+
+function CellView({ cell, style, alone, cursor, first }: { cell: Cell; style: ChordStyle; alone: boolean; cursor: boolean; first: boolean }) {
   const marks = (
     <>
       {(cell.segno || cell.coda || cell.fermata || cell.text) && (
         <span className="cell-marks">
-          {cell.segno && <span className="sym" title="Segno">𝄋</span>}
-          {cell.coda && <span className="sym" title="Coda">𝄌</span>}
-          {cell.fermata && <span className="sym" title="Fermata">𝄐</span>}
+          {cell.segno && <span className="smufl sym" title="Segno">{SMUFL.segno}</span>}
+          {cell.coda && <span className="smufl sym" title="Coda">{SMUFL.coda}</span>}
+          {cell.fermata && <span className="smufl sym" title="Fermata">{SMUFL.fermata}</span>}
           {cell.text && <span className="cell-text">{cellText(cell.text)}</span>}
         </span>
       )}
@@ -89,12 +151,13 @@ function CellView({ cell, style, alone, cursor }: { cell: Cell; style: ChordStyl
   );
   let body = null;
   if (cell.ch) body = <Chord ch={cell.ch} style={style} />;
-  else if (cell.sym === 'x') body = <span className={`simile ${alone ? 'simile-center' : ''}`} title="Repeat the last bar">𝄎</span>;
-  else if (cell.sym === 'r') body = <span className="simile simile-two" title="Repeat the last two bars">𝄏</span>;
+  else if (cell.sym === 'x') body = <span className={`smufl simile ${alone ? 'simile-center' : ''}`} title="Repeat the last bar">{SMUFL.repeat1}</span>;
+  else if (cell.sym === 'r') body = <span className="smufl simile simile-two" title="Repeat the last two bars">{SMUFL.repeat2}</span>;
   else if (cell.sym === 'p') body = <span className="slash">/</span>;
   else if (cell.sym === 'n') body = <span className="nc">N.C.</span>;
   return (
-    <span className={`cell ${cell.small ? 'cell-small' : ''}`}>
+    // A repeat sign is placed against the bar (centered in it, or across its end), not its own cell.
+    <span className={`cell ${cell.small ? 'cell-small' : ''} ${cell.sym === 'x' || cell.sym === 'r' ? 'cell-free' : ''} ${first ? 'c0' : ''}`}>
       {cursor && <span className="cell-cursor" aria-hidden />}
       {marks}
       {body}
@@ -174,8 +237,8 @@ function ChartViewInner(props: ChartViewProps) {
                 {typeof ending === 'number' && <span className="ending">{ending ? `${ending}.` : ''}</span>}
                 {showTime && (
                   <span className="ts" aria-label={`time ${bar.time}`}>
-                    <b>{bar.time!.split('/')[0]}</b>
-                    <b>{bar.time!.split('/')[1]}</b>
+                    <b>{[...bar.time!.split('/')[0]].map(SMUFL.timeDigit).join('')}</b>
+                    <b>{[...bar.time!.split('/')[1]].map(SMUFL.timeDigit).join('')}</b>
                   </span>
                 )}
                 {(bar.open === '[' || bar.open === '{') && <i className="bl bl-open" aria-hidden />}
@@ -190,6 +253,7 @@ function ChartViewInner(props: ChartViewProps) {
                     style={chordStyle}
                     alone={filled.length === 1 && c.sym === 'x'}
                     cursor={!!selected && selection!.from === selection!.to && selection!.cell === ci}
+                    first={ci === 0}
                   />
                 ))}
                 {pins?.[bar.id] ? (

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { type ChordStyle, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
 import { api, displayKey, usePref } from '@ifakepro/lib/client';
 import type { FullSong, PlaylistDetail } from '@ifakepro/lib/types';
-import { ChartView } from './ChartView';
+import { ChartHead, ChartView } from './ChartView';
 import { Spinner } from './ui';
 
 type Full = PlaylistDetail & { fullSongs: FullSong[] };
@@ -33,7 +33,6 @@ function useFullPlaylist(slug: string, refreshMs = 0) {
 function FitChart({ children, deps }: { children: React.ReactNode; deps: unknown[] }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState<number | null>(null);
   const fit = useCallback(() => {
     const b = box.current;
     const c = inner.current;
@@ -44,21 +43,22 @@ function FitChart({ children, deps }: { children: React.ReactNode; deps: unknown
     c.style.setProperty('--row-extra', '0px');
     const h = c.scrollHeight;
     const w = h > H ? Math.max(260, Math.floor((W * H) / h)) : W;
-    c.style.width = '';
+    c.style.width = `${w}px`;
     // Room to spare (a phone held upright): spread the rows out instead.
     const rows = c.querySelectorAll('.chart-row').length;
     if (h < H && rows) c.style.setProperty('--row-extra', `${Math.min(48, Math.floor((H - h) / rows) - 2)}px`);
-    setWidth(w);
   }, []);
   useLayoutEffect(fit, [fit, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const ro = new ResizeObserver(fit);
     if (box.current) ro.observe(box.current);
+    // The chart's fonts arrive after the first measure and change its height.
+    document.fonts?.ready.then(fit);
     return () => ro.disconnect();
   }, [fit]);
   return (
     <div className="fit-box" ref={box}>
-      <div className="fit-inner" ref={inner} style={width ? { width } : undefined}>
+      <div className="fit-inner" ref={inner}>
         {children}
       </div>
     </div>
@@ -159,11 +159,7 @@ export function SetlistMode({ slug }: { slug: string }) {
         <button className="ifp-icon-btn" onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} aria-label="Full screen">⛶</button>
       </div>
       <div className="stage-song">
-        <div className="stage-head">
-          <span className="stage-style">{song.meta.style}{song.meta.bpm ? ` ♩=${song.meta.bpm}` : ''}</span>
-          <h1>{song.meta.title}</h1>
-          <span className="stage-composer">{song.meta.composer}</span>
-        </div>
+        <ChartHead meta={song.meta} playlist={p.title} keyShown={key} />
         <FitChart deps={[song.id, shift, chordStyle]}>
           <ChartView chart={song.chart} shift={shift} flats={prefersFlats(key)} chordStyle={chordStyle} />
         </FitChart>
@@ -202,11 +198,7 @@ export function PrintView({ slug }: { slug: string }) {
       </div>
       {songs.map((s) => (
         <section key={s.id} className="print-page">
-          <header className="print-head">
-            <span className="print-style">{s.meta.style}{s.meta.bpm ? ` ♩=${s.meta.bpm}` : ''}</span>
-            <h1>{s.meta.title}</h1>
-            <span className="print-composer">{s.meta.composer}</span>
-          </header>
+          <ChartHead meta={s.meta} playlist={p.title} />
           <ChartView chart={s.chart} chordStyle={chordStyle} flats={prefersFlats(s.meta.key)} />
           <footer className="print-foot">{p.title}</footer>
         </section>

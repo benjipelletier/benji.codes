@@ -76,6 +76,10 @@ on the landing page. All six current projects are enabled.
 - **ifakepro**'s standards library is the jazz project's `jazz/charts_raw/jazz.ireal`
   (1,460 iReal Pro charts), read at run time; picking one copies it into a
   playlist. Users' own charts come from iReal Pro links they paste.
+- **ifakepro** draws charts in Steinberg's [Petaluma](https://github.com/steinbergmedia/petaluma)
+  fonts (Petaluma Script for chords, Petaluma Text for SMuFL music signs),
+  shipped unmodified in `public/ifakepro/fonts/` under the SIL Open Font
+  License 1.1 (`OFL.txt` alongside).
 - **chongfuxi** fetches song lyrics from [LRCLIB](https://lrclib.net) when a
   Spotify link is added (`app/api/chongfuxi/spotify.ts`), splits them into
   words and keeps only the words; the lyrics themselves aren't stored.
