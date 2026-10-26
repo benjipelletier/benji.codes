@@ -60,7 +60,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
 // ---- Avatars ----
 
-/** Marks what the owner's agent (Muse) did for someone, beside their name. */
+/** Marks what someone's AI agent did for them, beside their name. */
 export function AgentPill({ name }: { name: string }) {
   return (
     <span className="agent-pill" title={`Made by ${name}, the owner’s agent`}>

@@ -125,7 +125,7 @@ body.ifp-noscroll { overflow: hidden; }
 .ifp-btn.small { min-height: 32px; padding: 0 11px; font-size: 13px; }
 .ifp-btn.on { background: var(--paper-2); border-color: var(--ink-3); }
 
-/* What the owner's agent (Muse) did for someone, beside their name. */
+/* What someone's AI agent did for them, beside their name. */
 .agent-pill {
   display: inline-flex; align-items: center; gap: 3px; vertical-align: 1px;
   padding: 1px 7px 1px 6px; border-radius: 999px;

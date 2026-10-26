@@ -4,7 +4,7 @@ import { handle, listPlaylists } from '../store';
 import { AGENT_BRIEF } from '@ifakepro/lib/brief';
 
 /**
- * For the owner's agent (Muse): how to read and edit charts (brief), and the
+ * For someone's AI agent: how to read and edit charts (brief), and the
  * playlists the person it acts for can edit, with their songs. ?q= keeps the
  * songs (or playlists) whose title has it.
  */
@@ -24,7 +24,7 @@ export const GET = handle(async (req) => {
   return {
     brief: AGENT_BRIEF,
     actingFor: { name: user.name, email: user.email },
-    agent: agent.name ?? 'Muse',
+    agent: agent.name,
     playlists: playlists
       .map((p) => {
         const songs = rows

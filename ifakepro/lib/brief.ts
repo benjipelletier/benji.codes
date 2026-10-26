@@ -1,4 +1,4 @@
-// What the owner's agent reads first (GET /api/ifakepro/agent): how to see a
+// What someone's AI agent reads first (GET /api/ifakepro/agent): how to see a
 // chart and how to change it. lib/script.ts is the code behind every line.
 
 export const AGENT_BRIEF = `You edit lead sheets in iFake Pro for the person you work for, when they ask in plain English ("make bars 5-8 a ii-V into C", "put a G7 on beat 3 of bar 12", "add a 4-bar intro", "take it down a whole step"). Your edits are saved as theirs, with your name on a pill beside them in the version history, and anyone with the song open sees them in a few seconds.
@@ -15,7 +15,7 @@ GET /api/ifakepro/agent/songs/<id>       one song: revision, meta, text, bars, r
 [A] a section · |: :| a repeat · ‖ a double barline · ‖end the final barline · 1. 2. endings · (3/4) a time change · {segno} {coda} {"Fine"} {fermata on 3} marks · % repeat the last bar · / an empty bar (the chord before carries on).
 "bars" has the same per bar: n, section, time, repeat, barline, ending, chords (the bar's text) and events [{beat, beats, kind, chord}].
 
-Bars are numbered 1, 2, 3… in chart order, the numbers the person sees with Bar numbers on. Beats count from 1 in the bar's own meter (eighths in 6/8, 9/8, 12/8); 2.5 or "2+" is the and-of-2, 1.333 a triplet.
+Bars are numbered 1, 2, 3… in chart order, the numbers the person sees with "# Bars" on. Beats count from 1 in the bar's own meter (eighths in 6/8, 9/8, 12/8); 2.5 or "2+" is the and-of-2, 1.333 a triplet.
 If they name a section ("the bridge", "the last A"), find its bars in text and say which bar numbers you changed.
 
 CHANGE

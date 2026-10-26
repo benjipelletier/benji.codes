@@ -1,6 +1,6 @@
 'use client';
 
-// "Your agent": tokens a person makes for their own AI agent (their Muse), so
+// "Your agent": tokens a person makes for their own AI agent, so
 // it can edit charts in the playlists they've joined when they ask it in
 // plain English. The token is shown once, with a note to paste to the agent.
 
@@ -23,7 +23,7 @@ function agentNote(token: string, name: string): string {
 export function AgentTokensDialog({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const [tokens, setTokens] = useState<AgentToken[] | null>(null);
-  const [name, setName] = useState('Muse');
+  const [name, setName] = useState('Agent');
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<(AgentToken & { token: string }) | null>(null);
 
@@ -44,7 +44,7 @@ export function AgentTokensDialog({ onClose }: { onClose: () => void }) {
     }
   };
   const revoke = async (t: AgentToken) => {
-    if (!window.confirm(`Revoke ${t.name}’s token (${t.prefix}…)? An agent using it stops working at once.`)) return;
+    if (!window.confirm(`Revoke the token ${t.prefix}… (“${t.name}”)? An agent using it stops working at once.`)) return;
     await api(`/agent-tokens/${t.id}`, { method: 'DELETE' });
     setTokens((ts) => ts?.filter((x) => x.id !== t.id) ?? null);
     if (made?.id === t.id) setMade(null);
@@ -57,31 +57,31 @@ export function AgentTokensDialog({ onClose }: { onClose: () => void }) {
       <div className="share agent-tokens">
         <section>
           <p>
-            Give your AI agent (like Muse) a token, and you can ask it in plain English to change charts in the playlists you’ve joined: “make bars 5–8 a ii–V into C”, “put it in Eb”.
+            Give your AI agent a token, and you can ask it in plain English to change charts in the playlists you’ve joined: “make bars 5–8 a ii–V into C”, “put it in Eb”.
           </p>
           <p className="muted">
-            Its edits are saved as yours, with its name beside them: <b>You</b> <AgentPill name={name.trim() || 'Muse'} />. It can do what you can, nothing more. Revoke a token to shut it out.
+            Its edits are saved as yours, with its name beside them: <b>You</b> <AgentPill name={name.trim() || 'Agent'} />. It can do what you can, nothing more. Revoke a token to shut it out.
           </p>
         </section>
 
         {made ? (
           <section className="agent-made">
-            <h3>{made.name}’s token</h3>
+            <h3>Your new token</h3>
             <p className="muted">Copy it now: it won’t be shown again.</p>
             <div className="linkbox">
               <input readOnly value={made.token} onFocus={(e) => e.target.select()} aria-label="Agent token" />
               <button className="ifp-btn small" onClick={() => copy(made.token, 'Token')}>Copy</button>
             </div>
             <button className="ifp-btn primary" onClick={() => copy(agentNote(made.token, made.name), 'Note for your agent')}>
-              Copy a note for {made.name}
+              Copy a note for your agent
             </button>
-            <p className="muted">The note tells your agent where to start and includes the token. Paste it into your chat with {made.name}.</p>
+            <p className="muted">The note tells your agent where to start and includes the token. Paste it into your chat with your agent.</p>
           </section>
         ) : (
           <section>
             <h3>Make a token</h3>
             <div className="linkbox">
-              <input className="agent-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} aria-label="Your agent’s name" placeholder="Muse" />
+              <input className="agent-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} aria-label="Your agent’s name" placeholder="Agent" />
               <button className="ifp-btn small primary" onClick={make} disabled={busy}>Make token</button>
             </div>
             <p className="muted">The name goes on the pill beside its edits.</p>

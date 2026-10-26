@@ -572,7 +572,7 @@ check('agent · format and info', () => {
   const d = run(docOf('C', 'F', 'G7', 'C'), [
     { op: 'format', bars: '2-3', repeat: 'both', section: 'B', text: 'Solos' },
     { op: 'format', bars: 4, fermata: '4:1', ending: 2 },
-    { op: 'info', title: 'Blues for Muse', bpm: 160 },
+    { op: 'info', title: 'Blues for the Band', bpm: 160 },
   ]);
   assert.equal(d.chart.bars[1].open, '{');
   assert.equal(d.chart.bars[2].close, '}');
@@ -580,7 +580,7 @@ check('agent · format and info', () => {
   assert.equal(d.chart.bars[1].events[0].text, 'Solos');
   assert.equal(d.chart.bars[3].events[0].fermata, true);
   assert.equal(d.chart.bars[3].ending, 2);
-  assert.equal(d.meta.title, 'Blues for Muse');
+  assert.equal(d.meta.title, 'Blues for the Band');
   assert.equal(d.meta.bpm, 160);
   assert.match(errs(d, [{ op: 'format', bars: 1, colour: 'red' }])[0], /doesn’t take “colour”/);
 });

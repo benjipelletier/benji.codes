@@ -1,6 +1,6 @@
-// The edit language the owner's agent (Muse) speaks: a chart shown as
+// The edit language people's AI agents speak: a chart shown as
 // numbered bars, and a list of ops that address bars by number and beats by
-// number. Muse turns what's asked in English into ops; this file applies
+// number. The agent turns what's asked in English into ops; this file applies
 // them, exactly or not at all.
 //
 // Every bar number and beat in a request means the chart as it was read (its
@@ -27,7 +27,7 @@ export interface Doc {
 
 export const MAX_OPS = 100;
 
-// ---- Reading: a chart as Muse sees it ----
+// ---- Reading: a chart as an agent sees it ----
 
 export interface AgentEvent {
   /** Where it starts: 1 is the downbeat, 2.5 the and-of-2 (in the bar's own beats: eighths in 6/8). */

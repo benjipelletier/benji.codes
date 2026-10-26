@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS ifp_songs (
     created_by   TEXT NOT NULL,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by   TEXT NOT NULL,
-    -- Set when the last save was the owner's agent (Muse) acting for updated_by.
+    -- Set when the last save was someone's AI agent acting for updated_by: its name.
     updated_agent TEXT,
     deleted_at   TIMESTAMPTZ
 );
@@ -65,7 +65,7 @@ CREATE INDEX IF NOT EXISTS ifp_songs_playlist ON ifp_songs(playlist_id, position
 -- into one version, the way Google Docs groups them; naming a version
 -- (label) keeps later saves from folding into it. An edit by the owner's
 -- agent is its own version: author_id is the person it acted for, agent its
--- name ("Muse") and note what it was asked to do. It never folds.
+-- name ("Agent") and note what it was asked to do. It never folds.
 CREATE TABLE IF NOT EXISTS ifp_versions (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     song_id      UUID NOT NULL REFERENCES ifp_songs(id) ON DELETE CASCADE,
@@ -118,7 +118,7 @@ CREATE INDEX IF NOT EXISTS ifp_activity_playlist ON ifp_activity(playlist_id, cr
 CREATE INDEX IF NOT EXISTS ifp_activity_song ON ifp_activity(song_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ifp_activity_time ON ifp_activity(created_at DESC);
 
--- Tokens people make for their own agents (their "Muse"): an agent using
+-- Tokens people make for their own AI agents: an agent using
 -- one acts as that person, with their playlists, and its edits carry its name.
 -- Only a SHA-256 of the token is kept; the token is shown once, when made.
 CREATE TABLE IF NOT EXISTS ifp_agent_tokens (

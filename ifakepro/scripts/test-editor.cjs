@@ -1,8 +1,7 @@
 // End-to-end checks of the chart editor in a real browser, on a phone-sized
 // screen (touch) and a laptop (mouse and keyboard). Needs Playwright and a
 // running `next dev` with a throwaway database, the same setup as test-api.ts:
-//   BASE=http://localhost:3000 ADMIN=benji@example.com AGENT_TOKEN=… node ifakepro/scripts/test-editor.cjs
-// (AGENT_TOKEN, the server's IFAKEPRO_AGENT_TOKEN, adds the checks of an edit by the owner's agent.)
+//   BASE=http://localhost:3000 ADMIN=benji@example.com node ifakepro/scripts/test-editor.cjs
 //
 // It builds a tune from scratch by typing a progression, then edits it the
 // ways a musician would: change a chord by tapping, add a one-beat chord,
@@ -14,7 +13,6 @@ const assert = require('node:assert/strict');
 
 const BASE = process.env.BASE ?? 'http://localhost:3000';
 const ADMIN = process.env.ADMIN ?? 'benji@example.com';
-const AGENT_TOKEN = process.env.AGENT_TOKEN ?? '';
 const headers = { 'content-type': 'application/json', cookie: `ifp_dev_user=${ADMIN}` };
 
 async function api(method, path, body) {
@@ -230,10 +228,11 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
   assert.equal(await d.locator('.bar-no').count(), bars, 'the toggle is remembered');
   assert.equal(await d.locator('.bar-no').nth(1).innerText(), '2');
 
-  if (AGENT_TOKEN) {
-    step('laptop · an edit by Muse shows up live, and in History with its pill and note');
+  {
+    step('laptop · an edit by an agent shows up live, and in History with its pill and note');
+    const { token: agentToken, id: agentTokenId } = await api('POST', '/agent-tokens', {});
     const agent = async (method, path, body) => {
-      const r = await fetch(`${BASE}/api/ifakepro${path}`, { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${AGENT_TOKEN}` }, body: body ? JSON.stringify(body) : undefined });
+      const r = await fetch(`${BASE}/api/ifakepro${path}`, { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${agentToken}` }, body: body ? JSON.stringify(body) : undefined });
       const j = await r.json();
       if (!r.ok) throw new Error(`${method} ${path}: ${JSON.stringify(j)}`);
       return j;
@@ -241,27 +240,31 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
     const read = await agent('GET', `/agent/songs/${songId}`);
     await agent('POST', `/agent/songs/${songId}`, { revision: read.revision, note: 'Db7 in bar 2', ops: [{ op: 'chords', bars: 2, text: 'Db7' }] });
     await d.waitForSelector('.ifp-banner .agent-pill', { timeout: 10000 });
-    assert.match(await d.locator('.ifp-banner').innerText(), /Muse\s+changed bar 2 for Benji/);
+    assert.match(await d.locator('.ifp-banner').innerText(), /Agent\s+changed bar 2 for Benji/);
     assert.match(await d.locator('.bar').nth(1).innerText(), /D/);
     await d.click('button:has-text("History")');
     await d.waitForSelector('.v-item .agent-pill');
-    assert.match(await d.locator('.v-item').first().innerText(), /Benji\s+✦\s*Muse[\s\S]*“Db7 in bar 2”[\s\S]*Edited bar 2/);
+    assert.match(await d.locator('.v-item').first().innerText(), /Benji\s+✦\s*Agent[\s\S]*“Db7 in bar 2”[\s\S]*Edited bar 2/);
+    await api('DELETE', `/agent-tokens/${agentTokenId}`);
   }
 
   step('laptop · Your agent: make a token, use it, revoke it');
   d.on('dialog', (dlg) => dlg.accept());
   await d.click('.ifp-account .ifp-avatar');
   await d.click('button:has-text("Your agent")');
-  await d.fill('input[aria-label="Your agent’s name"]', 'Benji’s Muse');
+  await d.waitForSelector('.agent-tokens .members, .agent-tokens p:has-text("None yet")');
+  const tokensBefore = await d.locator('.agent-tokens .members li').count();
+  await d.fill('input[aria-label="Your agent’s name"]', 'Benji’s Assistant');
   await d.click('button:has-text("Make token")');
   const token = await d.locator('input[aria-label="Agent token"]').inputValue();
   assert.match(token, /^ifp_/);
-  assert.equal(await d.locator('.agent-tokens .members li').count(), 1);
+  const rows = d.locator('.agent-tokens .members li');
+  assert.equal(await rows.count(), tokensBefore + 1);
   const used = await fetch(`${BASE}/api/ifakepro/agent`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal(used.status, 200);
-  assert.equal((await used.json()).agent, 'Benji’s Muse');
-  await d.click('.agent-tokens .members button:has-text("Revoke")');
-  await d.waitForFunction(() => !document.querySelector('.agent-tokens .members li'));
+  assert.equal((await used.json()).agent, 'Benji’s Assistant');
+  await rows.filter({ hasText: token.slice(0, 8) }).locator('button:has-text("Revoke")').click();
+  await d.waitForFunction((n) => document.querySelectorAll('.agent-tokens .members li').length === n, tokensBefore);
   assert.equal((await fetch(`${BASE}/api/ifakepro/agent`, { headers: { authorization: `Bearer ${token}` } })).status, 401);
   await lap.close();
 

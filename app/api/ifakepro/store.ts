@@ -229,7 +229,7 @@ export async function listActivity(
 
 // ---- Songs ----
 
-/** An edit made by the owner's agent for the signed-in person (app/api/ifakepro/agent.ts): its name and what it was asked. */
+/** An edit made by someone's AI agent for them (app/api/ifakepro/agent.ts): its name and what it was asked. */
 export interface AgentMark {
   name: string;
   note: string;

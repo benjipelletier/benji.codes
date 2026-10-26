@@ -1,7 +1,7 @@
 import { HttpError, requireUser } from '@ifakepro/lib/session';
 import type { AgentToken } from '@ifakepro/lib/types';
 import { getDb } from '../db';
-import { newAgentToken } from '../agent';
+import { DEFAULT_AGENT_NAME, newAgentToken } from '../agent';
 import { handle, readBody } from '../store';
 
 /** Live tokens a person may have at once. */
@@ -24,7 +24,7 @@ export const GET = handle(async () => {
 export const POST = handle(async (req) => {
   const user = await requireUser();
   const body = await readBody(req);
-  const name = (typeof body.name === 'string' ? body.name.replace(/\s+/g, ' ').trim() : '').slice(0, 24) || 'Muse';
+  const name = (typeof body.name === 'string' ? body.name.replace(/\s+/g, ' ').trim() : '').slice(0, 24) || DEFAULT_AGENT_NAME;
   const sql = getDb();
   const live = await sql`SELECT count(*)::int AS n FROM ifp_agent_tokens WHERE user_id = ${user.id} AND revoked_at IS NULL`;
   if (live[0].n >= MAX_TOKENS) throw new HttpError(400, `You have ${MAX_TOKENS} agent tokens already; revoke one first`);

@@ -80,7 +80,7 @@ export interface VersionSummary {
   label: string | null;
   /** The person it was for, or who made it. */
   author: Person;
-  /** Set when the owner's agent (Muse) made it, acting for the author: its name. */
+  /** Set when someone's AI agent made it, acting for the author: its name. */
   agent: string | null;
   /** What the agent was asked to do, in its words. */
   note: string | null;
@@ -110,7 +110,7 @@ export interface ActivityDTO {
   kind: string;
   summary: string;
   actor: Person;
-  /** Set when the owner's agent did it for the actor. */
+  /** Set when the actor's AI agent did it for them: its name. */
   agent: string | null;
   playlist: { slug: string; title: string };
   song: { id: string; title: string } | null;

@@ -38,7 +38,7 @@ export function useSongSync(opts: {
   /** The bar the user is on, reported to others. */
   barId: string | null;
   onConflict: (by: Person, count: number) => void;
-  /** Someone else's save came in: who, the agent if it was theirs (Muse), and the numbers of the bars it changed. */
+  /** Someone else's save came in: who, the name of their agent if it was one, and the numbers of the bars it changed. */
   onRemote: (by: Person | null, agent: string | null, bars: number[]) => void;
   onDeleted: () => void;
 }) {
