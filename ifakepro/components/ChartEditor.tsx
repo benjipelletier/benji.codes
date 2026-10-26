@@ -318,7 +318,7 @@ export function ChartEditor(p: EditorProps) {
         chordStyle={p.chordStyle}
         selection={editing ? sel : null}
         onBarClick={editable || editing ? onBarClick : undefined}
-        barNumbers={editing}
+        barNumbers={editing || p.view.barNumbers}
         beatGrid={editing && tab === 'rhythm'}
         className={editing ? 'chart-editing' : ''}
       />

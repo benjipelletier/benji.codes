@@ -1,8 +1,9 @@
 // End-to-end checks of iFake Pro's API against a running `next dev` with a
 // throwaway database. Uses the development-only ifp_dev_user cookie to act as
 // three people: an admin (who must be in IFAKEPRO_ADMIN_EMAILS), an invited
-// editor, and a stranger.
-//   BASE=http://localhost:3000 ADMIN=benji@example.com npx tsx ifakepro/scripts/test-api.ts
+// editor, and a stranger; and the owner's agent, with the server's
+// IFAKEPRO_AGENT_TOKEN passed in as AGENT_TOKEN.
+//   BASE=http://localhost:3000 ADMIN=benji@example.com AGENT_TOKEN=… npx tsx ifakepro/scripts/test-api.ts
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,6 +13,22 @@ import type { Chart } from '../lib/chart';
 
 const BASE = process.env.BASE ?? 'http://localhost:3000';
 const ADMIN = process.env.ADMIN ?? 'benji@example.com';
+const AGENT_TOKEN = process.env.AGENT_TOKEN ?? '';
+
+/** As the owner's agent (Muse): its bearer token, no cookie. */
+async function muse(method: string, path: string, body?: unknown, token = AGENT_TOKEN) {
+  const res = await fetch(`${BASE}/api/ifakepro${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: res.status, json: await res.json().catch(() => null) };
+}
+const museOk = async (method: string, path: string, body?: unknown) => {
+  const r = await muse(method, path, body);
+  assert.ok(r.status < 300, `agent ${method} ${path} → ${r.status} ${JSON.stringify(r.json)}`);
+  return r.json;
+};
 
 async function call(who: string | null, method: string, path: string, body?: unknown) {
   const res = await fetch(`${BASE}/api/ifakepro${path}`, {
@@ -201,6 +218,88 @@ const eve = `eve.${run}@example.com`;
   const found = (await ok(null, 'GET', '/songs?q=autumn')).songs;
   assert.equal(found.length, 1, 'the unlisted original is hidden from guests; the copy is public');
   assert.equal(found[0].playlist.slug, other);
+
+  if (!AGENT_TOKEN) console.log('· (no AGENT_TOKEN: skipping the agent checks)');
+  else {
+    step('agent · only with its token');
+    assert.equal((await muse('GET', '/agent', undefined, 'x'.repeat(AGENT_TOKEN.length))).status, 401);
+    assert.equal((await muse('GET', '/agent', undefined, '')).status, 401);
+    const home = await museOk('GET', '/agent?q=autumn');
+    assert.match(home.brief, /POST \/api\/ifakepro\/agent\/songs\/<id>/);
+    const brunch = home.playlists.find((p: { slug: string }) => p.slug === other);
+    assert.equal(brunch.songs[0].title, 'Autumn Leaves');
+    const id = brunch.songs[0].id;
+
+    step('agent · reads the chart as numbered bars');
+    let read = await museOk('GET', `/agent/songs/${id}`);
+    assert.match(read.text, /^Autumn Leaves · key Gm/);
+    assert.match(read.text.split('\n')[1], /^ 1 \[A\] \|: Cm7 \| F7 \| Bbmaj7 \| Ebmaj7 \|$/);
+    assert.equal(read.bars[4].chords, 'Am7b5');
+    const rev0 = read.revision;
+
+    step('agent · a dry run changes nothing; a bad request is refused whole');
+    const dry = await museOk('POST', `/agent/songs/${id}`, { revision: rev0, note: 'try', dryRun: true, ops: [{ op: 'chords', bars: '1-2', text: '| Dm7 G7 | Cmaj7 |' }] });
+    assert.equal(dry.summary, 'Edited bars 1–2');
+    assert.deepEqual(dry.bars[0], { n: 1, was: 1, before: 'Cm7', after: 'Dm7 G7' });
+    const bad = await muse('POST', `/agent/songs/${id}`, { revision: rev0, note: 'x', ops: [{ op: 'chords', bars: 1, text: 'Dm7' }, { op: 'put', at: '99:1', what: 'C' }] });
+    assert.equal(bad.status, 422);
+    assert.match(bad.json.errors[0], /op 2 \(put\): bar 99 doesn’t exist/);
+    assert.equal((await museOk('GET', `/agent/songs/${id}`)).revision, rev0);
+
+    step('agent · an edit is saved as the person, with the agent and its note');
+    const done = await museOk('POST', `/agent/songs/${id}`, {
+      revision: rev0,
+      note: 'ii–V into the first bar, G7 on beat 3 of bar 4',
+      ops: [{ op: 'chords', bars: 1, text: 'Dm7 G7' }, { op: 'put', at: '4:3', what: 'G7', beats: 1 }],
+    });
+    assert.equal(done.revision, rev0 + 1);
+    assert.deepEqual(done.bars.map((b: { n: number }) => b.n), [1, 4]);
+    assert.equal(done.bars[1].after, 'Ebmaj7:2 G7:1 Ebmaj7:1');
+    let versions = (await ok(null, 'GET', `/songs/${id}/versions`)).versions;
+    assert.equal(versions[0].agent, 'Muse');
+    assert.equal(versions[0].note, 'ii–V into the first bar, G7 on beat 3 of bar 4');
+    assert.equal(versions[0].author.name, 'Benji');
+    assert.equal(versions[0].summary, 'Edited bars 1, 4');
+    const act = (await ok(null, 'GET', `/activity?playlist=${other}`)).activity;
+    assert.equal(act[0].agent, 'Muse');
+    const polled = await ok(ADMIN, 'GET', `/songs/${id}/poll?rev=${rev0}`);
+    assert.equal(polled.song.agent, 'Muse', 'an open song learns the agent made the change');
+
+    step('agent · a stale revision is a 409 with the song as it is now');
+    const stale = await muse('POST', `/agent/songs/${id}`, { revision: rev0, note: 'x', ops: [{ op: 'chords', bars: 2, text: 'C' }] });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.json.song.revision, rev0 + 1);
+
+    step('agent · the person’s own edit right after is a version of its own, and undo won’t clobber it');
+    const now = await ok(ADMIN, 'GET', `/songs/${id}`);
+    const mine = structuredClone(now);
+    mine.meta.bpm = 132;
+    await ok(ADMIN, 'PATCH', `/songs/${id}`, { baseRevision: now.revision, meta: mine.meta, chart: mine.chart });
+    versions = (await ok(null, 'GET', `/songs/${id}/versions`)).versions;
+    assert.equal(versions[0].agent, null);
+    assert.equal(versions[1].agent, 'Muse', 'a person’s save never folds into the agent’s version');
+    assert.equal((await muse('POST', `/agent/songs/${id}/undo`, {})).status, 409);
+
+    step('agent · undo its last edit');
+    read = await museOk('GET', `/agent/songs/${id}`);
+    await museOk('POST', `/agent/songs/${id}`, { revision: read.revision, note: 'up a whole step', ops: [{ op: 'key', key: 'A minor' }] });
+    assert.match((await museOk('GET', `/agent/songs/${id}`)).text, /key Am/);
+    const undo = await museOk('POST', `/agent/songs/${id}/undo`, {});
+    assert.equal(undo.undid, 'up a whole step');
+    const back = await museOk('GET', `/agent/songs/${id}`);
+    assert.match(back.text, /key Gm/);
+    assert.equal(back.bars[0].chords, 'Dm7 G7', 'the earlier edit stays');
+    assert.equal(back.history[0].note, 'Undid ‘up a whole step’');
+
+    step('agent · a new song from text or a form');
+    const made = await museOk('POST', `/agent/playlists/${other}/songs`, { title: 'Muse Blues', key: 'F', form: 'blues', note: 'a blues in F for the opener' });
+    assert.match(made.text, /^Muse Blues · key F/);
+    assert.equal((await ok(null, 'GET', `/songs/${made.id}`)).chart.bars[1].events[0].ch, 'Bb7');
+    assert.equal((await ok(null, 'GET', `/songs/${made.id}/versions`)).versions[0].agent, 'Muse');
+    const typed = await museOk('POST', `/agent/playlists/${other}/songs`, { title: 'Vamp', key: 'Eb', text: '| Ebmaj7 | Ab7 | Ebmaj7 | Bb7sus |' });
+    assert.equal((await ok(null, 'GET', `/songs/${typed.id}`)).chart.bars.length, 4);
+    assert.equal((await muse('POST', `/agent/playlists/${other}/songs`, { title: 'Bad', text: '| C D E |' })).status, 422);
+  }
 
   console.log('\nall API checks passed');
 })().catch((e) => {

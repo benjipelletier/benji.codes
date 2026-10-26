@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Chart } from '@ifakepro/lib/chart';
 import { api, timeAgo, when } from '@ifakepro/lib/client';
 import type { ActivityDTO, CommentDTO, VersionDetail, VersionSummary } from '@ifakepro/lib/types';
-import { Avatar, Empty, Spinner, useToast, useViewer } from './ui';
+import { AgentPill, Avatar, Empty, Spinner, useToast, useViewer } from './ui';
 
 // ---- Comments ----
 
@@ -311,8 +311,9 @@ export function VersionsPanel({
                 <span className="v-when">{i === 0 ? 'Current version' : when(v.createdAt)}</span>
                 {v.label && <span className="v-label">{v.label}</span>}
                 <span className="v-who">
-                  <Avatar person={v.author} size={16} /> {v.author.name} · {KIND_LABEL[v.kind]}
+                  <Avatar person={v.author} size={16} /> {v.author.name} {v.agent && <AgentPill name={v.agent} />} · {KIND_LABEL[v.kind]}
                 </span>
+                {v.note && <span className="v-note">“{v.note}”</span>}
                 {v.summary && <span className="v-sum">{v.summary}</span>}
               </button>
               {canEdit && (
@@ -348,8 +349,10 @@ export function ActivityList({ items, showPlaylist = true, showSong = true }: { 
             <Avatar person={a.actor} size={22} />
             <div className="a-main">
               <div className="a-line">
-                <b>{a.actor.name}</b> <span className="a-sum">{a.summary.charAt(0).toLowerCase() + a.summary.slice(1)}</span>
+                <b>{a.actor.name}</b> {a.agent && <AgentPill name={a.agent} />}{' '}
+                <span className="a-sum">{a.summary.charAt(0).toLowerCase() + a.summary.slice(1)}</span>
               </div>
+              {a.agent && typeof a.data.note === 'string' && a.data.note && <div className="a-note">“{a.data.note}”</div>}
               <div className="a-where">
                 {showSong && a.song && songHref && <Link href={songHref}>{a.song.title}</Link>}
                 {showSong && a.song && showPlaylist && ' · '}

@@ -38,7 +38,8 @@ export function useSongSync(opts: {
   /** The bar the user is on, reported to others. */
   barId: string | null;
   onConflict: (by: Person, count: number) => void;
-  onRemote: (by: Person | null) => void;
+  /** Someone else's save came in: who, the agent if it was theirs (Muse), and the numbers of the bars it changed. */
+  onRemote: (by: Person | null, agent: string | null, bars: number[]) => void;
   onDeleted: () => void;
 }) {
   const { songId, canEdit } = opts;
@@ -68,11 +69,13 @@ export function useSongSync(opts: {
     setDocState(next);
   };
 
-  const flashBars = (before: Doc, after: Doc) => {
+  /** Light up the bars that changed; returns their numbers. */
+  const flashBars = (before: Doc, after: Doc): number[] => {
     const d = diffCharts(before.chart, after.chart);
-    if (!d.changed.size) return;
+    if (!d.changed.size) return [];
     setFlash(d.changed);
     window.setTimeout(() => setFlash(new Set()), 2500);
+    return after.chart.bars.flatMap((b, i) => (d.changed.has(b.id) ? [i + 1] : []));
   };
 
   const save = useCallback(async () => {
@@ -198,9 +201,9 @@ export function useSongSync(opts: {
             const next = dirty() ? mergeDocs(server.current.doc, docRef.current, theirs).value : theirs;
             server.current = { revision: r.song.revision, doc: theirs };
             setRevision(r.song.revision);
-            flashBars(docRef.current, next);
+            const bars = flashBars(docRef.current, next);
             show(next);
-            o.onRemote(r.song.updatedBy);
+            o.onRemote(r.song.updatedBy, r.song.agent ?? null, bars);
             if (dirty()) schedule();
           }
           setStatus((st) => (st === 'offline' && !dirty() ? 'saved' : st));

@@ -26,8 +26,8 @@ export const PATCH = handle<P>(async (req, { id }) => {
   const chart = sanitizeChart(body.chart);
   if (!chart || typeof body.baseRevision !== 'number') throw new HttpError(400, 'Send baseRevision, meta and chart');
   const meta = sanitizeMeta(body.meta, song.meta);
-  const revision = await saveSong(song, user, body.baseRevision, meta, chart);
-  if (revision == null) {
+  const saved = await saveSong(song, user, body.baseRevision, meta, chart);
+  if (saved == null) {
     const now = await findSong(id);
     return NextResponse.json(
       {
@@ -37,7 +37,7 @@ export const PATCH = handle<P>(async (req, { id }) => {
       { status: 409 },
     );
   }
-  return { revision };
+  return { revision: saved.revision };
 });
 
 export const DELETE = handle<P>(async (_req, { id }) => {

@@ -45,6 +45,28 @@ export function transposeKey(key: string, semis: number): string {
   return minor ? `${MINOR_KEYS[j]}-` : MAJOR_KEYS[j];
 }
 
+/** Half steps from one key to another, the short way round (−5 … +6). */
+export function keyDistance(from: string, to: string): number {
+  const a = NOTE[keyRoot(from).root];
+  const b = NOTE[keyRoot(to).root];
+  if (a == null || b == null) return 0;
+  const d = (((b - a) % 12) + 12) % 12;
+  return d > 6 ? d - 12 : d;
+}
+
+/**
+ * A key as people say it ("Eb", "E♭ minor", "f#m", "C-") in iReal spelling
+ * ("Eb", "F#-"), spelled the way fake books spell that key; null if it isn't one.
+ */
+export function parseKey(input: string): string | null {
+  const m = input.trim().replace(/♭/g, 'b').replace(/♯/g, '#').match(/^([A-Ga-g])([b#]?)\s*(m|min|minor|-|maj|major)?$/);
+  if (!m) return null;
+  const minor = !!m[3] && /^(m|min|minor|-)$/.test(m[3]);
+  const i = NOTE[m[1].toUpperCase() + m[2]];
+  if (i == null) return null;
+  return minor ? `${MINOR_KEYS[i]}-` : MAJOR_KEYS[i];
+}
+
 function transposeNote(n: string, semis: number, flats: boolean): string {
   const i = NOTE[n];
   if (i == null) return n;
@@ -101,8 +123,10 @@ export function chordParts(ch: string, style: ChordStyle = 'jazz'): ChordParts {
   } else {
     q = q
       .replace(/^-\^/, 'm△')
+      .replace(/^\^(?=\d)(?!7)/, 'maj') // C^9: maj9
       .replace(/^\^7?/, 'maj7')
-      .replace(/^h7?/, 'm7♭5')
+      .replace(/^h(\d+)/, (_, d: string) => `m${d}♭5`) // Ch9: m9♭5
+      .replace(/^h/, 'm7♭5')
       .replace(/^o/, 'dim')
       .replace(/^-/, 'm')
       .replace(/^\+/, 'aug')
@@ -142,8 +166,9 @@ export function normalizeChord(input: string): string | null {
     .replace(/^m(?!a)/, '-')
     .replace(/^dim/i, 'o')
     .replace(/^aug/i, '+')
-    .replace(/^-7b5/, 'h7')
+    .replace(/^-(\d+)b5/, 'h$1')
     .replace(/^-b5/, 'h')
+    .replace(/^-\(?maj\)?(?=\d)(?!7)/i, '-^')
     .replace(/^-\(?maj\)?7?/i, '-^7')
     .replace(/maj/gi, '^')
     .replace(/[()]/g, '');
@@ -194,8 +219,9 @@ export const QUALITIES: Quality[] = [
 
 /** A chord as people type it (Cm7, Cmaj7, Cm7b5, Cdim7), for the text field. */
 export function chordText(ch: string): string {
+  if (ch.includes('*')) return ch; // iReal's own quality, written between asterisks
   const p = chordParts(ch, 'plain');
-  return `${p.root}${p.quality}${p.bass ? `/${p.bass}` : ''}`.replace(/♭/g, 'b').replace(/♯/g, '#').replace(/△7?/g, 'maj7');
+  return `${p.root}${p.quality}${p.bass ? `/${p.bass}` : ''}`.replace(/♭/g, 'b').replace(/♯/g, '#').replace(/△(\d+)?/g, (_, d?: string) => `maj${d ?? '7'}`);
 }
 
 /** A dominant's tritone substitute: G7 → Db7 (quality and bass kept, the bass moving with it). */

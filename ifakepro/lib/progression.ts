@@ -25,7 +25,7 @@ export interface ParsedBar {
   source: string;
 }
 
-interface Token {
+export interface Token {
   kind: EventKind | 'cont';
   ch?: string;
   alt?: string;
@@ -39,7 +39,8 @@ function parseBeats(s: string): number | null {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-function readToken(raw: string): Token | string {
+/** One word of a bar ("Dm7:2", "r", "C7>", "/"), or why it can't be read. */
+export function readToken(raw: string): Token | string {
   let t = raw;
   let beats: number | undefined;
   const colon = t.lastIndexOf(':');
@@ -48,6 +49,12 @@ function readToken(raw: string): Token | string {
     if (b == null) return `can’t read the length in “${raw}”`;
     beats = b;
     t = t.slice(0, colon);
+  }
+  // /(Ab-7): the harmony carries on, with an alternate chord written above (slash(Ab-7) the same on a slash).
+  const held = t.match(/^([/._]|slash)\(([^)]*)\)$/i);
+  if (held) {
+    const alt = normalizeChord(held[2].trim());
+    return alt ? { kind: held[1].toLowerCase() === 'slash' ? 'slash' : 'cont', alt, beats } : `can’t read the chord “${held[2]}”`;
   }
   if (t === '/' || t === '.' || t === '_') return { kind: 'cont', beats };
   if (/^(r|rest|𝄽)$/i.test(t)) return { kind: 'rest', beats };
@@ -127,7 +134,7 @@ export function parseBar(source: string, m: Meter): ParsedBar {
   const events: Ev[] = [];
   toks.forEach((t, k) => {
     const dur = sizes[k];
-    if (t.kind === 'cont' && events.length) {
+    if (t.kind === 'cont' && !t.alt && events.length) {
       events[events.length - 1].dur += dur;
       return;
     }
@@ -142,14 +149,18 @@ export function parseBar(source: string, m: Meter): ParsedBar {
 
 /** Split text into bars and read each against the meter it will land in. */
 export function parseProgression(text: string, meterFor: (k: number) => Meter): ParsedBar[] {
+  return splitBars(text).map((p, k) => parseBar(p, meterFor(k)));
+}
+
+/** The text of each bar. Leading and trailing barlines don't make empty bars; empty bars in between do (as holds). */
+export function splitBars(text: string): string[] {
   const parts = text
     .replace(/\|\|:|:\|\||\[|\]|\{|\}/g, '|')
     .split(/[|\n]/)
     .map((s) => s.trim());
-  // Leading and trailing barlines don't make empty bars; empty bars in between do (as holds).
   while (parts.length && !parts[0]) parts.shift();
   while (parts.length && !parts[parts.length - 1]) parts.pop();
-  return parts.map((p, k) => parseBar(p, meterFor(k)));
+  return parts;
 }
 
 // ---- Back to text ----
@@ -168,8 +179,8 @@ function tokenOf(e: Ev): string {
     case 'hit': return `${chordText(e.ch!)}${alt}>`;
     case 'rest': return 'r';
     case 'nc': return 'N.C.';
-    case 'slash': return 'slash';
-    default: return '/';
+    case 'slash': return `slash${alt}`;
+    default: return `/${alt}`;
   }
 }
 

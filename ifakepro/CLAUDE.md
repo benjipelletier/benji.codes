@@ -20,9 +20,11 @@ through), print/PDF, export back to iReal Pro, and a standards library of
 IFAKEPRO_DATABASE_URL=postgres://…        # Neon (Vercel ↔ Neon integration)
 IFAKEPRO_ADMIN_EMAILS=a@x.com,b@y.com     # who can create playlists; unset = nobody (fails closed)
 IFAKEPRO_NEON_FETCH_ENDPOINT=http://…     # optional, local dev only: a Neon HTTP proxy in front of a plain Postgres
+IFAKEPRO_AGENT_TOKEN=…                    # the owner's agent (Muse): bearer token, 32+ characters; unset = no agent
+IFAKEPRO_AGENT_EMAIL=a@x.com              # optional: who the agent acts for (default: the first IFAKEPRO_ADMIN_EMAILS)
 ```
 
-The API creates its tables the first time it meets an empty database (`ensureSchema` in `app/api/ifakepro/db.ts`, run by every route's `handle()`). To set them up ahead of time, or after a schema change, run `IFAKEPRO_DATABASE_URL=… npx tsx ifakepro/scripts/setup-db.ts` (idempotent).
+The API creates its tables the first time it meets an empty database, and adds columns newer than an existing one (`MIGRATIONS` in `db/schema.ts`), through `ensureSchema` in `app/api/ifakepro/db.ts`, run by every route's `handle()`. To set them up ahead of time, or after a schema change, run `IFAKEPRO_DATABASE_URL=… npx tsx ifakepro/scripts/setup-db.ts` (idempotent).
 
 ## Who can do what
 
@@ -41,7 +43,7 @@ A bar is a short timeline. `Chart { v: 2, bars: Bar[] }`; each `Bar` has a stabl
 
 - An event (`Ev`) is `{id, at, dur, kind, ch?, alt?, small?, text?, segno?, coda?, fermata?, end?}`. Times are in ticks, `WHOLE = 96` to a whole note (a quarter is 24, an eighth-note triplet 8), so triplets and sixteenths are exact.
 - Kinds: `chord`, `rest`, `nc` (N.C.), `hold` (the chord before keeps sounding, drawn as nothing), `slash` (keep time, `/`), `hit` (an accented stab, drawn with `>`).
-- A bar's events are contiguous and fill it exactly; `fitEvents` enforces that whenever the meter changes. `meter(time)` gives the bar length, the beat (a dotted quarter in 6/8, 9/8, 12/8) and the beat grouping.
+- A bar's events are contiguous and fill it exactly; `fitEvents` enforces that whenever the meter changes. `meter(time)` gives the bar length, the beat (the time signature's lower note: an eighth in 6/8) and the grouping (3 in 6/8, 9/8, 12/8).
 - Event ids are stable too (`${barId}.${k}` for upgraded charts, random for new ones). The editor's selection, undo and merges hang on bar and event ids. Copies and pastes get new ones.
 - Repeats, endings and sections live on the bar frame, not in the events.
 
@@ -69,6 +71,18 @@ Reading view is the default; "✎ Edit chart" (or tapping a bar, or `?edit=1`) o
 - Transposing is kept apart: the Chord tab changes one chord; the Bar tab moves a selection; Song info moves the whole chart's key; "View in" (concert, B♭, E♭, F, or any key) is per viewer, not saved, and the editor locks while it's on.
 - Typing edits fold into one undo step (`change(fn, {coalesce})` in `useSongSync`), as do drags.
 
+## Edits by the owner's agent (Muse)
+
+The owner talks to their agent, Muse, in English ("make bars 5–8 a ii–V into C", "G7 on beat 3 of bar 12 for a beat", "add a 4-bar intro", "put it in E♭"). Muse turns that into ops and sends them here, the way it writes word lists in 重复习 (`app/api/chongfuxi/agent.ts`). The English stays on Muse's side; the server only speaks an exact edit language and refuses anything ambiguous.
+
+- **Access** (`app/api/ifakepro/agent.ts`): `Authorization: Bearer <IFAKEPRO_AGENT_TOKEN>`, compared in constant time. Unset or under 32 characters is a 503 (so it can be told from a wrong token's 401). Muse acts as `IFAKEPRO_AGENT_EMAIL` (default: the first admin email), looked up in `ifp_profiles` (they must have signed in once). It can edit what that person can.
+- **Reading** (`lib/script.ts`): `chartText` is the chart in numbered rows, laid out as on screen (`  5 | Am7b5 | D7b13 | Gm6 | % :|`, `[A]` sections, `|: :|` repeats, `‖end`, endings, time changes, marks). `agentBars` is the same per bar, with each bar's text in the Type panel's syntax and its events by beat. Bar numbers are positions in chart order, the numbers the "# Bars" toggle shows. Beats count from 1 in the bar's own meter (eighths in 6/8); `2.5` or `2+` is the and-of-2.
+- **Changing** (`applyOps` in `lib/script.ts`): ops `chords` (rewrite bars from text; counts must match), `put` (one event from a beat, optionally for n beats; what was sounding carries on after it), `remove`, `insert` (with `text` and `section`), `delete`, `clear`, `copy`, `move`, `transpose` (bars, or the whole song and its key), `key` (move or relabel), `format` (section, time for just those bars, ending, repeat, barline, segno, coda, fermata, text, new line), `info` (title, composer, style, bpm). Each is built on the editor's own `lib/edit.ts` functions.
+- **Safety**: every number in a request means the chart as read at `revision`; all refs are resolved to bar ids before anything is applied, so an insert early on doesn't shift a later op. All or nothing: any problem (a bar that isn't there, a beat outside the bar, a bar the parser would flag, an unknown field, a request that changes nothing) refuses the whole request (422) with a message per op naming the bar and beat. A stale `revision` is a 409 carrying the song as it is now. `dryRun` shows the result without saving. Undo puts back the version before the agent's last edit, only while nothing has happened since.
+- **Saving** (`saveSong(…, agent)` in `store.ts`): as the person, with `ifp_versions.agent`/`note` set and `ifp_songs.updated_agent`. An agent's edit is always a version of its own: it never folds, and a person's later save never folds into it. The edit log entry carries `data.agent` and `data.note`.
+- **In the app**: a "✦ Muse" pill (`AgentPill` in `components/ui.tsx`) beside the person's name in History and the edit log, with the note in quotes; someone with the song open sees its bars flash and "✦ Muse changed bars 5–8 for Benji" (the poll returns `agent`).
+- **Routes** (`app/api/ifakepro/agent/`): `GET /agent` (the brief, `lib/brief.ts`, and the playlists and songs the person can edit, `?q=`), `GET|POST /agent/songs/[id]`, `POST /agent/songs/[id]/undo`, `POST /agent/playlists/[slug]/songs` (a new song from text, a form, or empty bars). The brief is what Muse reads first; keep it in step with `lib/script.ts`.
+
 ## iReal format (`lib/ireal.ts`)
 
 `irealb://` + percent-encoded songs joined by `===`, with the playlist name last. Each song is `Title=Composer==Style=Key=Transpose=1r34LbKcu7<scrambled music>=Comp=BPM=Repeats`. The music is scrambled in 50-character chunks (`obfusc50`, which undoes itself), and uses the shorthands `Kcl` = `| x`, `LZ` = ` |`, `XyQ` = 3 empty cells. Composers are stored "Last First" and swapped for display. iReal has no rests or hits, so those export as N.C. and as plain chords, and durations iReal's cells can't show (triplets, sixteenths) go to the nearest cell. `findLinks` also pulls links out of iReal's exported HTML.
@@ -85,7 +99,7 @@ Reading view is the default; "✎ Edit chart" (or tapping a bar, or `?edit=1`) o
 
 ## Versions and the edit log
 
-- Each save adds or updates a row in `ifp_versions`. Saves by the same person within 10 minutes fold into one version, like Google Docs. Naming a version (`label`) stops further folding into it.
+- Each save adds or updates a row in `ifp_versions`. Saves by the same person within 10 minutes fold into one version, like Google Docs. Naming a version (`label`) stops further folding into it. Edits by the owner's agent never fold (see above).
 - The summary comes from `lib/diff.ts` ("Edited bars 5–8, added 4 bars, key C → D").
 - Restore writes the old chart as a new revision and a new `restore` version, so nothing is lost.
 - `ifp_activity` is the edit log, per playlist, per song, and across everything (`/ifakepro/activity`). Edit entries point at their version and fold along with it.
@@ -99,7 +113,7 @@ Reading view is the default; "✎ Edit chart" (or tapping a bar, or `?edit=1`) o
 | `ifp_playlists` | Includes `slug`, `visibility`, `edit_token` and soft delete |
 | `ifp_members` | `owner` / `editor` |
 | `ifp_songs` | `meta`, `chart` JSONB, `revision`, `position`, soft delete |
-| `ifp_versions` | Version history |
+| `ifp_versions` | Version history; `agent` and `note` on the agent's edits |
 | `ifp_comments` | Threads through `parent_id`, `bar_id` NULL means the whole song, `updated_at` for the poll stamp |
 | `ifp_activity` | The edit log |
 | `ifp_presence` | Who has a song open, and which bar |
@@ -122,6 +136,7 @@ Parses `jazz/charts_raw/jazz.ireal` once per server instance. `next.config.ts` t
 - On phones the song sheet is edge to edge; in dark mode it's near-black, like iReal.
 - Song info edits the title, composer, style, tempo and key. Changing the key moves every chord there by default (the short way round); unticked, it only relabels.
 - "View in" next to the chart is a per-viewer transposition that isn't saved.
+- "# Bars" numbers every bar (top left, after the barline or section box), remembered per device (`usePref('barNumbers')`); always on while editing.
 - Getting charts in and out:
   - **Upload from iReal Pro**: the default tab of New playlist and Add songs. You can upload or drop the `.html` file iReal shares, or paste an `irealb://` link.
   - **⬇ iReal Pro**: a button on every playlist and song (`ExportDialog`). It offers the `irealb://` link (opens the app), the same as an `.html` file, or a copy of the link. A song is encoded in the browser from what's on screen, unsaved edits included.
@@ -146,6 +161,6 @@ Routes:
 
 ## Checks
 
-- `npx tsx ifakepro/scripts/test-lib.ts`: the libraries, the 1,460-song round trip, and the editor's acceptance checks as pure functions.
-- `BASE=http://localhost:3000 ADMIN=<an admin email> npx tsx ifakepro/scripts/test-api.ts`: end to end against `next dev` with a throwaway database. It covers permissions, invites, conflicting saves and merges, version folding and restore, comments, activity, reorder, delete, export and copy, upgrading old charts and starting from a form.
-- `BASE=http://localhost:3000 ADMIN=<an admin email> node ifakepro/scripts/test-editor.cjs`: the editor in Playwright, same setup, on a phone (touch) and a laptop (keyboard), checking what the server saved after each edit.
+- `npx tsx ifakepro/scripts/test-lib.ts`: the libraries, the 1,460-song round trip, the editor's acceptance checks as pure functions, and the agent's edit language (every standard's bars read back from their text; addressing, each op, all-or-nothing).
+- `BASE=http://localhost:3000 ADMIN=<an admin email> AGENT_TOKEN=<the server's IFAKEPRO_AGENT_TOKEN> npx tsx ifakepro/scripts/test-api.ts`: end to end against `next dev` with a throwaway database. It covers permissions, invites, conflicting saves and merges, version folding and restore, comments, activity, reorder, delete, export and copy, upgrading old charts, starting from a form, and the agent (token, reading, dry run, refusals, attribution, stale revisions, undo, new songs).
+- `BASE=http://localhost:3000 ADMIN=<an admin email> AGENT_TOKEN=… node ifakepro/scripts/test-editor.cjs`: the editor in Playwright, same setup, on a phone (touch) and a laptop (keyboard), checking what the server saved after each edit; then bar numbers, and an agent's edit arriving live and showing in History.

@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type SongMeta, sanitizeMeta } from '@ifakepro/lib/chart';
-import { ALL_KEYS, type ChordStyle, keyRoot, noteIndex, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
+import { ALL_KEYS, type ChordStyle, keyDistance, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
 import { api, copyText, displayKey, download, personColor, usePref, when } from '@ifakepro/lib/client';
-import { diffCharts } from '@ifakepro/lib/diff';
+import { diffCharts, ranges } from '@ifakepro/lib/diff';
 import { transposeChart } from '@ifakepro/lib/edit';
 import { exportHtml, serializeSong } from '@ifakepro/lib/ireal';
 import type { Doc } from '@ifakepro/lib/merge';
@@ -14,7 +14,7 @@ import type { CommentDTO, PlaylistSummary, SongDetail, VersionDetail } from '@if
 import { ChartEditor } from './ChartEditor';
 import { ChartHead, ChartView, type Selection } from './ChartView';
 import { ActivityFeed, CommentsPanel, VersionsPanel } from './Panels';
-import { Avatar, Dialog, Menu, Spinner, Tabs, useToast, useViewer } from './ui';
+import { AgentPill, Avatar, Dialog, Menu, Spinner, Tabs, useToast, useViewer } from './ui';
 import { useSongSync } from './useSongSync';
 
 export const STYLES = [
@@ -55,7 +55,8 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   const [comments, setComments] = useState<CommentDTO[] | null>(null);
   const [commentBar, setCommentBar] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'info' | 'export' | 'copy' | null>(null);
-  const [lastRemote, setLastRemote] = useState<{ name: string; at: number } | null>(null);
+  const [lastRemote, setLastRemote] = useState<{ name: string; agent: string | null; bars: number[]; at: number } | null>(null);
+  const [barNumbers, setBarNumbers] = usePref<'on' | 'off'>('barNumbers', 'off');
 
   const { viewer } = useViewer();
   const [presBar, setPresBar] = useState<string | null>(null);
@@ -66,7 +67,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
     canEdit: member && !deleted,
     barId: presBar,
     onConflict: (by, n) => toast(`${by.name} changed ${n === 1 ? 'a bar' : `${n} bars`} you were editing at the same time — kept their version`, 'warn'),
-    onRemote: (by) => by && setLastRemote({ name: by.name, at: Date.now() }),
+    onRemote: (by, agent, bars) => by && setLastRemote({ name: by.name, agent, bars, at: Date.now() }),
     onDeleted: () => setDeleted(true),
   });
   const { doc } = sync;
@@ -206,6 +207,14 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               {editing ? 'Done editing' : '✎ Edit chart'}
             </button>
           )}
+          <button
+            className={`ifp-btn small ${barNumbers === 'on' ? 'on' : ''}`}
+            onClick={() => setBarNumbers(barNumbers === 'on' ? 'off' : 'on')}
+            aria-pressed={barNumbers === 'on'}
+            title="Number every bar, to say “bar 12, beat 3” (always on while editing)"
+          >
+            # Bars
+          </button>
           <button className="ifp-btn small" onClick={() => setChordStyle(chordStyle === 'jazz' ? 'plain' : 'jazz')} title="Chord symbols: △ ø – or maj m7♭5 m">
             {chordStyle === 'jazz' ? 'C△ C–7' : 'Cmaj7 Cm7'}
           </button>
@@ -255,7 +264,17 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           </div>
         )}
         {!member && !deleted && <JoinHint slug={song.playlist.slug} />}
-        {remoteRecent && <div className="ifp-banner info subtle">Updated by {lastRemote!.name}</div>}
+        {remoteRecent && (
+          <div className="ifp-banner info subtle">
+            {lastRemote!.agent ? (
+              <span>
+                <AgentPill name={lastRemote!.agent} /> changed {lastRemote!.bars.length ? `bar${lastRemote!.bars.length === 1 ? '' : 's'} ${ranges(lastRemote!.bars)}` : 'the song'} for {lastRemote!.name}
+              </span>
+            ) : (
+              <>Updated by {lastRemote!.name}</>
+            )}
+          </div>
+        )}
         {preview && (
           <div className="ifp-banner preview">
             <span>
@@ -290,7 +309,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             onEdit={member && !deleted && !preview ? () => setDialog('info') : undefined}
           />
           {preview ? (
-            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} />
+            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} barNumbers={barNumbers === 'on'} />
           ) : (
             <ChartEditor
               chart={doc.chart}
@@ -312,7 +331,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               canComment={member && !deleted}
               onComment={openComment}
               chordStyle={chordStyle}
-              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash }}
+              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash, barNumbers: barNumbers === 'on' }}
             />
           )}
         </div>
@@ -370,15 +389,6 @@ function JoinHint({ slug }: { slug: string }) {
       <Link href={`/ifakepro/p/${slug}`}>Playlist</Link>
     </div>
   );
-}
-
-/** Half steps from one key to another, the short way round (−5 … +6). */
-function keyDistance(from: string, to: string): number {
-  const a = noteIndex(keyRoot(from).root);
-  const b = noteIndex(keyRoot(to).root);
-  if (a == null || b == null) return 0;
-  const d = (((b - a) % 12) + 12) % 12;
-  return d > 6 ? d - 12 : d;
 }
 
 function SongInfoDialog({ meta, onSave, onClose }: { meta: SongMeta; onSave: (m: SongMeta, semis: number) => void; onClose: () => void }) {

@@ -268,7 +268,7 @@ function ChartViewInner(props: ChartViewProps) {
                 {bar.open === '{' && <i className="dots dots-open" aria-hidden />}
                 {bar.close && <i className="bl bl-close" aria-hidden />}
                 {bar.close === '}' && <i className="dots dots-close" aria-hidden />}
-                {barNumbers && !bar.section && <span className="bar-no">{index + 1}</span>}
+                {barNumbers && <span className="bar-no">{index + 1}</span>}
                 <div
                   className="bar-body"
                   // Each event as wide as it is long; one with a long name takes what it needs, so it never runs into the next.

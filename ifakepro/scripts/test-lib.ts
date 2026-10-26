@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import { type Bar, type Chart, type Ev, blankBar, blankChart, canon, layout, meter, metersOf, normalizeChart, sanitizeChart } from '../lib/chart';
+import { type Bar, type Chart, type Ev, EMPTY_META, blankBar, blankChart, canon, layout, meter, metersOf, normalizeChart, sanitizeChart } from '../lib/chart';
 import { cellChartToChart, chartToCellChart } from '../lib/convert';
 import { parseCells, parseIReal, parseLink, parseMusic, scramble, serializeMusic, serializePlaylist, serializeSong, unscramble } from '../lib/ireal';
 import { chordText, joinChord, normalizeChord, splitChord, transposeChord, transposeKey, tritoneSub, twoOf } from '../lib/chords';
@@ -23,6 +23,7 @@ import { formChart } from '../lib/forms';
 import { mergeCharts, mergeDocs } from '../lib/merge';
 import { summarize } from '../lib/diff';
 import { loadStandards } from '../lib/standards';
+import { agentBars, applyOps, changes, chartText, type Doc } from '../lib/script';
 
 let failures = 0;
 function check(name: string, fn: () => void) {
@@ -440,6 +441,157 @@ check('diff summary', () => {
   const after = { meta: { ...s.meta, key: 'D' }, chart: edit(s.chart, s.chart.bars[4].id, 'F7') };
   after.chart.bars.push(blankBar(), blankBar());
   assert.equal(summarize(s, after), 'Edited bar 5, added 2 bars, key C → D');
+});
+
+// ---- The agent's edit language (lib/script.ts) ----
+
+const docOf = (...bars: string[]): Doc => {
+  const ps = parseProgression(bars.join(' | '), () => meter('4/4'));
+  const chart = normalizeChart({ v: 2, bars: ps.map((p, k) => ({ id: `b${k + 1}`, events: p.events.map((e, j) => ({ ...e, id: `b${k + 1}.${j}` })), ...(p.simile ? { simile: p.simile } : {}) })) });
+  chart.bars[0].open = '[';
+  chart.bars[chart.bars.length - 1].close = 'Z';
+  return { meta: { ...EMPTY_META, key: 'C' }, chart };
+};
+const run = (d: Doc, ops: unknown[]): Doc => {
+  const r = applyOps(d, ops);
+  if (!r.ok) throw new Error(r.errors.join('\n'));
+  return r.doc;
+};
+const errs = (d: Doc, ops: unknown[]): string[] => {
+  const r = applyOps(d, ops);
+  assert.ok(!r.ok, 'expected the request to be refused');
+  return r.errors;
+};
+const texts = (d: Doc) => d.chart.bars.map((b, i) => barText(b, metersOf(d.chart)[i]) || '/');
+
+check('agent · the chart reads as numbered rows, as on screen', () => {
+  const lines = chartText(song('Autumn Leaves')).split('\n');
+  assert.equal(lines[0], 'Autumn Leaves · key Gm · 4/4 · Medium Swing · 24 bars');
+  assert.equal(lines[1], ' 1 [A] |: Cm7 | F7 | Bbmaj7 | Ebmaj7 |');
+  assert.equal(lines[2], ' 5 | Am7b5 | D7b13 | Gm6 | % :|');
+  assert.equal(lines[6], '21 | Am7b5 | D7b13 | Gm6 | % ‖end');
+});
+
+check('agent · every bar of every standard reads back as played from its chords text', () => {
+  // C^ and C^7 are both a major seventh (Ch and Ch7 both half-diminished); the text spells them out, and they read back with the 7.
+  const maj = (ch?: string) => (ch ?? '').replace(/([\^h])(?!\d)/, '$17');
+  let bad = 0;
+  for (const { chart } of corpus.songs) {
+    const ms = metersOf(chart);
+    const rows = agentBars(chart);
+    chart.bars.forEach((b, i) => {
+      // A repeat sign with alternate chords over it reads as the sign alone (the text has no way to write both).
+      if (b.simile && b.events.some((e) => e.alt)) return;
+      const p = parseBar(rows[i].chords === '/' ? '' : rows[i].chords, ms[i]);
+      // As played: a hold after an event is that event carrying on (iReal's empty cells).
+      const key = (evs: Ev[]) =>
+        evs
+          .reduce<Ev[]>((out, e) => (e.kind === 'hold' && !e.alt && out.length ? (out[out.length - 1] = { ...out[out.length - 1], dur: out[out.length - 1].dur + e.dur }, out) : [...out, e]), [])
+          .map((e) => `${e.kind}:${maj(e.ch)}:${maj(e.alt)}@${e.at}+${e.dur}`)
+          .join(' ');
+      if (p.flags.length || key(p.events) !== key(b.events) || (p.simile ?? 0) !== (b.simile ?? 0)) bad++;
+    });
+  }
+  assert.equal(bad, 0);
+});
+
+check('agent · bars and beats by number: put a chord on bar 2 beat 3 for one beat', () => {
+  const d = run(docOf('C', 'C', 'G7'), [{ op: 'put', at: '2:3', what: 'Dm7', beats: 1 }]);
+  assert.equal(tl(d.chart.bars[1]), 'C@0:48 D-7@48:24 C@72:24');
+  assert.equal(tl(d.chart.bars[0]), 'C@0:96');
+  const e = run(docOf('C', 'C'), [{ op: 'put', at: '1:3', what: 'G7' }, { op: 'put', at: '2:2+', what: 'rest', beats: 0.5 }]);
+  assert.equal(tl(e.chart.bars[0]), 'C@0:48 G7@48:48');
+  assert.equal(tl(e.chart.bars[1]), 'C@0:36 rest@36:12 C@48:48');
+});
+
+check('agent · beats follow the bar’s meter (3/4, 6/8)', () => {
+  const d = run(docOf('C', 'F'), [{ op: 'format', bars: 1, time: '6/8' }, { op: 'put', at: '1:4', what: 'G7' }]);
+  assert.equal(d.chart.bars[0].time, '6/8');
+  assert.equal(d.chart.bars[1].time, '4/4', 'only bar 1 changes meter');
+  assert.equal(tl(d.chart.bars[0]), 'C@0:36 G7@36:36');
+  assert.match(errs(docOf('C'), [{ op: 'put', at: '1:5', what: 'G7' }])[0], /beats run 1 to 4/);
+});
+
+check('agent · all or nothing: one bad op refuses the request, the chart is untouched', () => {
+  const d = docOf('C', 'F');
+  const before = canon(d);
+  const e = errs(d, [{ op: 'chords', bars: 1, text: 'Dm7' }, { op: 'chords', bars: 3, text: 'G7' }, { op: 'chords', bars: 2, text: 'C D E' }]);
+  assert.equal(e.length, 2);
+  assert.match(e[0], /op 2 \(chords\): bar 3 doesn’t exist \(the chart has 2 bars\)/);
+  assert.match(e[1], /op 3 \(chords\): bar 2 \(“C D E”\): 3 chords/);
+  assert.equal(canon(d), before);
+  assert.deepEqual(errs(d, [{ op: 'chords', bars: 1, text: 'C' }]), ['these ops change nothing']);
+  assert.match(errs(d, [{ op: 'remove', at: '1:3' }])[0], /nothing starts on beat 3 of bar 1 \(its events start on beat 1\)/);
+});
+
+check('agent · numbers mean the chart as read, even after an insert in the same request', () => {
+  const d = run(docOf('C', 'F', 'G7', 'C'), [
+    { op: 'insert', before: 1, text: '| Dm7 | G7 |', section: 'intro' },
+    { op: 'insert', after: 2, text: 'Ab7' },
+    { op: 'insert', after: 2, text: 'Db7' },
+    { op: 'chords', bars: 3, text: 'G7alt' },
+  ]);
+  assert.deepEqual(texts(d), ['Dm7', 'G7', 'C', 'F', 'Ab7', 'Db7', 'G7alt', 'C']);
+  assert.equal(d.chart.bars[0].section, 'i');
+  assert.equal(d.chart.bars[7].close, 'Z');
+});
+
+check('agent · delete, clear, copy and move keep the structure in place', () => {
+  const base = docOf('C', 'F', 'G7', 'C');
+  base.chart.bars[1].section = 'B';
+  const del = run(base, [{ op: 'delete', bars: '2-3' }]);
+  assert.deepEqual(texts(del), ['C', 'C']);
+  assert.equal(del.chart.bars[1].section, 'B', 'the section letter moves to the bar after');
+  assert.deepEqual(texts(run(base, [{ op: 'clear', bars: 2 }])), ['C', '/', 'G7', 'C']);
+  const cp = run(base, [{ op: 'copy', bars: '1-2', after: 'last' }]);
+  assert.deepEqual(texts(cp), ['C', 'F', 'G7', 'C', 'C', 'F']);
+  assert.deepEqual(cp.chart.bars.map((b) => b.close ?? ''), ['', '', '', '', '', 'Z'], 'the final barline stays at the end');
+  assert.equal(new Set(cp.chart.bars.map((b) => b.id)).size, 6, 'copies get new ids');
+  const mv = run(base, [{ op: 'move', bars: 4, before: 1 }]);
+  assert.deepEqual(texts(mv), ['C', 'C', 'F', 'G7']);
+  assert.equal(mv.chart.bars[3].close, 'Z');
+  assert.match(errs(base, [{ op: 'move', bars: '1-3', after: 2 }])[0], /one of them/);
+});
+
+check('agent · transposing: some bars, the whole chart, or the key', () => {
+  const d = docOf('Dm7 G7', 'Cmaj7');
+  const some = run(d, [{ op: 'transpose', bars: 1, semitones: 2 }]);
+  assert.deepEqual(texts(some), ['Em7 A7', 'Cmaj7']);
+  assert.equal(some.meta.key, 'C');
+  const all = run(d, [{ op: 'transpose', semitones: 3 }]);
+  assert.deepEqual(texts(all), ['Fm7 Bb7', 'Ebmaj7']);
+  assert.equal(all.meta.key, 'Eb');
+  const key = run(d, [{ op: 'key', key: 'B♭' }]);
+  assert.deepEqual(texts(key), ['Cm7 F7', 'Bbmaj7']);
+  const relabel = run(d, [{ op: 'key', key: 'A minor', move: false }]);
+  assert.deepEqual(texts(relabel), ['Dm7 G7', 'Cmaj7']);
+  assert.equal(relabel.meta.key, 'A-');
+});
+
+check('agent · format and info', () => {
+  const d = run(docOf('C', 'F', 'G7', 'C'), [
+    { op: 'format', bars: '2-3', repeat: 'both', section: 'B', text: 'Solos' },
+    { op: 'format', bars: 4, fermata: '4:1', ending: 2 },
+    { op: 'info', title: 'Blues for Muse', bpm: 160 },
+  ]);
+  assert.equal(d.chart.bars[1].open, '{');
+  assert.equal(d.chart.bars[2].close, '}');
+  assert.equal(d.chart.bars[1].section, 'B');
+  assert.equal(d.chart.bars[1].events[0].text, 'Solos');
+  assert.equal(d.chart.bars[3].events[0].fermata, true);
+  assert.equal(d.chart.bars[3].ending, 2);
+  assert.equal(d.meta.title, 'Blues for Muse');
+  assert.equal(d.meta.bpm, 160);
+  assert.match(errs(d, [{ op: 'format', bars: 1, colour: 'red' }])[0], /doesn’t take “colour”/);
+});
+
+check('agent · changes read back with old and new bar numbers', () => {
+  const d = docOf('C', 'F');
+  const after = run(d, [{ op: 'insert', before: 1, text: 'G7' }, { op: 'chords', bars: 2, text: 'Bb7' }]);
+  assert.deepEqual(changes(d, after), {
+    bars: [{ n: 1, was: null, before: null, after: 'G7' }, { n: 3, was: 2, before: 'F', after: 'Bb7' }],
+    removed: [],
+  });
 });
 
 check('standards library loads', () => {

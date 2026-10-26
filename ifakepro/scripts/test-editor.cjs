@@ -1,7 +1,8 @@
 // End-to-end checks of the chart editor in a real browser, on a phone-sized
 // screen (touch) and a laptop (mouse and keyboard). Needs Playwright and a
 // running `next dev` with a throwaway database, the same setup as test-api.ts:
-//   BASE=http://localhost:3000 ADMIN=benji@example.com node ifakepro/scripts/test-editor.cjs
+//   BASE=http://localhost:3000 ADMIN=benji@example.com AGENT_TOKEN=… node ifakepro/scripts/test-editor.cjs
+// (AGENT_TOKEN, the server's IFAKEPRO_AGENT_TOKEN, adds the checks of an edit by the owner's agent.)
 //
 // It builds a tune from scratch by typing a progression, then edits it the
 // ways a musician would: change a chord by tapping, add a one-beat chord,
@@ -13,6 +14,7 @@ const assert = require('node:assert/strict');
 
 const BASE = process.env.BASE ?? 'http://localhost:3000';
 const ADMIN = process.env.ADMIN ?? 'benji@example.com';
+const AGENT_TOKEN = process.env.AGENT_TOKEN ?? '';
 const headers = { 'content-type': 'application/json', cookie: `ifp_dev_user=${ADMIN}` };
 
 async function api(method, path, body) {
@@ -214,6 +216,37 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
   assert.match(tl(c, 6), /^G-7@0:48 rest@48:48$/);
   await d.keyboard.press('Meta+z');
   await d.keyboard.press('Control+z');
+
+  step('laptop · bar numbers on while reading, remembered');
+  await d.keyboard.press('Escape');
+  await d.waitForFunction(() => document.querySelector('.save')?.textContent === 'Saved', null, { timeout: 8000 });
+  if (await d.locator('.ed-done').count()) await d.click('.ed-done');
+  assert.equal(await d.locator('.bar-no').count(), 0);
+  await d.click('button:has-text("# Bars")');
+  const bars = (await saved()).bars.length;
+  assert.equal(await d.locator('.bar-no').count(), bars);
+  await d.reload();
+  await d.waitForSelector('.chart');
+  assert.equal(await d.locator('.bar-no').count(), bars, 'the toggle is remembered');
+  assert.equal(await d.locator('.bar-no').nth(1).innerText(), '2');
+
+  if (AGENT_TOKEN) {
+    step('laptop · an edit by Muse shows up live, and in History with its pill and note');
+    const agent = async (method, path, body) => {
+      const r = await fetch(`${BASE}/api/ifakepro${path}`, { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${AGENT_TOKEN}` }, body: body ? JSON.stringify(body) : undefined });
+      const j = await r.json();
+      if (!r.ok) throw new Error(`${method} ${path}: ${JSON.stringify(j)}`);
+      return j;
+    };
+    const read = await agent('GET', `/agent/songs/${songId}`);
+    await agent('POST', `/agent/songs/${songId}`, { revision: read.revision, note: 'Db7 in bar 2', ops: [{ op: 'chords', bars: 2, text: 'Db7' }] });
+    await d.waitForSelector('.ifp-banner .agent-pill', { timeout: 10000 });
+    assert.match(await d.locator('.ifp-banner').innerText(), /Muse\s+changed bar 2 for Benji/);
+    assert.match(await d.locator('.bar').nth(1).innerText(), /D/);
+    await d.click('button:has-text("History")');
+    await d.waitForSelector('.v-item .agent-pill');
+    assert.match(await d.locator('.v-item').first().innerText(), /Benji\s+✦\s*Muse[\s\S]*“Db7 in bar 2”[\s\S]*Edited bar 2/);
+  }
   await lap.close();
 
   await browser.close();

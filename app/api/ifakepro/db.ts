@@ -1,5 +1,5 @@
 import { neon, neonConfig, type NeonQueryFunction } from '@neondatabase/serverless';
-import { schemaStatements } from '@ifakepro/db/schema';
+import { MIGRATIONS, schemaStatements } from '@ifakepro/db/schema';
 
 let _sql: NeonQueryFunction<false, false> | null = null;
 
@@ -18,15 +18,23 @@ export type Sql = ReturnType<typeof getDb>;
 let ready: Promise<void> | null = null;
 
 /**
- * Create the tables if this database has none yet, once per server instance:
- * a new database works without running setup-db.ts first. The check is one
- * cheap query; the statements are all IF NOT EXISTS.
+ * Create the tables if this database has none yet, and add columns newer
+ * than it, once per server instance: a new database works without running
+ * setup-db.ts first. The check is one cheap query; the statements are all
+ * IF NOT EXISTS.
  */
 export function ensureSchema(): Promise<void> {
   ready ??= (async () => {
     const sql = getDb();
-    const rows = await sql`SELECT to_regclass('public.ifp_presence') IS NOT NULL AS ok`;
-    if (rows[0]?.ok) return;
+    const rows = await sql`
+      SELECT to_regclass('public.ifp_presence') IS NOT NULL AS ok,
+        EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ifp_versions' AND column_name = 'note') AS current`;
+    if (rows[0]?.ok && rows[0]?.current) return;
+    if (rows[0]?.ok) {
+      await sql.transaction(MIGRATIONS.map((s) => sql.query(s)));
+      console.log('[ifakepro] added the new columns');
+      return;
+    }
     await sql.transaction(schemaStatements().map((s) => sql.query(s)));
     console.log('[ifakepro] created the tables');
   })().catch((e) => {

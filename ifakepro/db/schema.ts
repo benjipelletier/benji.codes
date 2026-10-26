@@ -55,13 +55,17 @@ CREATE TABLE IF NOT EXISTS ifp_songs (
     created_by   TEXT NOT NULL,
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_by   TEXT NOT NULL,
+    -- Set when the last save was the owner's agent (Muse) acting for updated_by.
+    updated_agent TEXT,
     deleted_at   TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS ifp_songs_playlist ON ifp_songs(playlist_id, position);
 
 -- Version history. Saves by one person within ten minutes of each other fold
 -- into one version, the way Google Docs groups them; naming a version
--- (label) keeps later saves from folding into it.
+-- (label) keeps later saves from folding into it. An edit by the owner's
+-- agent is its own version: author_id is the person it acted for, agent its
+-- name ("Muse") and note what it was asked to do. It never folds.
 CREATE TABLE IF NOT EXISTS ifp_versions (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     song_id      UUID NOT NULL REFERENCES ifp_songs(id) ON DELETE CASCADE,
@@ -72,6 +76,8 @@ CREATE TABLE IF NOT EXISTS ifp_versions (
     kind         TEXT NOT NULL CHECK (kind IN ('create', 'import', 'edit', 'restore', 'copy')),
     summary      TEXT NOT NULL DEFAULT '',
     label        TEXT,
+    agent        TEXT,
+    note         TEXT,
     started_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -123,10 +129,21 @@ CREATE TABLE IF NOT EXISTS ifp_presence (
 );
 `;
 
+/**
+ * Columns added after the first release, for databases made before them.
+ * Idempotent. ensureSchema runs them when the newest one is missing.
+ */
+export const MIGRATIONS = [
+  'ALTER TABLE ifp_songs ADD COLUMN IF NOT EXISTS updated_agent TEXT',
+  'ALTER TABLE ifp_versions ADD COLUMN IF NOT EXISTS agent TEXT',
+  'ALTER TABLE ifp_versions ADD COLUMN IF NOT EXISTS note TEXT',
+];
+
 /** One statement at a time, for drivers that take a single statement per query. */
 export function schemaStatements(): string[] {
-  return SCHEMA.replace(/--.*$/gm, '')
+  const create = SCHEMA.replace(/--.*$/gm, '')
     .split(/;\s*$/m)
     .map((s) => s.trim())
     .filter(Boolean);
+  return [...create, ...MIGRATIONS];
 }

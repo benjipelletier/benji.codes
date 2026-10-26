@@ -219,6 +219,7 @@ export async function listActivity(
     kind: r.kind,
     summary: r.summary,
     actor: person(r.actor_id, r.name, r.image),
+    agent: typeof r.data?.agent === 'string' ? r.data.agent : null,
     playlist: { slug: r.slug, title: r.ptitle },
     song: r.song_id ? { id: r.song_id, title: r.stitle ?? 'a song' } : null,
     data: r.data ?? {},
@@ -228,6 +229,12 @@ export async function listActivity(
 
 // ---- Songs ----
 
+/** An edit made by the owner's agent for the signed-in person (app/api/ifakepro/agent.ts): its name and what it was asked. */
+export interface AgentMark {
+  name: string;
+  note: string;
+}
+
 export interface NewSong {
   meta: SongMeta;
   chart: Chart;
@@ -236,6 +243,7 @@ export interface NewSong {
 /** Add songs to the end of a playlist, each with its first version, in batches small enough for one request. */
 export async function insertSongs(
   playlistId: string, user: SessionUser, songs: NewSong[], kind: 'create' | 'import' | 'copy', versionSummary: string, activity: { kind: string; summary: string },
+  agent?: AgentMark,
 ): Promise<string[]> {
   const sql = getDb();
   const top = await sql`SELECT coalesce(max(position), 0) AS p FROM ifp_songs WHERE playlist_id = ${playlistId}`;
@@ -250,18 +258,21 @@ export async function insertSongs(
     const json = JSON.stringify(rows);
     await sql.transaction([
       sql.query(
-        `INSERT INTO ifp_songs (id, playlist_id, position, meta, chart, created_by, updated_by)
-         SELECT (x->>'id')::uuid, $1, (x->>'position')::float8, x->'meta', x->'chart', $2, $2 FROM jsonb_array_elements($3::jsonb) x`,
-        [playlistId, user.id, json],
+        `INSERT INTO ifp_songs (id, playlist_id, position, meta, chart, created_by, updated_by, updated_agent)
+         SELECT (x->>'id')::uuid, $1, (x->>'position')::float8, x->'meta', x->'chart', $2, $2, $4 FROM jsonb_array_elements($3::jsonb) x`,
+        [playlistId, user.id, json, agent?.name ?? null],
       ),
       sql.query(
-        `INSERT INTO ifp_versions (song_id, revision, meta, chart, author_id, kind, summary)
-         SELECT (x->>'id')::uuid, 1, x->'meta', x->'chart', $1, $2, $3 FROM jsonb_array_elements($4::jsonb) x`,
-        [user.id, kind, versionSummary, json],
+        `INSERT INTO ifp_versions (song_id, revision, meta, chart, author_id, kind, summary, agent, note)
+         SELECT (x->>'id')::uuid, 1, x->'meta', x->'chart', $1, $2, $3, $5, $6 FROM jsonb_array_elements($4::jsonb) x`,
+        [user.id, kind, versionSummary, json, agent?.name ?? null, agent?.note ?? null],
       ),
     ]);
   }
-  await logActivity(playlistId, ids.length === 1 ? ids[0] : null, user.id, activity.kind, activity.summary, { count: ids.length });
+  await logActivity(playlistId, ids.length === 1 ? ids[0] : null, user.id, activity.kind, activity.summary, {
+    count: ids.length,
+    ...(agent ? { agent: agent.name, note: agent.note } : {}),
+  });
   return ids;
 }
 
@@ -303,29 +314,33 @@ export async function songDetail(id: string, user: SessionUser | null): Promise<
 /**
  * Save an edit, if it starts from the revision that's current; otherwise
  * null, and the caller answers 409 with the song as it now is. Then fold it
- * into the version history and the edit log.
+ * into the version history and the edit log. An agent's edit is always a
+ * version of its own (`versionId`), so it can be told apart and undone.
  */
-export async function saveSong(song: Row, user: SessionUser, baseRevision: number, meta: SongMeta, chart: Chart): Promise<number | null> {
+export async function saveSong(
+  song: Row, user: SessionUser, baseRevision: number, meta: SongMeta, chart: Chart, agent?: AgentMark,
+): Promise<{ revision: number; versionId: string | null } | null> {
   const sql = getDb();
-  if (canon(meta) === canon(song.meta) && canon(chart) === canon(song.chart) && baseRevision === song.revision) return song.revision;
+  if (canon(meta) === canon(song.meta) && canon(chart) === canon(song.chart) && baseRevision === song.revision) return { revision: song.revision, versionId: null };
   const updated = await sql`
     UPDATE ifp_songs SET meta = ${JSON.stringify(meta)}::jsonb, chart = ${JSON.stringify(chart)}::jsonb,
-      revision = revision + 1, updated_at = now(), updated_by = ${user.id}
+      revision = revision + 1, updated_at = now(), updated_by = ${user.id}, updated_agent = ${agent?.name ?? null}
     WHERE id = ${song.id} AND revision = ${baseRevision} AND deleted_at IS NULL
     RETURNING revision`;
   if (!updated.length) return null;
   const revision = updated[0].revision as number;
-  await recordVersion(song, user, revision, { meta, chart });
-  return revision;
+  const versionId = await recordVersion(song, user, revision, { meta, chart }, agent);
+  return { revision, versionId };
 }
 
-async function recordVersion(song: Row, user: SessionUser, revision: number, doc: NewSong) {
+async function recordVersion(song: Row, user: SessionUser, revision: number, doc: NewSong, agent?: AgentMark): Promise<string> {
   const sql = getDb();
   const recent = await sql`
-    SELECT id, author_id, kind, label, meta, chart, created_at > now() - make_interval(mins => ${FOLD_MINUTES}) AS fresh
+    SELECT id, author_id, kind, label, agent, meta, chart, created_at > now() - make_interval(mins => ${FOLD_MINUTES}) AS fresh
     FROM ifp_versions WHERE song_id = ${song.id} ORDER BY created_at DESC LIMIT 2`;
   const [latest, before] = recent;
-  if (latest && latest.author_id === user.id && latest.kind === 'edit' && !latest.label && latest.fresh) {
+  // A person's saves fold together; an agent's never fold, and a person's never fold into one.
+  if (!agent && latest && latest.author_id === user.id && latest.kind === 'edit' && !latest.label && !latest.agent && latest.fresh) {
     const summary = summarize(before ? { meta: before.meta, chart: upgrade(before.chart) } : null, doc);
     await sql`
       UPDATE ifp_versions SET revision = ${revision}, meta = ${JSON.stringify(doc.meta)}::jsonb, chart = ${JSON.stringify(doc.chart)}::jsonb,
@@ -336,14 +351,19 @@ async function recordVersion(song: Row, user: SessionUser, revision: number, doc
       WHERE kind = 'song.edit' AND song_id = ${song.id} AND data->>'versionId' = ${latest.id} RETURNING id`;
     if (!act.length) await logActivity(song.playlist_id, song.id, user.id, 'song.edit', summary, { versionId: latest.id });
     else await sql`UPDATE ifp_playlists SET updated_at = now() WHERE id = ${song.playlist_id}`;
-    return;
+    return latest.id;
   }
   const summary = summarize(latest ? { meta: latest.meta, chart: upgrade(latest.chart) } : null, doc);
   const ins = await sql`
-    INSERT INTO ifp_versions (song_id, revision, meta, chart, author_id, kind, summary)
-    VALUES (${song.id}, ${revision}, ${JSON.stringify(doc.meta)}::jsonb, ${JSON.stringify(doc.chart)}::jsonb, ${user.id}, 'edit', ${summary})
+    INSERT INTO ifp_versions (song_id, revision, meta, chart, author_id, kind, summary, agent, note)
+    VALUES (${song.id}, ${revision}, ${JSON.stringify(doc.meta)}::jsonb, ${JSON.stringify(doc.chart)}::jsonb, ${user.id}, 'edit', ${summary},
+      ${agent?.name ?? null}, ${agent?.note ?? null})
     RETURNING id`;
-  await logActivity(song.playlist_id, song.id, user.id, 'song.edit', summary, { versionId: ins[0].id });
+  await logActivity(song.playlist_id, song.id, user.id, 'song.edit', summary, {
+    versionId: ins[0].id,
+    ...(agent ? { agent: agent.name, note: agent.note } : {}),
+  });
+  return ins[0].id;
 }
 
 /** Put a version back as the current chart: a new revision and a new version, nothing lost. */
@@ -355,7 +375,7 @@ export async function restoreVersion(song: Row, user: SessionUser, versionId: st
     const cur = (await sql`SELECT revision FROM ifp_songs WHERE id = ${song.id}`)[0];
     const updated = await sql`
       UPDATE ifp_songs SET meta = ${JSON.stringify(v.meta)}::jsonb, chart = ${JSON.stringify(v.chart)}::jsonb,
-        revision = revision + 1, updated_at = now(), updated_by = ${user.id}
+        revision = revision + 1, updated_at = now(), updated_by = ${user.id}, updated_agent = NULL
       WHERE id = ${song.id} AND revision = ${cur.revision} RETURNING revision`;
     if (!updated.length) continue;
     const revision = updated[0].revision as number;
@@ -380,6 +400,8 @@ function toVersion(r: Row): VersionSummary {
     summary: r.summary,
     label: r.label,
     author: person(r.author_id, r.name, r.image),
+    agent: r.agent ?? null,
+    note: r.note ?? null,
     startedAt: iso(r.started_at),
     createdAt: iso(r.created_at),
   };
@@ -387,7 +409,7 @@ function toVersion(r: Row): VersionSummary {
 
 export async function listVersions(songId: string): Promise<VersionSummary[]> {
   const rows = await getDb()`
-    SELECT v.id, v.revision, v.kind, v.summary, v.label, v.author_id, v.started_at, v.created_at, u.name, u.image
+    SELECT v.id, v.revision, v.kind, v.summary, v.label, v.agent, v.note, v.author_id, v.started_at, v.created_at, u.name, u.image
     FROM ifp_versions v LEFT JOIN ifp_profiles u ON u.id = v.author_id
     WHERE v.song_id = ${songId} ORDER BY v.created_at DESC LIMIT 300`;
   return rows.map(toVersion);

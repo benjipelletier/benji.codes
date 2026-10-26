@@ -18,6 +18,8 @@
   --flash: #3a7bd52e;
   --warn: #8a5a00;
   --warn-bg: #f3e3b8;
+  --agent: #5a4fcf;
+  --agent-soft: #5a4fcf1a;
   --shadow: 0 1px 2px #3a2f1a14, 0 6px 24px #3a2f1a14;
   --radius: 10px;
   --chord: 'Barlow Condensed', 'Noto Music', 'Arial Narrow', sans-serif;
@@ -45,6 +47,8 @@
     --flash: #5b9cf03a;
     --warn: #f0c46a;
     --warn-bg: #3a2f14;
+    --agent: #a99cff;
+    --agent-soft: #a99cff24;
     --shadow: 0 1px 2px #0006, 0 8px 28px #0008;
     --sheet: #0b0a08;
     color-scheme: dark;
@@ -68,6 +72,8 @@
   --flash: #5b9cf03a;
   --warn: #f0c46a;
   --warn-bg: #3a2f14;
+  --agent: #a99cff;
+  --agent-soft: #a99cff24;
   --shadow: 0 1px 2px #0006, 0 8px 28px #0008;
   --sheet: #0b0a08;
   color-scheme: dark;
@@ -117,6 +123,18 @@ body.ifp-noscroll { overflow: hidden; }
 .ifp-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .ifp-btn.primary:hover { filter: brightness(1.06); }
 .ifp-btn.small { min-height: 32px; padding: 0 11px; font-size: 13px; }
+.ifp-btn.on { background: var(--paper-2); border-color: var(--ink-3); }
+
+/* What the owner's agent (Muse) did for someone, beside their name. */
+.agent-pill {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: 1px;
+  padding: 1px 7px 1px 6px; border-radius: 999px;
+  font: 600 11px/16px Inter, system-ui, sans-serif; letter-spacing: 0.01em; white-space: nowrap;
+  color: var(--agent); background: var(--agent-soft); border: 1px solid color-mix(in srgb, var(--agent) 35%, transparent);
+}
+.agent-pill span { font-size: 9px; }
+.v-note, .a-note { display: block; font-size: 12.5px; color: var(--ink); font-style: italic; overflow-wrap: anywhere; }
+.a-note { margin-top: 1px; color: var(--ink-2); }
 .ifp-btn.block { display: flex; width: 100%; }
 .ifp-btn.more { margin: 12px auto 0; display: flex; }
 .ifp-icon-btn {
@@ -519,7 +537,10 @@ body.ifp-noscroll { overflow: hidden; }
 .bar.open-rep.has-time .ts { left: calc(var(--cs) * 0.36); }
 .bar.open-dbl.has-time { padding-left: 0.86em; }
 .bar.open-rep.has-time { padding-left: 1em; }
-.bar-no { position: absolute; left: 0.2em; top: 0.06em; font-family: Inter, sans-serif; font-size: max(8px, 0.24em); color: var(--ink-3); font-weight: 500; line-height: 1; }
+/* Bar numbers: small, top left, just inside the barline (after a double or repeat barline, or a section box). In em of the number itself. */
+.bar-no { position: absolute; left: 0.6em; top: 0.3em; font-family: Inter, sans-serif; font-size: max(8px, 0.24em); color: var(--ink-3); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.bar.open-dbl .bar-no, .bar.open-rep .bar-no { left: 1.7em; }
+.bar:has(.section) .bar-no { left: 3.1em; }
 
 .bar.sel { background: var(--sel); box-shadow: inset 0 0 0 max(1.5px, 0.05em) var(--sel-line); }
 .bar.changed { background: var(--changed); }

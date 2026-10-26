@@ -60,6 +60,15 @@ export function Providers({ children }: { children: ReactNode }) {
 
 // ---- Avatars ----
 
+/** Marks what the owner's agent (Muse) did for someone, beside their name. */
+export function AgentPill({ name }: { name: string }) {
+  return (
+    <span className="agent-pill" title={`Made by ${name}, the owner’s agent`}>
+      <span aria-hidden>✦</span> {name}
+    </span>
+  );
+}
+
 export function Avatar({ person, size = 24, ring }: { person: Person; size?: number; ring?: boolean }) {
   const initials = person.name
     .split(/\s+/)

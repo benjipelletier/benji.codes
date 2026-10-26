@@ -20,7 +20,7 @@ export const GET = handle<{ id: string }>(async (req, { id }): Promise<PollResul
   const user = await getSessionUser();
   const sql = getDb();
   const s = (await sql`
-    SELECT s.revision, s.playlist_id, s.deleted_at, u.name, u.image, s.updated_by,
+    SELECT s.revision, s.playlist_id, s.deleted_at, u.name, u.image, s.updated_by, s.updated_agent,
       CASE WHEN s.revision > ${rev} THEN s.meta END AS meta,
       CASE WHEN s.revision > ${rev} THEN s.chart END AS chart
     FROM ifp_songs s LEFT JOIN ifp_profiles u ON u.id = s.updated_by WHERE s.id = ${id}`)[0];
@@ -36,7 +36,7 @@ export const GET = handle<{ id: string }>(async (req, { id }): Promise<PollResul
     ORDER BY p.seen_at`;
   return {
     revision: s.revision,
-    song: s.meta ? { id, meta: s.meta, chart: upgrade(s.chart), revision: s.revision, updatedBy: person(s.updated_by, s.name, s.image) } : null,
+    song: s.meta ? { id, meta: s.meta, chart: upgrade(s.chart), revision: s.revision, updatedBy: person(s.updated_by, s.name, s.image), agent: s.updated_agent ?? null } : null,
     presence: present.map((p) => ({ user: person(p.user_id, p.name, p.image), barId: p.bar_id, editing: p.editing })),
     commentsStamp: await commentsStamp(id),
     deleted: !!s.deleted_at,
