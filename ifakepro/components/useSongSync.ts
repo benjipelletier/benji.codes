@@ -55,8 +55,9 @@ export function useSongSync(opts: {
   const inFlight = useRef(false);
   const timer = useRef<number | null>(null);
   const retry = useRef(0);
-  const undo = useRef<{ before: Doc; after: Doc }[]>([]);
-  const redo = useRef<{ before: Doc; after: Doc }[]>([]);
+  type Step = { before: Doc; after: Doc; key?: string; t?: number };
+  const undo = useRef<Step[]>([]);
+  const redo = useRef<Step[]>([]);
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
@@ -130,14 +131,25 @@ export function useSongSync(opts: {
     timer.current = window.setTimeout(save, SAVE_DELAY);
   }, [save]);
 
-  /** Apply an edit. */
+  /**
+   * Apply an edit. Edits sharing a `coalesce` key within a couple of seconds
+   * (a drag, typing a chord letter by letter) are one undo step.
+   */
   const change = useCallback(
-    (fn: (d: Doc) => Doc) => {
+    (fn: (d: Doc) => Doc, opts?: { coalesce?: string }) => {
       if (!optsRef.current.canEdit) return;
       const before = docRef.current;
       const after = fn(before);
       if (canon(after) === canon(before)) return;
-      undo.current.push({ before, after });
+      const last = undo.current[undo.current.length - 1];
+      if (opts?.coalesce && last?.key === opts.coalesce && Date.now() - (last.t ?? 0) < 2500 && !redo.current.length) {
+        last.after = after;
+        last.t = Date.now();
+        show(after);
+        schedule();
+        return;
+      }
+      undo.current.push({ before, after, key: opts?.coalesce, t: Date.now() });
       if (undo.current.length > MAX_UNDO) undo.current.shift();
       redo.current = [];
       setUndoDepth({ undo: undo.current.length, redo: 0 });

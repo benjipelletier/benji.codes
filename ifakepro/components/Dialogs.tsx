@@ -6,6 +6,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ALL_KEYS } from '@ifakepro/lib/chords';
+import { FORMS, type FormId } from '@ifakepro/lib/forms';
 import { api, copyText, displayKey, timeAgo } from '@ifakepro/lib/client';
 import type { Chart, SongMeta } from '@ifakepro/lib/chart';
 import type { ImportPreview, PlaylistDetail, StandardHit } from '@ifakepro/lib/types';
@@ -47,6 +48,8 @@ export function AddSongsDialog({ mode, slug, onClose, onDone, initial = 'ireal' 
   // Blank
   const [blankTitle, setBlankTitle] = useState('');
   const [blankKey, setBlankKey] = useState('C');
+  const [blankForm, setBlankForm] = useState<FormId>('empty');
+  const [blankTime, setBlankTime] = useState('4/4');
 
   useEffect(() => {
     if (source !== 'standards') return;
@@ -73,7 +76,7 @@ export function AddSongsDialog({ mode, slug, onClose, onDone, initial = 'ireal' 
   const payload = (): Record<string, unknown> | null => {
     if (source === 'ireal') return preview && include.size ? { ireal: text, include: [...include] } : null;
     if (source === 'standards') return picked.size ? { standards: [...picked.keys()] } : null;
-    if (mode === 'add') return { blank: { title: blankTitle.trim() || 'Untitled', key: blankKey } };
+    if (mode === 'add') return { blank: { title: blankTitle.trim() || 'Untitled', key: blankKey, form: blankForm, time: blankTime } };
     return {};
   };
 
@@ -91,7 +94,7 @@ export function AddSongsDialog({ mode, slug, onClose, onDone, initial = 'ireal' 
         router.push(`/ifakepro/p/${r.slug}`);
       } else {
         const r = await api<{ ids: string[] }>(`/playlists/${slug}/songs`, { body: body! });
-        if (source === 'blank') router.push(`/ifakepro/p/${slug}/s/${r.ids[0]}`);
+        if (source === 'blank') router.push(`/ifakepro/p/${slug}/s/${r.ids[0]}?edit=1`);
         else toast(`Added ${r.ids.length} song${r.ids.length === 1 ? '' : 's'}`);
         onDone?.();
       }
@@ -156,7 +159,21 @@ export function AddSongsDialog({ mode, slug, onClose, onDone, initial = 'ireal' 
               {ALL_KEYS.map((k) => <option key={k} value={k}>{displayKey(k)}</option>)}
             </select>
           </label>
-          <p className="muted">Starts as 16 empty bars of 4/4.</p>
+          <div className="form-row">
+            <label>
+              Start from
+              <select value={blankForm} onChange={(e) => setBlankForm(e.target.value as FormId)}>
+                {FORMS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </select>
+            </label>
+            <label>
+              Time
+              <select value={blankTime} onChange={(e) => setBlankTime(e.target.value)}>
+                {['4/4', '3/4', '6/8', '5/4', '2/2', '12/8'].map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+          </div>
+          <p className="muted">Opens ready to edit: tap a bar, or type the whole progression in the Type tab.</p>
         </div>
       )}
 

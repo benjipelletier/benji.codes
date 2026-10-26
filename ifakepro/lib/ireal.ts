@@ -9,7 +9,9 @@
 // barlines and marks written between them. Notes on the format:
 // https://github.com/ironss/accompaniser/blob/master/irealb_parser.lua
 
-import { type Bar, type Cell, type Chart, type CloseBar, type SongMeta, EMPTY_META, isBlank, newId } from './chart';
+import { type Chart, type SongMeta, EMPTY_META, newId } from './chart';
+import { cellChartToChart, chartToCellChart } from './convert';
+import { type Cell, type CellBar as Bar, type CellChart, type CloseBar, isBlankCell as isBlank } from './legacy';
 import { CHORD_RE } from './chords';
 
 const MUSIC_PREFIX = '1r34LbKcu7';
@@ -84,8 +86,8 @@ interface Pending {
   end?: boolean;
 }
 
-/** Turn an unscrambled music string into bars. `unknown` counts characters it had to skip. */
-export function parseMusic(raw: string): { chart: Chart; unknown: string } {
+/** Turn an unscrambled music string into iReal's cell bars. `unknown` counts characters it had to skip. */
+export function parseCells(raw: string): { chart: CellChart; unknown: string } {
   const s = expand(raw);
   const bars: Bar[] = [];
   let bar: Bar | null = null;
@@ -238,8 +240,18 @@ export function parseMusic(raw: string): { chart: Chart; unknown: string } {
   return { chart: { v: 1, bars }, unknown };
 }
 
-/** Write bars back out as an (unscrambled) iReal music string. */
+/** Turn an unscrambled music string into a chart of timed events. */
+export function parseMusic(raw: string): { chart: Chart; unknown: string } {
+  const { chart, unknown } = parseCells(raw);
+  return { chart: cellChartToChart(chart), unknown };
+}
+
+/** Write a chart out as an (unscrambled) iReal music string. */
 export function serializeMusic(chart: Chart): string {
+  return serializeCells(chartToCellChart(chart));
+}
+
+export function serializeCells(chart: CellChart): string {
   let out = '';
   let small = false;
   let prev: Bar | null = null;

@@ -386,7 +386,6 @@ body.ifp-noscroll { overflow: hidden; }
   .song-bar > * { flex: none; }
   .song-people { margin-left: 0; }
 }
-.ifp-locked { font-size: 13px; color: var(--ink-2); padding: 4px 4px 10px; }
 
 /* Side panel: a bottom sheet on phones, a column on wide screens. */
 .song-side {
@@ -408,7 +407,6 @@ body.ifp-noscroll { overflow: hidden; }
 }
 .song-tabbar button { flex: 1; border: 0; background: none; padding: 13px 4px; font-size: 14px; color: var(--ink-2); cursor: pointer; font-weight: 500; }
 .song-tabbar button.on { color: var(--accent); }
-.ifp:has(.ifp-entry.open) .song-tabbar { display: none; }
 @media (min-width: 1000px) {
   .ifp-song { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 0 20px; padding: 0 20px 40px; align-items: start; }
   .song-main { padding: 14px 0 0; }
@@ -442,11 +440,15 @@ body.ifp-noscroll { overflow: hidden; }
 }
 .spacer { min-height: 1.9em; }
 .bar {
-  position: relative; display: grid; align-items: end; min-height: 1.9em; padding: 0 0.06em 0.2em 0.16em;
+  position: relative; display: flex; align-items: flex-end; min-height: 1.9em; padding: 0 0.06em 0.2em 0.16em;
   border-left: var(--bl) solid currentColor;
   cursor: default; touch-action: manipulation;
 }
-.ifp-chart-focus .bar { cursor: pointer; }
+/* A bar's events, each as wide as it is long: a chord on beat 3 of 4/4 starts halfway along. */
+.bar-body { position: relative; flex: 1; min-width: 0; display: grid; align-items: end; }
+.rest { font-size: 0.95em; line-height: 1; padding: 0 0.15em 0.12em 0.05em; }
+.ev { padding-right: 0.12em; }
+.ev-hit .cell-marks .accent { font-size: 0.7em; }
 .bar.row-end { border-right: var(--bl) solid currentColor; }
 .bar.open-none { border-left-color: transparent; }
 
@@ -471,6 +473,8 @@ body.ifp-noscroll { overflow: hidden; }
 .bar.dense .cell { font-size: 0.6em; }
 .bar.dense .cell-small { font-size: 0.48em; }
 .bar.dense .ch { letter-spacing: -0.04em; }
+.bar.crowded .cell { font-size: 0.52em; }
+.bar.crowded .cell-small { font-size: 0.44em; }
 
 /* C, then ♭ small and raised, then 7♭9 small and dropped, then /E. */
 .ch { display: inline-flex; align-items: baseline; letter-spacing: -0.02em; -webkit-text-stroke: 0.022em currentColor; paint-order: stroke fill; }
@@ -490,11 +494,9 @@ body.ifp-noscroll { overflow: hidden; }
 .cell-text { font-size: 0.56em; line-height: 1.1; white-space: nowrap; }
 .bar:has(.section) .c0 .cell-marks { left: 0.62em; bottom: calc(100% + 0.42em); }
 .bar:has(.section) .c0 .cell-text { font-size: 0.62em; }
-.cell.cell-free { position: static; }
 .simile { font-size: 1.15em; line-height: 1; }
 .simile-center { position: absolute; left: 0; right: 0; bottom: 0.32em; text-align: center; }
 .simile-two { position: absolute; left: 100%; bottom: 0.32em; transform: translateX(-50%); z-index: 1; }
-.cell.cell-free { min-height: 1em; }
 .slash { font-size: 1em; opacity: 0.8; }
 .nc { font-size: 0.62em; }
 
@@ -534,8 +536,6 @@ body.ifp-noscroll { overflow: hidden; }
 }
 .pin::before { content: ''; position: absolute; inset: -8px; }
 
-.ifp-chart-focus { outline: none; border-radius: 6px; }
-.ifp-chart-focus:focus-visible { box-shadow: 0 0 0 2px var(--accent-soft); }
 
 /* The chart's own header, laid out like iReal's: style left, title centered, composer right. */
 .chart-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 0 10px; padding: 2px 2px 0; color: var(--chart-ink, var(--ink)); }
@@ -556,50 +556,123 @@ body.ifp-noscroll { overflow: hidden; }
 .chart-head button.ch-title:hover { background: var(--paper-2); }
 .chart-head button.ch-title::after { content: ' ✎'; font-family: Inter, sans-serif; font-size: 13px; color: var(--ink-3); vertical-align: middle; }
 
-/* ---- Editor ---- */
+/* ---- Editor ----
+   A sheet docked at the bottom of the chart column: header (where, undo,
+   Done), the bar's timeline, tabs, then a panel that scrolls on its own.
+   It sits above the phone keyboard (--kb) and bars scroll clear of it (--ed-h). */
 
-.ifp-toolbar {
-  display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 10px; margin: 0 -4px 6px;
-  scrollbar-width: thin; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
-  position: sticky; top: 55px; z-index: 20; background: var(--card);
+html { scroll-padding-top: 64px; }
+.ifp:has(.ed-sheet) .song-tabbar { display: none; }
+.ifp-editor .bar[role='button'] { cursor: pointer; }
+@media (hover: hover) { .chart-editing .bar:hover { background: color-mix(in srgb, var(--sel) 45%, transparent); } }
+.chart-editing .bar.sel { background: color-mix(in srgb, var(--sel) 70%, transparent); }
+.ev-sel::before {
+  content: ''; position: absolute; inset: -0.08em -0.06em -0.12em -0.1em; border-radius: 0.12em;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 0 -0.07em 0 var(--accent); pointer-events: none;
 }
-.tb-group { display: flex; gap: 3px; flex: none; padding-right: 6px; border-right: 1px solid var(--line); }
-.tb-group:last-child { border-right: 0; }
-.tb {
-  min-width: 40px; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
-  cursor: pointer; font-size: 13.5px; font-weight: 500; white-space: nowrap;
-}
-.tb.sym { font-family: var(--music); font-size: 18px; line-height: 1; }
-.tb:hover:not(:disabled) { border-color: var(--ink-3); }
-.tb.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.tb:disabled { opacity: 0.4; cursor: default; }
-.tb-select { width: auto !important; min-height: 40px !important; height: 40px; padding: 0 8px !important; font-size: 13.5px !important; border-radius: 8px !important; border-color: var(--line) !important; background: var(--paper) !important; }
-@media (pointer: fine) { .tb-range { display: none; } }
-@media (min-width: 1000px) { .ifp-toolbar { flex-wrap: wrap; row-gap: 6px; overflow: visible; } }
+.beats { position: absolute; inset: -0.35em 0 -0.15em; pointer-events: none; }
+.beats i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--accent); opacity: 0.28; }
+.beats i.strong { opacity: 0.6; }
 
-.ifp-entry {
-  position: sticky; bottom: 0; z-index: 30; margin: 14px -8px -16px; padding: 10px 10px 12px;
-  background: var(--paper-2); border-top: 1px solid var(--line); border-radius: 0 0 14px 14px;
+.ed-sheet {
+  position: fixed; bottom: var(--kb, 0px); left: var(--ed-left, 0px); width: var(--ed-w, 100vw); z-index: 85;
+  padding: 2px 10px calc(8px + env(safe-area-inset-bottom));
+  background: var(--paper); border-top: 1px solid var(--line-2); border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 30px #0000002a; display: flex; flex-direction: column;
+  max-height: min(56dvh, 520px); font-family: Inter, system-ui, sans-serif;
 }
-.entry-row { display: flex; align-items: center; gap: 6px; }
-.entry-label { font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-.entry-input { flex: 1; min-width: 0; font-family: var(--chord) !important; font-weight: 600; font-size: 21px !important; letter-spacing: 0.02em; min-height: 44px !important; }
-.entry-input.bad { outline: 2px solid #c0392b !important; }
-.entry-nav { height: 44px; min-width: 40px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--card); cursor: pointer; font-size: 15px; font-weight: 600; flex: none; }
-.entry-next { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.entry-keys { display: none; gap: 5px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
-.entry-keys button { flex: 1 0 auto; min-width: 38px; height: 40px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--card); font-family: var(--chord); font-size: 19px; font-weight: 600; cursor: pointer; }
-.entry-keys button.wide { min-width: 72px; font-family: Inter, sans-serif; font-size: 13px; }
-.ifp-entry.open .entry-keys { display: flex; }
-.entry-help { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
-.entry-input.bad ~ * , .ifp-entry:has(.bad) .entry-help { color: #c0392b; }
-@media (max-width: 999px) {
-  /* Room under the chart for the entry panel, so every bar can scroll above it. */
-  html:has(.ifp-entry.open) { scroll-padding-bottom: 230px; }
-  .ifp:has(.ifp-entry.open) .ifp-song { padding-bottom: 240px; }
-  .ifp-entry.open { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-radius: 16px 16px 0 0; box-shadow: var(--shadow); padding-bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 90; }
+/* Room under the chart for the sheet, so the last bars can scroll above it. */
+.ifp-editor.is-editing { padding-bottom: calc(var(--ed-h, 0px) + 8px); }
+@media (min-width: 640px) { .ed-sheet { padding: 4px 16px 12px; border: 1px solid var(--line-2); border-bottom: 0; } }
+@media (min-width: 1000px) { .ed-sheet { max-height: min(50vh, 540px); } }
+.ed-head { display: flex; align-items: center; gap: 2px; min-height: 44px; flex: none; }
+.ed-where { font-size: 13px; font-weight: 600; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding: 0 4px; }
+.ed-spacer { flex: 1; }
+.ed-icon {
+  flex: none; width: 40px; height: 42px; border-radius: 10px; border: 0; background: transparent; font-size: 20px; color: var(--ink); cursor: pointer;
 }
-@media (pointer: fine) and (min-width: 1000px) { .entry-keys { display: flex; } }
+.ed-icon:hover:not(:disabled) { background: var(--paper-2); }
+.ed-icon:disabled { opacity: 0.3; cursor: default; }
+.ed-done { flex: none; height: 38px; padding: 0 16px; margin-left: 4px; border-radius: 999px; border: 0; background: var(--ink); color: var(--paper); font-weight: 600; cursor: pointer; }
+.ed-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); flex: none; }
+.ed-tabs button { flex: 1; min-height: 38px; border: 0; background: none; font-weight: 600; font-size: 14px; color: var(--ink-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.ed-tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+.ed-tabs button:disabled { opacity: 0.35; cursor: default; }
+.ed-panel { overflow-y: auto; overscroll-behavior: contain; min-height: 0; flex: 1 1 auto; padding: 4px 2px 2px; }
+.ed-panel-body { display: flex; flex-direction: column; gap: 2px; }
+.ed-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 5px 0; }
+.ed-label { font-size: 12px; font-weight: 600; color: var(--ink-2); min-width: 48px; }
+.ed-value { min-width: 70px; text-align: center; font-size: 14px; font-weight: 600; }
+.ed-info { font-size: 13px; color: var(--ink-2); margin: 4px 0; }
+.ed-info b { color: var(--ink); }
+.ed-btn {
+  min-height: 38px; min-width: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
+  font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; color: var(--ink); touch-action: manipulation;
+}
+.ed-btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.ed-btn:active:not(:disabled) { transform: translateY(1px); }
+.ed-btn:focus-visible, .ed-icon:focus-visible, .tl-ev:focus-visible, .tl-handle:focus-visible, .ed-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ed-btn.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.ed-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ed-btn:disabled { opacity: 0.35; cursor: default; }
+.ed-entry { flex-wrap: nowrap; }
+.ed-input {
+  flex: 1; min-width: 0; min-height: 46px !important; font-family: 'Petaluma Script', var(--chord) !important; font-size: 22px !important; letter-spacing: 0.01em;
+}
+.ed-input.bad { outline: 2px solid #c0392b !important; outline-offset: -1px; }
+.ed-next { min-height: 46px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ed-err { color: #c0392b; font-size: 12.5px; margin: 2px 2px 0; }
+.ed-roots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 6px 0 2px; }
+.ed-root, .ed-q { padding: 0 4px; min-width: 0; font-family: 'Petaluma Script', var(--chord); font-size: 19px; }
+.ed-quals { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 5px; margin: 4px 0; }
+.ed-q.ed-more { font-family: Inter, sans-serif; font-size: 13px; }
+.ed-bass .ed-root { font-size: 17px; }
+.ed-kinds .ed-btn { min-width: 0; }
+@media (min-width: 700px) { .ed-roots { grid-template-columns: repeat(12, minmax(0, 1fr)); } .ed-bass { grid-template-columns: repeat(13, minmax(0, 1fr)); } }
+.ed-selects { gap: 10px; }
+.ed-selects label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.ed-selects select { min-height: 40px !important; width: auto !important; min-width: 110px; font-size: 15px !important; }
+.ed-text { font-family: ui-monospace, monospace !important; font-size: 15px !important; min-height: 76px; }
+.ed-help { font-size: 12px; color: var(--ink-2); margin: 4px 0; line-height: 1.5; }
+.ed-preview { border: 1px solid var(--line); border-radius: 10px; padding: 2px 6px 8px; max-height: 190px; overflow-y: auto; background: var(--sheet); --chart-bg: var(--sheet); margin: 4px 0; }
+.ed-preview .chart { --cs: clamp(15px, 5.2cqw, 30px); }
+.ed-flags { list-style: none; color: var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 6px 10px; font-size: 13px; margin: 4px 0; }
+.ed-locked, .ed-empty { padding: 10px 4px; font-size: 14px; color: var(--ink-2); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+
+/* The bar's timeline in the sheet. */
+.tl { position: relative; margin: 2px 0 6px; flex: none; }
+.tl-track { position: relative; height: 48px; border-radius: 10px; background: var(--sheet); border: 1px solid var(--line-2); overflow: hidden; }
+.tl-rhythm .tl-track { height: 60px; overflow: visible; }
+.tl-ev {
+  position: absolute; top: 0; bottom: 0; border: 0; border-right: 1px solid var(--line-2); background: transparent; color: var(--ink);
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; padding: 0 6px; overflow: hidden; cursor: pointer;
+  font-family: 'Petaluma Script', var(--chord); font-size: 21px; text-align: left;
+}
+.tl-ev:last-of-type { border-right: 0; }
+.tl-ev.on { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 2px var(--accent); z-index: 1; }
+.tl-label { white-space: nowrap; display: flex; align-items: baseline; gap: 4px; }
+.tl-hold .tl-label, .tl-rest .tl-label, .tl-nc .tl-label, .tl-slash .tl-label { font-family: Inter, sans-serif; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.tl-hold { background: repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--line) 55%, transparent) 7px 8px); }
+.tl-hold .tl-label { color: var(--ink-3); font-weight: 500; }
+.tl-rest { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.tl-hit { color: var(--accent); font-family: Inter, sans-serif; font-weight: 700; }
+.tl-dur { font-family: Inter, sans-serif; font-size: 10.5px; color: var(--ink-2); white-space: nowrap; }
+.tl-beatline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink-3); opacity: 0.35; pointer-events: none; }
+.tl-ruler { position: relative; height: 18px; font-size: 11px; color: var(--ink-2); }
+.tl-beat { position: absolute; top: 2px; transform: translateX(3px); font-weight: 600; }
+.tl-beat.strong { color: var(--ink); }
+.tl-sub { position: absolute; bottom: 0; width: 1px; height: 5px; background: var(--ink-3); }
+.tl-handle {
+  position: absolute; top: -6px; bottom: -6px; width: 30px; transform: translateX(-50%); border: 0; background: transparent; cursor: ew-resize;
+  touch-action: none; z-index: 3; padding: 0;
+}
+.tl-handle span { display: block; width: 6px; height: 100%; margin: 0 auto; border-radius: 3px; background: var(--accent); box-shadow: 0 0 0 2px var(--sheet); }
+.tl-adds { position: relative; height: 34px; }
+.tl-add {
+  position: absolute; top: 4px; transform: translateX(-50%); width: 30px; height: 30px; border-radius: 50%;
+  border: 1.5px dashed var(--accent); background: var(--paper); color: var(--accent); font-size: 17px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0;
+}
+.tl-add:hover { background: var(--accent-soft); }
 
 /* ---- Panels ---- */
 
@@ -652,7 +725,10 @@ body.ifp-noscroll { overflow: hidden; }
 .stage-count { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; margin-right: auto; }
 .stage-song { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 12px 8px; }
 .fit-box { flex: 1; min-height: 0; display: flex; justify-content: center; overflow: hidden; }
+.fit-box.scrolls { overflow-y: auto; align-items: flex-start; overscroll-behavior: contain; }
 .fit-inner { width: 100%; }
+/* No floor here: FitChart narrows the chart until it fits the screen, and the chords shrink with it. */
+.stage .chart { --cs: min(7.6cqw, 64px); }
 .stage .chart-row { padding-top: calc(1.2em + var(--row-extra, 0px)); }
 .stage-next {
   position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom));

@@ -78,11 +78,11 @@ const eve = `eve.${run}@example.com`;
   step('save, then a stale save conflicts and merges');
   const base = { meta: song.meta, chart: song.chart as Chart };
   const annDoc = structuredClone(base);
-  annDoc.chart.bars[0].cells[0].ch = 'C-9';
+  annDoc.chart.bars[0].events[0].ch = 'C-9';
   const r1 = await ok(ann, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...annDoc });
   assert.equal(r1.revision, song.revision + 1);
   const benDoc = structuredClone(base);
-  benDoc.chart.bars[5].cells[0].ch = 'D7b9';
+  benDoc.chart.bars[5].events[0].ch = 'D7b9';
   benDoc.meta.bpm = 140;
   const stale = await call(ADMIN, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...benDoc });
   assert.equal(stale.status, 409);
@@ -91,13 +91,13 @@ const eve = `eve.${run}@example.com`;
   const r2 = await ok(ADMIN, 'PATCH', `/songs/${songId}`, { baseRevision: stale.json.song.revision, ...merged.value });
   song = await ok(null, 'GET', `/songs/${songId}`);
   assert.equal(song.revision, r2.revision);
-  assert.equal(song.chart.bars[0].cells[0].ch, 'C-9');
-  assert.equal(song.chart.bars[5].cells[0].ch, 'D7b9');
+  assert.equal(song.chart.bars[0].events[0].ch, 'C-9');
+  assert.equal(song.chart.bars[5].events[0].ch, 'D7b9');
   assert.equal(song.meta.bpm, 140);
 
   step('saves fold into versions per person');
   const again = structuredClone({ meta: song.meta, chart: song.chart as Chart });
-  again.chart.bars[1].cells[0].ch = 'F9';
+  again.chart.bars[1].events[0].ch = 'F9';
   await ok(ann, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...again });
   const versions = (await ok(null, 'GET', `/songs/${songId}/versions`)).versions;
   // import, ann's edit, the admin's edit, ann's second edit (a new version: someone else saved in between)
@@ -120,7 +120,7 @@ const eve = `eve.${run}@example.com`;
   await ok(ann, 'PATCH', `/songs/${songId}/versions/${imported.id}`, { label: 'As imported' });
   await ok(ann, 'POST', `/songs/${songId}/versions/${imported.id}`, { action: 'restore' });
   song = await ok(null, 'GET', `/songs/${songId}`);
-  assert.equal(song.chart.bars[0].cells[0].ch, 'C-7');
+  assert.equal(song.chart.bars[0].events[0].ch, 'C-7');
   const after = (await ok(null, 'GET', `/songs/${songId}/versions`)).versions;
   assert.equal(after[0].kind, 'restore');
   assert.equal(after[0].summary, 'Restored “As imported”');
@@ -157,12 +157,31 @@ const eve = `eve.${run}@example.com`;
   assert.equal(pl.deletedSongs.length, 1);
   await ok(ann, 'PATCH', `/songs/${order[0]}`, { deleted: false });
 
+  step('a chart stored in the old cell format upgrades on read, and saves as a timeline');
+  const legacy = { v: 1, bars: [{ id: 'L1', open: '[', time: '3/4', cells: [{ ch: 'C' }, {}, { ch: 'G7' }, {}] }, { id: 'L2', close: 'Z', cells: [{}, { sym: 'x' }, {}, {}] }] };
+  const made = await ok(ADMIN, 'POST', `/playlists/${slug}/songs`, { blank: { title: 'Legacy' } });
+  const lid = made.ids[0];
+  // Write the old shape straight in, as a song saved before timelines would be.
+  const cur = await ok(ADMIN, 'GET', `/songs/${lid}`);
+  await call(ADMIN, 'PATCH', `/songs/${lid}`, { baseRevision: cur.revision, meta: cur.meta, chart: legacy });
+  const up = await ok(null, 'GET', `/songs/${lid}`);
+  assert.equal(up.chart.v, 2);
+  assert.deepEqual(up.chart.bars[0].events.map((e: { ch?: string; at: number; dur: number }) => `${e.ch}@${e.at}:${e.dur}`), ['C@0:48', 'G7@48:24'], 'a waltz bar of two chords is 2+1');
+  assert.equal(up.chart.bars[1].simile, 1);
+  assert.equal(up.chart.bars[0].events[0].id, 'L1.0');
+
+  step('a form starts a new song');
+  const blues = await ok(ADMIN, 'POST', `/playlists/${slug}/songs`, { blank: { title: 'Blues in F', key: 'F', form: 'blues' } });
+  const bsong = await ok(null, 'GET', `/songs/${blues.ids[0]}`);
+  assert.equal(bsong.chart.bars.length, 12);
+  assert.equal(bsong.chart.bars[1].events[0].ch, 'Bb7');
+
   step('export reads back');
   const ex = await ok(null, 'GET', `/playlists/${slug}/export`);
   assert.ok(ex.link.startsWith('irealb://'));
   const back = await ok(null, 'POST', '/import', { text: ex.link });
   assert.equal(back.name, 'Friday at the Lodge');
-  assert.equal(back.songs.length, 5);
+  assert.equal(back.songs.length, 7);
 
   step('owner-only settings; rotating the token stops old links');
   assert.equal((await call(ann, 'PATCH', `/playlists/${slug}`, { rotateToken: true })).status, 403);

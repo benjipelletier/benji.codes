@@ -37,18 +37,43 @@ Local dev: with `next dev` only, an `ifp_dev_user=<email>` cookie signs you in a
 
 ## Chart model (`lib/chart.ts`)
 
-iReal lays charts out 16 cells to a row, and a bar owns a run of cells (usually 4). We keep exactly that:
-`Chart { v: 1, bars: Bar[] }`, where each `Bar` has a stable `id` and its `cells` (each holding a chord in iReal spelling, a symbol `x` `r` `p` `n`, an alt chord, small, and the marks text/segno/coda/fermata/end), plus `open` (`|` `[` `{`), `close` (`]` `}` `Z`), `section`, `time`, `ending`, `spacer` (empty cells before the bar, e.g. an indented 2nd ending), `vspace` and `br` (an editor line break).
+A bar is a short timeline. `Chart { v: 2, bars: Bar[] }`; each `Bar` has a stable `id`, its frame (`open` `|` `[` `{`, `close` `]` `}` `Z`, `section`, `time`, `ending`, `spacer`, `vspace`, `br`), an optional `simile` (1- or 2-bar repeat sign), and `events`.
 
-Bar ids are what comments (`bar_id`), merges and version diffs hang on. Copies and pastes get new ids.
+- An event (`Ev`) is `{id, at, dur, kind, ch?, alt?, small?, text?, segno?, coda?, fermata?, end?}`. Times are in ticks, `WHOLE = 96` to a whole note (a quarter is 24, an eighth-note triplet 8), so triplets and sixteenths are exact.
+- Kinds: `chord`, `rest`, `nc` (N.C.), `hold` (the chord before keeps sounding, drawn as nothing), `slash` (keep time, `/`), `hit` (an accented stab, drawn with `>`).
+- A bar's events are contiguous and fill it exactly; `fitEvents` enforces that whenever the meter changes. `meter(time)` gives the bar length, the beat (a dotted quarter in 6/8, 9/8, 12/8) and the beat grouping.
+- Event ids are stable too (`${barId}.${k}` for upgraded charts, random for new ones). The editor's selection, undo and merges hang on bar and event ids. Copies and pastes get new ones.
+- Repeats, endings and sections live on the bar frame, not in the events.
 
-Chords stay in iReal spelling (`C-7`, `Bb^7`, `F#h7`, `Eb7b9/G`, `W/C`). `lib/chords.ts` normalises typed input (`Cm7`, `Cmaj7`, `C△7`, `Cø`…), formats for display (fake-book signs, or spelled out), and transposes. The editor types a whole bar as one line (`C-7 F7`, `.` for an empty cell, `%` repeat, `C7(Db7)` alt) via `parseBarText` / `barToText`.
+The old cell grid (`v: 1`, `lib/legacy.ts`) is still read: the server upgrades it on every read (`upgrade()` in `app/api/ifakepro/store.ts`, deterministic so ids don't change between reads) and `sanitizeChart` upgrades anything a client sends. `lib/convert.ts` maps cells ↔ time. When the cells divide evenly into beats it's proportional; otherwise chords snap to beats with the earlier chord taking the extra (a waltz bar of two chords is 2 + 1, Take Five's 5/4 is 3 + 2). An event keeps a `cell` hint when two cells would mean the same time, so iReal charts go out exactly as they came in.
+
+Chords stay in iReal spelling (`C-7`, `Bb^7`, `F#h7`, `Eb7b9/G`, `W/C`). `lib/chords.ts` normalises typed input (`Cm7`, `Cmaj7`, `C△7`, `Cø`, `C7(b9)`…), splits and joins root / quality / bass for the picker, formats for display (fake-book signs, or spelled out), and transposes.
+
+### Editing (`lib/edit.ts`, `lib/progression.ts`, `lib/forms.ts`)
+
+Every edit is a pure `Chart → Chart` function, so undo, merges and tests all work the same way.
+
+- Events: `setChord`, `setKind`, `splitEvent` / `splitOnGrid`, `insertAt` (a new event at a tick), `setDuration` (longer swallows what follows; shorter hands the time to the next event, or a rest at the end), `moveBoundary` (snapped, never past a neighbour), `shiftEvent`, `mergeWithNext`, `removeEvent` (the one before takes its time).
+- Bars: `insertBars`, `duplicateBars`, `deleteBars` (keeps the section letter, time signature and repeat signs that were on deleted bars), `moveBars`, `clearBars`, `transposeBars` / `transposeChart`, `patchBar`.
+- `parseProgression` reads typed or pasted text: `| Dm7 G7 | Cmaj7 |`, `C:3 G7:1`, `/` to continue, `r` rest, `nc`, `%`, `C7>` hit, `C7(b9)` alteration vs `C7(Db7)` alternate chord. Counts that don't divide evenly are placed long-first and flagged, and the Type panel won't apply a flagged bar until it's fixed. `barText` writes a bar back out the same way.
+- `formChart` starts a song from a form: empty, 12-bar blues, jazz blues, 32-bar AABA or ABAC (minor keys get a minor blues).
+
+## The editor (`components/ChartEditor.tsx`, `components/editor/`)
+
+Reading view is the default; "✎ Edit chart" (or tapping a bar, or `?edit=1`) opens it. The chart stays on screen and a sheet docks at the bottom (side by side with it on a wide screen); the page pads itself so the selected bar is never hidden behind the sheet or the keyboard (`--ed-h`, `--kb` from `visualViewport`).
+
+- Header: previous / next event, where you are ("Bar 5 · beat 3 · 2 beats"), undo, redo, Done.
+- The selected bar as a `Timeline`: each event as wide as it is long; in rhythm mode a beat ruler, drag handles on the boundaries (also arrow keys; snapped to the grid) and `+` marks to start an event on a grid line.
+- Tabs: **Chord** (type a chord, or pick root, quality, bass; tritone sub, ii–V, rest, N.C., more kinds), **Rhythm** (grid of 1, ½, triplet, ¼ beat; length, earlier / later, split, merge), **Bar** (insert, duplicate, delete, clear, copy / paste, move, transpose, section, time, ending, barlines, marks, comment; a selection can grow to a range, a section or everything), **Type** (paste a progression, with a live preview and flags; replace, insert, append, or the whole chart).
+- Keyboard: arrows move (Shift extends), letters start typing a chord, Enter moves on (adding a bar at the end), Delete, `r` rest, `n` N.C., `s` split, ⌘Z / ⇧⌘Z, ⌘C / ⌘X / ⌘V / ⌘D. Pasting text parses it as a progression.
+- Transposing is kept apart: the Chord tab changes one chord; the Bar tab moves a selection; Song info moves the whole chart's key; "View in" (concert, B♭, E♭, F, or any key) is per viewer, not saved, and the editor locks while it's on.
+- Typing edits fold into one undo step (`change(fn, {coalesce})` in `useSongSync`), as do drags.
 
 ## iReal format (`lib/ireal.ts`)
 
-`irealb://` + percent-encoded songs joined by `===`, with the playlist name last. Each song is `Title=Composer==Style=Key=Transpose=1r34LbKcu7<scrambled music>=Comp=BPM=Repeats`. The music is scrambled in 50-character chunks (`obfusc50`, which undoes itself), and uses the shorthands `Kcl` = `| x`, `LZ` = ` |`, `XyQ` = 3 empty cells. Composers are stored "Last First" and swapped for display. `findLinks` also pulls links out of iReal's exported HTML.
+`irealb://` + percent-encoded songs joined by `===`, with the playlist name last. Each song is `Title=Composer==Style=Key=Transpose=1r34LbKcu7<scrambled music>=Comp=BPM=Repeats`. The music is scrambled in 50-character chunks (`obfusc50`, which undoes itself), and uses the shorthands `Kcl` = `| x`, `LZ` = ` |`, `XyQ` = 3 empty cells. Composers are stored "Last First" and swapped for display. iReal has no rests or hits, so those export as N.C. and as plain chords, and durations iReal's cells can't show (triplets, sixteenths) go to the nearest cell. `findLinks` also pulls links out of iReal's exported HTML.
 
-`npx tsx ifakepro/scripts/test-lib.ts` reads all 1,460 standards, writes each back out and reads it again (they must be identical), checks no characters are skipped, cross-checks chords against `ireal-reader`, and unit-tests merge, diff and chords.
+`npx tsx ifakepro/scripts/test-lib.ts` reads all 1,460 standards, writes each back out and reads it again (charts and cells must be identical), checks no characters are skipped, cross-checks chords against `ireal-reader`, and unit-tests merge, diff and chords.
 
 ## Collaboration (`components/useSongSync.ts`, `lib/merge.ts`)
 
@@ -93,7 +118,7 @@ Parses `jazz/charts_raw/jazz.ireal` once per server instance. `next.config.ts` t
   - music signs from Petaluma Text (SMuFL code points in `SMUFL`): segno, coda, fermata, the 1- and 2-bar repeat signs, time signatures, △ ø °
   - the fonts are Steinberg's unmodified `.woff2` files in `public/ifakepro/fonts/`, under the OFL; don't subset or rename them, since a modified copy may not keep the name
   - `ChartHead`: "(style · ♩ = bpm)" on the left, the title in the script font in the middle, the composer on the right; editors tap the title for Song info
-- Sizes are in em of `--cs` (about 7.6% of the chart's width), so chords are as big as the row allows on any screen. Bars with 3+ chords shrink to fit.
+- Sizes are in em of `--cs` (about 7.6% of the chart's width), so chords are as big as the row allows on any screen. Bars with 3+ chords (or anything shorter than a beat) shrink, and 4+ shrink further. Each bar's events sit in a grid with columns in proportion to their durations, so a chord on beat 4 sits over beat 4.
 - On phones the song sheet is edge to edge; in dark mode it's near-black, like iReal.
 - Song info edits the title, composer, style, tempo and key. Changing the key moves every chord there by default (the short way round); unticked, it only relabels.
 - "View in" next to the chart is a per-viewer transposition that isn't saved.
@@ -104,8 +129,8 @@ Parses `jazz/charts_raw/jazz.ireal` once per server instance. `next.config.ts` t
   - dialogs are bottom sheets
   - the song's comments, history and activity are a bottom sheet behind a tab bar (a side column at ≥1000px)
   - the toolbar scrolls sideways
-  - tapping a bar opens a docked entry bar with quick keys (♭ ♯ – △ ø °)
-  - setlist mode swipes, takes taps at the edges, and keeps the screen awake
+  - tapping a bar opens the editor sheet (above)
+  - setlist mode swipes, takes taps at the edges, and keeps the screen awake; `FitChart` finds the widest chart that fits the screen, and scrolls instead when that would make chords smaller than about 24px (a long tune on a phone held sideways)
 
 Routes:
 
@@ -121,5 +146,6 @@ Routes:
 
 ## Checks
 
-- `npx tsx ifakepro/scripts/test-lib.ts`: the libraries and the 1,460-song round trip.
-- `BASE=http://localhost:3000 ADMIN=<an admin email> npx tsx ifakepro/scripts/test-api.ts`: end to end against `next dev` with a throwaway database. It covers permissions, invites, conflicting saves and merges, version folding and restore, comments, activity, reorder, delete, export and copy.
+- `npx tsx ifakepro/scripts/test-lib.ts`: the libraries, the 1,460-song round trip, and the editor's acceptance checks as pure functions.
+- `BASE=http://localhost:3000 ADMIN=<an admin email> npx tsx ifakepro/scripts/test-api.ts`: end to end against `next dev` with a throwaway database. It covers permissions, invites, conflicting saves and merges, version folding and restore, comments, activity, reorder, delete, export and copy, upgrading old charts and starting from a form.
+- `BASE=http://localhost:3000 ADMIN=<an admin email> node ifakepro/scripts/test-editor.cjs`: the editor in Playwright, same setup, on a phone (touch) and a laptop (keyboard), checking what the server saved after each edit.

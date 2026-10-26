@@ -1,7 +1,7 @@
 import { getSessionUser, roleIn } from '@ifakepro/lib/session';
 import type { PollResult } from '@ifakepro/lib/types';
 import { getDb } from '../../../db';
-import { commentsStamp, handle, isUuid, person } from '../../../store';
+import { commentsStamp, handle, isUuid, person, upgrade } from '../../../store';
 import { HttpError } from '@ifakepro/lib/session';
 
 const PRESENCE_SECONDS = 20;
@@ -36,7 +36,7 @@ export const GET = handle<{ id: string }>(async (req, { id }): Promise<PollResul
     ORDER BY p.seen_at`;
   return {
     revision: s.revision,
-    song: s.meta ? { id, meta: s.meta, chart: s.chart, revision: s.revision, updatedBy: person(s.updated_by, s.name, s.image) } : null,
+    song: s.meta ? { id, meta: s.meta, chart: upgrade(s.chart), revision: s.revision, updatedBy: person(s.updated_by, s.name, s.image) } : null,
     presence: present.map((p) => ({ user: person(p.user_id, p.name, p.image), barId: p.bar_id, editing: p.editing })),
     commentsStamp: await commentsStamp(id),
     deleted: !!s.deleted_at,

@@ -39,6 +39,15 @@ export async function readBody(req: NextRequest): Promise<Record<string, unknown
 export const isUuid = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 const iso = (d: unknown) => (d instanceof Date ? d.toISOString() : String(d));
 
+/**
+ * A chart as stored, in the current model. Charts saved before bars were
+ * timelines (v1, iReal cells) are upgraded here, deterministically, so the
+ * server, every client and the merge all see the same event ids.
+ */
+export function upgrade(chart: unknown): Chart {
+  return sanitizeChart(chart) ?? { v: 2, bars: [] };
+}
+
 export function person(id: string | null, name: string | null, image: string | null): Person {
   return { id: id ?? '', name: name || 'Someone', image: image ?? null };
 }
@@ -136,7 +145,7 @@ export async function playlistDetail(slug: string, user: SessionUser | null, ful
   if (full) {
     const rows = await getDb()`
       SELECT id, meta, chart, revision FROM ifp_songs WHERE playlist_id = ${r.id} AND deleted_at IS NULL ORDER BY position`;
-    out.fullSongs = rows.map((s) => ({ id: s.id, meta: s.meta, chart: s.chart, revision: s.revision }));
+    out.fullSongs = rows.map((s) => ({ id: s.id, meta: s.meta, chart: upgrade(s.chart), revision: s.revision }));
   }
   return out;
 }
@@ -264,7 +273,7 @@ export async function findSong(id: string): Promise<Row> {
     LEFT JOIN ifp_profiles u ON u.id = s.updated_by
     WHERE s.id = ${id}`;
   if (!rows[0]) throw new HttpError(404, 'No such song');
-  return rows[0];
+  return { ...rows[0], chart: upgrade(rows[0].chart) };
 }
 
 export async function songDetail(id: string, user: SessionUser | null): Promise<SongDetail> {
@@ -317,7 +326,7 @@ async function recordVersion(song: Row, user: SessionUser, revision: number, doc
     FROM ifp_versions WHERE song_id = ${song.id} ORDER BY created_at DESC LIMIT 2`;
   const [latest, before] = recent;
   if (latest && latest.author_id === user.id && latest.kind === 'edit' && !latest.label && latest.fresh) {
-    const summary = summarize(before ? { meta: before.meta, chart: before.chart } : null, doc);
+    const summary = summarize(before ? { meta: before.meta, chart: upgrade(before.chart) } : null, doc);
     await sql`
       UPDATE ifp_versions SET revision = ${revision}, meta = ${JSON.stringify(doc.meta)}::jsonb, chart = ${JSON.stringify(doc.chart)}::jsonb,
         summary = ${summary}, created_at = now()
@@ -329,7 +338,7 @@ async function recordVersion(song: Row, user: SessionUser, revision: number, doc
     else await sql`UPDATE ifp_playlists SET updated_at = now() WHERE id = ${song.playlist_id}`;
     return;
   }
-  const summary = summarize(latest ? { meta: latest.meta, chart: latest.chart } : null, doc);
+  const summary = summarize(latest ? { meta: latest.meta, chart: upgrade(latest.chart) } : null, doc);
   const ins = await sql`
     INSERT INTO ifp_versions (song_id, revision, meta, chart, author_id, kind, summary)
     VALUES (${song.id}, ${revision}, ${JSON.stringify(doc.meta)}::jsonb, ${JSON.stringify(doc.chart)}::jsonb, ${user.id}, 'edit', ${summary})
@@ -390,7 +399,7 @@ export async function getVersion(songId: string, versionId: string): Promise<Ver
     SELECT v.*, u.name, u.image FROM ifp_versions v LEFT JOIN ifp_profiles u ON u.id = v.author_id
     WHERE v.id = ${versionId} AND v.song_id = ${songId}`;
   if (!rows[0]) throw new HttpError(404, 'No such version');
-  return { ...toVersion(rows[0]), meta: rows[0].meta, chart: rows[0].chart };
+  return { ...toVersion(rows[0]), meta: rows[0].meta, chart: upgrade(rows[0].chart) };
 }
 
 // ---- Comments ----

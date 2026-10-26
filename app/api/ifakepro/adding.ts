@@ -1,6 +1,7 @@
 import 'server-only';
 import { HttpError } from '@ifakepro/lib/session';
-import { blankChart, EMPTY_META, sanitizeMeta } from '@ifakepro/lib/chart';
+import { EMPTY_META, sanitizeMeta } from '@ifakepro/lib/chart';
+import { FORMS, type FormId, formChart } from '@ifakepro/lib/forms';
 import { parseIReal } from '@ifakepro/lib/ireal';
 import { loadStandards } from '@ifakepro/lib/standards';
 import type { NewSong } from './store';
@@ -16,15 +17,18 @@ const some = (n: number, what: string) => (n === 1 ? what : `${n} songs`);
 
 /**
  * The songs a request asks to add, from one of:
- *   { blank: { title?, key?, style? } }          a new empty chart
+ *   { blank: { title?, key?, style?, form? } }   a new chart: empty, or a form (blues, AABA…)
  *   { ireal: "<link or exported HTML>", include? } songs from iReal Pro (include: indices to keep)
  *   { standards: [index, …] }                    copies from the standards library
  */
 export function songsToAdd(body: Record<string, unknown>): SongsToAdd | null {
   if (body.blank && typeof body.blank === 'object') {
+    const blank = body.blank as { form?: unknown; time?: unknown };
     const meta = sanitizeMeta({ ...EMPTY_META, ...(body.blank as object) });
+    const form = FORMS.some((f) => f.id === blank.form) ? (blank.form as FormId) : 'empty';
+    const time = typeof blank.time === 'string' && /^\d{1,2}\/(2|4|8)$/.test(blank.time) ? blank.time : '4/4';
     return {
-      songs: [{ meta, chart: blankChart() }],
+      songs: [{ meta, chart: formChart(form, meta.key, time) }],
       kind: 'create',
       versionSummary: 'Created',
       activity: { kind: 'song.create', summary: `Added “${meta.title}”` },

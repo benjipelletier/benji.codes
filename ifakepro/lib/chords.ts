@@ -2,8 +2,6 @@
 // characters (- minor, ^ major 7, h half-diminished, o diminished, + augmented),
 // and an optional /bass. W is iReal's invisible root, used for "/C" alone.
 
-import { type Cell, DEFAULT_BAR_CELLS, isBlank } from './chart';
-
 // iReal also allows a custom quality between asterisks: C*-^*.
 export const CHORD_RE = /^[A-GW][b#]?(?:\*[^*|]{0,12}\*|(?:sus|add|alt|[0-9b#^\-ho+])*)(?:\/[A-G][b#]?)?/;
 const FULL_CHORD_RE = new RegExp(`${CHORD_RE.source}$`);
@@ -69,13 +67,13 @@ export function transposeAlt(alt: string, semis: number, flats: boolean): string
   return alt.replace(/[A-G][b#]?[^\s,/]*(?:\/[A-G][b#]?)?/g, (c) => transposeChord(c, semis, flats));
 }
 
-export function transposeCells(cells: Cell[], semis: number, flats: boolean): Cell[] {
-  if (!semis) return cells;
-  return cells.map((c) => ({
-    ...c,
-    ...(c.ch ? { ch: transposeChord(c.ch, semis, flats) } : {}),
-    ...(c.alt ? { alt: transposeAlt(c.alt, semis, flats) } : {}),
-  }));
+export function transposeEvent<E extends { ch?: string; alt?: string }>(e: E, semis: number, flats: boolean): E {
+  if (!semis || (!e.ch && !e.alt)) return e;
+  return {
+    ...e,
+    ...(e.ch ? { ch: transposeChord(e.ch, semis, flats) } : {}),
+    ...(e.alt ? { alt: transposeAlt(e.alt, semis, flats) } : {}),
+  };
 }
 
 export type ChordStyle = 'jazz' | 'plain';
@@ -153,95 +151,66 @@ export function normalizeChord(input: string): string | null {
   return FULL_CHORD_RE.test(out) ? out : null;
 }
 
-// ---- A bar as text, for typing it in one go ----
+// ---- Taking a chord apart, for the picker ----
 
-/** Where n chords sit in a bar of `cells`: two chords in four cells go on 1 and 3. */
-export function spread(n: number, cells: number): number[] {
-  return Array.from({ length: n }, (_, i) => Math.floor((i * cells) / n));
+export interface ChordSpell {
+  /** C, Bb, F#, or W (no root: a bass note alone). */
+  root: string;
+  /** iReal quality: "", "-7", "^7", "h7", "7b9", … */
+  quality: string;
+  /** Bass note, or "". */
+  bass: string;
 }
 
-function cellToken(c: Cell): string {
-  const alt = c.alt ? `(${c.alt})` : '';
-  if (c.ch) return c.ch + alt;
-  if (c.sym === 'x') return '%';
-  if (c.sym === 'r') return '%%';
-  if (c.sym === 'p') return '/';
-  if (c.sym === 'n') return 'N.C.';
-  return `.${alt}`;
+export function splitChord(ch: string): ChordSpell | null {
+  const m = ch.match(/^([A-GW][b#]?)(.*?)(?:\/([A-G][b#]?))?$/);
+  return m ? { root: m[1], quality: m[2], bass: m[3] ?? '' } : null;
 }
 
-/**
- * The bar as one line: "C-7 F7" when the chords sit where spreading them
- * would put them, otherwise every cell with . for the empty ones.
- */
-export function barToText(cells: Cell[]): string {
-  const filled = cells.map((c, i) => [c, i] as const).filter(([c]) => !isBlank(c));
-  const blanksWithAlt = cells.some((c) => isBlank(c) && c.alt);
-  const pos = spread(filled.length, cells.length);
-  const compact = !blanksWithAlt && cells.length === DEFAULT_BAR_CELLS && filled.every(([, i], k) => pos[k] === i);
-  if (compact) return filled.map(([c]) => cellToken(c)).join(' ');
-  let last = cells.length - 1;
-  while (last > 0 && isBlank(cells[last]) && !cells[last].alt) last--;
-  return cells.slice(0, last + 1).map(cellToken).join(' ');
+export function joinChord(p: ChordSpell): string {
+  return `${p.root}${p.quality}${p.bass ? `/${p.bass}` : ''}`;
 }
 
-export interface ParsedBarText {
-  cells: Cell[];
-  errors: string[];
+/** The twelve roots, spelled the way the key prefers. */
+export function roots(flats: boolean): string[] {
+  return flats ? FLATS.slice() : SHARPS.slice();
 }
 
-/**
- * Parse a line typed for a bar. Chords are separated by spaces or commas;
- * . or _ is an empty cell, % repeats the last bar, %% the last two, / is a
- * slash, N.C. no chord, and C7(Db7) gives C7 an alternate. Without any empty
- * cells the chords are spread over the bar; with them, each token is a cell.
- */
-export function parseBarText(text: string, current: Cell[]): ParsedBarText {
-  const width = Math.max(1, current.length || DEFAULT_BAR_CELLS);
-  const tokens = text.split(/[\s,|]+/).filter(Boolean);
-  const errors: string[] = [];
-  const parsed: Cell[] = [];
-  let explicit = false;
-  for (const tok of tokens) {
-    const am = tok.match(/^(.*?)\(([^)]*)\)$/);
-    const head = am ? am[1] : tok;
-    const alt = am ? normalizeChord(am[2]) ?? am[2].trim() : undefined;
-    let cell: Cell;
-    if (head === '.' || head === '_' || head === '') {
-      cell = {};
-      explicit = true;
-    } else if (head === '%' || head === 'x') cell = { sym: 'x' };
-    else if (head === '%%' || head === 'r') cell = { sym: 'r' };
-    else if (head === '/') cell = { sym: 'p' };
-    else if (/^(n|nc|n\.c\.?)$/i.test(head)) cell = { sym: 'n' };
-    else {
-      const ch = normalizeChord(head);
-      if (!ch) {
-        errors.push(head);
-        continue;
-      }
-      cell = { ch };
-    }
-    if (alt) cell.alt = alt;
-    parsed.push(cell);
-  }
-  let cells: Cell[];
-  if (explicit || parsed.length >= width) {
-    cells = parsed.slice();
-    while (cells.length < width) cells.push({});
-  } else {
-    cells = Array.from({ length: width }, () => ({}));
-    spread(parsed.length, width).forEach((p, k) => (cells[p] = parsed[k]));
-  }
-  cells = cells.slice(0, 16);
-  // Keep the cell marks (text, fermata, small…) where they were.
-  cells = cells.map((c, i) => {
-    const old = current[i];
-    if (!old) return c;
-    const keep: Cell = {};
-    for (const k of ['text', 'fermata', 'segno', 'coda', 'end'] as const) if (old[k]) (keep as Record<string, unknown>)[k] = old[k];
-    if (old.small && (c.ch || c.sym === 'p')) keep.small = true;
-    return { ...keep, ...c };
-  });
-  return { cells, errors };
+export interface Quality {
+  q: string;
+  /** Shown first, without opening "More". */
+  common?: boolean;
+}
+
+/** Chord qualities for the picker, the everyday jazz ones first. */
+export const QUALITIES: Quality[] = [
+  { q: '^7', common: true }, { q: '-7', common: true }, { q: '7', common: true }, { q: 'h7', common: true },
+  { q: 'o7', common: true }, { q: '6', common: true }, { q: '', common: true }, { q: '-', common: true },
+  { q: '7sus', common: true }, { q: '7alt', common: true }, { q: '9', common: true }, { q: '-6', common: true },
+  { q: '^9' }, { q: '-9' }, { q: '13' }, { q: '69' }, { q: '-^7' }, { q: '^7#11' }, { q: '7b9' }, { q: '7#9' },
+  { q: '7#11' }, { q: '7b13' }, { q: '7#5' }, { q: '7b9b13' }, { q: '13b9' }, { q: '9sus' }, { q: '-11' }, { q: '-7b5' },
+  { q: '+' }, { q: 'o' }, { q: 'sus' }, { q: 'add9' }, { q: '2' }, { q: '5' },
+];
+
+/** A chord as people type it (Cm7, Cmaj7, Cm7b5, Cdim7), for the text field. */
+export function chordText(ch: string): string {
+  const p = chordParts(ch, 'plain');
+  return `${p.root}${p.quality}${p.bass ? `/${p.bass}` : ''}`.replace(/♭/g, 'b').replace(/♯/g, '#').replace(/△7?/g, 'maj7');
+}
+
+/** A dominant's tritone substitute: G7 → Db7 (quality and bass kept, the bass moving with it). */
+export function tritoneSub(ch: string, flats: boolean): string {
+  return transposeChord(ch, 6, flats);
+}
+
+/** The ii of a dominant: G7 → D-7. */
+export function twoOf(ch: string, flats: boolean): string | null {
+  const p = splitChord(ch);
+  if (!p || p.root === 'W') return null;
+  return `${transposeChord(p.root, 7, flats)}-7`;
+}
+
+export function isDominant(ch: string): boolean {
+  const p = splitChord(ch);
+  return !!p && /^(7|9|13)/.test(p.quality);
 }

@@ -7,14 +7,15 @@
 // phone and fills a laptop.
 
 import { memo, type MouseEvent as RMouseEvent } from 'react';
-import { type Bar, type Cell, type Chart, type SongMeta, cellText, layout, sectionLabel, timeAt } from '@ifakepro/lib/chart';
-import { type ChordStyle, chordParts, transposeCells } from '@ifakepro/lib/chords';
+import { type Bar, type Chart, type Ev, type SongMeta, cellText, layout, metersOf, sectionLabel, timeAt } from '@ifakepro/lib/chart';
+import { type ChordStyle, chordParts, transposeEvent } from '@ifakepro/lib/chords';
 import { displayKey } from '@ifakepro/lib/client';
 
 export interface Selection {
   from: number;
   to: number;
-  cell: number | null;
+  /** The selected event, when one bar is selected. */
+  ev: string | null;
 }
 
 export interface ChartViewProps {
@@ -24,8 +25,10 @@ export interface ChartViewProps {
   flats?: boolean;
   chordStyle?: ChordStyle;
   selection?: Selection | null;
-  /** A click or tap on a bar, with the cell under it. */
-  onBarClick?: (index: number, cell: number, e: RMouseEvent) => void;
+  /** A click or tap on a bar, with the time (in ticks) under it. */
+  onBarClick?: (index: number, tick: number, e: RMouseEvent) => void;
+  /** Draw the beats across the selected bar (editing). */
+  beatGrid?: boolean;
   /** People on each bar, by bar id. */
   presence?: Record<string, { name: string; color: string }[]>;
   /** Open comment threads per bar id. */
@@ -47,6 +50,7 @@ export const SMUFL = {
   fermata: '\uE4C0',
   repeat1: '\uE500',
   repeat2: '\uE501',
+  accent: '\uE4A0',
   maj7: '\uE873',
   halfDim: '\uE871',
   dim: '\uE870',
@@ -131,34 +135,46 @@ export function ChartHead({ meta, playlist, keyShown, onEdit }: { meta: SongMeta
   );
 }
 
-function CellView({ cell, style, alone, cursor, first }: { cell: Cell; style: ChordStyle; alone: boolean; cursor: boolean; first: boolean }) {
+const REST: [number, string][] = [
+  [96, ''], [48, ''], [24, ''], [12, ''], [6, ''], [3, ''],
+];
+
+/** The rest sign for a length: the largest that fits, dotted when it's half as long again. */
+function restGlyph(dur: number, wholeBar: boolean): string {
+  if (wholeBar) return REST[0][1];
+  for (const [t, g] of REST) {
+    if (dur === t) return g;
+    if (dur === t * 1.5) return `${g} `;
+  }
+  return (REST.find(([t]) => t <= dur) ?? REST[REST.length - 1])[1];
+}
+
+function EventView({ ev, style, wholeBar, sel, first }: { ev: Ev; style: ChordStyle; wholeBar: boolean; sel: boolean; first: boolean }) {
   const marks = (
     <>
-      {(cell.segno || cell.coda || cell.fermata || cell.text) && (
+      {(ev.segno || ev.coda || ev.fermata || ev.text || ev.kind === 'hit') && (
         <span className="cell-marks">
-          {cell.segno && <span className="smufl sym" title="Segno">{SMUFL.segno}</span>}
-          {cell.coda && <span className="smufl sym" title="Coda">{SMUFL.coda}</span>}
-          {cell.fermata && <span className="smufl sym" title="Fermata">{SMUFL.fermata}</span>}
-          {cell.text && <span className="cell-text">{cellText(cell.text)}</span>}
+          {ev.kind === 'hit' && <span className="smufl sym accent" title="Hit">{SMUFL.accent}</span>}
+          {ev.segno && <span className="smufl sym" title="Segno">{SMUFL.segno}</span>}
+          {ev.coda && <span className="smufl sym" title="Coda">{SMUFL.coda}</span>}
+          {ev.fermata && <span className="smufl sym" title="Fermata">{SMUFL.fermata}</span>}
+          {ev.text && <span className="cell-text">{cellText(ev.text)}</span>}
         </span>
       )}
-      {cell.alt && (
+      {ev.alt && (
         <span className="cell-alt">
-          {cell.alt.split(/\s+/).map((a, i) => (/^[A-GW]/.test(a) ? <Chord key={i} ch={a} style={style} /> : <span key={i}>{a}</span>))}
+          {ev.alt.split(/\s+/).map((a, i) => (/^[A-GW]/.test(a) ? <Chord key={i} ch={a} style={style} /> : <span key={i}>{a}</span>))}
         </span>
       )}
     </>
   );
   let body = null;
-  if (cell.ch) body = <Chord ch={cell.ch} style={style} />;
-  else if (cell.sym === 'x') body = <span className={`smufl simile ${alone ? 'simile-center' : ''}`} title="Repeat the last bar">{SMUFL.repeat1}</span>;
-  else if (cell.sym === 'r') body = <span className="smufl simile simile-two" title="Repeat the last two bars">{SMUFL.repeat2}</span>;
-  else if (cell.sym === 'p') body = <span className="slash">/</span>;
-  else if (cell.sym === 'n') body = <span className="nc">N.C.</span>;
+  if ((ev.kind === 'chord' || ev.kind === 'hit') && ev.ch) body = <Chord ch={ev.ch} style={style} />;
+  else if (ev.kind === 'rest') body = <span className="smufl rest" aria-label="rest">{restGlyph(ev.dur, wholeBar)}</span>;
+  else if (ev.kind === 'slash') body = <span className="slash">/</span>;
+  else if (ev.kind === 'nc') body = <span className="nc">N.C.</span>;
   return (
-    // A repeat sign is placed against the bar (centered in it, or across its end), not its own cell.
-    <span className={`cell ${cell.small ? 'cell-small' : ''} ${cell.sym === 'x' || cell.sym === 'r' ? 'cell-free' : ''} ${first ? 'c0' : ''}`}>
-      {cursor && <span className="cell-cursor" aria-hidden />}
+    <span className={`cell ev ev-${ev.kind} ${ev.small ? 'cell-small' : ''} ${sel ? 'ev-sel' : ''} ${first ? 'c0' : ''}`} data-ev={ev.id}>
       {marks}
       {body}
     </span>
@@ -181,9 +197,10 @@ function endings(bars: Bar[]): (number | 'cont' | null)[] {
 }
 
 function ChartViewInner(props: ChartViewProps) {
-  const { chart, shift = 0, flats = true, chordStyle = 'jazz', selection, onBarClick, presence, pins, onPin, changed, flash, barNumbers, className } = props;
+  const { chart, shift = 0, flats = true, chordStyle = 'jazz', selection, onBarClick, presence, pins, onPin, changed, flash, barNumbers, beatGrid, className } = props;
   const rows = layout(chart);
   const times = timeAt(chart);
+  const ms = metersOf(chart);
   const ends = endings(chart.bars);
   return (
     <div className={`chart ${className ?? ''}`}>
@@ -192,12 +209,13 @@ function ChartViewInner(props: ChartViewProps) {
           {row.items.map((it, k) => {
             if (it.kind === 'spacer') return <div key={`s${k}`} className="spacer" style={{ gridColumn: `span ${it.span}` }} />;
             const { bar, index } = it;
+            const m = ms[index];
             const prevItem = row.items[k - 1];
             const prevBar = prevItem?.kind === 'bar' ? prevItem.bar : null;
             const isRowEnd = k === row.items.length - 1;
             const showTime = bar.time && (index === 0 || times[index - 1] !== bar.time);
-            const cells = transposeCells(bar.cells, shift, flats);
-            const filled = cells.filter((c) => c.ch || c.sym);
+            const events = bar.events.map((e) => transposeEvent(e, shift, flats));
+            const shown = events.filter((e) => e.kind !== 'hold' || e.alt);
             const selected = selection && index >= selection.from && index <= selection.to;
             const people = presence?.[bar.id];
             const ending = ends[index];
@@ -207,7 +225,8 @@ function ChartViewInner(props: ChartViewProps) {
               bar.close === ']' ? 'close-dbl' : bar.close === '}' ? 'close-rep' : bar.close === 'Z' ? 'close-fin' : '',
               isRowEnd && !bar.close ? 'row-end' : '',
               showTime ? 'has-time' : '',
-              filled.length >= 3 ? 'dense' : '',
+              shown.length >= 3 || events.some((e) => e.dur < m.beat && e.kind !== 'hold') ? 'dense' : '',
+              shown.length >= 4 ? 'crowded' : '',
               selected ? 'sel' : '',
               changed?.has(bar.id) ? 'changed' : '',
               flash?.has(bar.id) ? 'flash' : '',
@@ -217,18 +236,22 @@ function ChartViewInner(props: ChartViewProps) {
             ]
               .filter(Boolean)
               .join(' ');
+            const wholeBar = events.length === 1;
             return (
               <div
                 key={bar.id}
                 className={cls}
                 data-bar={index}
-                style={{ gridColumn: `span ${it.span}`, gridTemplateColumns: `repeat(${Math.max(1, cells.length)}, minmax(0, 1fr))`, ...(people?.length ? { ['--who' as string]: people[0].color } : {}) }}
+                role={onBarClick ? 'button' : undefined}
+                aria-label={onBarClick ? `Bar ${index + 1}` : undefined}
+                style={{ gridColumn: `span ${it.span}`, ...(people?.length ? { ['--who' as string]: people[0].color } : {}) }}
                 onClick={
                   onBarClick
                     ? (e) => {
-                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const cell = Math.max(0, Math.min(cells.length - 1, Math.floor(((e.clientX - r.left) / r.width) * cells.length)));
-                        onBarClick(index, cell, e);
+                        const body = (e.currentTarget as HTMLElement).querySelector('.bar-body') as HTMLElement;
+                        const r = body.getBoundingClientRect();
+                        const frac = Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width));
+                        onBarClick(index, Math.floor(frac * m.length), e);
                       }
                     : undefined
                 }
@@ -246,16 +269,24 @@ function ChartViewInner(props: ChartViewProps) {
                 {bar.close && <i className="bl bl-close" aria-hidden />}
                 {bar.close === '}' && <i className="dots dots-close" aria-hidden />}
                 {barNumbers && !bar.section && <span className="bar-no">{index + 1}</span>}
-                {cells.map((c, ci) => (
-                  <CellView
-                    key={ci}
-                    cell={c}
-                    style={chordStyle}
-                    alone={filled.length === 1 && c.sym === 'x'}
-                    cursor={!!selected && selection!.from === selection!.to && selection!.cell === ci}
-                    first={ci === 0}
-                  />
-                ))}
+                <div
+                  className="bar-body"
+                  // Each event as wide as it is long; one with a long name takes what it needs, so it never runs into the next.
+                  style={{ gridTemplateColumns: events.map((e) => `minmax(${e.kind === 'hold' && !e.alt ? 0 : 'min-content'}, ${e.dur}fr)`).join(' ') }}
+                >
+                  {events.map((e, ei) => (
+                    <EventView key={e.id} ev={e} style={chordStyle} wholeBar={wholeBar} sel={!!selected && selection!.from === selection!.to && selection!.ev === e.id} first={ei === 0} />
+                  ))}
+                  {beatGrid && selected && selection!.from === selection!.to && (
+                    <span className="beats" aria-hidden>
+                      {Array.from({ length: m.num - 1 }, (_, b) => (
+                        <i key={b} className={(b + 1) % m.group === 0 ? 'strong' : ''} style={{ left: `${((b + 1) / m.num) * 100}%` }} />
+                      ))}
+                    </span>
+                  )}
+                </div>
+                {bar.simile === 1 && <span className="smufl simile simile-center" title="Repeat the last bar">{SMUFL.repeat1}</span>}
+                {bar.simile === 2 && <span className="smufl simile simile-two" title="Repeat the last two bars">{SMUFL.repeat2}</span>}
                 {pins?.[bar.id] ? (
                   <button
                     className="pin"

@@ -62,7 +62,7 @@ export function mergeCharts(base: Chart, mine: Chart, theirs: Chart): MergeResul
     pos.clear();
     out.forEach((b, j) => pos.set(b.id, j));
   });
-  return { value: { v: 1, bars: out }, conflicts };
+  return { value: { v: 2, bars: out }, conflicts };
 }
 
 export function mergeMeta(base: SongMeta, mine: SongMeta, theirs: SongMeta): MergeResult<SongMeta> {

@@ -1,27 +1,37 @@
 'use client';
 
-// The chart with editing on top: select bars, type a bar's chords in one go
-// ("C-7 F7", Enter for the next bar), and a toolbar for barlines, repeats,
-// endings, sections, time signatures and marks. Works with a keyboard on a
-// laptop and with taps and a docked entry bar on a phone.
+// The chart, editable in place. Reading by default: nothing on screen but the
+// chart. Tap a bar (as an editor) and a sheet opens at the bottom with the
+// tapped chord selected; the chart stays visible above it, and the bar being
+// edited is kept in view. The sheet has the bar's timeline and four panels —
+// Chord (simple), Rhythm (timing), Bars (structure, ranges) and Type (text) —
+// and stays open for edit after edit until Done.
+//
+// Keyboard: ← → events · ↑ ↓ rows · Shift+arrows extend bars · letters type a
+// chord · Enter edit · r rest · n N.C. · s split · Delete remove ·
+// ⌘Z / ⇧⌘Z undo / redo · ⌘C ⌘X ⌘V copy, cut, paste bars · ⌘D duplicate · Esc done.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as RKeyboardEvent } from 'react';
-import { type Chart, layout } from '@ifakepro/lib/chart';
-import { type ChordStyle, barToText, parseBarText } from '@ifakepro/lib/chords';
-import {
-  barsToText, clearBarlines, clearChords, deleteBars, insertBars, insertCopies, patchBar, patchCell, setCellCount, setCells, textToBars, toggleWrap,
-} from '@ifakepro/lib/edit';
-import type { Bar } from '@ifakepro/lib/chart';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type Bar, type Chart, type Ev, eventAt, layout, metersOf } from '@ifakepro/lib/chart';
+import { type ChordStyle, chordText } from '@ifakepro/lib/chords';
+import { deleteBars, duplicateBars, gridStep, insertBars, insertCopies, moveBoundary, removeEvent, replaceEvents, splitEvent } from '@ifakepro/lib/edit';
+import { barsText, parseProgression } from '@ifakepro/lib/progression';
 import { ChartView, type ChartViewProps, type Selection } from './ChartView';
+import { BarsPanel, ChordPanel, type EdCtx, RhythmPanel, TypePanel, addAt, quickKind } from './editor/EditorPanels';
+import { Timeline, positionLabel } from './editor/Timeline';
+import { useToast } from './ui';
 
 export interface EditorProps {
   chart: Chart;
-  change: (fn: (c: Chart) => Chart) => void;
+  change: (fn: (c: Chart) => Chart, opts?: { coalesce?: string }) => void;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
   sel: Selection | null;
   setSel: (s: Selection | null) => void;
+  /** Allowed to edit (an editor, viewing the written key, not previewing a version). */
   editable: boolean;
-  /** Why editing is off, shown in place of the toolbar (e.g. while transposed). */
-  lockedReason?: string | null;
+  /** Why editing is off, and how to turn it back on. */
+  locked?: { reason: string; fix?: { label: string; run: () => void } } | null;
   undo: () => void;
   redo: () => void;
   canUndo: boolean;
@@ -29,417 +39,352 @@ export interface EditorProps {
   canComment: boolean;
   onComment: (barId: string) => void;
   chordStyle: ChordStyle;
+  /** Spell with flats (from the song's key). */
+  flats: boolean;
   view: Omit<ChartViewProps, 'chart' | 'selection' | 'onBarClick' | 'chordStyle'>;
 }
 
-const SECTIONS = [
-  ['', 'Section'], ['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D'], ['i', 'Intro'], ['V', 'Verse'],
-] as const;
-const TIMES = ['4/4', '3/4', '2/4', '5/4', '6/4', '7/4', '2/2', '3/2', '3/8', '5/8', '6/8', '7/8', '9/8', '12/8'];
-const QUICK: [string, string][] = [
-  ['♭', 'b'], ['♯', '#'], ['–', '-'], ['△', '^'], ['ø', 'h'], ['°', 'o'], ['7', '7'], ['9', '9'], ['/', '/'], ['(', '('], [')', ')'], ['%', '%'], ['·', '.'],
-];
-
-let clipboard: { text: string; bars: Bar[] } | null = null;
+type Tab = 'chord' | 'rhythm' | 'bars' | 'type';
 
 export function ChartEditor(p: EditorProps) {
-  const { chart, change, sel, setSel, editable } = p;
-  const input = useRef<HTMLInputElement>(null);
-  const wrap = useRef<HTMLDivElement>(null);
-  const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const { chart, sel, setSel, editing, setEditing, editable } = p;
+  const toast = useToast();
+  const [tab, setTab] = useState<Tab>('chord');
+  const [grid, setGrid] = useState(1);
   const [rangeMode, setRangeMode] = useState(false);
-  const [entryOpen, setEntryOpen] = useState(false);
+  const sheet = useRef<HTMLDivElement>(null);
+  const wrap = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lastTick = useRef(0);
+  const clip = useRef<Bar[] | null>(null);
+
+  const meters = useMemo(() => metersOf(chart), [chart]);
   const rows = useMemo(() => layout(chart), [chart]);
+  const n = chart.bars.length;
 
-  const bar = sel ? chart.bars[sel.from] : null;
-  const single = sel && sel.from === sel.to;
-  const from = sel?.from ?? 0;
-  const to = sel?.to ?? 0;
-
-  // The entry shows the selected bar's chords; reset whenever another bar is picked or the bar changes under us.
-  const barKey = bar ? `${bar.id}:${barToText(bar.cells)}` : '';
-  // A layout effect, so the entry is up to date before the next key arrives.
-  useLayoutEffect(() => {
-    setText(bar ? barToText(bar.cells) : '');
-    setError(null);
-  }, [barKey]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const select = (i: number, extend = false, cell: number | null = null) => {
-    const n = chart.bars.length;
-    const j = Math.max(0, Math.min(n - 1, i));
-    if (extend && sel) {
-      const anchor = sel.from === j ? sel.to : sel.from < j ? sel.from : sel.to;
-      setSel({ from: Math.min(anchor, j), to: Math.max(anchor, j), cell: null });
-    } else setSel({ from: j, to: j, cell });
-  };
-
-  /** Write the entry into the bar. Returns false if something couldn't be read. */
-  const commit = (): boolean => {
-    if (!bar || !editable) return true;
-    if (text.trim() === barToText(bar.cells)) return true;
-    const parsed = parseBarText(text, bar.cells);
-    if (parsed.errors.length) {
-      setError(`Can’t read ${parsed.errors.map((e) => `“${e}”`).join(', ')}`);
-      return false;
-    }
-    const id = bar.id;
-    change((c) => {
-      const i = c.bars.findIndex((b) => b.id === id);
-      return i < 0 ? c : setCells(c, i, parsed.cells);
-    });
-    return true;
-  };
-
-  const moveEntry = (delta: number) => {
-    if (!commit()) return;
-    const next = from + delta;
-    if (next >= chart.bars.length && delta > 0) {
-      // Past the end: grow the chart, like iReal.
-      change((c) => insertBars(c, c.bars.length, 1, bar?.cells.length ?? 4));
-    }
-    setSel({ from: Math.max(0, next), to: Math.max(0, next), cell: 0 });
-    requestAnimationFrame(() => {
-      input.current?.select();
-      wrap.current?.querySelector(`[data-bar="${Math.max(0, next)}"]`)?.scrollIntoView({ block: 'nearest' });
-    });
-  };
-
-  const focusEntry = () => {
-    setEntryOpen(true);
-    requestAnimationFrame(() => {
-      input.current?.focus();
-      input.current?.select();
-    });
-  };
-
-  // ---- Toolbar actions over the selection ----
-  const act = (fn: (c: Chart) => Chart) => {
-    if (!sel || !editable) return;
-    commit();
-    change(fn);
-  };
-  const firstCell = sel?.cell ?? 0;
-  const cellOf = bar?.cells[Math.min(firstCell, (bar?.cells.length ?? 1) - 1)];
-
-  const toggleCellMark = (k: 'segno' | 'coda' | 'fermata') => act((c) => patchCell(c, from, Math.min(firstCell, c.bars[from].cells.length - 1), { [k]: !cellOf?.[k] }));
-  const setText_ = () => {
-    const t = window.prompt('Text above this beat (e.g. “D.C. al Coda”, “Fine”, “Solos”) — empty to remove', cellOf?.text?.replace(/^\*\d\d/, '') ?? '');
-    if (t === null) return;
-    act((c) => patchCell(c, from, Math.min(firstCell, c.bars[from].cells.length - 1), { text: t.trim() || undefined }));
-  };
-  const toggleSmall = () => {
-    const on = !chart.bars.slice(from, to + 1).some((b) => b.cells.some((x) => x.small));
-    act((c) => {
-      let out = c;
-      for (let i = from; i <= to; i++) out.bars[i].cells.forEach((x, j) => {
-        if (x.ch || x.sym === 'p') out = patchCell(out, i, j, { small: on });
-      });
-      return out;
-    });
-  };
-  const copy = (cut: boolean) => {
-    if (!sel) return;
-    const bars = chart.bars.slice(from, to + 1);
-    const t = barsToText(bars);
-    clipboard = { text: t, bars: structuredClone(bars) };
-    navigator.clipboard?.writeText(t).catch(() => {});
-    if (cut && editable) {
-      change((c) => deleteBars(c, from, to));
-      const at = Math.max(0, Math.min(from, chart.bars.length - (to - from + 1) - 1));
-      setSel({ from: at, to: at, cell: null });
-    }
-  };
-  const paste = (t: string) => {
-    if (!editable) return;
-    const bars = clipboard && clipboard.text === t ? clipboard.bars : textToBars(t);
-    if (!bars?.length) return;
-    const at = sel ? to + 1 : chart.bars.length;
-    change((c) => insertCopies(c, at, bars));
-    setSel({ from: at, to: at + bars.length - 1, cell: null });
-  };
-
+  // The current bar and event, kept valid as the chart changes underneath.
+  const i = sel ? Math.min(sel.from, n - 1) : -1;
+  const bar = i >= 0 ? chart.bars[i] : null;
+  const m = i >= 0 ? meters[i] : meters[0];
+  const ev: Ev | null = bar ? bar.events.find((e) => e.id === sel?.ev) ?? eventAt(bar, lastTick.current) : null;
   useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      if (!wrap.current?.contains(document.activeElement) || document.activeElement === input.current) return;
-      const t = e.clipboardData?.getData('text/plain');
-      if (t) {
+    if (!sel) return;
+    const single = sel.from === sel.to;
+    if (sel.to >= n || (single && ev && sel.ev !== ev.id)) {
+      setSel({ from: Math.min(sel.from, n - 1), to: Math.min(sel.to, n - 1), ev: single ? ev?.id ?? null : null });
+    }
+  }, [sel, n, ev, setSel]);
+  if (ev) lastTick.current = ev.at;
+
+  const select = useCallback(
+    (from: number, to = from, evId: string | null = null) => {
+      const a = Math.max(0, Math.min(from, n - 1));
+      const b = Math.max(a, Math.min(to, n - 1));
+      setSel({ from: a, to: b, ev: a === b ? evId ?? chart.bars[a].events[0].id : null });
+    },
+    [n, chart, setSel],
+  );
+
+  const change = p.change;
+  const apply = useCallback((fn: (c: Chart) => Chart, coalesce?: string) => change(fn, coalesce ? { coalesce } : undefined), [change]);
+
+  /** The next or previous event, across bars; past the end of the chart, a new bar. */
+  const goEvent = useCallback(
+    (d: 1 | -1) => {
+      if (!bar || !ev) return;
+      const k = bar.events.findIndex((e) => e.id === ev.id);
+      const nk = k + d;
+      if (nk >= 0 && nk < bar.events.length) return select(i, i, bar.events[nk].id);
+      const ni = i + d;
+      if (ni < 0) return;
+      if (ni >= n) {
+        let id = '';
+        apply((c) => {
+          const out = insertBars(c, n);
+          id = out.bars[n].events[0].id;
+          return out;
+        });
+        setSel({ from: n, to: n, ev: id });
+        return;
+      }
+      const evs = chart.bars[ni].events;
+      select(ni, ni, (d > 0 ? evs[0] : evs[evs.length - 1]).id);
+    },
+    [bar, ev, i, n, chart, select, apply, setSel],
+  );
+
+  // Keep the bar being edited in view, above the sheet (and below the header), without jumping about.
+  const current = useRef(i);
+  current.current = i;
+  const reveal = useCallback(() => {
+    const el = wrap.current?.querySelector(`[data-bar="${current.current}"]`) as HTMLElement | null;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const bottom = window.innerHeight - (sheet.current?.offsetHeight ?? 0) - 12;
+    if (r.top < 70) window.scrollBy({ top: r.top - 80 });
+    else if (r.bottom > bottom) window.scrollBy({ top: r.bottom - bottom });
+  }, []);
+  useEffect(() => {
+    if (editing && i >= 0) reveal();
+  }, [editing, i, reveal]);
+
+  // The sheet is fixed to the bottom of the screen, as wide as the chart column; the chart gets
+  // room underneath for it, and it rides above the phone keyboard.
+  useEffect(() => {
+    if (!editing) return;
+    const root = document.documentElement;
+    const place = () => {
+      const col = wrap.current?.closest('.song-sheet') as HTMLElement | null;
+      const r = col?.getBoundingClientRect();
+      const phone = window.innerWidth < 640;
+      root.style.setProperty('--ed-left', phone || !r ? '0px' : `${r.left}px`);
+      root.style.setProperty('--ed-w', phone || !r ? '100vw' : `${r.width}px`);
+    };
+    const ro = new ResizeObserver(() => {
+      root.style.setProperty('--ed-h', `${sheet.current?.offsetHeight ?? 0}px`);
+      place();
+      reveal();
+    });
+    if (sheet.current) ro.observe(sheet.current);
+    if (wrap.current) ro.observe(wrap.current);
+    window.addEventListener('resize', place);
+    place();
+    const vv = window.visualViewport;
+    const kb = () => {
+      if (!vv) return;
+      const hidden = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      root.style.setProperty('--kb', `${hidden > 60 ? hidden : 0}px`);
+    };
+    vv?.addEventListener('resize', kb);
+    vv?.addEventListener('scroll', kb);
+    kb();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+      vv?.removeEventListener('resize', kb);
+      vv?.removeEventListener('scroll', kb);
+      for (const v of ['--ed-h', '--kb', '--ed-left', '--ed-w']) root.style.removeProperty(v);
+    };
+  }, [editing, reveal]);
+
+  const onBarClick = (index: number, tick: number, e: React.MouseEvent) => {
+    if (!editing) setEditing(true);
+    if ((e.shiftKey || rangeMode) && sel && editing) return select(Math.min(sel.from, index), Math.max(sel.to, index));
+    const target = eventAt(chart.bars[index], tick);
+    lastTick.current = target.at;
+    select(index, index, target.id);
+  };
+
+  const ctx: EdCtx | null =
+    sel && bar && ev
+      ? {
+          chart, meters, sel, i, bar, m, ev, multi: sel.from !== sel.to,
+          apply, select, goEvent, flats: p.flats, chordStyle: p.chordStyle,
+          step: gridStep(m, grid), grid, setGrid,
+          canComment: p.canComment, onComment: p.onComment, inputRef,
+          note: (t) => toast(t, 'warn'),
+        }
+      : null;
+
+  // ---- Keyboard and paste (laptops) ----
+  useEffect(() => {
+    if (!editing || !editable || p.locked) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      const typing = t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'z' && !typing) {
         e.preventDefault();
-        paste(t);
+        return e.shiftKey ? p.redo() : p.undo();
+      }
+      if (mod && e.key.toLowerCase() === 'y' && !typing) {
+        e.preventDefault();
+        return p.redo();
+      }
+      if (typing) return;
+      if (e.key === 'Escape') return setEditing(false);
+      if (!sel || !ctx) return;
+      if (mod && e.key === 'd') {
+        e.preventDefault();
+        apply((c) => duplicateBars(c, sel.from, sel.to));
+        return select(sel.to + 1, sel.to + 1 + (sel.to - sel.from));
+      }
+      if (mod && (e.key === 'c' || e.key === 'x')) {
+        e.preventDefault();
+        clip.current = structuredClone(chart.bars.slice(sel.from, sel.to + 1));
+        navigator.clipboard?.writeText(barsText(clip.current, meters.slice(sel.from, sel.to + 1))).catch(() => {});
+        if (e.key === 'x' && sel.to - sel.from + 1 < n) {
+          apply((c) => deleteBars(c, sel.from, sel.to));
+          select(Math.min(sel.from, n - (sel.to - sel.from + 1) - 1));
+        }
+        return;
+      }
+      if (mod) return;
+      const row = (d: 1 | -1) => {
+        const r = rows.findIndex((x) => x.items.some((it) => it.kind === 'bar' && it.index === i));
+        const item = rows[r]?.items.find((it) => it.kind === 'bar' && it.index === i);
+        const target = rows[r + d];
+        if (!item || item.kind !== 'bar' || !target) return i;
+        let best = i;
+        let dist = Infinity;
+        for (const it of target.items) {
+          if (it.kind === 'bar' && Math.abs(it.start - item.start) < dist) {
+            dist = Math.abs(it.start - item.start);
+            best = it.index;
+          }
+        }
+        return best;
+      };
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowLeft': {
+          e.preventDefault();
+          const d = e.key === 'ArrowRight' ? 1 : -1;
+          if (e.shiftKey) return select(d > 0 ? sel.from : Math.max(0, sel.from - 1), d > 0 ? Math.min(n - 1, sel.to + 1) : sel.to);
+          return goEvent(d);
+        }
+        case 'ArrowDown':
+        case 'ArrowUp':
+          e.preventDefault();
+          return select(row(e.key === 'ArrowDown' ? 1 : -1));
+        case 'Enter':
+          e.preventDefault();
+          setTab('chord');
+          return requestAnimationFrame(() => inputRef.current?.select());
+        case 'Backspace':
+        case 'Delete':
+          e.preventDefault();
+          return apply((c) => removeEvent(c, i, ctx.ev.id));
+        case 'r':
+          return quickKind(ctx, 'rest');
+        case 'n':
+          return quickKind(ctx, 'nc');
+        case 's':
+          return apply((c) => splitEvent(c, i, ctx.ev.id, 2));
+      }
+      // A chord letter starts a chord: move focus to the field now, so the key itself lands there.
+      if (e.key.length === 1 && /[A-Ga-g]/.test(e.key) && !ctx.multi) {
+        setTab('chord');
+        const el = inputRef.current;
+        if (el) {
+          el.focus();
+          el.select();
+        }
       }
     };
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || !sel) return;
+      const text = (e.clipboardData?.getData('text/plain') ?? '').trim();
+      if (!text) return;
+      e.preventDefault();
+      const at = sel.to + 1;
+      const own = clip.current && barsText(clip.current, metersOf({ bars: clip.current })) === text;
+      if (own) {
+        const k = clip.current!.length;
+        apply((c) => insertCopies(c, at, clip.current!));
+        return select(at, at + k - 1);
+      }
+      const parsed = parseProgression(text, () => meters[Math.min(sel.to, meters.length - 1)]);
+      if (!parsed.length) return;
+      apply((c) => {
+        let out = insertBars(c, at, parsed.length);
+        parsed.forEach((b, k) => (out = replaceEvents(out, at + k, b.events.map((x) => ({ ...x })), b.simile)));
+        return out;
+      });
+      select(at, at + parsed.length - 1);
+      const flags = parsed.flatMap((b, k) => b.flags.map((f) => `bar ${at + 1 + k}: ${f}`));
+      if (flags.length) toast(`Pasted — check ${flags.join('; ')}`, 'warn');
+    };
+    document.addEventListener('keydown', onKey);
     document.addEventListener('paste', onPaste);
-    return () => document.removeEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('paste', onPaste);
+    };
   });
 
-  /** The bar above or below at about the same place in the row. */
-  const vertical = (i: number, dir: 1 | -1) => {
-    const r = rows.findIndex((row) => row.items.some((it) => it.kind === 'bar' && it.index === i));
-    const item = rows[r]?.items.find((it) => it.kind === 'bar' && it.index === i);
-    const target = rows[r + dir];
-    if (!item || item.kind !== 'bar' || !target) return i;
-    let best = i;
-    let dist = Infinity;
-    for (const it of target.items) {
-      if (it.kind !== 'bar') continue;
-      const d = Math.abs(it.start - item.start);
-      if (d < dist) {
-        dist = d;
-        best = it.index;
-      }
-    }
-    return best;
-  };
-
-  const onKey = (e: RKeyboardEvent) => {
-    if (e.target === input.current) return;
-    const mod = e.metaKey || e.ctrlKey;
-    const n = chart.bars.length;
-    const cur = sel ? (e.shiftKey ? (sel.to > sel.from ? sel.to : sel.from) : sel.from) : -1;
-    if (mod && e.key.toLowerCase() === 'z') {
-      e.preventDefault();
-      if (e.shiftKey) p.redo();
-      else p.undo();
-      return;
-    }
-    if (mod && e.key.toLowerCase() === 'y') {
-      e.preventDefault();
-      p.redo();
-      return;
-    }
-    if (mod && (e.key === 'c' || e.key === 'x')) {
-      e.preventDefault();
-      copy(e.key === 'x');
-      return;
-    }
-    if (mod && e.key === 'd' && sel && editable) {
-      e.preventDefault();
-      change((c) => insertCopies(c, to + 1, c.bars.slice(from, to + 1)));
-      return;
-    }
-    if (mod && e.key === 'a') {
-      e.preventDefault();
-      setSel({ from: 0, to: n - 1, cell: null });
-      return;
-    }
-    if (mod) return;
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowLeft':
-        e.preventDefault();
-        select(cur < 0 ? 0 : cur + (e.key === 'ArrowRight' ? 1 : -1), e.shiftKey);
-        return;
-      case 'ArrowDown':
-      case 'ArrowUp':
-        e.preventDefault();
-        select(cur < 0 ? 0 : vertical(cur, e.key === 'ArrowDown' ? 1 : -1), e.shiftKey);
-        return;
-      case 'Home':
-        select(0, e.shiftKey);
-        return;
-      case 'End':
-        select(n - 1, e.shiftKey);
-        return;
-      case 'Escape':
-        setSel(null);
-        return;
-      case 'Enter':
-      case 'F2':
-        if (sel && editable) {
-          e.preventDefault();
-          focusEntry();
-        }
-        return;
-      case 'Backspace':
-      case 'Delete':
-        if (sel && editable) {
-          e.preventDefault();
-          change((c) => clearChords(c, from, to));
-        }
-        return;
-    }
-    // Typing on a selected bar replaces its chords: move focus to the entry now, with its text
-    // selected, and let the key itself land there — nothing typed quickly gets lost.
-    if (sel && editable && e.key.length === 1 && /[A-Ga-g/%.nN]/.test(e.key) && input.current) {
-      input.current.focus();
-      input.current.select();
-      setEntryOpen(true);
-    }
-  };
-
-  const onEntryKey = (e: RKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
-      e.preventDefault();
-      moveEntry(1);
-    } else if (e.key === 'Tab' && e.shiftKey) {
-      e.preventDefault();
-      moveEntry(-1);
-    } else if (e.key === '|') {
-      e.preventDefault();
-      moveEntry(1);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setText(bar ? barToText(bar.cells) : '');
-      setEntryOpen(false);
-      wrap.current?.querySelector<HTMLElement>('.ifp-chart-focus')?.focus();
-    }
-  };
-
-  const insertQuick = (s: string) => {
-    const el = input.current;
-    if (!el) return;
-    const a = el.selectionStart ?? text.length;
-    const b = el.selectionEnd ?? text.length;
-    const next = text.slice(0, a) + s + text.slice(b);
-    setText(next);
-    setError(null);
-    requestAnimationFrame(() => el.setSelectionRange(a + s.length, a + s.length));
-  };
-
-  const pointer = (i: number, cell: number, e: React.MouseEvent) => {
-    if (sel && entryOpen) commit();
-    const extend = e.shiftKey || (rangeMode && !!sel);
-    select(i, extend, extend ? null : cell);
-    // A tap opens the entry (and the keyboard) straight away; with a mouse it takes a double-click or typing.
-    const touch = (e.nativeEvent as PointerEvent).pointerType === 'touch' || (e.nativeEvent as PointerEvent).pointerType === 'pen';
-    if (!extend && editable && (touch || e.detail >= 2)) focusEntry();
-  };
-
-  const allSmall = sel ? chart.bars.slice(from, to + 1).some((b) => b.cells.some((x) => x.small)) : false;
-  const last = chart.bars[to];
+  const where = sel && ev
+    ? sel.from !== sel.to
+      ? `Bars ${sel.from + 1}–${sel.to + 1}`
+      : `Bar ${sel.from + 1}${ev.at ? `, ${positionLabel(ev.at, m)}` : ''}${ev.ch ? ` · ${chordText(ev.ch)}` : ev.kind === 'rest' ? ' · rest' : ev.kind === 'nc' ? ' · N.C.' : ''}`
+    : 'Tap a bar to edit it';
 
   return (
-    <div className="ifp-editor" ref={wrap}>
-      {editable && (
-        <div className="ifp-toolbar" role="toolbar" aria-label="Chart tools">
-          <div className="tb-group">
-            <button className="tb" onClick={p.undo} disabled={!p.canUndo} title="Undo (⌘Z)" aria-label="Undo">↶</button>
-            <button className="tb" onClick={p.redo} disabled={!p.canRedo} title="Redo (⇧⌘Z)" aria-label="Redo">↷</button>
+    <div className={`ifp-editor ${editing ? 'is-editing' : ''}`} ref={wrap}>
+      <ChartView
+        {...p.view}
+        chart={chart}
+        chordStyle={p.chordStyle}
+        selection={editing ? sel : null}
+        onBarClick={editable || editing ? onBarClick : undefined}
+        barNumbers={editing}
+        beatGrid={editing && tab === 'rhythm'}
+        className={editing ? 'chart-editing' : ''}
+      />
+
+      {editing && (
+        <div className="ed-sheet" ref={sheet} role="region" aria-label="Chart editor">
+          <div className="ed-head">
+            <button className="ed-icon" onClick={() => goEvent(-1)} disabled={!ctx || (i === 0 && bar?.events[0].id === ev?.id)} aria-label="Previous chord">‹</button>
+            <div className="ed-where" aria-live="polite">{where}</div>
+            <button className="ed-icon" onClick={() => goEvent(1)} disabled={!ctx} aria-label="Next chord">›</button>
+            <span className="ed-spacer" />
+            <button className="ed-icon" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo (⌘Z)">↶</button>
+            <button className="ed-icon" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo (⇧⌘Z)">↷</button>
+            <button className="ed-done" onClick={() => setEditing(false)}>Done</button>
           </div>
-          <div className="tb-group">
-            <button className="tb" disabled={!sel} onClick={() => act((c) => insertBars(c, to + 1, 1, c.bars[to].cells.length))} title="Add a bar after">＋ Bar</button>
-            <button className="tb" disabled={!sel} onClick={() => act((c) => insertCopies(c, to + 1, c.bars.slice(from, to + 1)))} title="Duplicate (⌘D)">Dup</button>
-            <button
-              className="tb"
-              disabled={!sel}
-              onClick={() => {
-                act((c) => deleteBars(c, from, to));
-                setSel({ from: Math.max(0, from - 1), to: Math.max(0, from - 1), cell: null });
-              }}
-              title="Delete bars"
-            >
-              Del
-            </button>
-            <button className={`tb tb-range ${rangeMode ? 'on' : ''}`} onClick={() => setRangeMode((r) => !r)} aria-pressed={rangeMode} title="Tap a second bar to select a range">
-              Range
-            </button>
-          </div>
-          <div className="tb-group">
-            <select className="tb-select" disabled={!sel} value={bar?.section ?? ''} onChange={(e) => act((c) => patchBar(c, from, { section: e.target.value || undefined }))} aria-label="Section">
-              {SECTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <select className="tb-select" disabled={!sel} value={bar?.time ?? ''} onChange={(e) => act((c) => patchBar(c, from, { time: e.target.value || undefined }))} aria-label="Time signature">
-              <option value="">Time</option>
-              {TIMES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select
-              className="tb-select"
-              disabled={!sel}
-              value={bar?.ending != null ? String(bar.ending) : ''}
-              onChange={(e) => act((c) => patchBar(c, from, { ending: e.target.value === '' ? undefined : Number(e.target.value) }))}
-              aria-label="Ending"
-            >
-              <option value="">Ending</option>
-              <option value="1">1st</option>
-              <option value="2">2nd</option>
-              <option value="3">3rd</option>
-            </select>
-          </div>
-          <div className="tb-group">
-            <button className={`tb sym ${bar?.open === '{' && last?.close === '}' ? 'on' : ''}`} disabled={!sel} onClick={() => act((c) => toggleWrap(c, from, to, '{', '}'))} title="Repeat the selected bars">𝄆 𝄇</button>
-            <button className={`tb ${bar?.open === '[' && last?.close === ']' ? 'on' : ''}`} disabled={!sel} onClick={() => act((c) => toggleWrap(c, from, to, '[', ']'))} title="Double barlines around the selection">‖ ‖</button>
-            <button className={`tb sym ${last?.close === 'Z' ? 'on' : ''}`} disabled={!sel} onClick={() => act((c) => patchBar(c, to, { close: c.bars[to].close === 'Z' ? undefined : 'Z' }))} title="Final barline">𝄂</button>
-            <button className="tb" disabled={!sel} onClick={() => act((c) => clearBarlines(c, from, to))} title="Plain barlines">| |</button>
-          </div>
-          <div className="tb-group">
-            <button className={`tb sym ${cellOf?.segno ? 'on' : ''}`} disabled={!sel} onClick={() => toggleCellMark('segno')} title="Segno">𝄋</button>
-            <button className={`tb sym ${cellOf?.coda ? 'on' : ''}`} disabled={!sel} onClick={() => toggleCellMark('coda')} title="Coda">𝄌</button>
-            <button className={`tb sym ${cellOf?.fermata ? 'on' : ''}`} disabled={!sel} onClick={() => toggleCellMark('fermata')} title="Fermata">𝄐</button>
-            <button className={`tb ${cellOf?.text ? 'on' : ''}`} disabled={!sel} onClick={setText_} title="Text above the beat">Text</button>
-            <button className={`tb ${allSmall ? 'on' : ''}`} disabled={!sel} onClick={toggleSmall} title="Small chords (pushes, passing chords)">small</button>
-          </div>
-          <div className="tb-group">
-            <select className="tb-select" disabled={!sel} value={single && bar ? String(bar.cells.length) : ''} onChange={(e) => act((c) => setCellCount(c, from, to, Number(e.target.value)))} aria-label="Beats per bar" title="Cells in the bar">
-              {!single && <option value="">Cells</option>}
-              {[1, 2, 3, 4, 6, 8].map((n) => <option key={n} value={n}>{n} cells</option>)}
-            </select>
-            <button className={`tb ${bar?.br ? 'on' : ''}`} disabled={!sel} onClick={() => act((c) => patchBar(c, from, { br: c.bars[from].br ? undefined : true }))} title="Start a new line at this bar">⏎ Line</button>
-          </div>
-          {p.canComment && (
-            <div className="tb-group">
-              <button className="tb" disabled={!sel} onClick={() => bar && p.onComment(bar.id)} title="Comment on this bar">💬 Comment</button>
+
+          {p.locked ? (
+            <div className="ed-locked">
+              <span>{p.locked.reason}</span>
+              {p.locked.fix && (
+                <button className="ed-btn primary" onClick={p.locked.fix.run}>
+                  {p.locked.fix.label}
+                </button>
+              )}
             </div>
+          ) : !ctx ? (
+            <div className="ed-empty">
+              <p>Tap any bar to edit its chords, or type a whole progression.</p>
+              <div className="ed-row">
+                <button className="ed-btn primary" onClick={() => { select(0, n - 1); setTab('type'); }}>Type chords</button>
+                <button className="ed-btn" onClick={() => { apply((c) => insertBars(c, n, 4)); select(n); }}>+ 4 bars</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {!ctx.multi && (
+                <Timeline
+                  bar={ctx.bar}
+                  m={ctx.m}
+                  selected={ctx.ev.id}
+                  onSelect={(id) => select(i, i, id)}
+                  rhythm={tab === 'rhythm'}
+                  step={ctx.step}
+                  chordStyle={p.chordStyle}
+                  onMoveBoundary={(b, tick) => apply((c) => moveBoundary(c, i, b, tick, ctx.step), `boundary:${ctx.bar.id}:${b}`)}
+                  onInsertAt={(tick) => {
+                    const id = addAt(ctx, tick);
+                    if (id) select(i, i, id);
+                  }}
+                />
+              )}
+              <div className="ed-tabs" role="tablist" aria-label="Editor panels">
+                {([['chord', 'Chord'], ['rhythm', 'Rhythm'], ['bars', ctx.multi ? `Bars (${sel!.to - sel!.from + 1})` : 'Bar'], ['type', 'Type']] as [Tab, string][]).map(([t, label]) => (
+                  <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)} disabled={ctx.multi && (t === 'chord' || t === 'rhythm')}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="ed-panel" role="tabpanel">
+                {tab === 'chord' && !ctx.multi && <ChordPanel c={ctx} />}
+                {tab === 'rhythm' && !ctx.multi && <RhythmPanel c={ctx} />}
+                {(tab === 'bars' || (ctx.multi && (tab === 'chord' || tab === 'rhythm'))) && <BarsPanel c={ctx} rangeMode={rangeMode} setRangeMode={setRangeMode} />}
+                {tab === 'type' && <TypePanel c={ctx} />}
+              </div>
+            </>
           )}
-        </div>
-      )}
-      {!editable && p.lockedReason && <div className="ifp-locked">{p.lockedReason}</div>}
-      {!editable && p.canComment && sel && bar && (
-        <div className="ifp-toolbar">
-          <div className="tb-group">
-            <button className="tb" onClick={() => p.onComment(bar.id)}>💬 Comment on bar {from + 1}</button>
-          </div>
-        </div>
-      )}
-
-      <div className="ifp-chart-focus" tabIndex={0} onKeyDown={onKey} aria-label="Chart. Arrow keys move between bars; type to enter chords.">
-        <ChartView {...p.view} chart={chart} chordStyle={p.chordStyle} selection={sel} onBarClick={pointer} barNumbers={editable} />
-      </div>
-
-      {editable && sel && single && bar && (
-        <div className={`ifp-entry ${entryOpen ? 'open' : ''}`}>
-          <div className="entry-row">
-            <span className="entry-label">Bar {from + 1}</span>
-            <button className="entry-nav" onPointerDown={(e) => e.preventDefault()} onClick={() => moveEntry(-1)} aria-label="Previous bar" disabled={from === 0}>‹</button>
-            <input
-              ref={input}
-              className={`entry-input ${error ? 'bad' : ''}`}
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setError(null);
-              }}
-              onFocus={() => setEntryOpen(true)}
-              onBlur={(e) => {
-                const to = e.relatedTarget as HTMLElement | null;
-                if (to?.closest('.ifp-entry')) return;
-                commit();
-                // Tapping another bar keeps the panel up: closing it would shift the page under the tap.
-                if (!to || !wrap.current?.contains(to)) setEntryOpen(false);
-              }}
-              onKeyDown={onEntryKey}
-              placeholder="C-7 F7"
-              autoCapitalize="characters"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              enterKeyHint="next"
-              aria-label={`Chords in bar ${from + 1}`}
-            />
-            <button className="entry-nav entry-next" onPointerDown={(e) => e.preventDefault()} onClick={() => moveEntry(1)}>Next ›</button>
-          </div>
-          <div className="entry-keys" onPointerDown={(e) => e.preventDefault()}>
-            {QUICK.map(([label, ins]) => (
-              <button key={label} tabIndex={-1} onClick={() => insertQuick(ins)}>{label}</button>
-            ))}
-            <button tabIndex={-1} onClick={() => insertQuick(' ')} className="wide">space</button>
-          </div>
-          <div className="entry-help">
-            {error ?? (
-              <>
-                Chords with spaces: <code>Cm7 F7</code> · <code>.</code> empty beat · <code>%</code> repeat bar · <code>C7(Db7)</code> alternate · Enter for the next bar. Stored the iReal way: <code>-</code> minor, <code>^</code> maj7, <code>h</code> ø, <code>o</code> dim.
-              </>
-            )}
-          </div>
         </div>
       )}
     </div>

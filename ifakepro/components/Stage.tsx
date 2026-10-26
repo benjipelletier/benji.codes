@@ -30,6 +30,9 @@ function useFullPlaylist(slug: string, refreshMs = 0) {
 }
 
 /** Scale a chart to fit its box: narrower is smaller, since sizes follow the chart's width. */
+/** The narrowest a setlist chart gets (chords about 24px tall). */
+const READABLE = 320;
+
 function FitChart({ children, deps }: { children: React.ReactNode; deps: unknown[] }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -41,17 +44,49 @@ function FitChart({ children, deps }: { children: React.ReactNode; deps: unknown
     const H = b.clientHeight;
     c.style.width = `${W}px`;
     c.style.setProperty('--row-extra', '0px');
-    const h = c.scrollHeight;
-    const w = h > H ? Math.max(260, Math.floor((W * H) / h)) : W;
-    c.style.width = `${w}px`;
+    let h = c.scrollHeight;
+    if (h > H) {
+      // The chart's height grows with its width, but not in proportion (chord
+      // sizes cap, bars with several chords wrap), so search for the widest
+      // chart that fits. Narrower than READABLE the chords get too small to
+      // play from, so a long tune on a short screen (a phone on its side)
+      // scrolls instead.
+      let lo = Math.min(W, READABLE);
+      c.style.width = `${lo}px`;
+      const fits = c.scrollHeight <= H;
+      b.classList.toggle('scrolls', !fits);
+      if (fits) {
+        let hi = W;
+        while (hi - lo > 4) {
+          const mid = Math.floor((lo + hi) / 2);
+          c.style.width = `${mid}px`;
+          if (c.scrollHeight <= H) lo = mid;
+          else hi = mid;
+        }
+        c.style.width = `${lo}px`;
+      } else c.style.width = `${Math.min(W, READABLE * 1.5)}px`;
+      h = c.scrollHeight;
+    } else b.classList.remove('scrolls');
     // Room to spare (a phone held upright): spread the rows out instead.
     const rows = c.querySelectorAll('.chart-row').length;
     if (h < H && rows) c.style.setProperty('--row-extra', `${Math.min(48, Math.floor((H - h) / rows) - 2)}px`);
   }, []);
-  useLayoutEffect(fit, [fit, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    fit();
+    box.current?.scrollTo(0, 0);
+  }, [fit, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const ro = new ResizeObserver(fit);
+    // Re-fit when the screen changes and when the chart itself does (fonts arriving, an edit coming in).
+    let last = '';
+    const ro = new ResizeObserver(() => {
+      const sig = `${box.current?.clientWidth}x${box.current?.clientHeight}:${inner.current?.scrollHeight}`;
+      if (sig !== last) {
+        fit();
+        last = `${box.current?.clientWidth}x${box.current?.clientHeight}:${inner.current?.scrollHeight}`;
+      }
+    });
     if (box.current) ro.observe(box.current);
+    if (inner.current) ro.observe(inner.current);
     // The chart's fonts arrive after the first measure and change its height.
     document.fonts?.ready.then(fit);
     return () => ro.disconnect();

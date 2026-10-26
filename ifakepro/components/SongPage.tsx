@@ -24,6 +24,9 @@ export const STYLES = [
 
 type PanelTab = 'comments' | 'history' | 'activity';
 
+/** Transposing instruments, by how far their part sits from concert pitch (the short way round). */
+const INSTRUMENTS: Record<number, string> = { 2: 'B♭ instruments', [-3]: 'E♭ instruments', [-5]: 'F instruments' };
+
 export function SongPage({ songId }: { songId: string }) {
   const [song, setSong] = useState<SongDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +46,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   const [deleted, setDeleted] = useState(song.deleted);
   const member = !!song.playlist.role;
   const [sel, setSel] = useState<Selection | null>(null);
+  const [editing, setEditing] = useState(false);
   const [shift, setShift] = useState(0);
   const [chordStyle, setChordStyle] = usePref<ChordStyle>('chordStyle', 'jazz');
   const [preview, setPreview] = useState<VersionDetail | null>(null);
@@ -72,7 +76,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   useEffect(() => {
     if (sel && sel.to >= doc.chart.bars.length) {
       const n = doc.chart.bars.length - 1;
-      setSel({ from: Math.min(sel.from, n), to: n, cell: null });
+      setSel({ from: Math.min(sel.from, n), to: n, ev: null });
     }
   }, [doc.chart.bars.length, sel]);
 
@@ -95,16 +99,22 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
 
   const viewKey = transposeKey(doc.meta.key, shift);
   const flats = prefersFlats(viewKey);
-  const editable = member && !deleted && shift === 0 && !preview;
-  const lockedReason = !member
-    ? null
-    : deleted
-      ? null
-      : preview
-        ? null
-        : shift !== 0
-          ? `Showing in ${displayKey(viewKey)} — set the key back to ${displayKey(doc.meta.key)} to edit (or change the song’s key in Song info).`
-          : null;
+  // Editors can open the editor any time; while the chart is shown in another key it can't change.
+  const editable = member && !deleted && !preview;
+  const locked =
+    shift !== 0
+      ? {
+          reason: `You’re viewing it in ${displayKey(viewKey)}. Edit in the written key, ${displayKey(doc.meta.key)} (to move the song itself, tap its title).`,
+          fix: { label: `Show in ${displayKey(doc.meta.key)}`, run: () => setShift(0) },
+        }
+      : null;
+
+  // A brand-new song opens straight into the editor.
+  useEffect(() => {
+    if (!editable || new URLSearchParams(window.location.search).get('edit') !== '1') return;
+    setEditing(true);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [editable]);
 
   const previewChanged = useMemo(() => (preview ? diffCharts(doc.chart, preview.chart).changed : undefined), [preview, doc.chart]);
 
@@ -116,7 +126,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   const selectBar = (id: string) => {
     const i = doc.chart.bars.findIndex((b) => b.id === id);
     if (i < 0) return;
-    setSel({ from: i, to: i, cell: null });
+    setSel({ from: i, to: i, ev: null });
     setCommentBar(id);
     document.querySelector(`[data-bar="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
@@ -186,11 +196,16 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               {Array.from({ length: 12 }, (_, i) => i - 5).map((s) => (
                 <option key={s} value={s}>
                   {displayKey(transposeKey(doc.meta.key, s))}
-                  {s === 0 ? ' (written)' : ''}
+                  {s === 0 ? ' (written)' : INSTRUMENTS[s] ? ` — for ${INSTRUMENTS[s]}` : ''}
                 </option>
               ))}
             </select>
           </label>
+          {editable && (
+            <button className={`ifp-btn small ${editing ? 'primary' : ''}`} onClick={() => (editing ? (setEditing(false), setSel(null)) : setEditing(true))} aria-pressed={editing}>
+              {editing ? 'Done editing' : '✎ Edit chart'}
+            </button>
+          )}
           <button className="ifp-btn small" onClick={() => setChordStyle(chordStyle === 'jazz' ? 'plain' : 'jazz')} title="Chord symbols: △ ø – or maj m7♭5 m">
             {chordStyle === 'jazz' ? 'C△ C–7' : 'Cmaj7 Cm7'}
           </button>
@@ -279,11 +294,17 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           ) : (
             <ChartEditor
               chart={doc.chart}
-              change={(fn) => sync.change((d) => ({ ...d, chart: fn(d.chart) }))}
+              change={(fn, opts) => sync.change((d) => ({ ...d, chart: fn(d.chart) }), opts)}
+              editing={editing}
+              setEditing={(v) => {
+                setEditing(v);
+                if (!v) setSel(null);
+              }}
               sel={sel}
               setSel={setSel}
               editable={editable}
-              lockedReason={lockedReason}
+              locked={locked}
+              flats={prefersFlats(doc.meta.key)}
               undo={sync.undo}
               redo={sync.redo}
               canUndo={sync.canUndo}
