@@ -7,7 +7,7 @@
 // everything is undoable and nothing behaves differently between them.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { type Bar, type Chart, type Ev, type EventKind, type Meter, sectionLabel } from '@ifakepro/lib/chart';
+import { type Bar, type Chart, type Ev, type EventKind, type Meter, cellText, sectionLabel } from '@ifakepro/lib/chart';
 import {
   type ChordStyle, QUALITIES, chordParts, chordText, isDominant, joinChord, normalizeChord, roots, splitChord, tritoneSub, twoOf,
 } from '@ifakepro/lib/chords';
@@ -397,20 +397,46 @@ export function BarsPanel({ c, rangeMode, setRangeMode }: { c: EdCtx; rangeMode:
           <Btn on={!!ev.segno} onClick={() => c.apply((x) => patchEvent(x, from, ev.id, { segno: !ev.segno }))}>Segno</Btn>
           <Btn on={!!ev.coda} onClick={() => c.apply((x) => patchEvent(x, from, ev.id, { coda: !ev.coda }))}>Coda</Btn>
           <Btn on={!!ev.fermata} onClick={() => c.apply((x) => patchEvent(x, from, ev.id, { fermata: !ev.fermata }))}>Fermata</Btn>
-          <Btn
-            on={!!ev.text}
-            onClick={() => {
-              const t = window.prompt('Text above this beat (e.g. “D.C. al Coda”, “Fine”, “Solos”) — empty to remove', ev.text?.replace(/^\*\d\d/, '') ?? '');
-              if (t !== null) c.apply((x) => patchEvent(x, from, ev.id, { text: t.trim() || undefined }));
-            }}
-          >
-            Text…
-          </Btn>
           {c.canComment && <Btn onClick={() => c.onComment(first.id)}>💬 Comment</Btn>}
         </div>
       )}
+      {count === 1 && <TextMark c={c} />}
       {first.section && <div className="ed-info">Section {sectionLabel(first.section)} starts here.</div>}
     </div>
+  );
+}
+
+/** The text above the selected beat ("Fine", "Solos", "poinciana riff"), typed straight in; empty takes it off. */
+function TextMark({ c }: { c: EdCtx }) {
+  const { ev, i } = c;
+  const stored = ev.text ? cellText(ev.text) : '';
+  const [value, setValue] = useState(stored);
+  const editing = useRef(false);
+  // Follow the selection (and edits from elsewhere) unless it's being typed in.
+  useEffect(() => {
+    if (!editing.current) setValue(stored);
+  }, [stored, ev.id]);
+  return (
+    <label className="ed-row ed-textmark">
+      <span className="ed-label">Text</span>
+      <input
+        className="ed-textmark-input"
+        value={value}
+        maxLength={60}
+        placeholder={`Above ${positionLabel(ev.at, c.m)}: Fine, Solos, D.C. al Coda…`}
+        aria-label={`Text above ${positionLabel(ev.at, c.m)}`}
+        onFocus={() => (editing.current = true)}
+        onBlur={() => {
+          editing.current = false;
+          setValue(stored);
+        }}
+        onChange={(e) => {
+          setValue(e.target.value);
+          const t = e.target.value.replace(/[<>]/g, '').trim();
+          c.apply((x) => patchEvent(x, i, ev.id, { text: t || undefined }), `text-mark:${ev.id}`);
+        }}
+      />
+    </label>
   );
 }
 

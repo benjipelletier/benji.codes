@@ -6,7 +6,7 @@
 // with the chart's width (container units), so the same chart reads on a
 // phone and fills a laptop.
 
-import { memo, type MouseEvent as RMouseEvent } from 'react';
+import { memo, useLayoutEffect, useRef, type MouseEvent as RMouseEvent } from 'react';
 import { type Bar, type Chart, type Ev, type SongMeta, cellText, layout, metersOf, sectionLabel, timeAt } from '@ifakepro/lib/chart';
 import { type ChordStyle, chordParts, transposeEvent } from '@ifakepro/lib/chords';
 import { displayKey } from '@ifakepro/lib/client';
@@ -196,14 +196,53 @@ function endings(bars: Bar[]): (number | 'cont' | null)[] {
   return out;
 }
 
+/**
+ * Shrink the chords of any bar that can't hold them, so nothing runs over a
+ * barline, and only that bar: each .bar-body gets --fit, the share of its
+ * natural width that fits. All bars are reset, then measured, then set, so
+ * the page lays out once.
+ */
+function fitBars(root: HTMLElement) {
+  const bodies = Array.from(root.querySelectorAll<HTMLElement>('.bar-body'));
+  for (const b of bodies) b.style.removeProperty('--fit');
+  const fits = bodies.map((b) => (b.scrollWidth > b.clientWidth + 1 ? Math.max(0.5, (b.clientWidth / b.scrollWidth) * 0.97) : 1));
+  bodies.forEach((b, i) => fits[i] < 1 && b.style.setProperty('--fit', fits[i].toFixed(3)));
+}
+
+function useFitBars(deps: unknown[]) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    fitBars(el);
+    // Again when the width changes (a phone turning, the editor opening) and once the chord font arrives.
+    let w = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== w) {
+        w = el.clientWidth;
+        fitBars(el);
+      }
+    });
+    ro.observe(el);
+    let live = true;
+    document.fonts?.ready.then(() => live && fitBars(el));
+    return () => {
+      live = false;
+      ro.disconnect();
+    };
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  return ref;
+}
+
 function ChartViewInner(props: ChartViewProps) {
   const { chart, shift = 0, flats = true, chordStyle = 'jazz', selection, onBarClick, presence, pins, onPin, changed, flash, barNumbers, beatGrid, className } = props;
   const rows = layout(chart);
   const times = timeAt(chart);
   const ms = metersOf(chart);
   const ends = endings(chart.bars);
+  const ref = useFitBars([chart, shift, flats, chordStyle, barNumbers, beatGrid, className]);
   return (
-    <div className={`chart ${className ?? ''}`}>
+    <div className={`chart ${className ?? ''}`} ref={ref}>
       {rows.map((row, ri) => (
         <div key={ri} className="chart-row" style={row.vspace ? { marginTop: `${row.vspace * 0.9}em` } : undefined}>
           {row.items.map((it, k) => {

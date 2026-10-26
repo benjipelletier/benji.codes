@@ -174,6 +174,18 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
   c = await saved();
   assert.equal(tl(c, 4), 'Bbh7@0:72 Eb7b9@72:24');
 
+  step('a text note above a beat, typed in the Bar tab, and taken off again');
+  await tapBar(3);
+  await tab('Bar');
+  await p.fill('.ed-textmark-input', 'Solos');
+  await settle();
+  c = await saved();
+  assert.equal(c.bars[3].events[0].text, 'Solos');
+  assert.equal(await p.locator('.bar >> nth=3 >> .cell-text').innerText(), 'Solos');
+  await p.fill('.ed-textmark-input', '');
+  await settle();
+  assert.equal((await saved()).bars[3].events[0].text, undefined);
+
   step('Done returns to a clean reading view; the chart reloads the same');
   await p.click('.ed-done');
   assert.equal(await p.locator('.ed-sheet').count(), 0);

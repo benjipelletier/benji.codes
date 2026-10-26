@@ -468,6 +468,8 @@ body.ifp-noscroll { overflow: hidden; }
 }
 /* A bar's events, each as wide as it is long: a chord on beat 3 of 4/4 starts halfway along. */
 .bar-body { position: relative; flex: 1; min-width: 0; display: grid; align-items: end; }
+/* A bar whose chords don't fit shrinks them to fit (--fit, set by ChartView's fitBars). */
+.bar-body > .cell { font-size: calc(1em * var(--fit, 1)); }
 .rest { font-size: 0.95em; line-height: 1; padding: 0 0.15em 0.12em 0.05em; }
 .ev { padding-right: 0.12em; }
 .ev-hit .cell-marks .accent { font-size: 0.7em; }
@@ -491,12 +493,12 @@ body.ifp-noscroll { overflow: hidden; }
 .dots-close { right: 0.2em; }
 
 .cell { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-width: 0; white-space: nowrap; line-height: 1; }
-.cell-small { font-size: 0.66em; }
-.bar.dense .cell { font-size: 0.6em; }
-.bar.dense .cell-small { font-size: 0.48em; }
+.bar-body > .cell-small { font-size: calc(0.8em * var(--fit, 1)); }
+.bar.dense .bar-body > .cell { font-size: calc(0.76em * var(--fit, 1)); }
+.bar.dense .bar-body > .cell-small { font-size: calc(0.64em * var(--fit, 1)); }
 .bar.dense .ch { letter-spacing: -0.04em; }
-.bar.crowded .cell { font-size: 0.52em; }
-.bar.crowded .cell-small { font-size: 0.44em; }
+.bar.crowded .bar-body > .cell { font-size: calc(0.66em * var(--fit, 1)); }
+.bar.crowded .bar-body > .cell-small { font-size: calc(0.58em * var(--fit, 1)); }
 
 /* C, then ♭ small and raised, then 7♭9 small and dropped, then /E. */
 .ch { display: inline-flex; align-items: baseline; letter-spacing: -0.02em; -webkit-text-stroke: 0.022em currentColor; paint-order: stroke fill; }
@@ -511,11 +513,11 @@ body.ifp-noscroll { overflow: hidden; }
 .cell-alt { font-size: 0.55em; opacity: 0.75; margin-bottom: 0.1em; display: flex; gap: 0.35em; }
 .cell-alt .ch-q { top: 0.1em; }
 
-.cell-marks { position: absolute; bottom: 100%; left: 0; display: flex; align-items: flex-end; gap: 0.2em; margin-bottom: 0.08em; pointer-events: none; }
+/* Marks and text above a chord are sized by the chart, not the chord: a note over a crowded bar of small chords reads as well as any. */
+.cell-marks { position: absolute; bottom: 100%; left: 0; display: flex; align-items: flex-end; gap: 0.2em; margin-bottom: 0.04em; pointer-events: none; font-size: var(--cs); }
 .cell-marks .sym { font-size: 0.8em; line-height: 1; }
-.cell-text { font-size: 0.56em; line-height: 1.1; white-space: nowrap; }
-.bar:has(.section) .c0 .cell-marks { left: 0.62em; bottom: calc(100% + 0.42em); }
-.bar:has(.section) .c0 .cell-text { font-size: 0.62em; }
+.cell-text { font-size: 0.5em; line-height: 1.1; white-space: nowrap; }
+.bar:has(.section) .c0 .cell-marks { left: 0.62em; bottom: calc(100% + 0.3em); }
 .simile { font-size: 1.15em; line-height: 1; }
 .simile-center { position: absolute; left: 0; right: 0; bottom: 0.32em; text-align: center; }
 .simile-two { position: absolute; left: 100%; bottom: 0.32em; transform: translateX(-50%); z-index: 1; }
@@ -645,6 +647,7 @@ html { scroll-padding-top: 64px; }
   flex: 1; min-width: 0; min-height: 46px !important; font-family: 'Petaluma Script', var(--chord) !important; font-size: 22px !important; letter-spacing: 0.01em;
 }
 .ed-input.bad { outline: 2px solid #c0392b !important; outline-offset: -1px; }
+.ed-textmark-input { flex: 1; min-width: 0; min-height: 40px !important; font-size: 15px !important; }
 .ed-next { min-height: 46px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .ed-err { color: #c0392b; font-size: 12.5px; margin: 2px 2px 0; }
 .ed-roots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 6px 0 2px; }
