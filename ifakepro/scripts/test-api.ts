@@ -1,0 +1,190 @@
+// End-to-end checks of iFake Pro's API against a running `next dev` with a
+// throwaway database. Uses the development-only ifp_dev_user cookie to act as
+// three people: an admin (who must be in IFAKEPRO_ADMIN_EMAILS), an invited
+// editor, and a stranger.
+//   BASE=http://localhost:3000 ADMIN=benji@example.com npx tsx ifakepro/scripts/test-api.ts
+
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { mergeDocs } from '../lib/merge';
+import type { Chart } from '../lib/chart';
+
+const BASE = process.env.BASE ?? 'http://localhost:3000';
+const ADMIN = process.env.ADMIN ?? 'benji@example.com';
+
+async function call(who: string | null, method: string, path: string, body?: unknown) {
+  const res = await fetch(`${BASE}/api/ifakepro${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', ...(who ? { cookie: `ifp_dev_user=${who}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  return { status: res.status, json };
+}
+const ok = async (who: string | null, method: string, path: string, body?: unknown) => {
+  const r = await call(who, method, path, body);
+  assert.ok(r.status < 300, `${method} ${path} → ${r.status} ${JSON.stringify(r.json)}`);
+  return r.json;
+};
+
+// Fresh people each run: the server remembers whose profile it has already copied.
+const run = Date.now().toString(36);
+const ann = `ann.${run}@example.com`;
+const eve = `eve.${run}@example.com`;
+
+(async () => {
+  const step = (s: string) => console.log(`· ${s}`);
+
+  step('viewer');
+  assert.equal((await ok(null, 'GET', '/viewer')).user, null);
+  assert.equal((await ok(ADMIN, 'GET', '/viewer')).isAdmin, true);
+  assert.equal((await ok(ann, 'GET', '/viewer')).isAdmin, false);
+
+  step('only admins create playlists');
+  assert.equal((await call(ann, 'POST', '/playlists', { title: 'Nope' })).status, 403);
+  assert.equal((await call(null, 'POST', '/playlists', { title: 'Nope' })).status, 401);
+
+  step('create a playlist from an iReal link');
+  const raw = readFileSync(join(__dirname, '../../jazz/charts_raw/jazz.ireal'), 'utf8');
+  const preview = await ok(ann, 'POST', '/import', { text: raw });
+  assert.equal(preview.songs.length, 1460);
+  const { slug } = await ok(ADMIN, 'POST', '/playlists', { title: 'Friday at the Lodge', ireal: raw, include: [0, 1, 2] });
+  let pl = await ok(null, 'GET', `/playlists/${slug}`);
+  assert.equal(pl.songs.length, 3);
+  assert.equal(pl.inviteToken, undefined, 'guests never see the invite token');
+  assert.equal(pl.role, null);
+
+  step('add standards and a blank song');
+  const hits = (await ok(null, 'GET', '/standards?q=autumn%20leaves')).results;
+  assert.equal(hits[0].title, 'Autumn Leaves');
+  await ok(ADMIN, 'POST', `/playlists/${slug}/songs`, { standards: [hits[0].index] });
+  await ok(ADMIN, 'POST', `/playlists/${slug}/songs`, { blank: { title: 'New Tune', key: 'F' } });
+  pl = await ok(ADMIN, 'GET', `/playlists/${slug}`);
+  assert.deepEqual(pl.songs.map((s: { meta: { title: string } }) => s.meta.title), ['9.20 Special', '26-2', '52nd Street Theme', 'Autumn Leaves', 'New Tune']);
+  assert.ok(pl.inviteToken);
+
+  step('strangers and guests cannot edit');
+  const songId = pl.songs[3].id;
+  let song = await ok(null, 'GET', `/songs/${songId}`);
+  assert.equal((await call(eve, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, meta: song.meta, chart: song.chart })).status, 403);
+  assert.equal((await call(eve, 'POST', `/songs/${songId}/comments`, { body: 'hi' })).status, 403);
+
+  step('joining needs the right token');
+  assert.equal((await call(ann, 'POST', `/playlists/${slug}/join`, { token: 'wrong' })).status, 403);
+  assert.equal((await ok(ann, 'POST', `/playlists/${slug}/join`, { token: pl.inviteToken })).joined, true);
+  assert.equal((await ok(ann, 'GET', `/playlists/${slug}`)).role, 'editor');
+
+  step('save, then a stale save conflicts and merges');
+  const base = { meta: song.meta, chart: song.chart as Chart };
+  const annDoc = structuredClone(base);
+  annDoc.chart.bars[0].cells[0].ch = 'C-9';
+  const r1 = await ok(ann, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...annDoc });
+  assert.equal(r1.revision, song.revision + 1);
+  const benDoc = structuredClone(base);
+  benDoc.chart.bars[5].cells[0].ch = 'D7b9';
+  benDoc.meta.bpm = 140;
+  const stale = await call(ADMIN, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...benDoc });
+  assert.equal(stale.status, 409);
+  const merged = mergeDocs(base, benDoc, stale.json.song);
+  assert.deepEqual(merged.conflicts, []);
+  const r2 = await ok(ADMIN, 'PATCH', `/songs/${songId}`, { baseRevision: stale.json.song.revision, ...merged.value });
+  song = await ok(null, 'GET', `/songs/${songId}`);
+  assert.equal(song.revision, r2.revision);
+  assert.equal(song.chart.bars[0].cells[0].ch, 'C-9');
+  assert.equal(song.chart.bars[5].cells[0].ch, 'D7b9');
+  assert.equal(song.meta.bpm, 140);
+
+  step('saves fold into versions per person');
+  const again = structuredClone({ meta: song.meta, chart: song.chart as Chart });
+  again.chart.bars[1].cells[0].ch = 'F9';
+  await ok(ann, 'PATCH', `/songs/${songId}`, { baseRevision: song.revision, ...again });
+  const versions = (await ok(null, 'GET', `/songs/${songId}/versions`)).versions;
+  // import, ann's edit, the admin's edit, ann's second edit (a new version: someone else saved in between)
+  assert.equal(versions.length, 4, JSON.stringify(versions.map((v: { summary: string }) => v.summary)));
+  assert.equal(versions[3].kind, 'import');
+  assert.match(versions[1].summary, /tempo 140/i);
+
+  step('poll sees the change and the other person');
+  await ok(ann, 'GET', `/songs/${songId}/poll?rev=0&bar=${song.chart.bars[2].id}&editing=1`);
+  const poll = await ok(ADMIN, 'GET', `/songs/${songId}/poll?rev=${song.revision}`);
+  assert.ok(poll.song, 'newer revision delivered');
+  assert.equal(poll.presence.length, 1);
+  assert.match(poll.presence[0].user.name, /^Ann/);
+  assert.equal(poll.presence[0].barId, song.chart.bars[2].id);
+  const quiet = await ok(ADMIN, 'GET', `/songs/${songId}/poll?rev=${poll.revision}`);
+  assert.equal(quiet.song, null);
+
+  step('restore an old version');
+  const imported = versions[3];
+  await ok(ann, 'PATCH', `/songs/${songId}/versions/${imported.id}`, { label: 'As imported' });
+  await ok(ann, 'POST', `/songs/${songId}/versions/${imported.id}`, { action: 'restore' });
+  song = await ok(null, 'GET', `/songs/${songId}`);
+  assert.equal(song.chart.bars[0].cells[0].ch, 'C-7');
+  const after = (await ok(null, 'GET', `/songs/${songId}/versions`)).versions;
+  assert.equal(after[0].kind, 'restore');
+  assert.equal(after[0].summary, 'Restored “As imported”');
+
+  step('comments: thread on a bar, reply, resolve');
+  const barId = song.chart.bars[4].id;
+  const c1 = await ok(ann, 'POST', `/songs/${songId}/comments`, { body: 'Hold this one', barId });
+  await ok(ADMIN, 'POST', `/songs/${songId}/comments`, { body: 'Two beats?', parentId: c1.id });
+  const res = await ok(ADMIN, 'PATCH', `/comments/${c1.id}`, { resolved: true });
+  assert.equal(res.comments.length, 2);
+  assert.ok(res.comments[0].resolvedAt);
+  assert.equal(res.comments[1].barId, barId);
+  assert.equal((await call(ADMIN, 'PATCH', `/comments/${c1.id}`, { body: 'not mine' })).status, 403);
+  assert.ok((await ok(null, 'GET', `/songs/${songId}/poll?rev=999`)).commentsStamp.startsWith('2:'));
+
+  step('activity: per playlist, per song, everywhere');
+  const act = (await ok(null, 'GET', `/activity?playlist=${slug}`)).activity;
+  const kinds = act.map((a: { kind: string }) => a.kind);
+  for (const k of ['playlist.create', 'song.import', 'song.create', 'member.join', 'song.edit', 'song.restore', 'comment.add', 'comment.reply', 'comment.resolve']) {
+    assert.ok(kinds.includes(k), `missing ${k}`);
+  }
+  const songAct = (await ok(null, 'GET', `/activity?song=${songId}`)).activity;
+  assert.ok(songAct.every((a: { song: { id: string } }) => a.song?.id === songId));
+  assert.ok((await ok(null, 'GET', '/activity')).activity.length >= act.length);
+
+  step('reorder, delete, bring back');
+  const order = pl.songs.map((s: { id: string }) => s.id).reverse();
+  await ok(ann, 'PATCH', `/playlists/${slug}/songs`, { order });
+  pl = await ok(ann, 'GET', `/playlists/${slug}`);
+  assert.equal(pl.songs[0].meta.title, 'New Tune');
+  await ok(ann, 'DELETE', `/songs/${order[0]}`);
+  pl = await ok(ann, 'GET', `/playlists/${slug}`);
+  assert.equal(pl.songs.length, 4);
+  assert.equal(pl.deletedSongs.length, 1);
+  await ok(ann, 'PATCH', `/songs/${order[0]}`, { deleted: false });
+
+  step('export reads back');
+  const ex = await ok(null, 'GET', `/playlists/${slug}/export`);
+  assert.ok(ex.link.startsWith('irealb://'));
+  const back = await ok(null, 'POST', '/import', { text: ex.link });
+  assert.equal(back.name, 'Friday at the Lodge');
+  assert.equal(back.songs.length, 5);
+
+  step('owner-only settings; rotating the token stops old links');
+  assert.equal((await call(ann, 'PATCH', `/playlists/${slug}`, { rotateToken: true })).status, 403);
+  await ok(ADMIN, 'PATCH', `/playlists/${slug}`, { rotateToken: true, visibility: 'unlisted' });
+  assert.equal((await call(eve, 'POST', `/playlists/${slug}/join`, { token: pl.inviteToken })).status, 403);
+  const listed = (await ok(eve, 'GET', '/playlists')).playlists.map((p: { slug: string }) => p.slug);
+  assert.ok(!listed.includes(slug), 'unlisted playlists are not listed to strangers');
+  assert.ok((await ok(ann, 'GET', '/playlists')).playlists.some((p: { slug: string }) => p.slug === slug), 'but are to members');
+
+  step('copy a song to another playlist');
+  const { slug: other } = await ok(ADMIN, 'POST', '/playlists', { title: 'Sunday Brunch' });
+  const copy = await ok(ADMIN, 'POST', `/songs/${songId}`, { copyTo: other });
+  assert.equal(copy.slug, other);
+  assert.equal((await call(ann, 'POST', `/songs/${songId}`, { copyTo: other })).status, 403);
+
+  step('search all songs');
+  const found = (await ok(null, 'GET', '/songs?q=autumn')).songs;
+  assert.equal(found.length, 1, 'the unlisted original is hidden from guests; the copy is public');
+  assert.equal(found[0].playlist.slug, other);
+
+  console.log('\nall API checks passed');
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
