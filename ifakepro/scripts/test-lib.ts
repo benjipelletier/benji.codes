@@ -202,7 +202,7 @@ check('diff summary', () => {
   const s = corpus.songs[0];
   const after = { meta: { ...s.meta, key: 'D' }, chart: edit(s.chart, s.chart.bars[4].id, 'F7') };
   after.chart.bars.push(blankBar(), blankBar());
-  assert.equal(summarize(s, after), 'Key C → D, edited bar 5, added 2 bars');
+  assert.equal(summarize(s, after), 'Edited bar 5, added 2 bars, key C → D');
 });
 
 check('standards library loads', () => {

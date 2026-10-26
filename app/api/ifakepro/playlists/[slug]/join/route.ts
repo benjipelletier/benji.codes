@@ -11,6 +11,6 @@ export const POST = handle<{ slug: string }>(async (req, { slug }) => {
   const rows = await getDb()`
     INSERT INTO ifp_members (playlist_id, user_id, role) VALUES (${p.id}, ${user.id}, 'editor')
     ON CONFLICT DO NOTHING RETURNING user_id`;
-  if (rows.length) await logActivity(p.id, null, user.id, 'member.join', `${user.name} joined`);
+  if (rows.length) await logActivity(p.id, null, user.id, 'member.join', 'Joined the playlist');
   return { joined: rows.length > 0 };
 });

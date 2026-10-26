@@ -53,13 +53,6 @@ export function summarize(
 ): string {
   if (!before) return `${after.chart.bars.length} bars`;
   const parts: string[] = [];
-  const m0 = before.meta;
-  const m1 = after.meta;
-  if (m0.title !== m1.title) parts.push(`renamed to “${m1.title}”`);
-  if (m0.key !== m1.key) parts.push(`key ${m0.key.replace('-', 'm')} → ${m1.key.replace('-', 'm')}`);
-  if (m0.composer !== m1.composer) parts.push('composer');
-  if (m0.style !== m1.style) parts.push(`style ${m1.style || 'cleared'}`);
-  if (m0.bpm !== m1.bpm) parts.push(m1.bpm ? `tempo ${m1.bpm}` : 'tempo cleared');
   const d = diffCharts(before.chart, after.chart);
   if (d.edited) {
     const nums = after.chart.bars.flatMap((b, i) => (d.changed.has(b.id) && before.chart.bars.some((o) => o.id === b.id) ? [i + 1] : []));
@@ -67,6 +60,13 @@ export function summarize(
   }
   if (d.added) parts.push(`added ${plural(d.added, 'bar')}`);
   if (d.removed) parts.push(`removed ${plural(d.removed, 'bar')}`);
+  const m0 = before.meta;
+  const m1 = after.meta;
+  if (m0.title !== m1.title) parts.push(`renamed to “${m1.title}”`);
+  if (m0.key !== m1.key) parts.push(`key ${m0.key.replace('-', 'm')} → ${m1.key.replace('-', 'm')}`);
+  if (m0.composer !== m1.composer) parts.push(m1.composer ? `composer ${m1.composer}` : 'composer cleared');
+  if (m0.style !== m1.style) parts.push(`style ${m1.style || 'cleared'}`);
+  if (m0.bpm !== m1.bpm) parts.push(m1.bpm ? `tempo ${m1.bpm}` : 'tempo cleared');
   if (!parts.length) return canon(before) === canon(after) ? 'no changes' : 'layout';
   const s = parts.join(', ');
   return s[0].toUpperCase() + s.slice(1);

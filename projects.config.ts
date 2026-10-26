@@ -66,4 +66,15 @@ export const projects: ProjectConfig[] = [
     tags: ['pleco', 'sentences', 'srs'],
     enabled: true,
   },
+  {
+    name: 'ifakepro',
+    displayName: 'iFake Pro',
+    icon: '𝄞',
+    accent: '#a8402a',
+    accentRgb: '168, 64, 42',
+    tagline: 'ifakepro',
+    description: 'Lead sheets for the band. Import from iReal Pro or the standards, edit charts together, comment on bars, and keep every version — then play the set full-screen.',
+    tags: ['charts', 'band', 'ireal'],
+    enabled: true,
+  },
 ]

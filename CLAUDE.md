@@ -18,17 +18,20 @@ benji.codes/
 │   ├── jazz/               # /jazz route
 │   ├── longku/             # /longku route
 │   ├── chongfuxi/          # /chongfuxi route
+│   ├── ifakepro/           # /ifakepro route
 │   └── api/                # API routes namespaced per project
 │       ├── riddleyu/
 │       ├── gecijielong/
 │       ├── longku/
-│       └── chongfuxi/
+│       ├── chongfuxi/
+│       └── ifakepro/
 ├── projects.config.ts      # Enable/disable projects, metadata
 ├── riddleyu/               # Source code (components, lib, styles)
 ├── gecijielong/            # Source code
 ├── jazz/                   # Source code
 ├── longku/                 # Source code
-└── chongfuxi/              # Source code
+├── chongfuxi/              # Source code
+└── ifakepro/               # Source code
 ```
 
 ## Running locally
@@ -41,7 +44,7 @@ npm run dev   # localhost:3000
 ## Enabling/disabling projects
 
 Set `enabled: true/false` in `projects.config.ts`. Disabled projects don't appear
-on the landing page. All five current projects are enabled.
+on the landing page. All six current projects are enabled.
 
 ## Key conventions
 
@@ -49,7 +52,7 @@ on the landing page. All five current projects are enabled.
 - Env vars namespaced: `<PROJECT>_DATABASE_URL` (e.g., `GECIJIELONG_DATABASE_URL`)
 - Vite projects use `dynamic(() => import(...), { ssr: false })` page wrappers
 - Lazy DB initialization pattern with `getDb()` to avoid build-time env var evaluation
-- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*`, `@chongfuxi/*` defined in tsconfig paths
+- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*`, `@chongfuxi/*`, `@ifakepro/*` defined in tsconfig paths
 
 ## Third-party data
 
@@ -70,6 +73,9 @@ on the landing page. All five current projects are enabled.
   `CHONGFUXI_DATABASE_URL` store and are served read-only. That backup
   includes third-party sentence decks.
 
+- **ifakepro**'s standards library is the jazz project's `jazz/charts_raw/jazz.ireal`
+  (1,460 iReal Pro charts), read at run time; picking one copies it into a
+  playlist. Users' own charts come from iReal Pro links they paste.
 - **chongfuxi** fetches song lyrics from [LRCLIB](https://lrclib.net) when a
   Spotify link is added (`app/api/chongfuxi/spotify.ts`), splits them into
   words and keeps only the words; the lyrics themselves aren't stored.
