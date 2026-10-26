@@ -186,6 +186,20 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
   await settle();
   assert.equal((await saved()).bars[3].events[0].text, undefined);
 
+  step('the bar’s note is found from any beat of it, and edited in place, not doubled');
+  await tapBar(4, 0.12);
+  await tab('Bar');
+  await p.fill('.ed-textmark-input', 'riff');
+  await settle();
+  await tapBar(4, 0.92); // the bar's other chord
+  assert.equal(await p.locator('.ed-textmark-input').inputValue(), 'riff');
+  await p.fill('.ed-textmark-input', 'riff on the bells');
+  await settle();
+  c = await saved();
+  assert.deepEqual(c.bars[4].events.map((e) => e.text ?? null), ['riff on the bells', null]);
+  await p.fill('.ed-textmark-input', '');
+  await settle();
+
   step('Done returns to a clean reading view; the chart reloads the same');
   await p.click('.ed-done');
   assert.equal(await p.locator('.ed-sheet').count(), 0);

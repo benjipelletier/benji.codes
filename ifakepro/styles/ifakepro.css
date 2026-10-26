@@ -547,6 +547,7 @@ body.ifp-noscroll { overflow: hidden; }
 .bar-no { position: absolute; left: 0.6em; top: 0.3em; font-family: Inter, sans-serif; font-size: max(8px, 0.24em); color: var(--ink-3); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
 .bar.open-dbl .bar-no, .bar.open-rep .bar-no { left: 1.7em; }
 .bar:has(.section) .bar-no { left: 3.1em; }
+.bar.ending-start .bar-no { left: 2.6em; }
 
 .bar.sel { background: var(--sel); box-shadow: inset 0 0 0 max(1.5px, 0.05em) var(--sel-line); }
 .bar.changed { background: var(--changed); }
@@ -648,6 +649,7 @@ html { scroll-padding-top: 64px; }
 }
 .ed-input.bad { outline: 2px solid #c0392b !important; outline-offset: -1px; }
 .ed-textmark-input { flex: 1; min-width: 0; min-height: 40px !important; font-size: 15px !important; }
+.ed-hint { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .ed-next { min-height: 46px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .ed-err { color: #c0392b; font-size: 12.5px; margin: 2px 2px 0; }
 .ed-roots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin: 6px 0 2px; }

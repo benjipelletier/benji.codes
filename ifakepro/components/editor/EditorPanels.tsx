@@ -336,6 +336,7 @@ export function BarsPanel({ c, rangeMode, setRangeMode }: { c: EdCtx; rangeMode:
         <Btn onClick={() => c.select(0, n - 1)}>All</Btn>
         <Btn on={rangeMode} onClick={() => setRangeMode(!rangeMode)} className="ed-range" title="Tap bars on the chart to extend the selection">Tap to extend</Btn>
       </div>
+      {count === 1 && <TextMark c={c} />}
       <div className="ed-row" role="group" aria-label="Bars">
         <Btn onClick={() => { c.apply((x) => insertBars(x, from)); c.select(from); }}>+ Before</Btn>
         <Btn onClick={() => { c.apply((x) => insertBars(x, to + 1)); c.select(to + 1); }}>+ After</Btn>
@@ -400,22 +401,29 @@ export function BarsPanel({ c, rangeMode, setRangeMode }: { c: EdCtx; rangeMode:
           {c.canComment && <Btn onClick={() => c.onComment(first.id)}>💬 Comment</Btn>}
         </div>
       )}
-      {count === 1 && <TextMark c={c} />}
       {first.section && <div className="ed-info">Section {sectionLabel(first.section)} starts here.</div>}
     </div>
   );
 }
 
-/** The text above the selected beat ("Fine", "Solos", "poinciana riff"), typed straight in; empty takes it off. */
+/**
+ * The bar's text note ("Fine", "Solos", "poinciana riff"), typed straight in;
+ * empty takes it off. A note belongs to the beat it sits over, but people
+ * think of it as the bar's: so this edits the note on the selected beat if
+ * there is one, else the bar's existing note wherever it sits, else puts a
+ * new one on the selected beat. It stays on the same beat while being typed.
+ */
 function TextMark({ c }: { c: EdCtx }) {
-  const { ev, i } = c;
-  const stored = ev.text ? cellText(ev.text) : '';
+  const { ev, bar, i } = c;
+  const pinned = useRef<string | null>(null);
+  const target = bar.events.find((e) => e.id === pinned.current) ?? (ev.text ? ev : bar.events.find((e) => e.text)) ?? ev;
+  const stored = target.text ? cellText(target.text) : '';
   const [value, setValue] = useState(stored);
-  const editing = useRef(false);
   // Follow the selection (and edits from elsewhere) unless it's being typed in.
   useEffect(() => {
-    if (!editing.current) setValue(stored);
-  }, [stored, ev.id]);
+    if (!pinned.current) setValue(stored);
+  }, [stored, target.id]);
+  const where = positionLabel(target.at, c.m);
   return (
     <label className="ed-row ed-textmark">
       <span className="ed-label">Text</span>
@@ -423,19 +431,21 @@ function TextMark({ c }: { c: EdCtx }) {
         className="ed-textmark-input"
         value={value}
         maxLength={60}
-        placeholder={`Above ${positionLabel(ev.at, c.m)}: Fine, Solos, D.C. al Coda…`}
-        aria-label={`Text above ${positionLabel(ev.at, c.m)}`}
-        onFocus={() => (editing.current = true)}
+        placeholder={`Above ${where}: Fine, Solos, D.C. al Coda…`}
+        aria-label={`Text above ${where}`}
+        onFocus={() => (pinned.current = target.id)}
         onBlur={() => {
-          editing.current = false;
+          pinned.current = null;
           setValue(stored);
         }}
         onChange={(e) => {
           setValue(e.target.value);
           const t = e.target.value.replace(/[<>]/g, '').trim();
-          c.apply((x) => patchEvent(x, i, ev.id, { text: t || undefined }), `text-mark:${ev.id}`);
+          const id = target.id;
+          c.apply((x) => patchEvent(x, i, id, { text: t || undefined }), `text-mark:${id}`);
         }}
       />
+      {stored && target.id !== ev.id && <span className="ed-hint">on {where}</span>}
     </label>
   );
 }

@@ -284,9 +284,10 @@ export function sectionLabel(s: string): string {
   return s;
 }
 
-/** Text annotation without iReal's *NN height prefix. */
+/** Text annotation without iReal's *NN height codes. */
 export function cellText(t: string): string {
-  return t.replace(/^\*\d\d/, '');
+  // iReal writes a height before text, and before each part of text it splits: "*41Last time *21only".
+  return t.replace(/\*\d\d/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 // ---- Untrusted input ----
