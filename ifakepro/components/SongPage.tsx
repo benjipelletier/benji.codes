@@ -8,7 +8,8 @@ import { ALL_KEYS, type ChordStyle, prefersFlats, transposeKey } from '@ifakepro
 import { api, copyText, displayKey, download, personColor, usePref, when } from '@ifakepro/lib/client';
 import { diffCharts } from '@ifakepro/lib/diff';
 import { transposeChart } from '@ifakepro/lib/edit';
-import { exportHtml } from '@ifakepro/lib/ireal';
+import { exportHtml, serializeSong } from '@ifakepro/lib/ireal';
+import type { Doc } from '@ifakepro/lib/merge';
 import type { CommentDTO, PlaylistSummary, SongDetail, VersionDetail } from '@ifakepro/lib/types';
 import { ChartEditor } from './ChartEditor';
 import { ChartView, type Selection } from './ChartView';
@@ -205,9 +206,11 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             ))}
           </div>
           <SaveBadge status={sync.status} />
+          <button className="ifp-btn small" onClick={() => setDialog('export')} title="Download this chart for iReal Pro">
+            ⬇ iReal Pro
+          </button>
           <Menu label="⋯">
             {member && !deleted && <button onClick={() => setDialog('info')}>Song info &amp; key…</button>}
-            <button onClick={() => setDialog('export')}>Export to iReal Pro…</button>
             <Link href={`/ifakepro/p/${song.playlist.slug}/print?song=${song.id}&auto=1`} target="_blank">Print / PDF</Link>
             <Link href={`/ifakepro/p/${song.playlist.slug}/play?song=${song.id}`}>Setlist mode</Link>
             {viewer?.user && <button onClick={() => setDialog('copy')}>Copy to playlist…</button>}
@@ -332,7 +335,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           }
         />
       )}
-      {dialog === 'export' && <ExportDialog path={`/songs/${song.id}/export`} onClose={() => setDialog(null)} />}
+      {dialog === 'export' && <ExportDialog song={preview ? { meta: preview.meta, chart: preview.chart } : doc} onClose={() => setDialog(null)} />}
       {dialog === 'copy' && <CopyDialog songId={song.id} onClose={() => setDialog(null)} />}
     </div>
   );
@@ -408,27 +411,38 @@ function SongInfoDialog({ meta, onSave, onTranspose, onClose }: { meta: SongMeta
   );
 }
 
-export function ExportDialog({ path, onClose }: { path: string; onClose: () => void }) {
+/**
+ * Get charts into iReal Pro: the irealb:// link (iReal's own URL-encoded
+ * format, which opens the app), the same as an .html file to send or save, or
+ * the link to copy. A song is encoded right here from what's on screen; a
+ * playlist is fetched.
+ */
+export function ExportDialog({ path, song, onClose }: { path?: string; song?: Doc; onClose: () => void }) {
   const toast = useToast();
-  const [data, setData] = useState<{ name: string; link: string | null } | null>(null);
+  const [data, setData] = useState<{ name: string; link: string | null } | null>(
+    song ? { name: song.meta.title, link: serializeSong(song) } : null,
+  );
   useEffect(() => {
-    api<{ name: string; link: string | null }>(path).then(setData).catch((e) => toast(e.message, 'error'));
+    if (path) api<{ name: string; link: string | null }>(path).then(setData).catch((e) => toast(e.message, 'error'));
   }, [path, toast]);
   return (
-    <Dialog title="Export to iReal Pro" onClose={onClose}>
+    <Dialog title="Download for iReal Pro" onClose={onClose}>
       {!data ? (
         <Spinner />
       ) : !data.link ? (
         <p>Nothing to export yet.</p>
       ) : (
         <div className="export">
-          <p>On a phone or iPad with iReal Pro, open the link to import. Anywhere else, copy it or download the file and open it there.</p>
+          <p>
+            On a phone or iPad with iReal Pro, <b>Open in iReal Pro</b> imports {path ? 'the whole playlist' : 'this chart'} straight into the app.
+            On a computer, download the file and send it to your phone (or open it on a Mac with iReal Pro).
+          </p>
           <a className="ifp-btn primary block" href={data.link}>Open in iReal Pro</a>
+          <button className="ifp-btn block" onClick={() => download(`${data.name.replace(/[^\w\s-]/g, '').trim() || 'chart'}.html`, exportHtml(data.name, data.link!))}>
+            ⬇ Download iReal Pro file (.html)
+          </button>
           <button className="ifp-btn block" onClick={async () => toast((await copyText(data.link!)) ? 'Link copied' : 'Couldn’t copy — long-press the button above instead')}>
             Copy irealb:// link
-          </button>
-          <button className="ifp-btn block" onClick={() => download(`${data.name.replace(/[^\w\s-]/g, '').trim() || 'chart'}.html`, exportHtml(data.name, data.link!))}>
-            Download for iReal (.html)
           </button>
         </div>
       )}

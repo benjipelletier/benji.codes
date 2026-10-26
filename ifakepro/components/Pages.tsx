@@ -76,7 +76,7 @@ export function Shell({ children }: { children: ReactNode }) {
 export function HomePage() {
   const { viewer } = useViewer();
   const [lists, setLists] = useState<PlaylistSummary[] | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<null | 'ireal' | 'standards' | 'blank'>(null);
   useEffect(() => {
     api<{ playlists: PlaylistSummary[] }>('/playlists').then((r) => setLists(r.playlists)).catch(() => setLists([]));
   }, [viewer?.user?.id]);
@@ -89,9 +89,14 @@ export function HomePage() {
         <p>Every chart for the show in one place: import from iReal Pro or the standards, edit together, leave notes on bars, and never lose a version.</p>
         <div className="hero-actions">
           {viewer?.isAdmin && (
-            <button className="ifp-btn primary" onClick={() => setCreating(true)}>
-              ＋ New playlist
-            </button>
+            <>
+              <button className="ifp-btn primary" onClick={() => setCreating('ireal')}>
+                ⇪ Upload from iReal Pro
+              </button>
+              <button className="ifp-btn" onClick={() => setCreating('blank')}>
+                ＋ New playlist
+              </button>
+            </>
           )}
           <Link className="ifp-btn" href="/ifakepro/songs">Browse songs</Link>
           {viewer && !viewer.user && (
@@ -116,7 +121,7 @@ export function HomePage() {
         </div>
         <ActivityFeed query="limit=8" />
       </section>
-      {creating && <AddSongsDialog mode="create" onClose={() => setCreating(false)} />}
+      {creating && <AddSongsDialog mode="create" initial={creating} onClose={() => setCreating(null)} />}
     </div>
   );
 }
@@ -241,10 +246,10 @@ export function PlaylistPage({ slug }: { slug: string }) {
         )}
         <div className="pl-actions">
           <Link className="ifp-btn primary" href={`/ifakepro/p/${slug}/play`} aria-disabled={!p.songs.length}>▶ Setlist<span className="pl-play-long">&nbsp;mode</span></Link>
-          {member && <button className="ifp-btn" onClick={() => setDialog('add')}>＋ Add songs</button>}
+          {member && <button className="ifp-btn" onClick={() => setDialog('add')}>＋ Add<span className="pl-play-long">&nbsp;songs</span></button>}
           <button className="ifp-btn" onClick={() => setDialog('share')}>Share</button>
+          <button className="ifp-btn" onClick={() => setDialog('export')} disabled={!p.songs.length} title="Download the playlist for iReal Pro">⬇ iReal Pro</button>
           <Menu label="⋯">
-            <button onClick={() => setDialog('export')}>Export to iReal Pro…</button>
             <Link href={`/ifakepro/p/${slug}/print?auto=1`} target="_blank">Print all / PDF</Link>
             {p.role === 'owner' && (
               <button

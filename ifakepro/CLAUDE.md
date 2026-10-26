@@ -90,6 +90,9 @@ Parses `jazz/charts_raw/jazz.ireal` once per server instance. `next.config.ts` t
 - The look is a lead sheet on cream paper (dark mode follows the system, with a toggle in the header).
 - Fonts: Barlow Condensed for chords, Fraunces for titles, Noto Music for symbols (𝄋 𝄌 𝄐 𝄎 ♭).
 - The chart (`components/ChartView.tsx`) is a 16-column grid that sizes with container units, so it reads on a phone.
+- Getting charts in and out:
+  - **Upload from iReal Pro**: the default tab of New playlist and Add songs. You can upload or drop the `.html` file iReal shares, or paste an `irealb://` link.
+  - **⬇ iReal Pro**: a button on every playlist and song (`ExportDialog`). It offers the `irealb://` link (opens the app), the same as an `.html` file, or a copy of the link. A song is encoded in the browser from what's on screen, unsaved edits included.
 - It's mobile first:
   - dialogs are bottom sheets
   - the song's comments, history and activity are a bottom sheet behind a tab bar (a side column at ≥1000px)

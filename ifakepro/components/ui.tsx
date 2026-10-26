@@ -124,24 +124,38 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
   );
 }
 
+/** A button with a popup of actions. The popup is placed against the screen, so a scrolling row can't clip it. */
 export function Menu({ label, children, align = 'right' }: { label: ReactNode; children: ReactNode; align?: 'left' | 'right' }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!pos) return;
     const close = (e: Event) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!ref.current?.contains(e.target as Node) && !pop.current?.contains(e.target as Node)) setPos(null);
     };
+    const gone = () => setPos(null);
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [open]);
+    window.addEventListener('resize', gone);
+    window.addEventListener('scroll', gone);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      window.removeEventListener('resize', gone);
+      window.removeEventListener('scroll', gone);
+    };
+  }, [pos]);
+  const toggle = () => {
+    if (pos) return setPos(null);
+    const r = ref.current!.getBoundingClientRect();
+    setPos(align === 'right' ? { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) } : { top: r.bottom + 6, left: Math.max(8, r.left) });
+  };
   return (
     <div className="ifp-menu" ref={ref}>
-      <button className="ifp-btn" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button className="ifp-btn" aria-haspopup="menu" aria-expanded={!!pos} onClick={toggle}>
         {label}
       </button>
-      {open && (
-        <div className={`ifp-menu-pop ifp-menu-${align}`} role="menu" onClick={() => setOpen(false)}>
+      {pos && (
+        <div ref={pop} className="ifp-menu-pop" style={{ position: 'fixed', ...pos }} role="menu" onClick={() => setPos(null)}>
           {children}
         </div>
       )}

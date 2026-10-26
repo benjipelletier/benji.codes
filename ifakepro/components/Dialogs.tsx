@@ -18,10 +18,16 @@ type Source = 'ireal' | 'standards' | 'blank';
  * mode "create": a new playlist (title, visibility), optionally starting with songs.
  * mode "add": add songs to the playlist `slug`.
  */
-export function AddSongsDialog({ mode, slug, onClose, onDone }: { mode: 'create' | 'add'; slug?: string; onClose: () => void; onDone?: () => void }) {
+export function AddSongsDialog({ mode, slug, onClose, onDone, initial = 'ireal' }: { mode: 'create' | 'add'; slug?: string; onClose: () => void; onDone?: () => void; initial?: Source }) {
   const toast = useToast();
   const router = useRouter();
-  const [source, setSource] = useState<Source>(mode === 'create' ? 'blank' : 'standards');
+  const [source, setSource] = useState<Source>(initial);
+  const [dragging, setDragging] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const loadFile = async (f: File) => {
+    setFileName(f.name);
+    await readPreview(await f.text());
+  };
   const [title, setTitle] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'unlisted'>('public');
   const [busy, setBusy] = useState(false);
@@ -131,10 +137,9 @@ export function AddSongsDialog({ mode, slug, onClose, onDone }: { mode: 'create'
       )}
       <Tabs<Source>
         tabs={[
-          ...(mode === 'create' ? [{ id: 'blank' as Source, label: 'Start empty' }] : []),
+          { id: 'ireal', label: 'Upload from iReal Pro' },
           { id: 'standards', label: 'Standards' },
-          { id: 'ireal', label: 'From iReal Pro' },
-          ...(mode === 'add' ? [{ id: 'blank' as Source, label: 'Blank chart' }] : []),
+          { id: 'blank', label: mode === 'create' ? 'Start empty' : 'Blank chart' },
         ]}
         value={source}
         onChange={setSource}
@@ -157,17 +162,52 @@ export function AddSongsDialog({ mode, slug, onClose, onDone }: { mode: 'create'
 
       {source === 'ireal' && (
         <div className="form">
-          <p className="muted">
-            In iReal Pro, share a song or playlist as a link (or export it as HTML) and paste it here, or pick the exported file.
-          </p>
-          <textarea rows={3} value={text} onChange={(e) => readPreview(e.target.value)} placeholder="irealb://…" spellCheck={false} />
-          <div>
+          <div
+            className={`dropzone ${dragging ? 'over' : ''}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={async (e) => {
+              e.preventDefault();
+              setDragging(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) await loadFile(f);
+              else {
+                setFileName(null);
+                await readPreview(e.dataTransfer.getData('text/plain'));
+              }
+            }}
+          >
             <input ref={file} type="file" accept=".html,.htm,.txt,text/html,text/plain" hidden onChange={async (e) => {
               const f = e.target.files?.[0];
-              if (f) await readPreview(await f.text());
+              if (f) await loadFile(f);
+              e.target.value = '';
             }} />
-            <button className="ifp-btn small" onClick={() => file.current?.click()}>Choose a file…</button>
+            <button className="ifp-btn primary" onClick={() => file.current?.click()}>⇪ Upload iReal Pro file</button>
+            <span className="muted small">{fileName ? <>Loaded <b>{fileName}</b></> : 'or drop it here · the .html file iReal Pro shares'}</span>
           </div>
+          <label>
+            …or paste an iReal Pro link
+            <textarea
+              rows={2}
+              value={fileName ? '' : text}
+              onChange={(e) => {
+                setFileName(null);
+                readPreview(e.target.value);
+              }}
+              placeholder="irealb://…"
+              spellCheck={false}
+            />
+          </label>
+          <details className="howto">
+            <summary>How do I get my charts out of iReal Pro?</summary>
+            <p>
+              In iReal Pro, open a playlist (or a song), tap <b>Share</b>, and choose the <b>iReal Pro</b> format (HTML). Send it to yourself or
+              save it to Files, then upload it here. A copied <code>irealb://</code> link works too. Each song becomes your own editable chart.
+            </p>
+          </details>
           {preview && (
             <div className="pick-wrap">
               <div className="pick-head">
