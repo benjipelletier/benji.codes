@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, displayKey, signInWithGoogle, signOut, timeAgo, usePref } from '@ifakepro/lib/client';
 import type { SongMeta } from '@ifakepro/lib/chart';
 import type { PlaylistDetail, PlaylistSummary, Person, SongSummary } from '@ifakepro/lib/types';
+import { AgentTokensDialog } from './AgentTokens';
 import { AddSongsDialog, ShareDialog } from './Dialogs';
 import { ActivityFeed } from './Panels';
 import { ExportDialog } from './SongPage';
@@ -17,6 +18,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { viewer } = useViewer();
   const path = usePathname();
   const [theme, setTheme] = usePref<'auto' | 'light' | 'dark'>('theme', 'auto');
+  const [agentOpen, setAgentOpen] = useState(false);
   useEffect(() => {
     const root = document.querySelector('.ifp');
     if (!root) return;
@@ -57,6 +59,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <div className="menu-note">
                 Signed in as <b>{viewer.user.email}</b>
               </div>
+              <button onClick={() => setAgentOpen(true)}>✦ Your agent…</button>
               <button onClick={signOut}>Sign out</button>
             </Menu>
           ) : viewer ? (
@@ -67,6 +70,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="ifp-content">{children}</main>
+      {agentOpen && <AgentTokensDialog onClose={() => setAgentOpen(false)} />}
     </>
   );
 }

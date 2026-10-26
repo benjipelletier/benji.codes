@@ -118,6 +118,17 @@ export interface ActivityDTO {
   createdAt: string;
 }
 
+/** A token someone made for their own agent. The token itself is only ever shown once, when it's made. */
+export interface AgentToken {
+  id: string;
+  /** The agent's name, on the pill beside its edits. */
+  name: string;
+  /** The token's first characters, to tell them apart. */
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface PresenceDTO {
   user: Person;
   barId: string | null;

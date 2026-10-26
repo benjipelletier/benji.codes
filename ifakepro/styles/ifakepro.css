@@ -276,6 +276,10 @@ body.ifp-noscroll { overflow: hidden; }
 .members { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .members li { display: flex; align-items: center; gap: 10px; }
 .members li > div { flex: 1; min-width: 0; }
+.agent-tokens code { font: 13px ui-monospace, monospace; }
+.linkbox input.agent-name { font-family: inherit; font-size: 15px !important; }
+.agent-made { background: var(--agent-soft); margin: 0 -14px; padding: 12px 14px !important; border-radius: var(--radius); border-bottom: 0 !important; }
+.agent-made .ifp-btn.primary { align-self: flex-start; }
 .export { display: flex; flex-direction: column; gap: 10px; }
 .export p { font-size: 14px; color: var(--ink-2); }
 

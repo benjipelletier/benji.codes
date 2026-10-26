@@ -3,14 +3,14 @@ import { HttpError } from '@ifakepro/lib/session';
 import { sanitizeChart, sanitizeMeta } from '@ifakepro/lib/chart';
 import { summarize } from '@ifakepro/lib/diff';
 import { applyOps, changes, chartText } from '@ifakepro/lib/script';
-import { agentMark, agentMayEdit, agentSong, agentUser, songUrl } from '../../../agent';
+import { agentFor, agentMark, agentMayEdit, agentSong, songUrl } from '../../../agent';
 import { findSong, handle, listVersions, readBody, saveSong } from '../../../store';
 
 type P = { id: string };
 
 /** A song as the agent reads it, with its last few versions. */
 export const GET = handle<P>(async (req, { id }) => {
-  await agentUser(req);
+  await agentFor(req);
   const song = await findSong(id);
   const history = (await listVersions(id)).slice(0, 5).map((v) => ({
     at: v.createdAt,
@@ -28,7 +28,8 @@ export const GET = handle<P>(async (req, { id }) => {
  * the agent acts for, marked as the agent's.
  */
 export const POST = handle<P>(async (req, { id }) => {
-  const user = await agentUser(req);
+  const agent = await agentFor(req);
+  const { user } = agent;
   const song = await findSong(id);
   if (song.deleted_at) throw new HttpError(410, 'This song was deleted');
   await agentMayEdit(song.playlist_id, user);
@@ -52,7 +53,7 @@ export const POST = handle<P>(async (req, { id }) => {
   const out = { summary: summarize(before, after), ...changes(before, after), text: chartText(after) };
   if (body.dryRun === true) return { dryRun: true, revision: song.revision, ...out };
 
-  const saved = await saveSong(song, user, song.revision, after.meta, after.chart, agentMark(body));
+  const saved = await saveSong(song, user, song.revision, after.meta, after.chart, agentMark(agent, body));
   if (!saved) {
     const now = await findSong(id);
     return NextResponse.json(

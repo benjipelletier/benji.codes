@@ -301,6 +301,44 @@ const eve = `eve.${run}@example.com`;
     assert.equal((await muse('POST', `/agent/playlists/${other}/songs`, { title: 'Bad', text: '| C D E |' })).status, 422);
   }
 
+  step('agent tokens · each person makes their own, for their own agent');
+  assert.equal((await call(null, 'POST', '/agent-tokens', { name: 'Nope' })).status, 401);
+  assert.deepEqual((await ok(ann, 'GET', '/agent-tokens')).tokens, []);
+  const annToken = await ok(ann, 'POST', '/agent-tokens', { name: 'Ann’s Muse' });
+  assert.match(annToken.token, /^ifp_[\w-]{43}$/);
+  const annTokens = (await ok(ann, 'GET', '/agent-tokens')).tokens;
+  assert.equal(annTokens.length, 1);
+  assert.equal(annTokens[0].name, 'Ann’s Muse');
+  assert.equal(annTokens[0].token, undefined, 'the token itself is only shown once');
+  assert.ok(annToken.token.startsWith(annTokens[0].prefix));
+  assert.deepEqual((await ok(eve, 'GET', '/agent-tokens')).tokens, [], 'nobody sees anyone else’s');
+
+  step('agent tokens · an agent acts as its person: their playlists, their name, its pill');
+  const annHome = (await muse('GET', '/agent', undefined, annToken.token)).json;
+  assert.equal(annHome.agent, 'Ann’s Muse');
+  assert.deepEqual(annHome.playlists.map((p: { slug: string }) => p.slug), [slug], 'only the playlists Ann has joined');
+  const annRead = (await muse('GET', `/agent/songs/${songId}`, undefined, annToken.token)).json;
+  const annEdit = await muse('POST', `/agent/songs/${songId}`, { revision: annRead.revision, agent: 'Someone Else', note: 'swap bar 1', ops: [{ op: 'chords', bars: 1, text: 'Bb7' }] }, annToken.token);
+  assert.equal(annEdit.status, 200, JSON.stringify(annEdit.json));
+  const annV = (await ok(null, 'GET', `/songs/${songId}/versions`)).versions[0];
+  assert.equal(annV.author.id, `dev:${ann}`);
+  assert.equal(annV.agent, 'Ann’s Muse', 'the token’s name, whatever the request says');
+  const brunchSong = (await ok(null, 'GET', `/playlists/${other}`)).songs[0].id;
+  const brunchRead = await call(ADMIN, 'GET', `/songs/${brunchSong}`);
+  assert.equal(
+    (await muse('POST', `/agent/songs/${brunchSong}`, { revision: brunchRead.json.revision, note: 'x', ops: [{ op: 'chords', bars: 1, text: 'C' }] }, annToken.token)).status,
+    403,
+    'not a playlist Ann has joined',
+  );
+  assert.ok((await ok(ann, 'GET', '/agent-tokens')).tokens[0].lastUsedAt, 'last used is recorded');
+
+  step('agent tokens · revoking shuts the agent out at once; only its person can');
+  assert.equal((await call(eve, 'DELETE', `/agent-tokens/${annToken.id}`)).status, 404);
+  await ok(ann, 'DELETE', `/agent-tokens/${annToken.id}`);
+  assert.equal((await muse('GET', '/agent', undefined, annToken.token)).status, 401);
+  assert.equal((await muse('GET', '/agent', undefined, `ifp_${'x'.repeat(43)}`)).status, 401);
+  assert.deepEqual((await ok(ann, 'GET', '/agent-tokens')).tokens, []);
+
   console.log('\nall API checks passed');
 })().catch((e) => {
   console.error(e);

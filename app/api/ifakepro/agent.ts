@@ -1,39 +1,68 @@
 import 'server-only';
-// The owner's agent (Muse) edits charts for the owner, through a token only
-// it holds (IFAKEPRO_AGENT_TOKEN, `Authorization: Bearer <token>`), the way it
-// writes word lists in 重复习 (app/api/chongfuxi/agent.ts). It acts as one
-// person, IFAKEPRO_AGENT_EMAIL (or else the first IFAKEPRO_ADMIN_EMAILS), so
-// it can do what they can and its edits are theirs, marked with its name: a
-// "Muse" pill beside them in the history and the edit log.
+// People's agents (their "Muse") edit charts for them through a bearer token
+// (`Authorization: Bearer <token>`), the way the owner's Muse writes word
+// lists in 重复习 (app/api/chongfuxi/agent.ts). Two kinds of token:
+//
+//   ifp_…  one a person made for their own agent, in the app (ifp_agent_tokens).
+//          The agent acts as them, with their playlists, under the name they gave it.
+//   IFAKEPRO_AGENT_TOKEN  the owner's, set on the server. It acts as
+//          IFAKEPRO_AGENT_EMAIL (or else the first IFAKEPRO_ADMIN_EMAILS).
+//
+// Either way the agent's edits are the person's, marked with the agent's name:
+// a "✦ Muse" pill beside them in the history and the edit log.
 
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { HttpError, type SessionUser, roleIn } from '@ifakepro/lib/session';
 import { agentBars, chartText } from '@ifakepro/lib/script';
 import { getDb } from './db';
 import type { AgentMark } from './store';
 
-/** The token as set on the server (a stray space or newline trimmed), or null when unset or too short to trust. */
-function agentToken(): string | null {
+/** The agent behind a request: the person it acts for, and its name when its token gives one. */
+export interface Agent {
+  user: SessionUser;
+  name: string | null;
+}
+
+export const TOKEN_PREFIX = 'ifp_';
+
+/** A new token for someone's agent: what to show them once, and what to keep. */
+export function newAgentToken(): { token: string; hash: string; prefix: string } {
+  const token = `${TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`;
+  return { token, hash: hashToken(token), prefix: token.slice(0, TOKEN_PREFIX.length + 4) };
+}
+
+/** Tokens are 256 random bits, so a plain SHA-256 is enough to keep them unreadable at rest. */
+const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+/** The owner's token as set on the server (a stray space or newline trimmed), or null when unset or too short to trust. */
+function ownerToken(): string | null {
   const want = process.env.IFAKEPRO_AGENT_TOKEN?.trim();
   return want && want.length >= 32 ? want : null;
 }
 
-/**
- * The person the agent acts for, after checking its token. Unset (or under
- * 32 characters) on the server is a 503, so a refused token (401) can be told
- * from a missing one.
- */
-export async function agentUser(req: NextRequest): Promise<SessionUser> {
-  const want = agentToken();
-  if (!want) throw new HttpError(503, 'agent token not set on the server (IFAKEPRO_AGENT_TOKEN, 32+ characters)');
+/** Who the request's agent acts for, from its token; 401 for a missing, unknown or revoked one. */
+export async function agentFor(req: NextRequest): Promise<Agent> {
   const got = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() ?? '';
-  if (!got || got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) throw new HttpError(401, 'not allowed');
+  if (!got) throw new HttpError(401, 'send Authorization: Bearer <your agent token>');
+  const sql = getDb();
+  if (got.startsWith(TOKEN_PREFIX)) {
+    const rows = await sql`
+      UPDATE ifp_agent_tokens t SET last_used_at = now()
+      FROM ifp_profiles p
+      WHERE t.token_hash = ${hashToken(got)} AND t.revoked_at IS NULL AND p.id = t.user_id
+      RETURNING t.name, p.id, p.email, p.name AS pname, p.image`;
+    const r = rows[0];
+    if (!r) throw new HttpError(401, 'this token isn’t valid (it may have been revoked)');
+    return { user: { id: r.id, email: r.email, name: r.pname || r.email.split('@')[0], image: r.image ?? null }, name: r.name };
+  }
+  const want = ownerToken();
+  if (!want || got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) throw new HttpError(401, 'not allowed');
   const email = (process.env.IFAKEPRO_AGENT_EMAIL ?? process.env.IFAKEPRO_ADMIN_EMAILS ?? '').split(',')[0].trim().toLowerCase();
   if (!email) throw new HttpError(503, 'set IFAKEPRO_AGENT_EMAIL (or IFAKEPRO_ADMIN_EMAILS) to the person the agent acts for');
-  const rows = await getDb()`SELECT id, email, name, image FROM ifp_profiles WHERE lower(email) = ${email} ORDER BY seen_at DESC LIMIT 1`;
+  const rows = await sql`SELECT id, email, name, image FROM ifp_profiles WHERE lower(email) = ${email} ORDER BY seen_at DESC LIMIT 1`;
   if (!rows[0]) throw new HttpError(503, `${email} has never signed in to iFake Pro; sign in once so the agent can act as you`);
-  return { id: rows[0].id, email: rows[0].email, name: rows[0].name || email.split('@')[0], image: rows[0].image ?? null };
+  return { user: { id: rows[0].id, email: rows[0].email, name: rows[0].name || email.split('@')[0], image: rows[0].image ?? null }, name: null };
 }
 
 /** The agent may change a playlist only if the person it acts for may. */
@@ -41,9 +70,13 @@ export async function agentMayEdit(playlistId: string, user: SessionUser) {
   if (!(await roleIn(playlistId, user))) throw new HttpError(403, `${user.email} can’t edit this playlist`);
 }
 
-/** Its name and note from a request: { agent?: "Muse", note: "what was asked" }. */
-export function agentMark(body: Record<string, unknown>): AgentMark {
-  const name = typeof body.agent === 'string' && body.agent.trim() ? body.agent.trim().slice(0, 24) : 'Muse';
+/**
+ * Its name and note: the name its token was given, else the request's
+ * { agent?: "Muse" }; the note is { note: "what was asked" }.
+ */
+export function agentMark(agent: Agent, body: Record<string, unknown>): AgentMark {
+  const asked = typeof body.agent === 'string' && body.agent.trim() ? body.agent.trim().slice(0, 24) : null;
+  const name = agent.name ?? asked ?? 'Muse';
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, 240) : '';
   return { name, note };
 }

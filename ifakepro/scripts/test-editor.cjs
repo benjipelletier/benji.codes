@@ -247,6 +247,22 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
     await d.waitForSelector('.v-item .agent-pill');
     assert.match(await d.locator('.v-item').first().innerText(), /Benji\s+✦\s*Muse[\s\S]*“Db7 in bar 2”[\s\S]*Edited bar 2/);
   }
+
+  step('laptop · Your agent: make a token, use it, revoke it');
+  d.on('dialog', (dlg) => dlg.accept());
+  await d.click('.ifp-account .ifp-avatar');
+  await d.click('button:has-text("Your agent")');
+  await d.fill('input[aria-label="Your agent’s name"]', 'Benji’s Muse');
+  await d.click('button:has-text("Make token")');
+  const token = await d.locator('input[aria-label="Agent token"]').inputValue();
+  assert.match(token, /^ifp_/);
+  assert.equal(await d.locator('.agent-tokens .members li').count(), 1);
+  const used = await fetch(`${BASE}/api/ifakepro/agent`, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(used.status, 200);
+  assert.equal((await used.json()).agent, 'Benji’s Muse');
+  await d.click('.agent-tokens .members button:has-text("Revoke")');
+  await d.waitForFunction(() => !document.querySelector('.agent-tokens .members li'));
+  assert.equal((await fetch(`${BASE}/api/ifakepro/agent`, { headers: { authorization: `Bearer ${token}` } })).status, 401);
   await lap.close();
 
   await browser.close();

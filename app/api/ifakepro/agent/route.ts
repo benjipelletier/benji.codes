@@ -1,5 +1,5 @@
 import { getDb } from '../db';
-import { agentUser } from '../agent';
+import { agentFor } from '../agent';
 import { handle, listPlaylists } from '../store';
 import { AGENT_BRIEF } from '@ifakepro/lib/brief';
 
@@ -9,7 +9,8 @@ import { AGENT_BRIEF } from '@ifakepro/lib/brief';
  * songs (or playlists) whose title has it.
  */
 export const GET = handle(async (req) => {
-  const user = await agentUser(req);
+  const agent = await agentFor(req);
+  const { user } = agent;
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim().toLowerCase();
   const playlists = (await listPlaylists(user)).filter((p) => p.role);
   const rows = playlists.length
@@ -23,6 +24,7 @@ export const GET = handle(async (req) => {
   return {
     brief: AGENT_BRIEF,
     actingFor: { name: user.name, email: user.email },
+    agent: agent.name ?? 'Muse',
     playlists: playlists
       .map((p) => {
         const songs = rows

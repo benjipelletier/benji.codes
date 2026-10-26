@@ -118,6 +118,22 @@ CREATE INDEX IF NOT EXISTS ifp_activity_playlist ON ifp_activity(playlist_id, cr
 CREATE INDEX IF NOT EXISTS ifp_activity_song ON ifp_activity(song_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ifp_activity_time ON ifp_activity(created_at DESC);
 
+-- Tokens people make for their own agents (their "Muse"): an agent using
+-- one acts as that person, with their playlists, and its edits carry its name.
+-- Only a SHA-256 of the token is kept; the token is shown once, when made.
+CREATE TABLE IF NOT EXISTS ifp_agent_tokens (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    token_hash    TEXT NOT NULL UNIQUE,
+    -- The start of the token, to tell them apart in the list ("ifp_k3J9…").
+    prefix        TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at  TIMESTAMPTZ,
+    revoked_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS ifp_agent_tokens_user ON ifp_agent_tokens(user_id);
+
 -- Who has a song open, and which bar they're on. Rows older than ~20s are stale.
 CREATE TABLE IF NOT EXISTS ifp_presence (
     song_id   UUID NOT NULL REFERENCES ifp_songs(id) ON DELETE CASCADE,
@@ -131,7 +147,8 @@ CREATE TABLE IF NOT EXISTS ifp_presence (
 
 /**
  * Columns added after the first release, for databases made before them.
- * Idempotent. ensureSchema runs them when the newest one is missing.
+ * Idempotent. Tables added later are plain CREATE … IF NOT EXISTS above:
+ * ensureSchema runs everything again when the newest table is missing.
  */
 export const MIGRATIONS = [
   'ALTER TABLE ifp_songs ADD COLUMN IF NOT EXISTS updated_agent TEXT',

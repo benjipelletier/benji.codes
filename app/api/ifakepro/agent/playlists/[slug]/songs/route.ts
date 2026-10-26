@@ -6,7 +6,7 @@ import { replaceEvents } from '@ifakepro/lib/edit';
 import { FORMS, type FormId, formChart } from '@ifakepro/lib/forms';
 import { parseProgression } from '@ifakepro/lib/progression';
 import { chartText } from '@ifakepro/lib/script';
-import { agentMark, agentMayEdit, agentUser, songUrl } from '../../../../agent';
+import { agentFor, agentMark, agentMayEdit, songUrl } from '../../../../agent';
 import { findPlaylist, handle, insertSongs, readBody } from '../../../../store';
 
 /**
@@ -15,7 +15,8 @@ import { findPlaylist, handle, insertSongs, readBody } from '../../../../store';
  * chords, else a form (blues, AABA…), else `bars` empty bars.
  */
 export const POST = handle<{ slug: string }>(async (req, { slug }) => {
-  const user = await agentUser(req);
+  const agent = await agentFor(req);
+  const { user } = agent;
   const p = await findPlaylist(slug);
   await agentMayEdit(p.id, user);
   const body = await readBody(req);
@@ -43,7 +44,7 @@ export const POST = handle<{ slug: string }>(async (req, { slug }) => {
     chart = blankChart(n, time);
   }
   const meta = sanitizeMeta({ ...EMPTY_META, title, key, composer: body.composer, style: body.style ?? EMPTY_META.style, bpm: body.bpm });
-  const mark = agentMark(body);
+  const mark = agentMark(agent, body);
   const [id] = await insertSongs(p.id, user, [{ meta, chart }], 'create', 'Created', { kind: 'song.create', summary: `Added “${meta.title}”` }, mark);
   return { id, revision: 1, url: songUrl(req, p.slug, id), text: chartText({ meta, chart }) };
 });
