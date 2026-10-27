@@ -1372,3 +1372,50 @@ export interface EpisodeView extends EpisodeListed {
   /** The lines to practise, in story order. */
   deck: EpisodeCard[];
 }
+
+/** A week of study in figures, counted by the app (week.ts): the facts a debrief rests on. */
+export interface WeekFigures {
+  /** The seven study days, oldest to newest (YYYY-MM-DD). */
+  from: string;
+  to: string;
+  days: number;
+  minutes: number;
+  answers: { read: number; recall: number; sentence: number; total: number; got: number };
+  /** The seven days before, for comparison. */
+  before: { days: number; minutes: number; total: number; got: number };
+  /** Words through Learn this week. */
+  learnt: string[];
+  /** Word cards that passed three weeks' strength this week. */
+  matured: Array<{ word: string; kind: "read" | "produce" }>;
+  /** Words forgotten most this week, at least twice. */
+  forgotten: Array<{ word: string; times: number }>;
+  /** Words to revive now, by category. */
+  stuck: Array<{ word: string; category: string; why: string }>;
+  lookups: Array<{ query: string; verdict: string | null }>;
+  notes: number;
+  /** Muse's reviews this week: cards answered, got. */
+  drills: { answered: number; got: number };
+  /** Each episode's words known at the start and end of the week. */
+  episodes: Array<{ id: number; show: string; episode: string; from: number | null; to: number | null }>;
+}
+
+/** A part of Muse's weekly debrief. */
+export interface WeekSection {
+  kind: "better" | "stuck" | "looked" | "focus" | "note";
+  title: string;
+  text: string;
+  /** Words it is about, each opening its page. */
+  words: string[];
+}
+
+/** Muse's weekly debrief, with the figures it was written from. */
+export interface WeekReport {
+  to: string;
+  at: number;
+  model: string;
+  title: string;
+  sections: WeekSection[];
+  /** The words Muse will aim at next week. */
+  focus: string[];
+  figures: WeekFigures;
+}

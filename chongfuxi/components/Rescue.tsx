@@ -14,7 +14,7 @@
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Drill, EpisodeListed, KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { Drill, EpisodeListed, WeekReport, KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
@@ -25,6 +25,7 @@ import { DrillView, drillLeft, say, useDrill } from "./Drill";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ReadingRows, ReadingView, latestReadings, unread, useReadings } from "./Reading";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
+import { WeekView, useWeek, weekSpan } from "./Week";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
 const STATE: Record<StuckWord["rescue"], string> = { none: "Make kit", ready: "Kit ready", done: "Kit ready", stale: "Missed again" };
@@ -56,13 +57,14 @@ function useStory(): StuckStory | null {
 /**
  * What Muse has added or changed since it was last opened on this device
  * (lib/museSeen.ts): today's review, the story, answers to notes, an
- * episode. Readings say New by themselves until opened.
+ * episode, the weekly debrief. Readings say New by themselves until opened.
  */
 function useMuseNews(
   drill: Drill | null | undefined,
   story: StuckStory | null,
   lastAnswer: number | null | undefined,
   episodes: EpisodeListed[] | null,
+  week?: WeekReport | null,
 ) {
   const [, redraw] = useState(0);
   useEffect(() => onSeen(() => redraw((n) => n + 1)), []);
@@ -71,8 +73,9 @@ function useMuseNews(
     story: !!story && !seenAt(`story:${story.at}`),
     notes: !!lastAnswer && lastAnswer > seenAt("notes"),
     episode: (e: EpisodeListed) => e.updatedAt > seenAt(`episode:${e.id}`),
+    week: !!week && !seenAt(`week:${week.at}`),
   };
-  return { ...news, any: news.drill || news.story || news.notes || (episodes ?? []).some(news.episode) };
+  return { ...news, any: news.drill || news.story || news.notes || news.week || (episodes ?? []).some(news.episode) };
 }
 
 /**
@@ -87,9 +90,10 @@ export function StuckWords({ onOpen }: { onOpen: () => void }) {
   const toRead = unread(latestReadings(useReadings()));
   const episodes = useEpisodes();
   const noteCounts = useNoteCounts();
-  const news = useMuseNews(drill, useStory(), noteCounts?.lastAnswer, episodes);
+  const week = useWeek();
+  const news = useMuseNews(drill, useStory(), noteCounts?.lastAnswer, episodes, week);
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
-  if (!kits || (!total && !left && !toRead && !episodes?.length)) return null;
+  if (!kits || (!total && !left && !toRead && !episodes?.length && !week)) return null;
   const parts = [
     toRead && `${fmt(toRead)} to read`,
     left && `${fmt(left)} cards`,
@@ -122,6 +126,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
   const [reading, setReading] = useState<number | null>(null);
   const [notes, setNotes] = useState(false);
   const [episode, setEpisode] = useState<number | null>(null);
+  const [week, setWeek] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
@@ -132,18 +137,20 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
     setReading(null);
     setNotes(false);
     setEpisode(null);
+    setWeek(false);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || story || speed || drill || reading !== null || notes || episode !== null, close);
+  useBackLayer(open !== null || story || speed || drill || reading !== null || notes || episode !== null || week, close);
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (story) return <StoryView onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   if (drill) return <DrillView canWrite={shell.canWrite} onEnd={close} />;
   if (reading !== null) return <ReadingView id={reading} canWrite={shell.canWrite} onEnd={close} />;
   if (notes) return <NotesView onEnd={close} />;
+  if (week) return <WeekView onEnd={close} />;
   if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={close} />;
   return (
-    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onWatch={setEpisode} onEnd={onEnd} />
+    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onWatch={setEpisode} onWeek={() => setWeek(true)} onEnd={onEnd} />
   );
 }
 
@@ -230,6 +237,7 @@ function StuckRows({
   onRead,
   onNotes,
   onWatch,
+  onWeek,
   onEnd,
 }: {
   onOpen: (word: string) => void;
@@ -239,6 +247,7 @@ function StuckRows({
   onRead: (id: number) => void;
   onNotes: () => void;
   onWatch: (id: number) => void;
+  onWeek: () => void;
   onEnd: () => void;
 }) {
   const kits = useKits();
@@ -248,7 +257,8 @@ function StuckRows({
   const episodes = episodesOrNull ?? [];
   const drill = useDrill();
   const story = useStory();
-  const news = useMuseNews(drill, story, noteCounts?.lastAnswer, episodesOrNull);
+  const week = useWeek();
+  const news = useMuseNews(drill, story, noteCounts?.lastAnswer, episodesOrNull, week);
   const left = drillLeft(drill);
   const words = kits?.stuck ?? null;
   // Opening something marks it seen here, so its New badge goes.
@@ -296,8 +306,20 @@ function StuckRows({
             onWatch(id);
           }}
         />
-        {(total > 0 || (noteCounts?.total ?? 0) > 0) && (
+        {(total > 0 || (noteCounts?.total ?? 0) > 0 || !!week) && (
           <ul className="cf-muse-tools">
+            {week && (
+              <li>
+                <button onClick={open(`week:${week.at}`, onWeek)}>
+                  <b>
+                    Weekly debrief
+                    {news.week && <NewBadge />}
+                  </b>
+                  <small>{weekSpan(week)}</small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
             {total > 0 && (
               <li>
                 <button onClick={onSpeed}>
@@ -335,7 +357,7 @@ function StuckRows({
             )}
           </ul>
         )}
-        {kits && !total && !drill && !readings.length && !episodes.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
+        {kits && !total && !drill && !readings.length && !episodes.length && !week && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
         {kits && total > 0 && (
           <>
             {kits.fresh.length > 0 && (

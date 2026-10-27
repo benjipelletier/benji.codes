@@ -915,7 +915,7 @@ trips both count.
   today's is written; "32 of 36 cards left"), the cards Muse writes from the
   problem areas (see Lists written by the owner's agent); then Read and
   Watch, each a heading with a quiet count and its rows, no line explaining
-  it; then the speed round, the story and Your notes as one grouped list,
+  it; then the weekly debrief, the speed round, the story and Your notes as one grouped list,
   a row each with a short figure (`cf-muse-tools`); then New words and the
   stuck words' categories with no "Stuck words" heading over them (the
   owner had it taken out).
@@ -924,7 +924,7 @@ trips both count.
   was last opened on this device: today's review (by its `at`), the story
   (by its `at`), Your notes (an answer newer than the last opening, from
   `lastAnswer` on the notes route), an episode (its `updatedAt`: new
-  subtitles, a prep or line notes, `notes_at`). Readings keep their own
+  subtitles, a prep or line notes, `notes_at`). The weekly debrief by its `at`. Readings keep their own
   New state until opened. Today's Muse reviews button has the pill when
   anything inside is new or a reading is unread. What was opened is kept
   per device in localStorage (`lib/museSeen.ts`, key `cfx-muse-seen`),
@@ -1787,6 +1787,31 @@ pair is dropped), and an unknown id or empty difference is named back in
   this yet".
 - Muse's review material carries `answered` (the latest answer to recent
   notes) so it can test those pairs.
+
+**The weekly debrief** (`app/api/chongfuxi/week.ts`, `components/Week.tsx`;
+the owner picked it from Muse's next steps): the app counts the week and
+Muse says what it means, so the figures are always true. GET
+`/api/chongfuxi/agent/week` (same token; `?to=YYYY-MM-DD`, the week's last
+study day, today's by default) gives `brief`, `written` and `figures`
+(`weekFigures`): for the seven study days ending `to`, beside the seven
+before, the days studied, minutes (the gaps between answers in a session,
+those over 3 minutes left out as breaks, as for the pace), answers by kind
+and got; then words through Learn (`learned_at`), word cards that passed 21
+days' stability (`MATURE_DAYS`), words forgotten twice or more, the words to
+revive now, lookups, notes, Muse's review answers, and each episode's share
+of words known at the start and end of the week (the last measure before it,
+else the first in it). POST `{ to?, title, sections: [{ kind: better | stuck
+| looked | focus | note, title, text, words }], focus, model? }` keeps it as
+that week's (`chongfuxi_week`, made on first use, one a week, a second
+replacing it) with the figures as they stand then; up to 8 sections, text
+900 characters, words only Chinese; refused with no section with text. In
+the app (route `week`, the latest, readable like the rest of the log) it is
+a row at the top of Muse reviews' list, "Weekly debrief" with its dates and
+the New badge (`week:<at>`), opening full screen: Muse's title, four tiles
+(cards answered, got it %, minutes, days studied), each up or down on last
+week, a line of the rest, Muse's sections with their words opening word
+pages, the words it will aim at, and the week's words folded away
+(forgotten most, matured, learnt, episodes).
 
 **Getting ready to watch a drama** (`app/api/chongfuxi/episodes.ts`,
 `components/Watch.tsx`; the owner: "pre study a script or subtitles, using

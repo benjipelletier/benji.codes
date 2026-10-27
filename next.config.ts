@@ -137,6 +137,8 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/rescue": ["./chongfuxi/data/cedict.txt"],
     // The day's story material takes the stuck words, whose mix-up partners are checked against the dictionary.
     "/api/chongfuxi/agent/story": ["./chongfuxi/data/cedict.txt"],
+    // The weekly debrief's figures take the stuck words too.
+    "/api/chongfuxi/agent/week": ["./chongfuxi/data/cedict.txt"],
     // Episodes: subtitles split into words and measured against the deck, traditional made simplified.
     "/api/chongfuxi/episodes": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/episodes": ["./chongfuxi/data/cedict.txt"],
