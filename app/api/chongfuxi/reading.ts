@@ -79,7 +79,7 @@ const fetched = new Map<string, { at: number; src: Source }>();
 const FETCH_KEEP_MS = 30 * 60_000;
 
 /** A link's text: a YouTube video's Chinese captions, any other page's text. */
-async function fetchSource(url: string): Promise<Source> {
+export async function fetchSource(url: string): Promise<Source> {
   const kept = fetched.get(url);
   if (kept && Date.now() - kept.at < FETCH_KEEP_MS) return kept.src;
   const video = videoId(url);

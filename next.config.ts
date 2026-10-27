@@ -143,6 +143,11 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/episodes": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/episodes": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/episodes/prep": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
+    // Muse's daily page: passages split into words and measured, words looked up, the data tools.
+    "/api/chongfuxi/muse": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse/data": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse/measure": ["./chongfuxi/data/cedict.txt"],
     // Muse's reading: each page split into words and measured against the deck.
     "/api/chongfuxi/reading": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/reading": ["./chongfuxi/data/cedict.txt"],

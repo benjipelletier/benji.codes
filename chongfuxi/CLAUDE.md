@@ -897,36 +897,35 @@ trips both count.
   (`SPEED_BACK`), a word is done at 2 right in a row (`SPEED_DONE`). It
   ends with the flips and minutes taken, and touches no schedule.
 - **Today's story** (the owner's idea, first written by the app's model
-  on demand; since replaced by one the owner's agent writes each morning,
-  `daily.ts`): at the top of the Memory kits list, two short paragraphs
+  on demand; then one the owner's agent wrote each morning, `daily.ts`;
+  now no screen of its own, a story being something Muse may put on its
+  page as a passage): it was at the top of the Memory kits list, two short paragraphs
   using the day's words, each in a sentence that shows its meaning, the rest
   simple, with a Chinese title and an English translation under each
   paragraph shown on a tap. The words are marked and open their word pages;
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
-- **Read** heads the Muse reviews screen: native pieces Muse found, to
-  read and then retell (see Lists written by the owner's agent).
-  Episodes to get ready for come under it, as **Watch** (see Getting
-  ready to watch a drama).
 - **Muse reviews** (the owner reframed the screen around Muse): Today's
-  button and the screen are called that (they were Memory kits). Cleaned
-  up at the owner's request: "Today's review" first ("Latest review" until
-  today's is written; "32 of 36 cards left"), the cards Muse writes from the
-  problem areas (see Lists written by the owner's agent); then Read and
-  Watch, each a heading with a quiet count and its rows, no line explaining
-  it; then the weekly debrief, the speed round, the story and Your notes as one grouped list,
-  a row each with a short figure (`cf-muse-tools`); then New words and the
-  stuck words' categories with no "Stuck words" heading over them (the
-  owner had it taken out).
+  button and the screen are called that (they were Memory kits). **Muse's
+  page** comes first ("Today's page", or "Latest page" until today's is laid
+  out; its title and how many of its blocks were done; see Muse's daily
+  page), then **Watch** (see Getting ready to watch a drama), then one
+  grouped list (`cf-muse-tools`): Earlier pages, the speed round and Your
+  notes; then New words and the stuck words' categories with no "Stuck
+  words" heading over them (the owner had it taken out). Today's review,
+  the story, Read and the weekly debrief had their own rows until the
+  owner found too many Muse things made and too few used (on Oct 27, 2026
+  that day's 39 cards had none answered, the day before's went ungraded,
+  and one reading had been read but never retold); they are now things
+  Muse may put on its page.
 - **New from Muse** (the owner asked for a little badge): a "New" pill
   (`NewBadge`) after the title of whatever Muse added or changed since it
-  was last opened on this device: today's review (by its `at`), the story
-  (by its `at`), Your notes (an answer newer than the last opening, from
+  was last opened on this device: the latest page (by its `at`, key
+  `page:<at>`), Your notes (an answer newer than the last opening, from
   `lastAnswer` on the notes route), an episode (its `updatedAt`: new
-  subtitles, a prep or line notes, `notes_at`). The weekly debrief by its `at`. Readings keep their own
-  New state until opened. Today's Muse reviews button has the pill when
-  anything inside is new or a reading is unread. What was opened is kept
+  subtitles, a prep or line notes, `notes_at`). Today's Muse reviews
+  button has the pill when anything inside is new. What was opened is kept
   per device in localStorage (`lib/museSeen.ts`, key `cfx-muse-seen`),
   marked as each is opened; with no storage everything reads as new.
 - Settings › Algorithm has the Rescue group.
@@ -1651,7 +1650,64 @@ this. The owner's login is never involved, so the token is the agent's only.
 - In the app the Muse lists sit under "From your content" beside Spotify
   (`source: "muse"`), browsed, added, learnt and reviewed like any list.
 
-**The daily story** (`/api/chongfuxi/agent/story`, same token): GET gives
+**Muse's daily page** (`app/api/chongfuxi/musepage.ts`,
+`components/MusePage.tsx`; the owner: "give muse very generic, atomic tools
+to work with and it can choose how to layout an additional review
+everyday… full freedom", not in the main review, and not replacing the
+episode analyser). Muse lays out one page a day from blocks and reads what
+it needs through small data tools; everything the owner does on a page
+comes back to it, so it can make less of what goes unused.
+
+- **Write** (same token): GET `/api/chongfuxi/agent/muse` gives `day`,
+  `brief` (every block and tool, and to use what was done), `written`, and
+  the last 7 pages with their blocks and every event on them. POST `{
+  title, note?, style: scroll | steps, blocks, day?, model? }` keeps that
+  day's page (`chongfuxi_muse_page`, made on first use; posting again
+  replaces it, its events kept by block id). `checkBlocks` keeps each
+  block only in a shape the app can draw and names the rest back in
+  `dropped` by place (b9, b8.2 inside a fold): a page with nothing left is
+  refused. Ids are Muse's, else by place.
+- **Blocks** (`MuseBlock` in `lib/api.ts`, at most 60): heading; text (Muse's
+  prose, blank lines between paragraphs, **bold**, `words` linked to their
+  pages); callout (a label, info / good / warn); passage (Chinese Muse wrote
+  or quoted from the web, `en` lined up by paragraph, a source link, words to
+  underline: marked against the deck when opened, as the analyser marks it,
+  every word tappable with Word page ›, 🔊 Listen, English a paragraph at a
+  tap); cards (up to 40 of the review's card shapes, checked by drill.ts's
+  `checkCard`: a row with how far it got, opening the cards full screen,
+  "Go over the N missed"); ask (a question in Chinese answered by voice or
+  typing, `check: now` graded at once by the app's model at Look up's model
+  and effort against the passage it is `about`, or the page; `check: muse`
+  kept for Muse to answer on the next page, "Kept for Muse"); words (with
+  reading, meaning and standing: Known, Learning, On a list, New; each
+  opening its page); figures (up to 8 tiles); link; episode (opens it, the
+  page coming back after); fold (folded blocks, one level).
+- **Steps or scroll**: `steps` shows one heading's section at a time with
+  "Next · <the next heading>" (a `done` event each), `scroll` the whole page.
+- **What was done** (`chongfuxi_muse_event`, made on first use; route
+  `muse` POST, owner): the page opened, each card answered (`idx`, got or
+  missed, what was given), words tapped in a passage, answers (with the
+  grade when checked), a fold opened, a link or episode followed, steps done.
+- **Data tools** (same token): GET `/api/chongfuxi/agent/muse/data?what=`
+  `stuck` (words to revive and the new words on the ladder), `words` (up to
+  12 words' whole word pages), `log` (the review log between two days, at
+  most 3000 answers), `week` (the weekly figures, `weekFigures`), `lookups`,
+  `known` (strong words and the day's targets) and `sentences` (the
+  owner's sentences holding words); POST `…/muse/measure` `{ text }` or `{
+  url }` (how readable it is, the words not known, and a page's text to
+  quote from). The older material routes (drill, notes, reading, episodes,
+  week, story) stay as more data.
+- **Owner only, reads too** (route `muse`, GET `?list=1` the pages, else a
+  day's, the latest by default, filled in): a page may quote the web, and
+  the app is otherwise readable by anyone.
+- Nothing on it touches a schedule or goes into the main review.
+- Tested against a local Postgres (writing, the block check, filling,
+  events, answers kept for Muse, the data tools) and in the browser with a
+  stand-in page, scroll and steps, light and dark at 360px. Not yet run
+  with Muse or with an answer graded by the model.
+
+**The daily story** (`/api/chongfuxi/agent/story`, same token; no screen
+of its own since Muse's page, its material still there): GET gives
 the day's material (`storyMaterial`): `day` (the owner's study day, by the
 UTC offset of their last answer, turning over at `ROLLOVER_HOUR`), `targets`
 (the stuck words, up to 8, the new words on the Learn ladder, and up to 6 of
@@ -1697,11 +1753,10 @@ see: duplicate options, an order card of single characters or under 6
 characters (来 日 方 长), and a hint whose parts are in the prompt or answer
 ("theme, subject" on "The theme of this article…").
 
-In the app it heads the Muse reviews screen, "Today's review" with the
-cards left (also counted on Today's Muse reviews button, which shows when
-there is a review to do even with no new or stuck words), and opens full
-screen (`DrillView` in `components/Drill.tsx`): the title, Muse's note and
-date over the first card, then each card in its own way. A card that can
+Its own screen (`DrillView`, "Today's review" heading Muse reviews) was
+taken out for Muse's page, whose cards blocks take the same shapes, drawn
+by `DrillCardView` in `components/Drill.tsx`; the material route stays as
+data for Muse. As it was: each card in its own way. A card that can
 tell (cloze or choice picked, order checked, produce typed) marks Got it or
 Missed as suggested; the owner still taps one. Each answer is kept, the
 latest per card (`chongfuxi_drill_answer`, route `drill`, POST owner only;
@@ -1726,8 +1781,11 @@ question is named back in `failed`). GET there gives the material: `brief`,
 opened, finished, the words tapped, each retelling with its grade). Same
 token as the lists.
 
-Only the link, why, the questions and how it measured are kept
-(`chongfuxi_reading`): the text is fetched again when it is opened (kept
+Its screen (`ReadingView`, Read on Muse reviews) was taken out for Muse's
+page, where a piece is a passage block and its questions ask blocks; the
+answer box (`Question` in `components/Reading.tsx`) stays, for those and
+for episodes. As it was: only the link, why, the questions and how it
+measured were kept (`chongfuxi_reading`): the text is fetched again when it is opened (kept
 half an hour in the server's memory, `FETCH_KEEP_MS`, so reading then
 retelling fetch once), and opening one (route `reading?id=`) is owner only,
 since the app is readable by anyone and the pieces aren't ours to serve.
@@ -1811,7 +1869,9 @@ the New badge (`week:<at>`), opening full screen: Muse's title, four tiles
 (cards answered, got it %, minutes, days studied), each up or down on last
 week, a line of the rest, Muse's sections with their words opening word
 pages, the words it will aim at, and the week's words folded away
-(forgotten most, matured, learnt, episodes).
+(forgotten most, matured, learnt, episodes). That screen (`Week.tsx`) was
+taken out a day later for Muse's page: the figures are the `week` data
+tool, and a debrief is something Muse may lay out on a page.
 
 **Getting ready to watch a drama** (`app/api/chongfuxi/episodes.ts`,
 `components/Watch.tsx`; the owner: "pre study a script or subtitles, using

@@ -1419,3 +1419,63 @@ export interface WeekReport {
   focus: string[];
   figures: WeekFigures;
 }
+
+/**
+ * A block on Muse's daily page (musepage.ts): Muse lays the page out from
+ * these, in any order and mix. `id` names it for what the owner does on it.
+ */
+export type MuseBlock = { id: string } & (
+  | { type: "heading"; text: string }
+  | { type: "text"; text: string; words: string[] }
+  | { type: "callout"; label: string; text: string; tone: "info" | "good" | "warn"; words: string[] }
+  | { type: "passage"; title: string; zh: string; en: string; source: { url: string; name: string } | null; words: string[] }
+  | { type: "cards"; title: string; cards: DrillCard[] }
+  | { type: "ask"; zh: string; en: string; about: string | null; check: "now" | "muse"; hint: string }
+  | { type: "words"; title: string; words: Array<{ word: string; note: string }> }
+  | { type: "figures"; items: Array<{ label: string; value: string; note: string }> }
+  | { type: "link"; url: string; title: string; note: string }
+  | { type: "episode"; episode: number; line: number | null; note: string }
+  | { type: "fold"; title: string; blocks: MuseBlock[] }
+);
+
+/** Something the owner did on a block, kept for Muse to read. */
+export interface MuseEvent {
+  block: string;
+  at: number;
+  kind: "open" | "card" | "answer" | "tap" | "done";
+  data: Record<string, unknown>;
+}
+
+/** What a block needs from the server to be drawn: a passage marked, words with where they stand, an episode's name. */
+export type MuseFilled =
+  | { kind: "passage"; text: TextAnalysis }
+  | { kind: "words"; words: Array<{ word: string; pinyin: string | null; gloss: string | null; standing: "deck" | "learning" | "listed" | "new" }> }
+  | { kind: "episode"; show: string; episode: string; known: number | null };
+
+/** Muse's page for a day. */
+export interface MusePage {
+  day: string;
+  at: number;
+  model: string;
+  title: string;
+  /** A line from Muse over the page. */
+  note: string;
+  /** "scroll": one page; "steps": a step per heading, one at a time. */
+  style: "scroll" | "steps";
+  blocks: MuseBlock[];
+  /** By block id, filled in when opened. */
+  filled: Record<string, MuseFilled>;
+  events: MuseEvent[];
+  today: boolean;
+}
+
+/** A page in the list of Muse's pages. */
+export interface MusePageListed {
+  day: string;
+  at: number;
+  title: string;
+  blocks: number;
+  /** Blocks the owner did something on. */
+  touched: number;
+  today: boolean;
+}

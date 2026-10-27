@@ -83,6 +83,9 @@ on the landing page. All six current projects are enabled.
 - **chongfuxi** fetches song lyrics from [LRCLIB](https://lrclib.net) when a
   Spotify link is added (`app/api/chongfuxi/spotify.ts`), splits them into
   words and keeps only the words; the lyrics themselves aren't stored.
+- **chongfuxi**'s Muse page (`app/api/chongfuxi/musepage.ts`) may quote
+  passages from the web, credited with a link; pages are served only to the
+  owner.
 - **chongfuxi** keeps drama subtitles its owner's agent hands in
   (`app/api/chongfuxi/episodes.ts`) for the owner's study; they are served
   only to the owner, never publicly.
