@@ -100,34 +100,69 @@ function spans(ep: Episode): Array<{ from: number; to: number }> {
   }));
 }
 
+/** Where an element sits in a scrolling box, from the box's top: offsetTop is measured from its chapter, not the box. */
+const topIn = (box: HTMLElement, el: HTMLElement) => el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+
+/** The line said at a time: the last that starts at or before it. */
+function lineAt(ep: Episode, t: number): number {
+  let lo = 0;
+  let hi = ep.lines.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ep.lines[mid].s <= t) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
 /**
- * The chapters as one bar, each scene a segment as long as it runs, like
- * YouTube's. Dragging along it shows the scene under the finger with its
- * start; letting go (or a tap) opens it. Arrow keys step through.
+ * The episode as one bar, each scene a segment as long as it runs, like
+ * YouTube's, with a playhead where the script is. Dragging along it scrubs
+ * the script line by line as the finger moves (`onScrub`, the time under the
+ * finger), with the time, the chapter and the line in a tip; a tap jumps
+ * there. Arrow keys step a chapter (`onPick`).
  */
-function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; current: number; onPick: (i: number) => void; compact?: boolean }) {
+function ChapterBar({
+  ep,
+  current,
+  at,
+  onScrub,
+  onPick,
+  compact = false,
+}: {
+  ep: Episode;
+  current: number;
+  /** Where the script is, on the clock. */
+  at: number;
+  onScrub: (t: number) => void;
+  onPick: (i: number) => void;
+  compact?: boolean;
+}) {
   const bar = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ i: number; x: number } | null>(null);
+  const [hover, setHover] = useState<{ i: number; x: number; t: number } | null>(null);
   const times = spans(ep);
   const total = Math.max(1, times[times.length - 1]?.to ?? ep.duration);
 
-  const sceneAt = (clientX: number) => {
+  const pointAt = (clientX: number) => {
     const box = bar.current!.getBoundingClientRect();
     const x = Math.min(Math.max(clientX - box.left, 0), box.width);
     const t = (x / box.width) * total;
     let i = times.findIndex((s) => t < s.to);
     if (i < 0) i = times.length - 1;
-    return { i, x };
+    return { i, x, t };
   };
-  const move = (clientX: number) => {
-    const { i, x } = sceneAt(clientX);
-    setHover({ i, x });
+  const scrub = (clientX: number) => {
+    const p = pointAt(clientX);
+    setHover(p);
+    onScrub(p.t);
   };
 
   const shown = hover?.i ?? current;
-  // Over the finger while scrubbing, else over the open chapter's middle; kept clear of the ends.
-  const at = hover ? `${hover.x}px` : `${((times[current].from + times[current].to) / 2 / total) * 100}%`;
-  const tipLeft = `clamp(${compact ? 120 : 70}px, ${at}, calc(100% - ${compact ? 120 : 70}px))`;
+  const headAt = hover ? hover.t : Math.min(Math.max(at, 0), total);
+  // Over the finger while scrubbing; kept clear of the ends.
+  const tipAt = hover ? `${hover.x}px` : `${(headAt / total) * 100}%`;
+  const tipLeft = `clamp(${compact ? 120 : 70}px, ${tipAt}, calc(100% - ${compact ? 120 : 70}px))`;
+  const said = hover ? ep.lines[lineAt(ep, hover.t)]?.zh : null;
   return (
     <div className={`cf-ch${compact ? " is-compact" : ""}`}>
       <div
@@ -141,16 +176,14 @@ function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; cur
         aria-valuenow={current + 1}
         aria-valuetext={`${current + 1}. ${ep.scenes[current].title}, ${clock(times[current].from)}`}
         onPointerDown={(e) => {
+          e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
-          move(e.clientX);
+          scrub(e.clientX);
         }}
-        onPointerMove={(e) => hover && move(e.clientX)}
-        onPointerUp={(e) => {
-          const { i } = sceneAt(e.clientX);
-          setHover(null);
-          onPick(i);
-        }}
+        onPointerMove={(e) => hover && scrub(e.clientX)}
+        onPointerUp={() => setHover(null)}
         onPointerCancel={() => setHover(null)}
+        onLostPointerCapture={() => setHover(null)}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowDown") onPick(Math.min(current + 1, ep.scenes.length - 1));
           else if (e.key === "ArrowLeft" || e.key === "ArrowUp") onPick(Math.max(current - 1, 0));
@@ -168,13 +201,16 @@ function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; cur
             <i style={{ width: pct(ep.scenes[i].known) }} />
           </span>
         ))}
-        {hover && <span className="cf-ch-head" style={{ left: hover.x }} />}
+        <span className={`cf-ch-head${hover ? " is-held" : ""}`} style={{ left: `${(headAt / total) * 100}%` }} />
       </div>
-      {/* Compact (over the script), the time and title show only while scrubbing. */}
+      {/* Compact (over the script), the time, chapter and line show only while scrubbing. */}
       {(!compact || hover) && (
         <div className="cf-ch-tipline">
           <span className="cf-ch-tip" style={{ left: tipLeft }}>
-            <b>{clock(times[shown].from)}</b> <span className="cf-zh">{ep.scenes[shown].title}</span>
+            <span className="cf-ch-tip-top">
+              <b>{clock(hover ? hover.t : times[shown].from)}</b> <span className="cf-zh">{ep.scenes[shown].title}</span>
+            </span>
+            {said && <span className="cf-ch-tip-line cf-zh">{said}</span>}
           </span>
         </div>
       )}
@@ -644,7 +680,23 @@ function LinePanel({
 }
 
 /** The chapters across the top: the bar to scrub, and a chip each (start, title, how its lines grade), the one in view lit. */
-function ChapterStrip({ ep, current, grades, english, onPick }: { ep: Episode; current: number; grades: Grade[]; english: boolean; onPick: (i: number) => void }) {
+function ChapterStrip({
+  ep,
+  current,
+  at,
+  grades,
+  english,
+  onPick,
+  onScrub,
+}: {
+  ep: Episode;
+  current: number;
+  at: number;
+  grades: Grade[];
+  english: boolean;
+  onPick: (i: number) => void;
+  onScrub: (t: number) => void;
+}) {
   const strip = useRef<HTMLDivElement>(null);
   const times = spans(ep);
   useEffect(() => {
@@ -654,7 +706,7 @@ function ChapterStrip({ ep, current, grades, english, onPick }: { ep: Episode; c
   }, [current]);
   return (
     <div className="cf-watch-chapters">
-      <ChapterBar ep={ep} current={current} onPick={onPick} compact />
+      <ChapterBar ep={ep} current={current} at={at} onScrub={onScrub} onPick={onPick} compact />
       <div className="cf-wchips" ref={strip}>
         {ep.scenes.map((sc, i) => {
           const part = grades.slice(sc.start, sc.end);
@@ -907,27 +959,58 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const grades = useMemo(() => (ep ? ep.lines.map((l) => gradeOf(l.tokens)) : []), [ep]);
   const noteAt = useMemo(() => new Map((ep?.notes ?? []).map((n) => [n.i, n])), [ep]);
 
+  // Where the script is on the clock: the first line at the top of it, for the bar's playhead.
+  const [topAt, setTopAt] = useState(0);
+  // While a chip's smooth scroll runs, the chapters it passes aren't lit one by one.
+  const gliding = useRef(0);
   // The chapter in view: the last whose heading is above the top of the script.
   const onScroll = () => {
     const box = script.current;
     if (!box || !ep) return;
+    const rows = box.querySelectorAll<HTMLElement>("[data-line]");
+    const edge = box.getBoundingClientRect().top + 12;
+    let lo = 0;
+    let hi = rows.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (rows[mid].getBoundingClientRect().bottom <= edge) lo = mid + 1;
+      else hi = mid;
+    }
+    const top = Number(rows[lo]?.dataset.line ?? 0);
+    setTopAt(ep.lines[top]?.s ?? 0);
+    if (Date.now() < gliding.current) return;
     const heads = box.querySelectorAll<HTMLElement>("[data-ch]");
     let now = 0;
     heads.forEach((h, k) => {
-      if (h.offsetTop <= box.scrollTop + 12) now = k;
+      if (h.getBoundingClientRect().top <= edge) now = k;
     });
     if (now !== scene) setScene(now);
   };
   const toChapter = (i: number) => {
     setScene(i);
     const head = script.current?.querySelector<HTMLElement>(`[data-ch="${i}"]`);
-    if (head) script.current!.scrollTo({ top: head.offsetTop, behavior: "smooth" });
+    if (!head) return;
+    gliding.current = Date.now() + 900;
+    script.current!.scrollTo({ top: topIn(script.current!, head), behavior: "smooth" });
+  };
+  // Scrubbing: straight to the line said at that time, no animation to fight the finger.
+  const scrubTo = (t: number) => {
+    if (!ep || !ep.lines.length) return;
+    const i = lineAt(ep, t);
+    const box = script.current;
+    const row = box?.querySelector<HTMLElement>(`[data-line="${i}"]`);
+    if (!box || !row) return;
+    gliding.current = 0;
+    // The chapter's heading stays in view when the line is its first.
+    const head = ep.scenes.findIndex((sc) => sc.start === i);
+    const target = head >= 0 ? box.querySelector<HTMLElement>(`[data-ch="${head}"]`) : null;
+    box.scrollTop = Math.max(0, topIn(box, target ?? row) - (target ? 0 : 8));
   };
   const toLine = (i: number) => {
     if (!ep || i < 0 || i >= ep.lines.length) return;
     setLine({ i, word: null });
     const row = script.current?.querySelector<HTMLElement>(`[data-line="${i}"]`);
-    if (row && script.current) script.current.scrollTo({ top: Math.max(0, row.offsetTop - 80), behavior: "smooth" });
+    if (row && script.current) script.current.scrollTo({ top: Math.max(0, topIn(script.current, row) - 80), behavior: "smooth" });
   };
 
   const mustWords = ep?.words.filter((w) => w.tier === "must") ?? [];
@@ -981,7 +1064,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {!ep && !error && <Loading label="Reading the subtitles…" />}
       {ep && tab === "script" && (
         <>
-          <ChapterStrip ep={ep} current={scene} grades={grades} english={english} onPick={toChapter} />
+          <ChapterStrip ep={ep} current={scene} at={topAt} grades={grades} english={english} onPick={toChapter} onScrub={scrubTo} />
           <div className="cf-watch-script" ref={script} onScroll={onScroll}>
             <div className="cf-watch-key">
               {GRADES.map((g) => (

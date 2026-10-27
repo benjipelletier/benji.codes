@@ -1955,8 +1955,20 @@ YouTube chapter feature".
     marked as the analyser marks them, must-knows stronger, the owner's
     trouble words with a red wavy underline, the run Muse's note quotes on
     a grey wash, the English under it (blurred until tapped with English
-    off). A chip or the bar scrolls the script to its chapter; scrolling
-    lights the chapter in view.
+    off). A chip scrolls the script to its chapter (the chapters it glides
+    past aren't lit one by one); scrolling lights the chapter in view.
+  - **Scrubbing** (`ChapterBar`; the owner found the first version didn't
+    work well): dragging along the bar moves the script with the finger,
+    line by line, to the line said at that time (`lineAt`), with no
+    animation to fight it; the tip shows the time, the chapter and that
+    line. A tap jumps there. A playhead on the bar shows where the script
+    is (the first line at its top) as it is read or scrolled. The first
+    version only jumped on letting go, to the chapter's start, by a smooth
+    scroll that lit every chapter on the way; and every jump (a chip, a
+    line, the bar) read row positions with `offsetTop`, which
+    `content-visibility: auto` on each chapter makes relative to the
+    chapter, so jumps landed in the wrong place. Positions are now read
+    from the screen (`topIn`).
   - A tap on a line (or a word in it) opens it at the foot of the screen
     (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next
     note, the line large with 🔊, its English, Muse's note (its kind,
