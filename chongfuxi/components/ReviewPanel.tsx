@@ -21,7 +21,7 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import { DUE_PER_NEW, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
+import { DUE_PER_NEW, RECALL_BACKLOG_PER_DAY, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses, readingOfSense } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -372,7 +372,11 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to recall
-              <small>See the meaning, produce the word</small>
+              <small>
+                {s.recallWaiting > 0
+                  ? `${fmt(s.recallWaiting)} more first ones wait for the days after (${fmt(RECALL_BACKLOG_PER_DAY)} a day)`
+                  : "See the meaning, produce the word"}
+              </small>
             </span>
             <b>{fmt(s.dueRecall)}</b>
           </label>

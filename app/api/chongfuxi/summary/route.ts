@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const EMPTY = {
   words: 0, characters: 0, wordCards: 0, recallCards: 0, names: 0, sentences: 0, readable: 0, oneAway: 0, locked: 0,
-  dueWords: 0, dueRead: 0, dueRecall: 0, dueSentences: 0,
+  dueWords: 0, dueRead: 0, dueRecall: 0, recallWaiting: 0, dueSentences: 0,
   newSentences: 0, retired: 0, flagged: 0, answeredToday: 0,
   answeredYesterday: 0, cameDueToday: 0, dueTomorrow: 0, toLearn: 0,
   pace: { read: null, produce: null, sentence: null },

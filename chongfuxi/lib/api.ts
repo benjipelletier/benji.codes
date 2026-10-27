@@ -33,6 +33,8 @@ export interface Summary {
   /** The same, by kind of card. A word with both due is in both, and shown once. */
   dueRead: number;
   dueRecall: number;
+  /** Recall cards never answered that are due but held for later days (`RECALL_BACKLOG_PER_DAY`). */
+  recallWaiting: number;
   dueSentences: number;
   /** Readable sentences not yet seen here: the pool new sentences come from, with no daily limit. */
   newSentences: number;

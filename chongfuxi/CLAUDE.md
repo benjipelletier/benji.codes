@@ -1285,7 +1285,18 @@ the design was silent and are still to be confirmed.
   164 Read no Read card came up (the owner: "not seeing Read cards").
   Within a kind, cards never answered (no odds, which used to rank first
   of all) are at most one in every `UNANSWERED_EVERY` (2) (`spreadEvery`);
-  the misses are spread after that. Fast review goes the other way: best known
+  the misses are spread after that. **The Recall backlog is spread out** (the owner,
+  facing about 3,200 Recall cards due at once from the Pleco seeding: "300
+  a day"): Recall cards never answered here (`answered = 0`) come into
+  review at most `RECALL_BACKLOG_PER_DAY` (300) a study day, less those
+  first answered that day (`recallRoom`), the least likely remembered
+  first; the rest wait for the days after. Nothing stored changes: it is
+  applied when cards are dealt (`nextCards` lets in only those ids) and
+  counted (`getSummary`'s `dueRecall` and `dueWords` leave the held ones
+  out, `recallWaiting` says how many wait, under Recall on Today), and the
+  day strip's forecast puts them on the days after, 300 a day. A list's
+  own review isn't held to it. New Recall cards opened by a first Got it on
+  Read count against it too. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
