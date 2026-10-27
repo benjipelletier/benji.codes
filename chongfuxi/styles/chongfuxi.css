@@ -1976,7 +1976,7 @@ label.cf-kind {
 /* Out, how far through, how many left. */
 .cf-session-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -11747,28 +11747,12 @@ button.cf-how-text {
 }
 
 /* A session's left by kind, right of the progress bar: a little card in each kind's colour and its count. */
-/* The bar with the kinds left under it, taking the row's middle. */
-.cf-session-mid {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  /* The bar's line level with the close button's middle; the kinds hang below. */
-  align-self: flex-start;
-  padding-top: 11px;
-}
-
-.cf-session-bar .cf-left {
-  line-height: 18px;
-}
-
 .cf-session-kinds {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  font-size: 11px;
-  line-height: 14px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--cf-ink-soft);
   font-variant-numeric: tabular-nums;
@@ -11800,10 +11784,4 @@ button.cf-how-text {
 
 .cf-session-kinds .is-new i {
   background: var(--cf-new);
-}
-
-.cf-session-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
