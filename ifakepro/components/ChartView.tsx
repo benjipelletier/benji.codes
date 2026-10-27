@@ -205,7 +205,14 @@ function endings(bars: Bar[]): (number | 'cont' | null)[] {
 function fitBars(root: HTMLElement) {
   const bodies = Array.from(root.querySelectorAll<HTMLElement>('.bar-body'));
   for (const b of bodies) b.style.removeProperty('--fit');
-  const fits = bodies.map((b) => (b.scrollWidth > b.clientWidth + 1 ? Math.max(0.5, (b.clientWidth / b.scrollWidth) * 0.97) : 1));
+  // The chords' own width: where the last one ends. Not scrollWidth, which also counts the
+  // signs and text hung above them (a coda, "Last time only"), and those don't shrink.
+  const fits = bodies.map((b) => {
+    const left = b.getBoundingClientRect().left;
+    let need = 0;
+    for (const c of Array.from(b.children)) if (c.classList.contains('cell')) need = Math.max(need, c.getBoundingClientRect().right - left);
+    return need > b.clientWidth + 1 ? Math.max(0.5, (b.clientWidth / need) * 0.97) : 1;
+  });
   bodies.forEach((b, i) => fits[i] < 1 && b.style.setProperty('--fit', fits[i].toFixed(3)));
 }
 

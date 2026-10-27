@@ -468,8 +468,9 @@ body.ifp-noscroll { overflow: hidden; }
 }
 /* A bar's events, each as wide as it is long: a chord on beat 3 of 4/4 starts halfway along. */
 .bar-body { position: relative; flex: 1; min-width: 0; display: grid; align-items: end; }
-/* A bar whose chords don't fit shrinks them to fit (--fit, set by ChartView's fitBars). */
-.bar-body > .cell { font-size: calc(1em * var(--fit, 1)); }
+/* A bar whose chords don't fit shrinks them to fit (--fit, set by ChartView's fitBars).
+   Every beat is a chord tall, so a sign over an empty beat ("to coda" on beat 4) sits above the bar like the rest. */
+.bar-body > .cell { font-size: calc(1em * var(--fit, 1)); min-height: 1em; }
 .rest { font-size: 0.95em; line-height: 1; padding: 0 0.15em 0.12em 0.05em; }
 .ev { padding-right: 0.12em; }
 .ev-hit .cell-marks .accent { font-size: 0.7em; }
