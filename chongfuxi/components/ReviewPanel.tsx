@@ -166,9 +166,10 @@ const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true, le
 /**
  * About how long what is due would take at the owner's own pace (the median
  * seconds a card of each kind takes in a session): the word cards, the due
- * sentences, and the new sentences mixed in with them (one per DUE_PER_NEW
- * due). New words' Learn steps are in the pace already, as they come between
- * cards. Null until there is a pace to go by.
+ * sentences, the new sentences mixed in with them (one per DUE_PER_NEW due),
+ * and, with New words chosen, the Learn steps the new words have left, each
+ * at the Read pace (the Learn log keeps no times; the owner found them left
+ * out). Null until there is a pace to go by.
  */
 function sessionTime(s: Summary, kinds: SessionKinds): string | null {
   const { read, produce, sentence } = s.pace ?? { read: null, produce: null, sentence: null };
@@ -178,7 +179,8 @@ function sessionTime(s: Summary, kinds: SessionKinds): string | null {
   const wordPace = (read ?? produce ?? 0) * share + (produce ?? read ?? 0) * (1 - share);
   const dueSentences = kinds.sentences ? s.dueSentences : 0;
   const fresh = kinds.sentences && s.newSentences ? Math.ceil((words + dueSentences) / DUE_PER_NEW) : 0;
-  const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace);
+  const learning = kinds.learn ? (s.learnSteps ?? 0) * (read ?? wordPace) : 0;
+  const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace) + learning;
   if (!seconds) return null;
   const minutes = Math.max(1, Math.round(seconds / 60));
   return minutes < 60 ? `~${minutes}m` : `~${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;

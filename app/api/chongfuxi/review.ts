@@ -228,7 +228,11 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
               or (a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
                   and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
        (select count(*) from chongfuxi_card c
-          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn`,
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn,
+       -- The Learn steps those words have still to climb (meet, context, cloze, word).
+       (select coalesce(sum(case c.learn_step when 'context' then 3 when 'cloze' then 2 when 'word' then 1 else 4 end), 0)
+          from chongfuxi_card c
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as learn_steps`,
     [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
@@ -258,6 +262,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     cameDueToday: r.came_due_today,
     dueTomorrow: r.due_tomorrow,
     toLearn: r.to_learn,
+    learnSteps: r.learn_steps,
   };
 }
 

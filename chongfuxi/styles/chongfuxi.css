@@ -11748,11 +11748,12 @@ button.cf-how-text {
 
 /* A session's left by kind, right of the progress bar: a little card in each kind's colour and its count. */
 .cf-session-kinds {
-  display: flex;
+  display: grid;
   flex: none;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  grid-template-columns: auto auto;
+  gap: 1px 10px;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 600;
   color: var(--cf-ink-soft);
   font-variant-numeric: tabular-nums;

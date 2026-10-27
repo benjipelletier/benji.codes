@@ -175,9 +175,10 @@ rejected as too themed. Keep it that way:
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
   Right of the bar, in place of one total, what is left of each kind the
   session takes (Read, Recall, Sentence, New): a little card in the kind's
-  colour and its count, thousands as "3.2k" so all four fit, the full
-  figure on hover (`cf-session-kinds`; the owner asked for every kind
-  there, as icons, not words under the bar). A list's review and new
+  colour and its count, thousands as "3.2k", in a 2×2 grid (Read and
+  Recall above, Sentence and New below; the owner's ask, after one row),
+  the full figure on hover (`cf-session-kinds`; the owner asked for every
+  kind there, as icons, not words under the bar). A list's review and new
   sentences keep the one total.
 - Motion only answers the owner: the answer rises on reveal, an answered card
   slides right for Got it and left for Forgot. Reduced motion turns it off.
@@ -229,7 +230,10 @@ in between count as they do; gaps over 3 minutes are breaks, Fast review is
 left out, and a kind with under 10 answers takes the overall median. It
 counts the due word cards (Read and Recall in their proportion), the due
 sentences and the new sentences mixed in with them (one per `DUE_PER_NEW`
-due). Shown bare under Start ("~1h 56m", "~25m"): the owner wanted just the
+due), and with New words chosen the Learn steps the new words have left
+(`learnSteps` on the summary: four a word, fewer part way up), each at the
+Read pace, since the Learn log keeps no times (the owner found new words
+left out). Shown bare under Start ("~1h 56m", "~25m"): the owner wanted just the
 time. Above them, the days either
 side of today as a strip of bars, sliding sideways with today in the middle
 (`components/DayStrip.tsx`, route `days`): cards reviewed each day before

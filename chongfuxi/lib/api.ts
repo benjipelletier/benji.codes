@@ -52,6 +52,8 @@ export interface Summary {
   dueTomorrow: number;
   /** New words waiting for Learn before they join the review. */
   toLearn: number;
+  /** The Learn steps those words have still to take, for the time a session would take. */
+  learnSteps: number;
   /**
    * The owner's pace: typical seconds a card of each kind takes in a session
    * (the median gap between answers, last PACE_DAYS days), for the time a
