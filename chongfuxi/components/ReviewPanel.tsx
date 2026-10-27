@@ -906,6 +906,26 @@ export function Session({
           </button>
         )}
       </div>
+      {/* What is left of each kind, in its colour (the owner asked to see every kind here, not one total). */}
+      {!list && !more && summary && (
+        <p className="cf-session-kinds" aria-label="Left by kind">
+          {(
+            [
+              ["read", "Read", kinds.read ? summary.dueRead : 0],
+              ["recall", "Recall", kinds.recall ? summary.dueRecall : 0],
+              ["sentence", "Sentence", kinds.sentences ? summary.dueSentences : 0],
+              ["new", "New", kinds.learn ? summary.toLearn : 0],
+            ] as Array<[string, string, number]>
+          )
+            .filter(([, , n]) => n > 0)
+            .map(([k, label, n]) => (
+              <span key={k} className={`is-${k}`}>
+                <i aria-hidden="true" />
+                <b>{fmt(n)}</b> {label}
+              </span>
+            ))}
+        </p>
+      )}
       {lookingBack && (
         <ReviewedSheet
           log={log}
