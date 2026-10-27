@@ -41,6 +41,9 @@
       ],
       "@chongfuxi/*": [
         "chongfuxi/*"
+      ],
+      "@ifakepro/*": [
+        "ifakepro/*"
       ]
     }
   },
@@ -59,6 +62,10 @@
     "longku/components/**/*.tsx",
     "chongfuxi/lib/**/*.ts",
     "chongfuxi/components/**/*.tsx",
+    "ifakepro/lib/**/*.ts",
+    "ifakepro/db/**/*.ts",
+    "ifakepro/components/**/*.ts",
+    "ifakepro/components/**/*.tsx",
     "projects.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",

@@ -145,6 +145,11 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/reading": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/reading": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/reading/check": ["./chongfuxi/data/cedict.txt"],
+    // iFake Pro's standards library is the jazz project's iReal file, read at run time.
+    "/api/ifakepro/standards": ["./jazz/charts_raw/jazz.ireal"],
+    "/api/ifakepro/standards/[index]": ["./jazz/charts_raw/jazz.ireal"],
+    "/api/ifakepro/playlists": ["./jazz/charts_raw/jazz.ireal"],
+    "/api/ifakepro/playlists/[slug]/songs": ["./jazz/charts_raw/jazz.ireal"],
     "/api/chongfuxi/imports/[id]/ingest": [
       "./node_modules/sql.js/dist/sql-wasm.wasm",
       "./chongfuxi/data/cedict.txt",
