@@ -12116,3 +12116,169 @@ button.cf-how-text {
 .cf-ch.is-compact .cf-ch-tip {
   max-width: 280px;
 }
+
+/* Practice: the plan for the next round, and its drill (Watch.tsx). */
+.cf-pp-done {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cf-up-soft);
+  font-size: 14px;
+}
+.cf-pp-forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 12px;
+}
+.cf-pp-forecast .cf-ep-big {
+  margin: 0;
+}
+.cf-pp-start {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.cf-pp-list,
+.cf-pp-prepped {
+  margin-top: 20px;
+}
+.cf-pp-list h3,
+.cf-pp-prepped h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.cf-pp-list h3 span,
+.cf-pp-prepped h3 span,
+.cf-pp-skip summary span {
+  color: var(--cf-ink-faint);
+  font-weight: 500;
+}
+.cf-pp-list > .cf-muted {
+  margin: 2px 0 8px;
+  font-size: 13px;
+}
+.cf-pp-skip {
+  margin-top: 20px;
+  border-top: 1px solid var(--cf-rule);
+}
+.cf-pp-skip summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cf-pp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+.cfx .cf-pp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 2px 10px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 999px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-size: 16px;
+}
+.cf-pp-chip small {
+  color: var(--cf-ink-faint);
+  font-size: 12px;
+}
+.cf-pp-chip.is-prepped {
+  border-color: color-mix(in srgb, var(--cf-recall) 50%, transparent);
+}
+.cf-pp-listen {
+  width: 100%;
+  margin-top: 24px;
+}
+.cf-pr-back-link {
+  margin-bottom: 8px;
+}
+.cf-pp-progress {
+  height: 4px;
+  margin: 0 16px 6px;
+  border-radius: 2px;
+  background: var(--cf-rule);
+  overflow: hidden;
+}
+.cf-pp-progress span {
+  display: block;
+  height: 100%;
+  background: var(--cf-accent);
+  transition: width 0.2s ease;
+}
+.cf-pp-kind {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cf-recall) 16%, transparent);
+  color: var(--cf-recall);
+  font-size: 12px;
+}
+.cf-pp-kind.is-keep {
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+.cf-pp-meet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.cf-pp-word {
+  margin: 4px 0 0;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.cf-pp-py {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.cf-pp-gloss {
+  margin: 0;
+  color: var(--cf-ink-soft);
+}
+.cf-pp-note {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+.cf-pp-line {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cf-rule);
+  align-self: stretch;
+}
+.cf-pp-line p:first-child,
+.cf-pp-big-line {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.7;
+}
+.cf-pp-mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cf-new) 30%, transparent);
+  color: inherit;
+}
+.cf-pp-blank {
+  color: var(--cf-accent);
+  letter-spacing: 0.1em;
+}
+.cf-ep-legend .is-prepped {
+  color: var(--cf-ink-soft);
+}
+.cf-stuck-why.cf-pp-why {
+  color: var(--cf-ink-faint);
+  white-space: normal;
+}

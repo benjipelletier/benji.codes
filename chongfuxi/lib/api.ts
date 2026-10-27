@@ -1254,6 +1254,8 @@ export interface EpisodeScene {
 export interface EpisodeWord {
   word: string;
   tier: "must" | "nice" | "skip";
+  /** Muse's call on whether it is worth keeping in the deck after the show; null leaves it to the app. */
+  keep?: boolean | null;
   note: string | null;
   /** How often it is said in the episode. */
   count: number;
@@ -1343,6 +1345,8 @@ export interface EpisodeProgress {
   lines: number;
   /** Must-know words not learnt yet. */
   mustLeft: number;
+  /** Share of word occurrences known only as prepped for the show. */
+  prepped?: number;
 }
 
 /** An episode opened for study. Owner only: the subtitles aren't ours to serve. */
@@ -1359,7 +1363,10 @@ export interface EpisodeView extends EpisodeListed {
   questions: Array<{ zh: string; en: string }>;
   retells: Retell[];
   /** Shares (0–1): words known now; known once the must-knows are learnt; lines readable now. */
-  coverage: { known: number; ready: number; lines: number };
+  /** Shares known (counting words prepped for the show), known with the must-knows, lines readable, and prepped for the show alone. */
+  coverage: { known: number; ready: number; lines: number; prepped: number };
+  /** What to learn next to be ready, at most PREP_MAX words: those worth keeping go to the deck, the rest are learnt for the show only. */
+  plan: EpisodePlan;
   /** The same, a point per study day it was measured (opened, or the list read), oldest first. */
   progress: EpisodeProgress[];
   looks: Record<string, { p: string; gloss: string | null } | null>;
@@ -1478,4 +1485,32 @@ export interface MusePageListed {
   /** Blocks the owner did something on. */
   touched: number;
   today: boolean;
+}
+
+/** A word to learn for an episode, with what learning it does for the episode. */
+export interface EpisodePlanWord {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  note: string | null;
+  must: boolean;
+  /** How often it is said, and the lines it alone keeps unreadable. */
+  count: number;
+  unlocks: number;
+  /** Why it is worth keeping (an HSK level, how many of the owner's sentences have it, Muse), or null for the show only. */
+  keepWhy: string | null;
+  /** Lines to learn it from, easiest first. */
+  lines: number[];
+}
+
+/** The next round of prep for an episode: worth keeping (to the deck), for the show only, and what is left to skip. */
+export interface EpisodePlan {
+  keep: EpisodePlanWord[];
+  show: EpisodePlanWord[];
+  skip: Array<{ word: string; count: number }>;
+  /** Words prepped for the show so far. */
+  prepped: string[];
+  /** Readiness now, and once the plan's words are learnt. */
+  now: { known: number; lines: number };
+  after: { known: number; lines: number };
 }

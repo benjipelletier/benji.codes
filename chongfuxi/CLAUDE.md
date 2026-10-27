@@ -1899,7 +1899,7 @@ YouTube chapter feature".
   4 lines it is in (`episodeMaterial`). Measured as the text analyser
   measures (`analyse`, one paragraph a line), names counting as known.
 - **Prep**: POST `/api/chongfuxi/agent/episodes/prep` `{ id, words: [{ word,
-  tier: must | nice | skip, note }], names, scenes: [{ start, title, summary,
+  tier: must | nice | skip, keep?, note }], names, scenes: [{ start, title, summary,
   summaryEn, notes }], questions: [{ zh, en }], model? }` (`writePrep`).
   Scenes are sorted by `start`, the first forced to 0, out-of-range ones
   dropped, at most 40; questions at most 8. A scene's `title` is a short
@@ -1981,7 +1981,39 @@ YouTube chapter feature".
     with Muse's answer, its lookups, how many of the owner's sentences
     have it (and readable) with one, how often it is said in the episode,
     and Word page ›. Known words with nothing to say fold into one line.
-  - **Practice** (the owner: "a lot of sentences to get through… only do
+  - **Practice** is a round of prep that moves readiness (the owner found
+    the listening practice below couldn't: readiness counts only words
+    known, and it taught none; and "I don't need to be 100%… I'm worried
+    about having words in my deck that I'll never see again after the
+    show"). The server's plan (`planOf`, sent as `plan`): the words not
+    known, Muse's skips left out, ranked by what each does for the episode
+    (three for each line it alone keeps unreadable, plus how often it is
+    said, plus eight for a must-know), at most `PREP_MAX` (15, the owner's
+    cap), each **worth keeping** (on an HSK list, in `KEEP_SENTENCES` (5)
+    or more of the owner's sentences, or Muse's `keep: true`; Muse's
+    `keep: false` overrules) or **just for this show**; the rest listed to
+    skip, with readiness now and once the plan is learnt ("86% → 92%",
+    lines readable too). The tab counts the plan's words. "Learn these N"
+    runs a drill (`PrepDrill`) from the episode's own lines (each word's
+    easiest, as for the deck below): meet it (reading, meaning, Muse's
+    note, a line with it marked and its English), what it means in a line,
+    then which word fills the gap in a line (its English or meaning
+    shown); a miss comes back `PREP_BACK` (3) cards later at that step,
+    Stop leaves keeping what is done. A word done is sent at once (POST
+    `episodes` `{ id, learnt, keep, day }`, `learnEpisodeWord`): worth
+    keeping, into the deck (one addition, source `episode:<show>
+    <episode>`) and marked through Learn, due the next study day like a
+    word finished on the ladder; for the show, kept in
+    `chongfuxi_episode_prepped` (made on first use), never in the deck or
+    scheduled. A prepped word counts in the episode as still being learnt
+    (`standingIn`, before a must-know's forced new), so readiness rises;
+    `coverage.prepped` is the share it carries, kept with each day's
+    measure and shown in the graph's legend ("of which prepped for the
+    show"). After a round the episode is measured again: "Learnt 4 · 2
+    into your deck · 2 for the show. Readiness 86% → 90%", then the next
+    plan. "Prepped for this show" lists those words. Under it, **Listen
+    through the trouble lines** opens the listening practice (the owner:
+    "a lot of sentences to get through… only do
     the tough ones"; they chose the best line per word, heard then read):
     the lines the server picks (`pickDeck`, sent as `deck`): for each
     must-know not in the deck and each trouble word, its easiest line (the
