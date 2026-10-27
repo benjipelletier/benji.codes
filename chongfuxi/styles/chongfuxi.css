@@ -11746,31 +11746,28 @@ button.cf-how-text {
   min-height: 52px;
 }
 
-/* A session's left by kind, under the progress bar: a dot and count in each kind's colour. */
+/* A session's left by kind, right of the progress bar: a little card in each kind's colour and its count. */
 .cf-session-kinds {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin: -6px 0 10px;
-  font-size: 11.5px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
-.cf-session-kinds span {
+.cf-session-kinds > span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-
-.cf-session-kinds b {
-  color: var(--cf-ink);
-  font-variant-numeric: tabular-nums;
+  gap: 3px;
 }
 
 .cf-session-kinds i {
   width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  height: 10px;
+  border-radius: 2px;
 }
 
 .cf-session-kinds .is-read i {

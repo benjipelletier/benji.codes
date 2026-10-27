@@ -173,10 +173,12 @@ rejected as too themed. Keep it that way:
   it) in popups and a word sheet's tags.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
-  Under the bar, one line of what is left of each kind the session takes
-  (Read, Recall, Sentence, New), a dot and the count in the kind's colour
-  (`cf-session-kinds`; the owner asked to see every kind there, not one
-  total); not on a list's review or once into new sentences.
+  Right of the bar, in place of one total, what is left of each kind the
+  session takes (Read, Recall, Sentence, New): a little card in the kind's
+  colour and its count, thousands as "3.2k" so all four fit, the full
+  figure on hover (`cf-session-kinds`; the owner asked for every kind
+  there, as icons, not words under the bar). A list's review and new
+  sentences keep the one total.
 - Motion only answers the owner: the answer rises on reveal, an answered card
   slides right for Got it and left for Forgot. Reduced motion turns it off.
   The one exception is waiting: anything loading shows a little stack of
