@@ -11765,6 +11765,7 @@ button.cf-how-text {
 
 .cf-session-kinds {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
   font-size: 11px;
   line-height: 14px;

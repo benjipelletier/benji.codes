@@ -173,7 +173,7 @@ rejected as too themed. Keep it that way:
   it) in popups and a word sheet's tags.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
-  Under the bar, in one row, what is left of each kind the session takes
+  Under the bar, in one row set to the right, what is left of each kind the session takes
   (Read, Recall, Sentence, New): a little card in the kind's colour and
   its count, the kind's name on hover (`cf-session-kinds`, in
   `cf-session-mid`; the owner asked for every kind as icons, not words,
