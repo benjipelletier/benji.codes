@@ -187,11 +187,6 @@ function sessionTime(s: Summary, kinds: SessionKinds): string | null {
 }
 
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
-/** A count in the session bar: 3,250 as 3.2k, so four kinds fit beside the bar. */
-function short(n: number): string {
-  return n >= 1000 ? `${Math.floor(n / 100) / 10}k` : String(n);
-}
-
 function wordsDue(s: { dueWords: number; dueRead: number; dueRecall: number }, kinds: SessionKinds): number {
   if (kinds.read && kinds.recall) return s.dueWords;
   return kinds.read ? s.dueRead : kinds.recall ? s.dueRecall : 0;
@@ -902,31 +897,34 @@ export function Session({
           </svg>
         </button>
         {list && <span className="cf-session-list cf-zh">{list.list.slice(list.list.lastIndexOf("/") + 1)}</span>}
-        <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
-          <i style={{ width: `${progress}%` }} />
+        <div className="cf-session-mid">
+          <div className="cf-session-bar">
+            <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
+              <i style={{ width: `${progress}%` }} />
+            </div>
+            <span className="cf-left">{more ? "more" : fmt(left)}</span>
+          </div>
+          {!list && !more && summary && (
+            // What is left of each kind, under the bar: a small card in its colour and the count (the owner asked for every kind, as icons).
+            <span className="cf-session-kinds">
+              {(
+                [
+                  ["read", "Read", kinds.read ? summary.dueRead : 0],
+                  ["recall", "Recall", kinds.recall ? summary.dueRecall : 0],
+                  ["sentence", "Sentence", kinds.sentences ? summary.dueSentences : 0],
+                  ["new", "New words", kinds.learn ? summary.toLearn : 0],
+                ] as Array<[string, string, number]>
+              )
+                .filter(([, , n]) => n > 0)
+                .map(([k, label, n]) => (
+                  <span key={k} className={`is-${k}`} title={`${fmt(n)} ${label}`} aria-label={`${fmt(n)} ${label}`}>
+                    <i aria-hidden="true" />
+                    {fmt(n)}
+                  </span>
+                ))}
+            </span>
+          )}
         </div>
-        {!list && !more && summary ? (
-          // What is left of each kind, as a small card in its colour and the count (the owner asked for every kind here, as icons).
-          <span className="cf-session-kinds" aria-label={`${fmt(left)} left`}>
-            {(
-              [
-                ["read", "Read", kinds.read ? summary.dueRead : 0],
-                ["recall", "Recall", kinds.recall ? summary.dueRecall : 0],
-                ["sentence", "Sentence", kinds.sentences ? summary.dueSentences : 0],
-                ["new", "New words", kinds.learn ? summary.toLearn : 0],
-              ] as Array<[string, string, number]>
-            )
-              .filter(([, , n]) => n > 0)
-              .map(([k, label, n]) => (
-                <span key={k} className={`is-${k}`} title={`${fmt(n)} ${label}`}>
-                  <i aria-hidden="true" />
-                  {short(n)}
-                </span>
-              ))}
-          </span>
-        ) : (
-          <span className="cf-left">{more ? "more" : fmt(left)}</span>
-        )}
         {log.length > 0 && (
           <button className="cf-session-log" onClick={() => setLookingBack(true)} aria-label={`Look back over ${log.length} answers`}>
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
