@@ -57,44 +57,23 @@ function useMuseNews(page: MusePageListed | null | undefined, lastAnswer: number
   return { ...news, any: news.page || news.notes || (episodes ?? []).some(news.episode) };
 }
 
-/**
- * On Today: one Muse reviews button (it was Memory kits) with how many new and stuck words there
- * are, opening their list (the owner reframed Words to revive to take in new
- * words too). Nothing when there are none.
- */
-export function StuckWords({ onOpen }: { onOpen: () => void }) {
-  const kits = useKits();
+/** Whether Muse has anything new since it was last opened on this device: for the dot on the Muse tab. */
+export function useMuseNew(): boolean {
   const pages = useMusePages();
-  const latest = pages?.[0] ?? null;
-  const page = latest?.today ? latest : null;
   const episodes = useEpisodes();
   const noteCounts = useNoteCounts();
-  const news = useMuseNews(latest, noteCounts?.lastAnswer, episodes);
-  const total = kits ? kits.stuck.length + kits.fresh.length : 0;
-  if (!kits || (!total && !latest && !episodes?.length)) return null;
-  const parts = [
-    page && (page.touched ? `today's page ${fmt(page.touched)}/${fmt(page.blocks)}` : "today's page"),
-    kits.fresh.length && `${fmt(kits.fresh.length)} new`,
-    kits.stuck.length && `${fmt(kits.stuck.length)} stuck`,
-  ].filter(Boolean);
-  if (!parts.length && episodes?.length) parts.push(`${fmt(episodes.length)} ${episodes.length === 1 ? "episode" : "episodes"} to watch`);
-  return (
-    <button className="cf-stuck" onClick={onOpen}>
-      <span className="cf-stuck-text">
-        <b>
-          Muse reviews
-          {news.any && <NewBadge />}
-        </b>
-        <small>{parts.join(" · ")}</small>
-      </span>
-      {total > 0 && <span className="cf-stuck-count">{fmt(total)}</span>}
-      <i aria-hidden="true">›</i>
-    </button>
-  );
+  return useMuseNews(pages?.[0] ?? null, noteCounts?.lastAnswer, episodes).any;
 }
 
-/** The stuck words, full screen; a word opens its rescue over the list, and back comes to it. */
-export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
+/**
+ * Muse's tab (the owner asked for "all this Muse stuff in its own page with a
+ * button at the bottom"; it was a full-screen list opened from Today): its
+ * page, Watch, earlier pages, the speed round, notes, new and stuck words.
+ * Anything opened from it (a page, an episode, a word's kit) takes the
+ * whole screen, and back comes to the tab. With `onEnd`, it is a screen of
+ * its own with a close button instead.
+ */
+export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }) {
   // A word's rescue, Muse's page or anything else on the list, over it.
   const [open, setOpen] = useState<string | null>(null);
   const [speed, setSpeed] = useState(false);
@@ -113,7 +92,14 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void })
     setEpisode(null);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || speed || page || pages || notes || episode !== null, close);
+  const over = open !== null || speed || page || pages || notes || episode !== null;
+  useBackLayer(over, close);
+  // In the tab, what opens over the list has the whole screen.
+  const { setFocus } = shell;
+  useEffect(() => {
+    if (!onEnd) setFocus(over);
+  }, [over, onEnd, setFocus]);
+  useEffect(() => () => (onEnd ? undefined : setFocus(false)), [onEnd, setFocus]);
   useBackLayer(episode !== null && (page || pages), () => setEpisode(null));
   // An episode opened from a page lies over it; closing it comes back to the list.
   if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={page || pages ? () => setEpisode(null) : close} />;
@@ -151,7 +137,7 @@ function StuckRows({
   onPages: () => void;
   onNotes: () => void;
   onWatch: (id: number) => void;
-  onEnd: () => void;
+  onEnd?: () => void;
 }) {
   const kits = useKits();
   const noteCounts = useNoteCounts();
@@ -168,15 +154,17 @@ function StuckRows({
   };
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   return (
-    <div className="cf-rescue">
-      <div className="cf-fast-top">
-        <button className="cf-close" onClick={onEnd} aria-label="Back to Today">
-          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
-            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
-        <p className="cf-rescue-top">Muse reviews</p>
-      </div>
+    <div className={onEnd ? "cf-rescue" : "cf-muse-tab"}>
+      {onEnd && (
+        <div className="cf-fast-top">
+          <button className="cf-close" onClick={onEnd} aria-label="Back to Today">
+            <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          <p className="cf-rescue-top">Muse reviews</p>
+        </div>
+      )}
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
         {/* Muse's page for the day leads; watching next; the smaller things as one list. */}

@@ -35,7 +35,7 @@ import { ReviewedSheet, type Answered } from "./Reviewed";
 import { SplitEditor } from "./SplitEditor";
 import { CardAnswers } from "./Notes";
 import { RecapSheet, worthRecap, type SessionReport } from "./Recap";
-import { RescueHook, StuckList, StuckWords } from "./Rescue";
+import { RescueHook } from "./Rescue";
 import { SynonymContrast } from "./Synonyms";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
@@ -209,7 +209,7 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   // A session under way is in the address, so a reload deals again what is still due
   // (lib/route.ts), with the kinds chosen on this device. Only drawn on the client.
   const [kinds, setKinds] = useState<SessionKinds>(() => rememberedKinds());
-  const [started, setStarted] = useState<"session" | "fast" | "rescue" | null>(() => (routeParam("review") === "session" ? "session" : null));
+  const [started, setStarted] = useState<"session" | "fast" | null>(() => (routeParam("review") === "session" ? "session" : null));
   const { setFocus, refresh } = shell;
   useRouteParam("review", started === "session" ? "session" : null);
   useEffect(() => {
@@ -236,11 +236,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     setFocus(true);
     setStarted(how);
   };
-  // The stuck words and their rescues (Rescue.tsx).
-  const rescue = () => {
-    setFocus(true);
-    setStarted("rescue");
-  };
   // What the session did, kept as it goes, for a look back once it is left (the owner asked).
   const report = useRef<SessionReport | null>(null);
   const [recap, setRecap] = useState<SessionReport | null>(null);
@@ -260,7 +255,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   useEffect(() => () => setFocus(false), [setFocus]);
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load()} />;
-  if (started === "rescue") return <StuckList shell={shell} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} onReport={(r) => (report.current = r)} />;
   return (
     <>
@@ -271,7 +265,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
         onChoose={choose}
         onStart={() => begin("session")}
         onFast={() => begin("fast")}
-        onRescue={rescue}
         onImport={onImport}
       />
     </>
@@ -285,7 +278,6 @@ function Today({
   onChoose,
   onStart,
   onFast,
-  onRescue,
   onImport,
 }: {
   shell: Shell;
@@ -293,7 +285,6 @@ function Today({
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
   onFast: () => void;
-  onRescue: () => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
@@ -351,9 +342,6 @@ function Today({
 
       {/* The days either side of today: reviewed before, due after, by kind. */}
       <DayStrip summary={s} kinds={kinds} />
-
-      {/* Words forgotten again and again: one button, opening their list and AI rescues (Rescue.tsx). */}
-      <StuckWords onOpen={onRescue} />
 
       {/* What is due by kind, each row the choice to take that kind in or leave it out. */}
       <ul className="cf-kinds">

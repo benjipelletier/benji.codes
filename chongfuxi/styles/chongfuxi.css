@@ -12553,3 +12553,22 @@ button.cf-how-text {
   background: var(--cf-accent);
   color: var(--cf-on-accent);
 }
+
+/* The Muse tab: its page sits in the app, and a dot says something is new. */
+.cf-tab-icon {
+  position: relative;
+}
+.cf-tab-dot {
+  position: absolute;
+  top: 2px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cf-down);
+  box-shadow: 0 0 0 2px var(--cf-bg);
+}
+.cf-muse-tab {
+  max-width: 720px;
+  margin: 0 auto;
+}

@@ -43,7 +43,7 @@ app is where they are reviewed. Route: `/chongfuxi`.
 The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
-- Navigation is a bottom tab bar (thumb reach): Review, Cards, Look up (the
+- Navigation is a bottom tab bar (thumb reach): Review, Cards, Muse, Look up (the
   owner's only), Stats, Settings (Import until the owner renamed it; an old
   `tab=import` address still opens it).
   The header holds the title and one quiet line (`Glance` in
@@ -155,7 +155,7 @@ rejected as too themed. Keep it that way:
   schoolbook or paper motifs.
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
   character of the tab's Chinese name set over it on a halo, in LXGW WenKai
-  (a modern regular script, the one exception to the sans: only 复卡查统入, and
+  (a modern regular script, the one exception to the sans: only 复卡思查统入, and
   the card foot's 魚记, are fetched, so a new character must be added to the
   URL in the layout), and the English small beneath; the current tab sits on
   a pill.
@@ -906,8 +906,16 @@ trips both count.
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
-- **Muse reviews** (the owner reframed the screen around Muse): Today's
-  button and the screen are called that (they were Memory kits). **Muse's
+- **The Muse tab** (the owner: "put all this Muse stuff in its own page
+  with a button at the bottom"): a tab of its own between Cards and Look
+  up (`tab=muse`), its icon a speech bubble with 思, and a red dot on it
+  while anything from Muse is new (`useMuseNew`). The tab is the list that
+  was the full-screen Muse reviews screen, opened from a button on Today
+  (that button, `StuckWords`, is gone): `StuckList` without `onEnd` sits in
+  the app under the header, and whatever opens from it (a page, an episode,
+  a kit, the speed round, notes) takes the whole screen (`shell.setFocus`),
+  back returning to the tab. Before that, **Muse reviews** (the owner
+  reframed the screen around Muse; it was Memory kits). **Muse's
   page** comes first ("Today's page", or "Latest page" until today's is laid
   out; its title and how many of its blocks were done; see Muse's daily
   page), then **Watch** (see Getting ready to watch a drama), then one
@@ -924,8 +932,8 @@ trips both count.
   was last opened on this device: the latest page (by its `at`, key
   `page:<at>`), Your notes (an answer newer than the last opening, from
   `lastAnswer` on the notes route), an episode (its `updatedAt`: new
-  subtitles, a prep or line notes, `notes_at`). Today's Muse reviews
-  button has the pill when anything inside is new. What was opened is kept
+  subtitles, a prep or line notes, `notes_at`). The Muse tab has a dot
+  when anything inside is new. What was opened is kept
   per device in localStorage (`lib/museSeen.ts`, key `cfx-muse-seen`),
   marked as each is opened; with no storage everything reads as new.
 - Settings › Algorithm has the Rescue group.
