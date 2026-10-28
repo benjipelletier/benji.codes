@@ -15,6 +15,7 @@
 
 import type {
   EpisodeCard,
+  EpisodeChapterPlan,
   EpisodeLine,
   EpisodeLineNote,
   EpisodeListed,
@@ -124,6 +125,26 @@ async function ensureTables(sql: Sql) {
   // The episode on YouTube, played in the app with the script following it, and how far the subtitles' clock is from the video's.
   await sql`alter table chongfuxi_episode add column if not exists video text`;
   await sql`alter table chongfuxi_episode add column if not exists offset_ms int not null default 0`;
+  // Chapters done in Practice's chapter by chapter round, and the chapter retellings.
+  await sql`
+    create table if not exists chongfuxi_episode_chapter (
+      owner_email text not null,
+      episode_id bigint not null,
+      chapter int not null,
+      done_at timestamptz not null default now(),
+      primary key (owner_email, episode_id, chapter)
+    )
+  `;
+  await sql`
+    create table if not exists chongfuxi_episode_chapter_retell (
+      owner_email text not null,
+      episode_id bigint not null,
+      chapter int not null,
+      at timestamptz not null default now(),
+      answer text not null,
+      result jsonb not null
+    )
+  `;
   // Words learnt for the show only, in Practice: never in the deck, never scheduled, counted for this episode.
   await sql`
     create table if not exists chongfuxi_episode_prepped (
@@ -414,11 +435,11 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
 }
 
 const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
-{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...] }], "questions": [{ "zh", "en" }] }
+{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...], "question": { "zh", "en" } }], "questions": [{ "zh", "en" }] }
 Any of words, names, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first). "keep": whether the word is worth keeping in their deck after the show (common, useful beyond it) or only for this show (plot words, rare, slang, a one-off): words they learn for the show alone never enter their deck. Leave it out to let the app decide (an HSK word, or one in several of their sentences, is kept).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
-- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
+- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss. "question": one simple question in Chinese (with English) about what happens in the scene, for them to answer after watching it chapter by chapter, needing the scene's key words.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
 
 If the episode is on YouTube, give its link so the learner can watch it in the app with the script following: POST /api/chongfuxi/agent/episodes { "id": …, "video": "<YouTube link>" } (or "video" with the subtitles). Subtitles timed to another release can be shifted with { "id": …, "offset": <video time minus subtitle time, ms> }.
@@ -533,6 +554,10 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
       summary: str(x.summary, 400),
       summaryEn: str(x.summaryEn, 600),
       notes: (Array.isArray(x.notes) ? x.notes : []).map((t) => str(t, 300)).filter(Boolean).slice(0, 6),
+      question: (() => {
+        const q = (x.question ?? null) as Record<string, unknown> | null;
+        return q && HAN.test(str(q.zh, 200)) ? { zh: str(q.zh, 200), en: str(q.en, 300) } : null;
+      })(),
     }))
     .filter((x) => x.start >= 0 && x.start < n && !starts.has(x.start) && starts.add(x.start))
     .sort((a, b) => a.start - b.start)
@@ -711,7 +736,10 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     notes: r.notes ?? [],
     trouble: Object.fromEntries(trouble),
     deck: await deckOf(sql, owner, id, pickDeck(r.lines, tokens, targets, (r.notes ?? []).map((n) => n.i))),
-    plan: await planOf(sql, owner, r, tokens, unknown, measured, prepped),
+    plan: await (async () => {
+      const progress = await chapterProgress(sql, owner, id);
+      return planOf(sql, owner, r, tokens, unknown, measured, prepped, scenes, progress.done, progress.retells);
+    })(),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
     video: r.video ?? videoId(r.source ?? ""),
@@ -984,6 +1012,10 @@ const KEEP_SENTENCES = 5;
 /** Lines a planned word is learnt from. */
 const PLAN_LINES = 3;
 
+/** Key words a chapter asks for at most, and lines to listen to after watching it. */
+export const CHAPTER_WORDS = 5;
+const CHAPTER_LISTEN = 3;
+
 /**
  * What to learn next to be ready for an episode (the owner: "I don't need to
  * be 100% comprehension… I'm worried about having words in my deck that I'll
@@ -993,7 +1025,10 @@ const PLAN_LINES = 3;
  * each split into worth keeping (an HSK word, one in KEEP_SENTENCES of the
  * owner's sentences, or Muse says so: it goes to the deck) or for the show
  * only (learnt here, never in the deck). The rest is listed to skip. With
- * readiness now and once the plan is learnt.
+ * readiness now and once the plan is learnt. And chapter by chapter (the
+ * owner: "more bite size… watching this episode chapter by chapter"): each
+ * chapter's key words, ranked the same way within it, and the lines to
+ * listen to after watching it.
  */
 async function planOf(
   sql: Sql,
@@ -1003,27 +1038,42 @@ async function planOf(
   unknown: Array<{ word: string; count: number; pinyin: string | null; gloss: string | null }>,
   measured: ReturnType<typeof readiness>,
   prepped: Set<string>,
+  scenes: Array<{ start: number; end: number }>,
+  done: Set<number>,
+  retells: Map<number, Retell[]>,
 ): Promise<EpisodePlan> {
   const muse = new Map((r.prep?.words ?? []).map((w) => [w.word, w]));
-  const unlocks = new Map<string, number>();
-  const linesOf = new Map<string, number[]>();
-  tokens.forEach((line, i) => {
-    const fresh = [...new Set(line.filter((t) => t.k === "unknown").map((t) => t.t))];
-    if (fresh.length === 1) unlocks.set(fresh[0], (unlocks.get(fresh[0]) ?? 0) + 1);
-    for (const w of fresh) (linesOf.get(w) ?? linesOf.set(w, []).get(w)!).push(i);
-  });
-  const score = (u: { word: string; count: number }) => (unlocks.get(u.word) ?? 0) * 3 + u.count + (muse.get(u.word)?.tier === "must" ? 8 : 0);
-  const ranked = unknown.filter((u) => muse.get(u.word)?.tier !== "skip").sort((x, y) => score(y) - score(x) || y.count - x.count);
-  const chosen = ranked.slice(0, PREP_MAX);
-  const picked = new Set(chosen.map((u) => u.word));
+  const info = new Map(unknown.map((u) => [u.word, u]));
+  const notes = new Set((r.notes ?? []).map((n) => n.i));
+  // Within a run of lines: how many each word alone keeps unreadable, how often it is said, the lines it is in.
+  const measure = (from: number, to: number) => {
+    const unlocks = new Map<string, number>();
+    const said = new Map<string, number>();
+    const linesOf = new Map<string, number[]>();
+    for (let i = from; i < to; i++) {
+      const fresh = (tokens[i] ?? []).filter((t) => t.k === "unknown").map((t) => t.t);
+      for (const w of fresh) said.set(w, (said.get(w) ?? 0) + 1);
+      const distinct = [...new Set(fresh)];
+      if (distinct.length === 1) unlocks.set(distinct[0], (unlocks.get(distinct[0]) ?? 0) + 1);
+      for (const w of distinct) (linesOf.get(w) ?? linesOf.set(w, []).get(w)!).push(i);
+    }
+    const score = (w: string) => (unlocks.get(w) ?? 0) * 3 + (said.get(w) ?? 0) + (muse.get(w)?.tier === "must" ? 8 : 0);
+    const ranked = [...said.keys()].filter((w) => muse.get(w)?.tier !== "skip").sort((x, y) => score(y) - score(x) || (said.get(y) ?? 0) - (said.get(x) ?? 0));
+    return { unlocks, said, linesOf, ranked };
+  };
+  const whole = measure(0, tokens.length);
+  const chosen = whole.ranked.slice(0, PREP_MAX);
+  const picked = new Set(chosen);
   const skip = unknown
     .filter((u) => !picked.has(u.word))
     .sort((x, y) => y.count - x.count)
     .slice(0, 40)
     .map((u) => ({ word: u.word, count: u.count }));
+  const byChapter = scenes.map((sc) => ({ sc, m: measure(sc.start, sc.end) }));
+  const chapterWords = byChapter.map(({ m }) => m.ranked.slice(0, CHAPTER_WORDS));
 
   // Worth keeping: on an HSK list, or common in the owner's own sentences.
-  const words = chosen.map((u) => u.word);
+  const words = [...new Set([...chosen, ...chapterWords.flat()])];
   const [listed, inSentences] = words.length
     ? await Promise.all([
         sql`select word, lists from chongfuxi_word where owner_email = ${owner} and word = any(${words}::text[])` as unknown as Promise<
@@ -1048,8 +1098,8 @@ async function planOf(
     return said === true ? "Muse: worth keeping" : null;
   };
   // Lines to learn it from: the fewest other new words, then nearest twelve characters, then with English.
-  const easiest = (w: string) =>
-    (linesOf.get(w) ?? [])
+  const easiest = (w: string, among: number[]) =>
+    among
       .map((i) => ({ i, other: new Set(tokens[i].filter((t) => t.k === "unknown" && t.t !== w).map((t) => t.t)).size }))
       .sort(
         (a, b) =>
@@ -1060,23 +1110,53 @@ async function planOf(
       )
       .slice(0, PLAN_LINES)
       .map((x) => x.i);
-  const planned: EpisodePlanWord[] = chosen.map((u) => ({
-    word: u.word,
-    pinyin: u.pinyin,
-    gloss: u.gloss,
-    note: muse.get(u.word)?.note ?? null,
-    must: muse.get(u.word)?.tier === "must",
-    count: u.count,
-    unlocks: unlocks.get(u.word) ?? 0,
-    keepWhy: keepWhy(u.word),
-    lines: easiest(u.word),
+  const planWord = (w: string, m: ReturnType<typeof measure>): EpisodePlanWord => ({
+    word: w,
+    pinyin: info.get(w)?.pinyin ?? null,
+    gloss: info.get(w)?.gloss ?? null,
+    note: muse.get(w)?.note ?? null,
+    must: muse.get(w)?.tier === "must",
+    count: m.said.get(w) ?? 0,
+    unlocks: m.unlocks.get(w) ?? 0,
+    keepWhy: keepWhy(w),
+    lines: easiest(w, m.linesOf.get(w) ?? []),
+  });
+  const planned = chosen.map((w) => planWord(w, whole));
+
+  // After watching a chapter, its lines to listen to: those with its key words, Muse's notes, then the most new words; 5 to 30 characters.
+  const listenIn = (sc: { start: number; end: number }, keys: string[]) => {
+    const key = new Set(keys);
+    const scored: Array<{ i: number; score: number }> = [];
+    for (let i = sc.start; i < sc.end; i++) {
+      const zh = r.lines[i].zh;
+      if (zh.length < 5 || zh.length > 30) continue;
+      const toks = tokens[i] ?? [];
+      const score =
+        (toks.some((t) => key.has(t.t)) ? 4 : 0) +
+        (notes.has(i) ? 2 : 0) +
+        toks.filter((t) => t.k === "unknown" || t.k === "learning").length;
+      scored.push({ i, score });
+    }
+    return scored
+      .sort((a, b) => b.score - a.score || a.i - b.i)
+      .slice(0, CHAPTER_LISTEN)
+      .map((x) => x.i)
+      .sort((a, b) => a - b);
+  };
+  const chapters: EpisodeChapterPlan[] = byChapter.map(({ sc, m }, c) => ({
+    words: chapterWords[c].map((w) => planWord(w, m)),
+    listen: listenIn(sc, chapterWords[c]),
+    done: done.has(c),
+    retells: retells.get(c) ?? [],
   }));
+
   // Readiness once they are learnt: as words still being learnt, as they will be.
   const after = readiness(
     tokens.map((line) => line.map((t) => (t.k === "unknown" && picked.has(t.t) ? { t: t.t, k: "learning" as const } : t))),
     new Set(),
   ).coverage;
   return {
+    chapters,
     keep: planned.filter((w) => w.keepWhy),
     show: planned.filter((w) => !w.keepWhy),
     skip,
@@ -1084,6 +1164,56 @@ async function planOf(
     now: { known: measured.coverage.known, lines: measured.coverage.lines },
     after: { known: after.known, lines: after.lines },
   };
+}
+
+/** Chapters done, and the chapter retellings by chapter. */
+async function chapterProgress(sql: Sql, owner: string, id: number) {
+  const [done, said] = await Promise.all([
+    sql`select chapter from chongfuxi_episode_chapter where owner_email = ${owner} and episode_id = ${id}` as unknown as Promise<Array<{ chapter: number }>>,
+    sql`
+      select chapter, answer, result, (extract(epoch from at) * 1000)::double precision as at
+      from chongfuxi_episode_chapter_retell where owner_email = ${owner} and episode_id = ${id} order by at
+    ` as unknown as Promise<Array<{ chapter: number; answer: string; result: Omit<Retell, "q" | "answer" | "at">; at: number }>>,
+  ]);
+  const retells = new Map<number, Retell[]>();
+  for (const x of said) (retells.get(x.chapter) ?? retells.set(x.chapter, []).get(x.chapter)!).push({ ...x.result, q: 0, answer: x.answer, at: Math.round(x.at) });
+  return { done: new Set(done.map((d) => d.chapter)), retells };
+}
+
+/** A chapter's default question, when Muse wrote none. */
+const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened in this part?" };
+
+/**
+ * A chapter of an episode's chapter by chapter round: `done` marks it
+ * watched and checked; `answer` is a retelling, graded at Look up's model
+ * and effort (never lower) against the chapter's lines, by Muse's question
+ * for it or "这一段发生了什么？". Owner only.
+ */
+export async function chapterStep(sql: Sql, owner: string, input: Record<string, unknown>): Promise<{ done?: true; retell?: Retell }> {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const scenes = r.prep?.scenes.length ? r.prep.scenes : autoScenes(r.lines);
+  const c = typeof input.chapter === "number" ? input.chapter : -1;
+  const sc = scenes[c];
+  if (!sc) throw new EpisodeError("No such chapter.");
+  if (input.done === true) {
+    await sql`
+      insert into chongfuxi_episode_chapter (owner_email, episode_id, chapter) values (${owner}, ${id}, ${c})
+      on conflict (owner_email, episode_id, chapter) do update set done_at = now()
+    `;
+    return { done: true };
+  }
+  const said = str(input.answer, 600);
+  if (!HAN.test(said)) throw new ReadingError("Answer in Chinese.");
+  const end = c + 1 < scenes.length ? scenes[c + 1].start : r.lines.length;
+  const body = r.lines.slice(sc.start, end).map((l) => l.zh).join("\n");
+  const question = sc.question ?? CHAPTER_QUESTION;
+  const result = await gradeAnswer(body, `${r.show} ${r.episode} · ${sc.title}`, question, said);
+  await sql`
+    insert into chongfuxi_episode_chapter_retell (owner_email, episode_id, chapter, answer, result)
+    values (${owner}, ${id}, ${c}, ${said}, ${JSON.stringify(result)}::jsonb)
+  `;
+  return { retell: { ...result, q: 0, answer: said, at: Date.now() } };
 }
 
 /**

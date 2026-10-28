@@ -726,7 +726,10 @@ function ChapterStrip({
           const part = grades.slice(sc.start, sc.end);
           return (
             <button key={i} className={`cf-wchip${i === current ? " is-on" : ""}`} onClick={() => onPick(i)}>
-              <span className="cf-wchip-at">{clock(times[i].from)}</span>
+              <span className="cf-wchip-at">
+                {clock(times[i].from)}
+                {ep.plan.chapters[i]?.done && <b className="cf-wchip-done"> ✓</b>}
+              </span>
               <span className="cf-wchip-title cf-zh">{sc.title}</span>
               {english && sc.titleEn && sc.titleEn !== sc.title && <span className="cf-wchip-en">{sc.titleEn}</span>}
               <span className="cf-wchip-grades" aria-label={`${pct(sc.known)} known`}>
@@ -1150,8 +1153,19 @@ function MarkedLine({ zh, word, blank = false }: { zh: string; word: string; bla
  * never in the deck), with readiness now and after; then a short drill; and
  * listening through the trouble lines as before.
  */
-function Practice({ ep, onAnswered, onLearnt }: { ep: Episode; onAnswered: (i: number, result: "got" | "again") => void; onLearnt: () => void }) {
-  const [mode, setMode] = useState<"home" | "drill" | "listen">("home");
+function Practice({
+  ep,
+  canWrite,
+  onAnswered,
+  onLearnt,
+}: {
+  ep: Episode;
+  canWrite: boolean;
+  onAnswered: (i: number, result: "got" | "again") => void;
+  onLearnt: () => void;
+}) {
+  const [mode, setMode] = useState<"chapters" | "home" | "drill" | "listen">("chapters");
+  if (mode === "chapters") return <ChapterRound ep={ep} canWrite={canWrite} onChanged={onLearnt} onWhole={() => setMode("home")} />;
   const [last, setLast] = useState<{ kept: number; show: number; before: Episode["plan"]["now"] } | null>(null);
   if (mode === "listen") return <Listening ep={ep} onAnswered={onAnswered} onBack={() => setMode("home")} />;
   const plan = ep.plan;
@@ -1171,6 +1185,9 @@ function Practice({ ep, onAnswered, onLearnt }: { ep: Episode; onAnswered: (i: n
   const listenLeft = ep.deck.filter((c) => c.result !== "got").length;
   return (
     <div className="cf-watch-pane cf-pp">
+      <button className="cf-link cf-pr-back-link" onClick={() => setMode("chapters")}>
+        ‹ Chapter by chapter
+      </button>
       {last && (
         <p className="cf-pp-done">
           Learnt {fmt(last.kept + last.show)}
@@ -1284,7 +1301,17 @@ const PREP_BACK = 3;
  * Each word done is sent at once: into the deck when worth keeping, else
  * prepped for the show.
  */
-function PrepDrill({ ep, words, onEnd }: { ep: Episode; words: Episode["plan"]["keep"]; onEnd: (kept: number, show: number) => void }) {
+function PrepDrill({
+  ep,
+  words,
+  onEnd,
+  endLabel = "See how ready you are",
+}: {
+  ep: Episode;
+  words: Episode["plan"]["keep"];
+  onEnd: (kept: number, show: number) => void;
+  endLabel?: string;
+}) {
   const [queue, setQueue] = useState<PrepStep[]>(() => words.map((w) => ({ w, step: 0 as const })));
   const [shown, setShown] = useState(false);
   const [done, setDone] = useState({ kept: 0, show: 0 });
@@ -1321,7 +1348,7 @@ function PrepDrill({ ep, words, onEnd }: { ep: Episode; words: Episode["plan"]["
         {error && <p className="cf-error">{error}</p>}
         <div className="cf-pr-starts">
           <button className="cf-btn" onClick={() => onEnd(done.kept, done.show)}>
-            See how ready you are
+            {endLabel}
           </button>
         </div>
       </div>
@@ -1425,6 +1452,351 @@ function PrepDrill({ ep, words, onEnd }: { ep: Episode; words: Episode["plan"]["
         )}
       </div>
     </div>
+  );
+}
+
+type ChapterStepName = "prep" | "drill" | "watch" | "check" | "done";
+const CHAPTER_STEPS: Array<[ChapterStepName, string]> = [
+  ["prep", "Prep"],
+  ["watch", "Watch"],
+  ["check", "Check"],
+  ["done", "Done"],
+];
+const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened in this part?" };
+
+/**
+ * Practice chapter by chapter (the owner: "more bite size… watching this
+ * episode chapter by chapter so it's more digestible"): a short loop per
+ * chapter, from the first not done. Prep: what happens in it, and its key
+ * words (`plan.chapters`, at most CHAPTER_WORDS, worth keeping or for the
+ * show as in the whole plan) through the same drill. Watch: just that
+ * chapter, the video stopping at its end, its lines lit as they are said,
+ * subtitles on or off. Check: a few of its lines heard first, then retold in
+ * Chinese by Muse's question for it, graded. Done: marked, and the next.
+ */
+function ChapterRound({ ep, canWrite, onChanged, onWhole }: { ep: Episode; canWrite: boolean; onChanged: () => void; onWhole: () => void }) {
+  const chapters = ep.plan.chapters;
+  const first = chapters.findIndex((c) => !c.done);
+  const [c, setC] = useState(first >= 0 ? first : 0);
+  const [step, setStep] = useState<ChapterStepName>("prep");
+  const [subs, setSubs] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const sc = ep.scenes[c];
+  const plan = chapters[c];
+  if (!sc || !plan) return <p className="cf-watch-pane cf-muted">No chapters yet.</p>;
+  const span = spans(ep)[c];
+  const minutes = Math.max(1, Math.round((span.to - span.from) / 60000));
+  const go = (to: number) => {
+    setC(to);
+    setStep("prep");
+    setSubs(true);
+  };
+  if (step === "drill")
+    return (
+      <PrepDrill
+        ep={ep}
+        words={plan.words}
+        endLabel="Watch the chapter ›"
+        onEnd={(kept, show) => {
+          setStep("watch");
+          if (kept + show) onChanged();
+        }}
+      />
+    );
+  const at = CHAPTER_STEPS.findIndex(([k]) => k === step);
+  return (
+    <div className="cf-watch-pane cf-cr">
+      <div className="cf-cr-head">
+        <button className="cf-cr-nav" onClick={() => go(c - 1)} disabled={c === 0} aria-label="Chapter before">
+          ‹
+        </button>
+        <div className="cf-cr-title">
+          <small>
+            Chapter {c + 1} of {ep.scenes.length} · {minutes} min{plan.done ? " · ✓ done" : ""}
+          </small>
+          <b className="cf-zh">{sc.title}</b>
+        </div>
+        <button className="cf-cr-nav" onClick={() => go(c + 1)} disabled={c === ep.scenes.length - 1} aria-label="Chapter after">
+          ›
+        </button>
+      </div>
+      <ol className="cf-cr-steps" aria-label="Steps">
+        {CHAPTER_STEPS.map(([k, label], n) => (
+          <li key={k} className={n < at ? "is-past" : n === at ? "is-on" : ""}>
+            <button onClick={() => setStep(k)}>{label}</button>
+          </li>
+        ))}
+      </ol>
+      {error && <p className="cf-error">{error}</p>}
+      {step === "prep" && (
+        <section className="cf-cr-body">
+          {sc.summary && <ChapterSummary sc={sc} />}
+          {plan.words.length ? (
+            <>
+              <PlanList title="Key words" sub="The words that open up most of this chapter." words={plan.words} />
+              <div className="cf-pr-starts">
+                <button className="cf-btn" onClick={() => setStep("drill")}>
+                  Learn these {fmt(plan.words.length)}
+                </button>
+                <button className="cf-link" onClick={() => setStep("watch")}>
+                  Skip to watching ›
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="cf-muted">Nothing new worth learning in this one.</p>
+              <div className="cf-pr-starts">
+                <button className="cf-btn" onClick={() => setStep("watch")}>
+                  Watch it ›
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+      {step === "watch" && (
+        <section className="cf-cr-body">
+          <ChapterWatch ep={ep} c={c} subs={subs} onSubs={setSubs} />
+          <div className="cf-pr-starts">
+            <button className="cf-btn" onClick={() => setStep("check")}>
+              {ep.video ? "Watched it ›" : "Read it ›"}
+            </button>
+          </div>
+        </section>
+      )}
+      {step === "check" && (
+        <ChapterCheck
+          key={c}
+          ep={ep}
+          c={c}
+          canWrite={canWrite}
+          onDone={() => {
+            setStep("done");
+            if (!canWrite) return;
+            send("episodes", { id: ep.id, chapter: c, done: true })
+              .then(onChanged)
+              .catch((e) => setError(message(e)));
+          }}
+        />
+      )}
+      {step === "done" && (
+        <section className="cf-cr-body cf-cr-done">
+          <p className="cf-ep-big">
+            ✓ <small>Chapter {c + 1} done · {pct(sc.known)} known</small>
+          </p>
+          <div className="cf-pr-starts">
+            {c + 1 < ep.scenes.length && (
+              <button className="cf-btn" onClick={() => go(c + 1)}>
+                Next chapter · <span className="cf-zh">{ep.scenes[c + 1].title}</span>
+              </button>
+            )}
+            <button
+              className="cf-link"
+              onClick={() => {
+                setSubs(false);
+                setStep("watch");
+              }}
+            >
+              Rewatch without subtitles
+            </button>
+          </div>
+        </section>
+      )}
+      <button className="cf-link cf-cr-whole" onClick={onWhole}>
+        Whole episode · {fmt(ep.plan.keep.length + ep.plan.show.length)} words, listening
+      </button>
+    </div>
+  );
+}
+
+function ChapterSummary({ sc }: { sc: Episode["scenes"][number] }) {
+  const [en, setEn] = useState(false);
+  return (
+    <div className="cf-cr-summary">
+      <p className="cf-zh">{sc.summary}</p>
+      {sc.summaryEn &&
+        (en ? (
+          <p className="cf-muted">{sc.summaryEn}</p>
+        ) : (
+          <button className="cf-link" onClick={() => setEn(true)}>
+            English
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/**
+ * One chapter to watch: its stretch of the video (YouTube's start and end,
+ * so it stops at the chapter's end), its lines lit as they are said, or
+ * hidden to watch without subtitles; with no video, its lines to read, each
+ * said aloud on a tap.
+ */
+function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: boolean; onSubs: (on: boolean) => void }) {
+  const sc = ep.scenes[c];
+  const span = spans(ep)[c];
+  const host = useRef<HTMLDivElement>(null);
+  const player = useRef<YTPlayer | null>(null);
+  const [saying, setSaying] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const from = Math.max(0, Math.floor((span.from + ep.offset) / 1000));
+  const to = Math.ceil((span.to + ep.offset) / 1000);
+  useEffect(() => {
+    if (!ep.video || !host.current) return;
+    let gone = false;
+    let tick: ReturnType<typeof setInterval> | undefined;
+    const el = document.createElement("div");
+    host.current.appendChild(el);
+    loadYouTube()
+      .then((YT) => {
+        if (gone) return;
+        player.current = new YT.Player(el, {
+          videoId: ep.video,
+          width: "100%",
+          height: "100%",
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, start: from, end: to },
+          events: { onError: () => setError("YouTube won't play this video here.") },
+        });
+        tick = setInterval(() => {
+          const p = player.current;
+          if (!p?.getCurrentTime || p.getPlayerState?.() !== 1) return;
+          const t = p.getCurrentTime() * 1000 - ep.offset;
+          const i = lineAt(ep, t);
+          if (i >= sc.start && i < sc.end) setSaying(i);
+        }, VIDEO_TICK);
+      })
+      .catch((e) => setError(message(e)));
+    return () => {
+      gone = true;
+      if (tick) clearInterval(tick);
+      player.current?.destroy?.();
+      player.current = null;
+      el.remove();
+    };
+  }, [ep, sc, from, to]);
+  useEffect(() => {
+    if (saying === null || !list.current) return;
+    list.current.querySelector<HTMLElement>(`[data-cl="${saying}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [saying]);
+  return (
+    <div className="cf-cw">
+      {ep.video && <div className="cf-wv-frame cf-cw-frame" ref={host} />}
+      {error && <p className="cf-error">{error}</p>}
+      <div className="cf-cw-bar">
+        {ep.video && (
+          <button className="cf-link" onClick={() => player.current?.seekTo(from, true)}>
+            ↺ From the start
+          </button>
+        )}
+        <span className="cf-wv-gap" />
+        <button className={`cf-ep-entoggle${subs ? " is-on" : ""}`} onClick={() => onSubs(!subs)} aria-pressed={subs}>
+          Subtitles
+        </button>
+      </div>
+      <ol className={`cf-cw-lines${subs ? "" : " is-hidden"}`} ref={list}>
+        {ep.lines.slice(sc.start, sc.end).map((l, k) => {
+          const i = sc.start + k;
+          return (
+            <li key={i} data-cl={i} className={saying === i ? "is-saying" : ""}>
+              <button
+                className="cf-cw-line"
+                onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
+              >
+                <span className="cf-zh">{l.zh}</span>
+                {l.en && <small>{l.en}</small>}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** After a chapter: a few of its lines heard first (Again brings one back at the end), then retold in Chinese, graded; Finish marks it done. */
+function ChapterCheck({ ep, c, canWrite, onDone }: { ep: Episode; c: number; canWrite: boolean; onDone: () => void }) {
+  const plan = ep.plan.chapters[c];
+  const sc = ep.scenes[c];
+  const [queue, setQueue] = useState<number[]>(plan.listen);
+  const [shown, setShown] = useState(false);
+  // Each line is said as it comes up; the episode reloading underneath says nothing.
+  const lines = useRef(ep.lines);
+  lines.current = ep.lines;
+  useEffect(() => {
+    if (queue.length) say(lines.current[queue[0]].zh);
+  }, [queue]);
+  const i = queue[0];
+  return (
+    <section className="cf-cr-body">
+      {i !== undefined ? (
+        <div className="cf-cc-listen">
+          <p className="cf-muted">
+            Listen · {fmt(plan.listen.length - queue.length + 1)} of {fmt(plan.listen.length)}
+          </p>
+          <div className="cf-pr-card">
+            {!shown ? (
+              <div className="cf-pr-front">
+                <button className="cf-pr-play" onClick={() => say(ep.lines[i].zh)} aria-label="Hear the line again">
+                  🔊
+                </button>
+                <p className="cf-muted">What did they say?</p>
+              </div>
+            ) : (
+              <div className="cf-pr-back">
+                <p className="cf-pr-line cf-zh">{ep.lines[i].zh}</p>
+                {ep.lines[i].en && <p className="cf-lp-en">{ep.lines[i].en}</p>}
+              </div>
+            )}
+          </div>
+          <div className="cf-pr-buttons">
+            {!shown ? (
+              <button className="cf-btn" onClick={() => setShown(true)}>
+                Show
+              </button>
+            ) : (
+              <>
+                <button
+                  className="cf-btn cf-btn-ghost"
+                  onClick={() => {
+                    setShown(false);
+                    setQueue(queue.length > 1 ? [...queue.slice(1), i] : queue.slice(1));
+                  }}
+                >
+                  Again
+                </button>
+                <button
+                  className="cf-btn"
+                  onClick={() => {
+                    setShown(false);
+                    setQueue(queue.slice(1));
+                  }}
+                >
+                  Got it
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <h3 className="cf-cc-h">Retell it</h3>
+          <Question
+            question={sc.question ?? CHAPTER_QUESTION}
+            q={0}
+            initial={plan.retells}
+            canWrite={canWrite}
+            check={(answer) => send<{ retell: Retell }>("episodes", { id: ep.id, chapter: c, answer }).then((r) => r.retell)}
+          />
+          <div className="cf-pr-starts">
+            <button className="cf-btn" onClick={onDone}>
+              Finish chapter ✓
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -1711,6 +2083,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {ep && tab === "practice" && (
         <Practice
           ep={ep}
+          canWrite={canWrite}
           onAnswered={(i, result) =>
             setEp((e) => (e ? { ...e, deck: e.deck.map((c) => (c.i === i ? { ...c, result, tries: c.tries + 1 } : c)) } : e))
           }

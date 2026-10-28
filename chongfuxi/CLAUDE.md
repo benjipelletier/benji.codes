@@ -1900,7 +1900,7 @@ YouTube chapter feature".
   measures (`analyse`, one paragraph a line), names counting as known.
 - **Prep**: POST `/api/chongfuxi/agent/episodes/prep` `{ id, words: [{ word,
   tier: must | nice | skip, keep?, note }], names, scenes: [{ start, title, summary,
-  summaryEn, notes }], questions: [{ zh, en }], model? }` (`writePrep`).
+  summaryEn, notes, question? }], questions: [{ zh, en }], model? }` (`writePrep`).
   Scenes are sorted by `start`, the first forced to 0, out-of-range ones
   dropped, at most 40; questions at most 8. A scene's `title` is a short
   Chinese title and `titleEn` its English (the owner wanted the chapters
@@ -2000,7 +2000,31 @@ YouTube chapter feature".
     with Muse's answer, its lookups, how many of the owner's sentences
     have it (and readable) with one, how often it is said in the episode,
     and Word page ›. Known words with nothing to say fold into one line.
-  - **Practice** is a round of prep that moves readiness (the owner found
+  - **Practice opens chapter by chapter** (`ChapterRound`; the owner: "more
+    bite size… watching this episode chapter by chapter so it's more
+    digestible"; they chose all four steps): a short loop per chapter, from
+    the first not done, ‹ › to any other, steps Prep · Watch · Check · Done
+    across the top (each a tap away). **Prep**: what happens (Chinese,
+    English on a tap) and its key words (`plan.chapters[c].words`: ranked
+    as the whole plan is but within the chapter, at most `CHAPTER_WORDS`
+    (5), worth keeping or for the show as there) through the same drill
+    (`PrepDrill`, its end "Watch the chapter ›"). **Watch**
+    (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
+    and `end`, so it stops at the chapter's end; "↺ From the start"), its
+    lines below lit as they are said (a tap jumps there), a Subtitles
+    switch blurring them; with no video, its lines to read, each said
+    aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)
+    of its lines heard first (those with its key words, Muse's notes, then
+    the most new words; 5 to 30 characters; Again sends one to the end),
+    then retold in Chinese by Muse's question for the chapter (a scene's
+    `question` in the prep) or "这一段发生了什么？", graded at Look up's
+    model and effort against the chapter's lines (POST `episodes` `{ id,
+    chapter, answer }`, `chapterStep`; kept in
+    `chongfuxi_episode_chapter_retell`). **Done**: Finish marks it (`{ id,
+    chapter, done }`, `chongfuxi_episode_chapter`), its chip in the script
+    gets a ✓; then the next chapter, or "Rewatch without subtitles". Under
+    it, "Whole episode" opens the round below.
+  - **Practice** (the whole episode) is a round of prep that moves readiness (the owner found
     the listening practice below couldn't: readiness counts only words
     known, and it taught none; and "I don't need to be 100%… I'm worried
     about having words in my deck that I'll never see again after the

@@ -1248,6 +1248,8 @@ export interface EpisodeScene {
   summaryEn: string;
   /** Slang, dialect, culture: what the lines take for granted. */
   notes: string[];
+  /** Muse's question to retell the chapter by, after watching it. */
+  question?: { zh: string; en: string } | null;
 }
 
 /** A word of the episode not known yet, as Muse ranked it: must know, nice to know, or skip. */
@@ -1508,6 +1510,8 @@ export interface EpisodePlanWord {
 
 /** The next round of prep for an episode: worth keeping (to the deck), for the show only, and what is left to skip. */
 export interface EpisodePlan {
+  /** Chapter by chapter, for bite-size prep: each chapter's key words and the lines to check listening on. */
+  chapters: EpisodeChapterPlan[];
   keep: EpisodePlanWord[];
   show: EpisodePlanWord[];
   skip: Array<{ word: string; count: number }>;
@@ -1516,4 +1520,15 @@ export interface EpisodePlan {
   /** Readiness now, and once the plan's words are learnt. */
   now: { known: number; lines: number };
   after: { known: number; lines: number };
+}
+
+/** A chapter's round: prep its key words, watch it, check, done. */
+export interface EpisodeChapterPlan {
+  /** The words that do most for this chapter, at most CHAPTER_WORDS, worth keeping or for the show as in the plan. */
+  words: EpisodePlanWord[];
+  /** Lines to listen to after watching, in story order. */
+  listen: number[];
+  done: boolean;
+  /** Retellings of the chapter, oldest first. */
+  retells: Retell[];
 }
