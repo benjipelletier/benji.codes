@@ -1881,7 +1881,7 @@ sentence cards for now; spoilers are fine; and scenes to scrub through "like
 YouTube chapter feature".
 
 - **In** (same token): POST `/api/chongfuxi/agent/episodes` `{ show,
-  episode, subtitles, english?, title?, source? }`, SRT asked for (timed,
+  episode, subtitles, english?, title?, source?, video? }`, SRT asked for (timed,
   the commonest; plain lines have no times for the chapter bar).
   `parseSubtitles` reads SRT, VTT, ASS or plain lines: tags and `\N`
   dropped, traditional made simplified (`simplified`), a bilingual line's
@@ -1969,6 +1969,25 @@ YouTube chapter feature".
     `content-visibility: auto` on each chapter makes relative to the
     chapter, so jumps landed in the wrong place. Positions are now read
     from the screen (`topIn`).
+  - **Watching with the video** (the owner: "line up the subtitles with
+    the YouTube video embedded in our app"). An episode has a YouTube video
+    (`chongfuxi_episode.video`; Muse gives `video` with the subtitles or
+    POSTs `{ id, video }` to agent/episodes, the owner pastes a link from
+    "▶ Add the YouTube video" (POST `episodes` `{ id, video }`), and a
+    source that is a YouTube link counts; `setEpisodeVideo`), and an
+    `offset` (`offset_ms`: video time minus subtitle time, for subtitles
+    timed to another release). With one, the Script tab has the video
+    over the chapters (`VideoBar`, YouTube's IFrame player API loaded once,
+    `loadYouTube`), played inline, and its clock (every `VIDEO_TICK`, 250
+    ms, less the offset) lights the line being said (`is-saying`) and,
+    while following, keeps it a third of the way down the script. Scrolling
+    the script by hand stops following; "↓ Follow" brings it back. A line's
+    time plays from there, a chip from its chapter, the scrub bar from where
+    it is let go (the video's clock doesn't move the script while
+    scrubbing). Opening a line pauses it. Sync nudges the offset half a
+    second at a time (`NUDGE`), kept for the episode; Hide takes the
+    picture away and keeps it playing. Tested with a stand-in player: the
+    cloud session can't reach YouTube.
   - A tap on a line (or a word in it) opens it at the foot of the screen
     (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next
     note, the line large with 🔊, its English, Muse's note (its kind,

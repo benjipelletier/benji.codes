@@ -1371,6 +1371,9 @@ export interface EpisodeView extends EpisodeListed {
   progress: EpisodeProgress[];
   looks: Record<string, { p: string; gloss: string | null } | null>;
   /** The Muse list its must-know words are filed under, for Learn and Review. */
+  /** Its YouTube video id, to play it with the script following; and video time minus subtitle time (ms). */
+  video: string | null;
+  offset: number;
   list: string | null;
   /** Muse's notes on lines, by line. */
   notes: EpisodeLineNote[];

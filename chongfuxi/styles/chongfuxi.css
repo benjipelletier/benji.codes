@@ -12282,3 +12282,120 @@ button.cf-how-text {
   color: var(--cf-ink-faint);
   white-space: normal;
 }
+
+/* The episode's video over the chapters, the script following it (Watch.tsx). */
+.cf-wv {
+  flex: none;
+  background: var(--cf-surface);
+  border-bottom: 1px solid var(--cf-rule);
+}
+.cf-wv-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 34vh;
+  background: #000;
+  overflow: hidden;
+}
+.cf-wv-frame > div,
+.cf-wv-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* Hidden, it keeps playing: only the picture goes. */
+.cf-wv.is-hidden .cf-wv-frame {
+  height: 0;
+  aspect-ratio: auto;
+}
+.cf-wv-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+.cfx .cf-wv-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+  font-size: 14px;
+}
+.cf-wv-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  color: var(--cf-ink-soft);
+}
+.cf-wv-gap {
+  flex: 1;
+}
+.cf-wv-bar .cf-link.is-on {
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
+.cf-wv-sync {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 12px 10px;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+.cf-wv-sync span {
+  flex: 1;
+  min-width: 140px;
+}
+.cf-wv-error {
+  margin: 0;
+  padding: 0 12px 10px;
+}
+.cf-wv-add {
+  align-self: flex-start;
+  margin: 6px 16px 2px;
+}
+.cf-wv-addform {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 16px 8px;
+}
+.cf-wv-addform input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 10px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-size: 16px;
+}
+.cf-wv-addform .cf-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.cf-wl.is-saying {
+  background: var(--cf-accent-soft);
+  border-radius: 8px;
+}
+.cfx .cf-wl-seek {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-accent);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}

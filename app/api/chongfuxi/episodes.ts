@@ -42,6 +42,7 @@ import { ReadingError, gradeAnswer } from "./reading";
 import { rescueHooks, stuckWords } from "./rescue";
 import { hskOf } from "./review";
 import { simplified } from "./spotify";
+import { videoId } from "./youtube";
 
 /** Lines an episode may have, and characters a line. */
 const LINES_MAX = 3000;
@@ -120,6 +121,9 @@ async function ensureTables(sql: Sql) {
     )
   `;
   await sql`alter table chongfuxi_episode_progress add column if not exists prepped real not null default 0`;
+  // The episode on YouTube, played in the app with the script following it, and how far the subtitles' clock is from the video's.
+  await sql`alter table chongfuxi_episode add column if not exists video text`;
+  await sql`alter table chongfuxi_episode add column if not exists offset_ms int not null default 0`;
   // Words learnt for the show only, in Practice: never in the deck, never scheduled, counted for this episode.
   await sql`
     create table if not exists chongfuxi_episode_prepped (
@@ -277,13 +281,17 @@ type Row = {
   notes: EpisodeLineNote[] | null;
   /** When it last changed: subtitles, prep or line notes. */
   updated: number;
+  /** Its YouTube video id, and video time minus subtitle time (ms). */
+  video: string | null;
+  offset_ms: number;
+  source: string | null;
 };
 
 async function rowOf(sql: Sql, owner: string, id: number): Promise<Row> {
   await ensureTables(sql);
   const [row] = (await sql`
     select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes,
-           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated
+           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated, video, offset_ms, source
     from chongfuxi_episode where owner_email = ${owner} and id = ${id}
   `) as unknown as Row[];
   if (!row) throw new EpisodeError("No such episode.");
@@ -413,6 +421,8 @@ Any of words, names, scenes and questions left out keeps what was sent before, s
 - scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
 
+If the episode is on YouTube, give its link so the learner can watch it in the app with the script following: POST /api/chongfuxi/agent/episodes { "id": …, "video": "<YouTube link>" } (or "video" with the subtitles). Subtitles timed to another release can be shifted with { "id": …, "offset": <video time minus subtitle time, ms> }.
+
 Then annotate lines like Genius annotates lyrics, in as many POSTs as you like to /api/chongfuxi/agent/episodes/lines:
 { "id": …, "lines": [{ "i": <line index>, "quote": "<the exact run of the line it is about, or omit for the whole line>", "kind": "trouble" | "slang" | "grammar" | "culture" | "meaning" | "listening", "text": "…", "words": ["corpus words it is about"] }], "replace": false }
 - First every line with one of their trouble words ("trouble" in the material, with why: a stuck word's pattern, a recent Forgot, their own note): kind "trouble", saying how the word is used here and what to tell it apart from, in their terms (the partner they mix it up with, what they wrote).
@@ -474,7 +484,7 @@ export async function writeEpisode(
   sql: Sql,
   owner: string,
   dict: Dict,
-  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; english?: unknown; source?: unknown },
+  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; english?: unknown; source?: unknown; video?: unknown },
 ) {
   await ensureTables(sql);
   const show = str(input.show, 60);
@@ -484,11 +494,14 @@ export async function writeEpisode(
   const lines = parseSubtitles(input.subtitles);
   if (lines.length < 5) throw new AgentError(`Only ${lines.length} lines with Chinese were found: is it the Chinese track?`);
   if (typeof input.english === "string" && input.english.trim()) addEnglish(lines, input.english);
+  // The video to play it with: given, or the source when that is a YouTube link.
+  const video = videoId(str(input.video, 500)) ?? videoId(str(input.source, 500));
   const [row] = (await sql`
-    insert into chongfuxi_episode (owner_email, show, episode, title, source, lines)
-    values (${owner}, ${show}, ${episode}, ${str(input.title, 120) || null}, ${str(input.source, 500) || null}, ${JSON.stringify(lines)}::jsonb)
+    insert into chongfuxi_episode (owner_email, show, episode, title, source, lines, video)
+    values (${owner}, ${show}, ${episode}, ${str(input.title, 120) || null}, ${str(input.source, 500) || null}, ${JSON.stringify(lines)}::jsonb, ${video})
     on conflict (owner_email, show, episode) do update set
       title = coalesce(excluded.title, chongfuxi_episode.title), source = excluded.source, lines = excluded.lines,
+      video = coalesce(excluded.video, chongfuxi_episode.video),
       at = now(), prep = null, prepped_at = null, model = null, known = null
     returning id::int as id
   `) as unknown as Array<{ id: number }>;
@@ -701,6 +714,8 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     plan: await planOf(sql, owner, r, tokens, unknown, measured, prepped),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
+    video: r.video ?? videoId(r.source ?? ""),
+    offset: r.offset_ms,
   };
 }
 
@@ -1101,4 +1116,30 @@ export async function learnEpisodeWord(sql: Sql, owner: string, dict: Dict, inpu
     on conflict do nothing
   `;
   return { word, kept: false };
+}
+
+/** Video time minus subtitle time, at most this far either way (ms). */
+const OFFSET_MAX = 10 * 60_000;
+
+/**
+ * The episode's YouTube video (a link or an id; "" takes it off), or how far
+ * the subtitles' clock is from the video's: `offset` is video time minus
+ * subtitle time, in ms. Owner, or the agent.
+ */
+export async function setEpisodeVideo(sql: Sql, owner: string, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  await rowOf(sql, owner, id);
+  if (typeof input.video === "string") {
+    const raw = input.video.trim();
+    const video = raw === "" ? null : (videoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null));
+    if (raw && !video) throw new EpisodeError("That isn't a YouTube link.");
+    await sql`update chongfuxi_episode set video = ${video} where owner_email = ${owner} and id = ${id}`;
+    return { id, video };
+  }
+  if (typeof input.offset === "number" && Number.isFinite(input.offset)) {
+    const offset = Math.round(Math.max(-OFFSET_MAX, Math.min(OFFSET_MAX, input.offset)));
+    await sql`update chongfuxi_episode set offset_ms = ${offset} where owner_email = ${owner} and id = ${id}`;
+    return { id, offset };
+  }
+  throw new EpisodeError("Give { id, video } or { id, offset }.");
 }
