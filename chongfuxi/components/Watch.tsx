@@ -939,6 +939,7 @@ type YTPlayer = {
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
   pauseVideo(): void;
+  setPlaybackRate(rate: number): void;
   destroy(): void;
 };
 type YTApi = { Player: new (el: HTMLElement, opts: Record<string, unknown>) => YTPlayer };
@@ -970,6 +971,48 @@ const VIDEO_TICK = 250;
 /** One tap of the sync buttons (ms). */
 const NUDGE = 500;
 
+/** Video speeds, in the order a tap steps through them: slower first, for listening. */
+const SPEEDS = [1, 0.75, 0.5, 1.25];
+const SPEED_KEY = "cfx-video-speed";
+
+/** The video speed, remembered on the device, applied to the player when it is ready and whenever it changes. */
+function useSpeed(player: React.MutableRefObject<YTPlayer | null>) {
+  const [speed, setSpeed] = useState(1);
+  const ref = useRef(1);
+  ref.current = speed;
+  useEffect(() => {
+    try {
+      const kept = Number(localStorage.getItem(SPEED_KEY));
+      if (SPEEDS.includes(kept)) setSpeed(kept);
+    } catch {
+      // No storage: normal speed.
+    }
+  }, []);
+  useEffect(() => {
+    player.current?.setPlaybackRate?.(speed);
+  }, [speed, player]);
+  const next = () => {
+    const to = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    setSpeed(to);
+    try {
+      localStorage.setItem(SPEED_KEY, String(to));
+    } catch {
+      // Not remembered.
+    }
+  };
+  /** For the player's onReady: the speed chosen before it was made. */
+  const apply = () => player.current?.setPlaybackRate?.(ref.current);
+  return { speed, next, apply };
+}
+
+function SpeedButton({ speed, onNext }: { speed: number; onNext: () => void }) {
+  return (
+    <button className={`cf-link cf-wv-speed${speed !== 1 ? " is-on" : ""}`} onClick={onNext} aria-label={`Speed ${speed}×, tap to change`}>
+      {speed}×
+    </button>
+  );
+}
+
 /** What the script asks of the player. */
 type VideoControl = { seek: (subtitleMs: number) => void; pause: () => void };
 
@@ -998,6 +1041,9 @@ function VideoBar({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
+  const rate = useSpeed(player);
+  const ready = useRef(rate.apply);
+  ready.current = rate.apply;
   const [offset, setOffset] = useState(ep.offset);
   const offsetRef = useRef(ep.offset);
   const [playing, setPlaying] = useState(false);
@@ -1023,6 +1069,7 @@ function VideoBar({
           height: "100%",
           playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0 },
           events: {
+            onReady: () => ready.current(),
             // 1 playing, 2 paused, 0 ended.
             onStateChange: (e: { data: number }) => setPlaying(e.data === 1),
             onError: () => setError("YouTube won't play this video here."),
@@ -1076,6 +1123,7 @@ function VideoBar({
           </button>
         )}
         <span className="cf-wv-gap" />
+        <SpeedButton speed={rate.speed} onNext={rate.next} />
         <button className={`cf-link${sync ? " is-on" : ""}`} onClick={() => setSync(!sync)} aria-expanded={sync}>
           Sync
         </button>
@@ -1638,6 +1686,9 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
   const span = spans(ep)[c];
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
+  const rate = useSpeed(player);
+  const ready = useRef(rate.apply);
+  ready.current = rate.apply;
   const [saying, setSaying] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const list = useRef<HTMLOListElement>(null);
@@ -1657,7 +1708,7 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
           width: "100%",
           height: "100%",
           playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, start: from, end: to },
-          events: { onError: () => setError("YouTube won't play this video here.") },
+          events: { onReady: () => ready.current(), onError: () => setError("YouTube won't play this video here.") },
         });
         tick = setInterval(() => {
           const p = player.current;
@@ -1691,6 +1742,7 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
           </button>
         )}
         <span className="cf-wv-gap" />
+        {ep.video && <SpeedButton speed={rate.speed} onNext={rate.next} />}
         <button className={`cf-ep-entoggle${subs ? " is-on" : ""}`} onClick={() => onSubs(!subs)} aria-pressed={subs}>
           Subtitles
         </button>

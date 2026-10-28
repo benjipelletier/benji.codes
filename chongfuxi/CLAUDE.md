@@ -1986,7 +1986,11 @@ YouTube chapter feature".
     it is let go (the video's clock doesn't move the script while
     scrubbing). Opening a line pauses it. Sync nudges the offset half a
     second at a time (`NUDGE`), kept for the episode; Hide takes the
-    picture away and keeps it playing. Tested with a stand-in player: the
+    picture away and keeps it playing. The speed button (`SpeedButton`, `useSpeed`;
+    the owner wanted the speed easy to change) steps 1× → 0.75× → 0.5× →
+    1.25× a tap (`SPEEDS`, slower first, for listening), filled when not
+    1×, remembered on the device (`cfx-video-speed`) and set on the player
+    when it is ready; a chapter's Watch step has it too. Tested with a stand-in player: the
     cloud session can't reach YouTube.
   - A tap on a line (or a word in it) opens it at the foot of the screen
     (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next

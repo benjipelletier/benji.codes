@@ -12544,3 +12544,12 @@ button.cf-how-text {
 .cf-wchip-done {
   color: var(--cf-up);
 }
+.cfx .cf-wv-speed {
+  min-width: 52px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.cfx .cf-wv-speed.is-on {
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
