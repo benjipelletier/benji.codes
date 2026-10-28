@@ -2023,8 +2023,9 @@ YouTube chapter feature".
     (`PrepDrill`, its end "Watch the chapter ›"). **Watch**
     (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
     and `end`, so it stops at the chapter's end; "↺ From the start"), its
-    lines below lit as they are said (a tap jumps there), a Subtitles
-    switch blurring them; with no video, its lines to read, each said
+    lines below lit as they are said (a tap jumps there), the English
+    under each blurred until tapped (the owner asked; `EnglishLine`, as in
+    the script with English off), a Subtitles switch blurring the Chinese too; with no video, its lines to read, each said
     aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)
     of its lines heard first (those with its key words, Muse's notes, then
     the most new words; 5 to 30 characters; Again sends one to the end),

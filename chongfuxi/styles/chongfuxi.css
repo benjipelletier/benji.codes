@@ -12572,3 +12572,18 @@ button.cf-how-text {
   max-width: 720px;
   margin: 0 auto;
 }
+.cf-cw-lines li {
+  padding-bottom: 2px;
+}
+.cf-cw-lines .cf-ep-en {
+  display: block;
+  margin: -6px 10px 6px;
+  font-size: 13px;
+}
+.cf-cw-lines li.is-saying {
+  border-radius: 10px;
+  background: var(--cf-accent-soft);
+}
+.cf-cw-lines li.is-saying .cf-cw-line {
+  background: none;
+}

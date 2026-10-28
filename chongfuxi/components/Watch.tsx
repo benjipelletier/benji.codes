@@ -1677,8 +1677,9 @@ function ChapterSummary({ sc }: { sc: Episode["scenes"][number] }) {
 
 /**
  * One chapter to watch: its stretch of the video (YouTube's start and end,
- * so it stops at the chapter's end), its lines lit as they are said, or
- * hidden to watch without subtitles; with no video, its lines to read, each
+ * so it stops at the chapter's end), its lines lit as they are said, the
+ * English under each blurred until tapped, or all hidden to watch without
+ * subtitles; with no video, its lines to read, each
  * said aloud on a tap.
  */
 function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: boolean; onSubs: (on: boolean) => void }) {
@@ -1757,8 +1758,9 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
                 onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
               >
                 <span className="cf-zh">{l.zh}</span>
-                {l.en && <small>{l.en}</small>}
               </button>
+              {/* The English blurred, as in the script with English off: a tap shows it (the owner asked). */}
+              {l.en && <EnglishLine en={l.en} english={false} />}
             </li>
           );
         })}
