@@ -58,6 +58,7 @@ import {
   spreadEvery,
   takeTurns,
   UNANSWERED_EVERY,
+  RECALL_BACKLOG_PER_DAY,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
@@ -154,6 +155,21 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 
 // ------------------------------------------------------------------ counts --
 
+/**
+ * How many more backlog Recall cards (never answered here) today may take:
+ * RECALL_BACKLOG_PER_DAY less those first answered today.
+ */
+export async function recallRoom(sql: Sql, owner: string, day: StudyDay): Promise<number> {
+  const [r] = (await sql`
+    select count(*)::int as n from (
+      select card_id from chongfuxi_review
+      where owner_email = ${owner} and kind = 'produce' and cause = 'answer'
+      group by card_id having min(day) = ${day.day}::date
+    ) started
+  `) as unknown as Array<{ n: number }>;
+  return Math.max(0, RECALL_BACKLOG_PER_DAY - r.n);
+}
+
 export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promise<Omit<Summary, "viewer">> {
   await foldSplits(sql, owner);
   const rows = (await sql.query(
@@ -183,6 +199,16 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
        (select count(*) from active a
           where a.kind = 'produce' and a.due <= to_timestamp($3::double precision / 1000)
             and not exists (select 1 from today t where t.word = a.word))::int as due_recall,
+       -- The Recall backlog: due, never answered here.
+       (select count(*) from active a
+          where a.kind = 'produce' and a.answered = 0 and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word))::int as backlog_recall,
+       -- Words due only by a backlog Recall card (their Read card isn't due), for the word count.
+       (select count(distinct a.word) from active a
+          where a.kind = 'produce' and a.answered = 0 and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word)
+            and not exists (select 1 from active b where b.word = a.word and b.id <> a.id and b.kind <> 'sentence'
+                              and b.due <= to_timestamp($3::double precision / 1000) and not (b.kind = 'produce' and b.answered = 0)))::int as backlog_only_words,
        (select count(*) from active a
           where a.kind = 'sentence' and a.state <> 0 and a.due <= to_timestamp($3::double precision / 1000))::int as due_sentences,
        (select count(*) from active a where a.kind = 'sentence' and a.state = 0)::int as new_sentences,
@@ -202,10 +228,16 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
               or (a.kind <> 'sentence' and a.due <= to_timestamp($3::double precision / 1000)
                   and exists (select 1 from today t where t.word = a.word))))::int as due_tomorrow,
        (select count(*) from chongfuxi_card c
-          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn`,
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as to_learn,
+       -- The Learn steps those words have still to climb (meet, context, cloze, word).
+       (select coalesce(sum(case c.learn_step when 'context' then 3 when 'cloze' then 2 when 'word' then 1 else 4 end), 0)
+          from chongfuxi_card c
+          where c.owner_email = $1 and ${ACTIVE} and ${WAITING_TO_LEARN})::int as learn_steps`,
     [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
+  // Backlog Recall cards beyond today's room wait for the days after.
+  const waiting = Math.max(0, r.backlog_recall - (await recallRoom(sql, owner, day)));
   return {
     pace: await paceOf(sql, owner, day),
     words: r.words,
@@ -217,9 +249,10 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     readable: r.readable,
     oneAway: r.one_away,
     locked: r.locked,
-    dueWords: r.due_words,
+    dueWords: r.due_words - Math.min(waiting, r.backlog_only_words),
     dueRead: r.due_read,
-    dueRecall: r.due_recall,
+    dueRecall: r.due_recall - waiting,
+    recallWaiting: waiting,
     dueSentences: r.due_sentences,
     newSentences: r.new_sentences,
     retired: r.retired,
@@ -229,6 +262,7 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     cameDueToday: r.came_due_today,
     dueTomorrow: r.due_tomorrow,
     toLearn: r.to_learn,
+    learnSteps: r.learn_steps,
   };
 }
 
@@ -309,6 +343,22 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // has the lower odds, and thousands of due Recall cards kept the due Read
   // cards out of the batch. Within a kind, cards answered before (each by its
   // odds) and cards never answered (no odds), spread through them.
+  // The Recall backlog (never answered here) is let in RECALL_BACKLOG_PER_DAY a
+  // study day, those least likely remembered first; the rest wait. Not on a list's review.
+  const backlogIds =
+    inList || o.recall === false
+      ? null
+      : ((await sql.query(
+          `select c.id::int as id from chongfuxi_card c
+           where c.owner_email = $1 and c.kind = 'produce' and c.answered = 0 and ${ACTIVE} and not ${WAITING_TO_LEARN}
+             and c.due <= to_timestamp($2::double precision / 1000)
+             and not exists (select 1 from chongfuxi_review r where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word)
+           order by ${LEAST_LIKELY_FIRST("$5", "$3")}
+           limit $4`,
+          [owner, cutoff, day.day, await recallRoom(sql, owner, day), at],
+        )) as unknown as Array<{ id: number }>).map((r) => r.id);
+  const held = (kind: "read" | "produce") =>
+    kind === "produce" && backlogIds ? `and (c.answered > 0 or c.id = any(array[${backlogIds.map(Number).join(",")}]::bigint[]))` : "";
   const pool = async (kind: "read" | "produce", answered: boolean) =>
     (await sql.query(
       `select ${CARD_COLUMNS},
@@ -323,6 +373,7 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
            where r.owner_email = c.owner_email and r.day = $5::date and r.word = c.word
          )
          and ${answered ? "" : "not "}(c.last_review is not null and c.stability > 0)
+         ${held(kind)}
          ${inList ? `and ${inList.where}` : ""}
        order by ${LEAST_LIKELY_FIRST("$8", "$5")}
        limit $6`,

@@ -121,6 +121,15 @@ export const MISS_EVERY = 3;
  */
 export const UNANSWERED_EVERY = 2;
 
+/**
+ * Recall cards never answered here (the backlog: thousands fell due at once
+ * from the Pleco seeding) taken into review a study day, counting those
+ * already started that day; the rest wait for the days after, in turn. The
+ * owner's figure, to spread about 3,000 over a couple of weeks. A list's own
+ * review isn't held to it.
+ */
+export const RECALL_BACKLOG_PER_DAY = 300;
+
 /** Spread the picked cards through the others, at most one in every `every`, keeping each group's order. */
 export function spreadEvery<T>(cards: T[], picked: (c: T) => boolean, every: number): T[] {
   const some = cards.filter(picked);

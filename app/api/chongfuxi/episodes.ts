@@ -15,9 +15,12 @@
 
 import type {
   EpisodeCard,
+  EpisodeChapterPlan,
   EpisodeLine,
   EpisodeLineNote,
   EpisodeListed,
+  EpisodePlan,
+  EpisodePlanWord,
   EpisodeProgress,
   EpisodeScene,
   EpisodeTrouble,
@@ -29,14 +32,18 @@ import type {
   TextToken,
 } from "@chongfuxi/lib/api";
 import type { Dict } from "@chongfuxi/lib/dict";
+import { isStudyDay } from "@chongfuxi/lib/day";
 import type { Sql } from "./db";
 import { AgentError, MUSE_LIST, writeList } from "./agent";
+import { addWords } from "./additions";
 import { analyse } from "./analyse";
 import { ownersDay } from "./daily";
 import { notesForWord } from "./notes";
 import { ReadingError, gradeAnswer } from "./reading";
 import { rescueHooks, stuckWords } from "./rescue";
+import { hskOf } from "./review";
 import { simplified } from "./spotify";
+import { videoId } from "./youtube";
 
 /** Lines an episode may have, and characters a line. */
 const LINES_MAX = 3000;
@@ -112,6 +119,40 @@ async function ensureTables(sql: Sql) {
       lines real not null,
       must_left int not null,
       primary key (owner_email, episode_id, day)
+    )
+  `;
+  await sql`alter table chongfuxi_episode_progress add column if not exists prepped real not null default 0`;
+  // The episode on YouTube, played in the app with the script following it, and how far the subtitles' clock is from the video's.
+  await sql`alter table chongfuxi_episode add column if not exists video text`;
+  await sql`alter table chongfuxi_episode add column if not exists offset_ms int not null default 0`;
+  // Chapters done in Practice's chapter by chapter round, and the chapter retellings.
+  await sql`
+    create table if not exists chongfuxi_episode_chapter (
+      owner_email text not null,
+      episode_id bigint not null,
+      chapter int not null,
+      done_at timestamptz not null default now(),
+      primary key (owner_email, episode_id, chapter)
+    )
+  `;
+  await sql`
+    create table if not exists chongfuxi_episode_chapter_retell (
+      owner_email text not null,
+      episode_id bigint not null,
+      chapter int not null,
+      at timestamptz not null default now(),
+      answer text not null,
+      result jsonb not null
+    )
+  `;
+  // Words learnt for the show only, in Practice: never in the deck, never scheduled, counted for this episode.
+  await sql`
+    create table if not exists chongfuxi_episode_prepped (
+      owner_email text not null,
+      episode_id bigint not null,
+      word text not null,
+      at timestamptz not null default now(),
+      primary key (owner_email, episode_id, word)
     )
   `;
   ready = true;
@@ -242,7 +283,7 @@ export function autoScenes(lines: EpisodeLine[]): EpisodeScene[] {
 const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
 
 type Prep = {
-  words: Array<{ word: string; tier: EpisodeWord["tier"]; note: string | null }>;
+  words: Array<{ word: string; tier: EpisodeWord["tier"]; note: string | null; keep?: boolean | null }>;
   names: string[];
   scenes: EpisodeScene[];
   questions: Array<{ zh: string; en: string }>;
@@ -261,13 +302,17 @@ type Row = {
   notes: EpisodeLineNote[] | null;
   /** When it last changed: subtitles, prep or line notes. */
   updated: number;
+  /** Its YouTube video id, and video time minus subtitle time (ms). */
+  video: string | null;
+  offset_ms: number;
+  source: string | null;
 };
 
 async function rowOf(sql: Sql, owner: string, id: number): Promise<Row> {
   await ensureTables(sql);
   const [row] = (await sql`
     select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes,
-           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated
+           (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated, video, offset_ms, source
     from chongfuxi_episode where owner_email = ${owner} and id = ${id}
   `) as unknown as Row[];
   if (!row) throw new EpisodeError("No such episode.");
@@ -335,16 +380,36 @@ async function mustNew(sql: Sql, owner: string, prep: Prep | null): Promise<Set<
   return new Set(must.filter((w) => !deck.has(w)));
 }
 
-/** A word's standing in an episode: names known, a must-know not in the deck new, else as the analyser has it. */
-const standingIn = (t: TextToken, names: Set<string>, fresh: Set<string>): TextToken =>
-  !t.k ? t : names.has(t.t) ? { t: t.t, k: "known" } : fresh.has(t.t) ? { t: t.t, k: "unknown" } : t;
+/**
+ * A word's standing in an episode: names known; a word prepped for the show
+ * (and not known otherwise) still being learnt; a must-know not in the deck
+ * new; else as the analyser has it.
+ */
+const standingIn = (t: TextToken, names: Set<string>, fresh: Set<string>, prepped: Set<string>): TextToken =>
+  !t.k
+    ? t
+    : names.has(t.t)
+      ? { t: t.t, k: "known" }
+      : prepped.has(t.t) && (t.k === "unknown" || fresh.has(t.t))
+        ? { t: t.t, k: "learning" }
+        : fresh.has(t.t)
+          ? { t: t.t, k: "unknown" }
+          : t;
+
+/** The words prepped for the show in an episode. */
+async function preppedIn(sql: Sql, owner: string, id: number): Promise<Set<string>> {
+  const rows = (await sql`
+    select word from chongfuxi_episode_prepped where owner_email = ${owner} and episode_id = ${id}
+  `) as unknown as Array<{ word: string }>;
+  return new Set(rows.map((r) => r.word));
+}
 
 async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
   const a = await analyse(sql, owner, dict, { text: r.lines.map((l) => l.zh).join("\n"), kind: "paste", title: r.title, url: null });
   // analyse makes a paragraph of each line (none is empty), so they pair up in order.
   const names = new Set(r.prep?.names ?? []);
-  const fresh = await mustNew(sql, owner, r.prep);
-  const tokens: TextToken[][] = a.paragraphs.map((p) => p.flat().map((t) => standingIn(t, names, fresh)));
+  const [fresh, prepped] = await Promise.all([mustNew(sql, owner, r.prep), preppedIn(sql, owner, r.id)]);
+  const tokens: TextToken[][] = a.paragraphs.map((p) => p.flat().map((t) => standingIn(t, names, fresh, prepped)));
   const where = new Map<string, number[]>();
   tokens.forEach((line, i) => {
     for (const t of line) {
@@ -366,16 +431,18 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
       pinyin: info.get(word)?.pinyin ?? a.looks[word]?.p ?? null,
       gloss: info.get(word)?.gloss ?? a.looks[word]?.gloss ?? null,
     }));
-  return { a, tokens, where, unknown };
+  return { a, tokens, where, unknown, prepped };
 }
 
 const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
-{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...] }], "questions": [{ "zh", "en" }] }
+{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...], "question": { "zh", "en" } }], "questions": [{ "zh", "en" }] }
 Any of words, names, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
-- words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first).
+- words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first). "keep": whether the word is worth keeping in their deck after the show (common, useful beyond it) or only for this show (plot words, rare, slang, a one-off): words they learn for the show alone never enter their deck. Leave it out to let the app decide (an HSK word, or one in several of their sentences, is kept).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
-- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss.
+- scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss. "question": one simple question in Chinese (with English) about what happens in the scene, for them to answer after watching it chapter by chapter, needing the scene's key words.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
+
+If the episode is on YouTube, give its link so the learner can watch it in the app with the script following: POST /api/chongfuxi/agent/episodes { "id": …, "video": "<YouTube link>" } (or "video" with the subtitles). Subtitles timed to another release can be shifted with { "id": …, "offset": <video time minus subtitle time, ms> }.
 
 Then annotate lines like Genius annotates lyrics, in as many POSTs as you like to /api/chongfuxi/agent/episodes/lines:
 { "id": …, "lines": [{ "i": <line index>, "quote": "<the exact run of the line it is about, or omit for the whole line>", "kind": "trouble" | "slang" | "grammar" | "culture" | "meaning" | "listening", "text": "…", "words": ["corpus words it is about"] }], "replace": false }
@@ -438,7 +505,7 @@ export async function writeEpisode(
   sql: Sql,
   owner: string,
   dict: Dict,
-  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; english?: unknown; source?: unknown },
+  input: { show?: unknown; episode?: unknown; title?: unknown; subtitles?: unknown; english?: unknown; source?: unknown; video?: unknown },
 ) {
   await ensureTables(sql);
   const show = str(input.show, 60);
@@ -448,11 +515,14 @@ export async function writeEpisode(
   const lines = parseSubtitles(input.subtitles);
   if (lines.length < 5) throw new AgentError(`Only ${lines.length} lines with Chinese were found: is it the Chinese track?`);
   if (typeof input.english === "string" && input.english.trim()) addEnglish(lines, input.english);
+  // The video to play it with: given, or the source when that is a YouTube link.
+  const video = videoId(str(input.video, 500)) ?? videoId(str(input.source, 500));
   const [row] = (await sql`
-    insert into chongfuxi_episode (owner_email, show, episode, title, source, lines)
-    values (${owner}, ${show}, ${episode}, ${str(input.title, 120) || null}, ${str(input.source, 500) || null}, ${JSON.stringify(lines)}::jsonb)
+    insert into chongfuxi_episode (owner_email, show, episode, title, source, lines, video)
+    values (${owner}, ${show}, ${episode}, ${str(input.title, 120) || null}, ${str(input.source, 500) || null}, ${JSON.stringify(lines)}::jsonb, ${video})
     on conflict (owner_email, show, episode) do update set
       title = coalesce(excluded.title, chongfuxi_episode.title), source = excluded.source, lines = excluded.lines,
+      video = coalesce(excluded.video, chongfuxi_episode.video),
       at = now(), prep = null, prepped_at = null, model = null, known = null
     returning id::int as id
   `) as unknown as Array<{ id: number }>;
@@ -470,6 +540,7 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
       word: str(w.word, 12),
       tier: (w.tier === "must" || w.tier === "nice" || w.tier === "skip" ? w.tier : "nice") as EpisodeWord["tier"],
       note: str(w.note, 200) || null,
+      keep: typeof w.keep === "boolean" ? w.keep : null,
     }))
     .filter((w) => HAN.test(w.word));
   const names = [...new Set((Array.isArray(input.names) ? input.names : []).map((x) => str(x, 12)).filter((x) => HAN.test(x)))];
@@ -483,6 +554,10 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
       summary: str(x.summary, 400),
       summaryEn: str(x.summaryEn, 600),
       notes: (Array.isArray(x.notes) ? x.notes : []).map((t) => str(t, 300)).filter(Boolean).slice(0, 6),
+      question: (() => {
+        const q = (x.question ?? null) as Record<string, unknown> | null;
+        return q && HAN.test(str(q.zh, 200)) ? { zh: str(q.zh, 200), en: str(q.en, 300) } : null;
+      })(),
     }))
     .filter((x) => x.start >= 0 && x.start < n && !starts.has(x.start) && starts.add(x.start))
     .sort((a, b) => a.start - b.start)
@@ -517,17 +592,19 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
 const MEASURE_ON_LIST = 3;
 
 /** Shares (0–1) of an episode's word occurrences known, known once the must-knows are learnt, and lines readable. */
-function readiness(tokens: TextToken[][], must: Set<string>) {
+function readiness(tokens: TextToken[][], must: Set<string>, prepped: Set<string> = new Set()) {
   let all = 0;
   let known = 0;
   let ready = 0;
   let readable = 0;
+  let prep = 0;
   const left = new Set<string>();
   const perLine = tokens.map((line) => {
     const ws = line.filter((t) => t.k);
     all += ws.length;
     const k = ws.filter((t) => t.k !== "unknown").length;
     known += k;
+    prep += ws.filter((t) => t.k === "learning" && prepped.has(t.t)).length;
     const m = ws.filter((t) => t.k === "unknown" && must.has(t.t));
     for (const t of m) left.add(t.t);
     ready += k + m.length;
@@ -535,7 +612,12 @@ function readiness(tokens: TextToken[][], must: Set<string>) {
     return { words: ws.length, known: k };
   });
   return {
-    coverage: { known: all ? known / all : 0, ready: all ? ready / all : 0, lines: tokens.length ? readable / tokens.length : 0 },
+    coverage: {
+      known: all ? known / all : 0,
+      ready: all ? ready / all : 0,
+      lines: tokens.length ? readable / tokens.length : 0,
+      prepped: all ? prep / all : 0,
+    },
     mustLeft: left.size,
     perLine,
   };
@@ -548,17 +630,17 @@ async function record(sql: Sql, owner: string, id: number, r: ReturnType<typeof 
   const day = await ownersDay(sql, owner);
   const c = r.coverage;
   await sql`
-    insert into chongfuxi_episode_progress (owner_email, episode_id, day, known, ready, lines, must_left)
-    values (${owner}, ${id}, ${day}, ${round3(c.known)}, ${round3(c.ready)}, ${round3(c.lines)}, ${r.mustLeft})
+    insert into chongfuxi_episode_progress (owner_email, episode_id, day, known, ready, lines, must_left, prepped)
+    values (${owner}, ${id}, ${day}, ${round3(c.known)}, ${round3(c.ready)}, ${round3(c.lines)}, ${r.mustLeft}, ${round3(c.prepped)})
     on conflict (owner_email, episode_id, day) do update set
-      at = now(), known = excluded.known, ready = excluded.ready, lines = excluded.lines, must_left = excluded.must_left
+      at = now(), known = excluded.known, ready = excluded.ready, lines = excluded.lines, must_left = excluded.must_left, prepped = excluded.prepped
   `;
   await sql`update chongfuxi_episode set known = ${round3(c.known)} where owner_email = ${owner} and id = ${id}`;
 }
 
 async function progressOf(sql: Sql, owner: string, id: number): Promise<EpisodeProgress[]> {
   return (await sql`
-    select to_char(day, 'YYYY-MM-DD') as day, known, ready, lines, must_left as "mustLeft"
+    select to_char(day, 'YYYY-MM-DD') as day, known, ready, lines, must_left as "mustLeft", prepped
     from chongfuxi_episode_progress where owner_email = ${owner} and episode_id = ${id} order by day
   `) as unknown as EpisodeProgress[];
 }
@@ -576,15 +658,15 @@ async function measureStale(sql: Sql, owner: string, dict: Dict) {
   `) as unknown as Array<{ id: number }>;
   for (const { id } of stale) {
     const r = await rowOf(sql, owner, id);
-    const { tokens } = await measure(sql, owner, dict, r);
-    await record(sql, owner, id, readiness(tokens, mustOf(r.prep)));
+    const { tokens, prepped } = await measure(sql, owner, dict, r);
+    await record(sql, owner, id, readiness(tokens, mustOf(r.prep), prepped));
   }
 }
 
 /** The episode opened for study, measured against the deck now. Owner only. */
 export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: number): Promise<EpisodeView> {
   const r = await rowOf(sql, owner, id);
-  const { a, tokens, unknown } = await measure(sql, owner, dict, r);
+  const { a, tokens, unknown, prepped } = await measure(sql, owner, dict, r);
   const prep = r.prep;
   const tier = new Map((prep?.words ?? []).map((w) => [w.word, w]));
   const order = { must: 0, nice: 1, skip: 2 } as const;
@@ -619,7 +701,7 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     words.unshift({ word: w.word, tier: "must", note: w.note, count: saidAll.get(w.word) ?? 0, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, inDeck: deck.has(w.word) });
   }
   words.sort((x, y) => order[x.tier] - order[y.tier] || Number(x.inDeck) - Number(y.inDeck) || y.count - x.count);
-  const measured = readiness(tokens, mustOf(prep));
+  const measured = readiness(tokens, mustOf(prep), prepped);
   const lineKnown = measured.perLine;
   const sceneList = prep?.scenes.length ? prep.scenes : autoScenes(r.lines);
   const scenes = sceneList.map((sc, i) => {
@@ -654,8 +736,14 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     notes: r.notes ?? [],
     trouble: Object.fromEntries(trouble),
     deck: await deckOf(sql, owner, id, pickDeck(r.lines, tokens, targets, (r.notes ?? []).map((n) => n.i))),
+    plan: await (async () => {
+      const progress = await chapterProgress(sql, owner, id);
+      return planOf(sql, owner, r, tokens, unknown, measured, prepped, scenes, progress.done, progress.retells);
+    })(),
     looks: a.looks,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
+    video: r.video ?? videoId(r.source ?? ""),
+    offset: r.offset_ms,
   };
 }
 
@@ -771,8 +859,8 @@ export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number,
   if (!line) throw new EpisodeError("No such line.");
   const a = await analyse(sql, owner, dict, { text: line.zh, kind: "paste", title: null, url: null });
   const names = new Set(r.prep?.names ?? []);
-  const fresh = await mustNew(sql, owner, r.prep);
-  const toks = a.paragraphs.flat(2).filter((t) => t.k).map((t) => standingIn(t, names, fresh));
+  const [fresh, prepped] = await Promise.all([mustNew(sql, owner, r.prep), preppedIn(sql, owner, r.id)]);
+  const toks = a.paragraphs.flat(2).filter((t) => t.k).map((t) => standingIn(t, names, fresh, prepped));
   const words = [...new Set(toks.map((t) => t.t))];
   if (!words.length) return [];
   const standing = new Map(toks.map((t) => [t.t, t.k!]));
@@ -915,4 +1003,273 @@ export async function answerEpisodeCard(sql: Sql, owner: string, id: number, i: 
     on conflict (owner_email, episode_id, i) do update set result = excluded.result, tries = chongfuxi_episode_card.tries + 1, at = now()
   `;
   return { ok: true };
+}
+
+/** Words a round of prep asks for at most (the owner's cap: a quick pre-watch prep, not 100%). */
+export const PREP_MAX = 15;
+/** A word in this many of the owner's sentences is worth keeping, if it is on no HSK list. */
+const KEEP_SENTENCES = 5;
+/** Lines a planned word is learnt from. */
+const PLAN_LINES = 3;
+
+/** Key words a chapter asks for at most, and lines to listen to after watching it. */
+export const CHAPTER_WORDS = 5;
+const CHAPTER_LISTEN = 3;
+
+/**
+ * What to learn next to be ready for an episode (the owner: "I don't need to
+ * be 100% comprehension… I'm worried about having words in my deck that I'll
+ * never see again after the show"). The words not known, ranked by what each
+ * does for the episode (how many lines it alone keeps unreadable, how often
+ * it is said, must-knows first), Muse's skips left out, at most PREP_MAX;
+ * each split into worth keeping (an HSK word, one in KEEP_SENTENCES of the
+ * owner's sentences, or Muse says so: it goes to the deck) or for the show
+ * only (learnt here, never in the deck). The rest is listed to skip. With
+ * readiness now and once the plan is learnt. And chapter by chapter (the
+ * owner: "more bite size… watching this episode chapter by chapter"): each
+ * chapter's key words, ranked the same way within it, and the lines to
+ * listen to after watching it.
+ */
+async function planOf(
+  sql: Sql,
+  owner: string,
+  r: Row,
+  tokens: TextToken[][],
+  unknown: Array<{ word: string; count: number; pinyin: string | null; gloss: string | null }>,
+  measured: ReturnType<typeof readiness>,
+  prepped: Set<string>,
+  scenes: Array<{ start: number; end: number }>,
+  done: Set<number>,
+  retells: Map<number, Retell[]>,
+): Promise<EpisodePlan> {
+  const muse = new Map((r.prep?.words ?? []).map((w) => [w.word, w]));
+  const info = new Map(unknown.map((u) => [u.word, u]));
+  const notes = new Set((r.notes ?? []).map((n) => n.i));
+  // Within a run of lines: how many each word alone keeps unreadable, how often it is said, the lines it is in.
+  const measure = (from: number, to: number) => {
+    const unlocks = new Map<string, number>();
+    const said = new Map<string, number>();
+    const linesOf = new Map<string, number[]>();
+    for (let i = from; i < to; i++) {
+      const fresh = (tokens[i] ?? []).filter((t) => t.k === "unknown").map((t) => t.t);
+      for (const w of fresh) said.set(w, (said.get(w) ?? 0) + 1);
+      const distinct = [...new Set(fresh)];
+      if (distinct.length === 1) unlocks.set(distinct[0], (unlocks.get(distinct[0]) ?? 0) + 1);
+      for (const w of distinct) (linesOf.get(w) ?? linesOf.set(w, []).get(w)!).push(i);
+    }
+    const score = (w: string) => (unlocks.get(w) ?? 0) * 3 + (said.get(w) ?? 0) + (muse.get(w)?.tier === "must" ? 8 : 0);
+    const ranked = [...said.keys()].filter((w) => muse.get(w)?.tier !== "skip").sort((x, y) => score(y) - score(x) || (said.get(y) ?? 0) - (said.get(x) ?? 0));
+    return { unlocks, said, linesOf, ranked };
+  };
+  const whole = measure(0, tokens.length);
+  const chosen = whole.ranked.slice(0, PREP_MAX);
+  const picked = new Set(chosen);
+  const skip = unknown
+    .filter((u) => !picked.has(u.word))
+    .sort((x, y) => y.count - x.count)
+    .slice(0, 40)
+    .map((u) => ({ word: u.word, count: u.count }));
+  const byChapter = scenes.map((sc) => ({ sc, m: measure(sc.start, sc.end) }));
+  const chapterWords = byChapter.map(({ m }) => m.ranked.slice(0, CHAPTER_WORDS));
+
+  // Worth keeping: on an HSK list, or common in the owner's own sentences.
+  const words = [...new Set([...chosen, ...chapterWords.flat()])];
+  const [listed, inSentences] = words.length
+    ? await Promise.all([
+        sql`select word, lists from chongfuxi_word where owner_email = ${owner} and word = any(${words}::text[])` as unknown as Promise<
+          Array<{ word: string; lists: string[] }>
+        >,
+        sql`
+          select word, count(distinct sentence_id)::int as n from chongfuxi_token
+          where owner_email = ${owner} and word = any(${words}::text[]) group by word
+        ` as unknown as Promise<Array<{ word: string; n: number }>>,
+      ])
+    : [[], []];
+  const lists = new Map(listed.map((x) => [x.word, x.lists ?? []]));
+  const count = new Map(inSentences.map((x) => [x.word, x.n]));
+  const keepWhy = (w: string): string | null => {
+    const said = muse.get(w)?.keep;
+    if (said === false) return null;
+    const hsk = hskOf(lists.get(w) ?? []);
+    if (hsk.v3) return `HSK 3.0 · ${hsk.v3}`;
+    if (hsk.old) return `HSK ${hsk.old}`;
+    const n = count.get(w) ?? 0;
+    if (n >= KEEP_SENTENCES) return `in ${n} of your sentences`;
+    return said === true ? "Muse: worth keeping" : null;
+  };
+  // Lines to learn it from: the fewest other new words, then nearest twelve characters, then with English.
+  const easiest = (w: string, among: number[]) =>
+    among
+      .map((i) => ({ i, other: new Set(tokens[i].filter((t) => t.k === "unknown" && t.t !== w).map((t) => t.t)).size }))
+      .sort(
+        (a, b) =>
+          a.other - b.other ||
+          Math.abs(r.lines[a.i].zh.length - 12) - Math.abs(r.lines[b.i].zh.length - 12) ||
+          Number(!r.lines[a.i].en) - Number(!r.lines[b.i].en) ||
+          a.i - b.i,
+      )
+      .slice(0, PLAN_LINES)
+      .map((x) => x.i);
+  const planWord = (w: string, m: ReturnType<typeof measure>): EpisodePlanWord => ({
+    word: w,
+    pinyin: info.get(w)?.pinyin ?? null,
+    gloss: info.get(w)?.gloss ?? null,
+    note: muse.get(w)?.note ?? null,
+    must: muse.get(w)?.tier === "must",
+    count: m.said.get(w) ?? 0,
+    unlocks: m.unlocks.get(w) ?? 0,
+    keepWhy: keepWhy(w),
+    lines: easiest(w, m.linesOf.get(w) ?? []),
+  });
+  const planned = chosen.map((w) => planWord(w, whole));
+
+  // After watching a chapter, its lines to listen to: those with its key words, Muse's notes, then the most new words; 5 to 30 characters.
+  const listenIn = (sc: { start: number; end: number }, keys: string[]) => {
+    const key = new Set(keys);
+    const scored: Array<{ i: number; score: number }> = [];
+    for (let i = sc.start; i < sc.end; i++) {
+      const zh = r.lines[i].zh;
+      if (zh.length < 5 || zh.length > 30) continue;
+      const toks = tokens[i] ?? [];
+      const score =
+        (toks.some((t) => key.has(t.t)) ? 4 : 0) +
+        (notes.has(i) ? 2 : 0) +
+        toks.filter((t) => t.k === "unknown" || t.k === "learning").length;
+      scored.push({ i, score });
+    }
+    return scored
+      .sort((a, b) => b.score - a.score || a.i - b.i)
+      .slice(0, CHAPTER_LISTEN)
+      .map((x) => x.i)
+      .sort((a, b) => a - b);
+  };
+  const chapters: EpisodeChapterPlan[] = byChapter.map(({ sc, m }, c) => ({
+    words: chapterWords[c].map((w) => planWord(w, m)),
+    listen: listenIn(sc, chapterWords[c]),
+    done: done.has(c),
+    retells: retells.get(c) ?? [],
+  }));
+
+  // Readiness once they are learnt: as words still being learnt, as they will be.
+  const after = readiness(
+    tokens.map((line) => line.map((t) => (t.k === "unknown" && picked.has(t.t) ? { t: t.t, k: "learning" as const } : t))),
+    new Set(),
+  ).coverage;
+  return {
+    chapters,
+    keep: planned.filter((w) => w.keepWhy),
+    show: planned.filter((w) => !w.keepWhy),
+    skip,
+    prepped: [...prepped],
+    now: { known: measured.coverage.known, lines: measured.coverage.lines },
+    after: { known: after.known, lines: after.lines },
+  };
+}
+
+/** Chapters done, and the chapter retellings by chapter. */
+async function chapterProgress(sql: Sql, owner: string, id: number) {
+  const [done, said] = await Promise.all([
+    sql`select chapter from chongfuxi_episode_chapter where owner_email = ${owner} and episode_id = ${id}` as unknown as Promise<Array<{ chapter: number }>>,
+    sql`
+      select chapter, answer, result, (extract(epoch from at) * 1000)::double precision as at
+      from chongfuxi_episode_chapter_retell where owner_email = ${owner} and episode_id = ${id} order by at
+    ` as unknown as Promise<Array<{ chapter: number; answer: string; result: Omit<Retell, "q" | "answer" | "at">; at: number }>>,
+  ]);
+  const retells = new Map<number, Retell[]>();
+  for (const x of said) (retells.get(x.chapter) ?? retells.set(x.chapter, []).get(x.chapter)!).push({ ...x.result, q: 0, answer: x.answer, at: Math.round(x.at) });
+  return { done: new Set(done.map((d) => d.chapter)), retells };
+}
+
+/** A chapter's default question, when Muse wrote none. */
+const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened in this part?" };
+
+/**
+ * A chapter of an episode's chapter by chapter round: `done` marks it
+ * watched and checked; `answer` is a retelling, graded at Look up's model
+ * and effort (never lower) against the chapter's lines, by Muse's question
+ * for it or "这一段发生了什么？". Owner only.
+ */
+export async function chapterStep(sql: Sql, owner: string, input: Record<string, unknown>): Promise<{ done?: true; retell?: Retell }> {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const scenes = r.prep?.scenes.length ? r.prep.scenes : autoScenes(r.lines);
+  const c = typeof input.chapter === "number" ? input.chapter : -1;
+  const sc = scenes[c];
+  if (!sc) throw new EpisodeError("No such chapter.");
+  if (input.done === true) {
+    await sql`
+      insert into chongfuxi_episode_chapter (owner_email, episode_id, chapter) values (${owner}, ${id}, ${c})
+      on conflict (owner_email, episode_id, chapter) do update set done_at = now()
+    `;
+    return { done: true };
+  }
+  const said = str(input.answer, 600);
+  if (!HAN.test(said)) throw new ReadingError("Answer in Chinese.");
+  const end = c + 1 < scenes.length ? scenes[c + 1].start : r.lines.length;
+  const body = r.lines.slice(sc.start, end).map((l) => l.zh).join("\n");
+  const question = sc.question ?? CHAPTER_QUESTION;
+  const result = await gradeAnswer(body, `${r.show} ${r.episode} · ${sc.title}`, question, said);
+  await sql`
+    insert into chongfuxi_episode_chapter_retell (owner_email, episode_id, chapter, answer, result)
+    values (${owner}, ${id}, ${c}, ${said}, ${JSON.stringify(result)}::jsonb)
+  `;
+  return { retell: { ...result, q: 0, answer: said, at: Date.now() } };
+}
+
+/**
+ * A word learnt in an episode's Practice. Worth keeping: into the deck (one
+ * addition, source `episode:<show> <episode>`) and through Learn at once, so
+ * its first real review is the next study day, like a word finished on the
+ * Learn ladder. For the show only: kept as prepped for this episode, never
+ * in the deck. Owner only.
+ */
+export async function learnEpisodeWord(sql: Sql, owner: string, dict: Dict, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const word = str(input.learnt, 12);
+  if (!HAN.test(word) || !r.lines.some((l) => l.zh.includes(word))) throw new EpisodeError("That word isn't in this episode.");
+  const day = input.day;
+  if (!isStudyDay(day)) throw new EpisodeError("Which study day?");
+  if (input.keep === true) {
+    await addWords(sql, owner, `episode:${r.show} ${r.episode}`, [word], dict);
+    await sql`
+      update chongfuxi_card c
+      set learned_at = now(), learn_step = null,
+          due = greatest(c.due, to_timestamp(${day.cutoff}::double precision / 1000) + interval '1 second')
+      where c.owner_email = ${owner} and c.word = ${word} and c.kind = 'read' and c.state = 0 and c.learned_at is null
+    `;
+    await sql`delete from chongfuxi_episode_prepped where owner_email = ${owner} and episode_id = ${id} and word = ${word}`;
+    return { word, kept: true };
+  }
+  await sql`
+    insert into chongfuxi_episode_prepped (owner_email, episode_id, word) values (${owner}, ${id}, ${word})
+    on conflict do nothing
+  `;
+  return { word, kept: false };
+}
+
+/** Video time minus subtitle time, at most this far either way (ms). */
+const OFFSET_MAX = 10 * 60_000;
+
+/**
+ * The episode's YouTube video (a link or an id; "" takes it off), or how far
+ * the subtitles' clock is from the video's: `offset` is video time minus
+ * subtitle time, in ms. Owner, or the agent.
+ */
+export async function setEpisodeVideo(sql: Sql, owner: string, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  await rowOf(sql, owner, id);
+  if (typeof input.video === "string") {
+    const raw = input.video.trim();
+    const video = raw === "" ? null : (videoId(raw) ?? (/^[\w-]{11}$/.test(raw) ? raw : null));
+    if (raw && !video) throw new EpisodeError("That isn't a YouTube link.");
+    await sql`update chongfuxi_episode set video = ${video} where owner_email = ${owner} and id = ${id}`;
+    return { id, video };
+  }
+  if (typeof input.offset === "number" && Number.isFinite(input.offset)) {
+    const offset = Math.round(Math.max(-OFFSET_MAX, Math.min(OFFSET_MAX, input.offset)));
+    await sql`update chongfuxi_episode set offset_ms = ${offset} where owner_email = ${owner} and id = ${id}`;
+    return { id, offset };
+  }
+  throw new EpisodeError("Give { id, video } or { id, offset }.");
 }

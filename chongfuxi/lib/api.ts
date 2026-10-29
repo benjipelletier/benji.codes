@@ -33,6 +33,8 @@ export interface Summary {
   /** The same, by kind of card. A word with both due is in both, and shown once. */
   dueRead: number;
   dueRecall: number;
+  /** Recall cards never answered that are due but held for later days (`RECALL_BACKLOG_PER_DAY`). */
+  recallWaiting: number;
   dueSentences: number;
   /** Readable sentences not yet seen here: the pool new sentences come from, with no daily limit. */
   newSentences: number;
@@ -50,6 +52,8 @@ export interface Summary {
   dueTomorrow: number;
   /** New words waiting for Learn before they join the review. */
   toLearn: number;
+  /** The Learn steps those words have still to take, for the time a session would take. */
+  learnSteps: number;
   /**
    * The owner's pace: typical seconds a card of each kind takes in a session
    * (the median gap between answers, last PACE_DAYS days), for the time a
@@ -1244,12 +1248,16 @@ export interface EpisodeScene {
   summaryEn: string;
   /** Slang, dialect, culture: what the lines take for granted. */
   notes: string[];
+  /** Muse's question to retell the chapter by, after watching it. */
+  question?: { zh: string; en: string } | null;
 }
 
 /** A word of the episode not known yet, as Muse ranked it: must know, nice to know, or skip. */
 export interface EpisodeWord {
   word: string;
   tier: "must" | "nice" | "skip";
+  /** Muse's call on whether it is worth keeping in the deck after the show; null leaves it to the app. */
+  keep?: boolean | null;
   note: string | null;
   /** How often it is said in the episode. */
   count: number;
@@ -1339,6 +1347,8 @@ export interface EpisodeProgress {
   lines: number;
   /** Must-know words not learnt yet. */
   mustLeft: number;
+  /** Share of word occurrences known only as prepped for the show. */
+  prepped?: number;
 }
 
 /** An episode opened for study. Owner only: the subtitles aren't ours to serve. */
@@ -1355,11 +1365,17 @@ export interface EpisodeView extends EpisodeListed {
   questions: Array<{ zh: string; en: string }>;
   retells: Retell[];
   /** Shares (0–1): words known now; known once the must-knows are learnt; lines readable now. */
-  coverage: { known: number; ready: number; lines: number };
+  /** Shares known (counting words prepped for the show), known with the must-knows, lines readable, and prepped for the show alone. */
+  coverage: { known: number; ready: number; lines: number; prepped: number };
+  /** What to learn next to be ready, at most PREP_MAX words: those worth keeping go to the deck, the rest are learnt for the show only. */
+  plan: EpisodePlan;
   /** The same, a point per study day it was measured (opened, or the list read), oldest first. */
   progress: EpisodeProgress[];
   looks: Record<string, { p: string; gloss: string | null } | null>;
   /** The Muse list its must-know words are filed under, for Learn and Review. */
+  /** Its YouTube video id, to play it with the script following; and video time minus subtitle time (ms). */
+  video: string | null;
+  offset: number;
   list: string | null;
   /** Muse's notes on lines, by line. */
   notes: EpisodeLineNote[];
@@ -1367,4 +1383,152 @@ export interface EpisodeView extends EpisodeListed {
   trouble: Record<string, EpisodeTrouble>;
   /** The lines to practise, in story order. */
   deck: EpisodeCard[];
+}
+
+/** A week of study in figures, counted by the app (week.ts): the facts a debrief rests on. */
+export interface WeekFigures {
+  /** The seven study days, oldest to newest (YYYY-MM-DD). */
+  from: string;
+  to: string;
+  days: number;
+  minutes: number;
+  answers: { read: number; recall: number; sentence: number; total: number; got: number };
+  /** The seven days before, for comparison. */
+  before: { days: number; minutes: number; total: number; got: number };
+  /** Words through Learn this week. */
+  learnt: string[];
+  /** Word cards that passed three weeks' strength this week. */
+  matured: Array<{ word: string; kind: "read" | "produce" }>;
+  /** Words forgotten most this week, at least twice. */
+  forgotten: Array<{ word: string; times: number }>;
+  /** Words to revive now, by category. */
+  stuck: Array<{ word: string; category: string; why: string }>;
+  lookups: Array<{ query: string; verdict: string | null }>;
+  notes: number;
+  /** Muse's reviews this week: cards answered, got. */
+  drills: { answered: number; got: number };
+  /** Each episode's words known at the start and end of the week. */
+  episodes: Array<{ id: number; show: string; episode: string; from: number | null; to: number | null }>;
+}
+
+/** A part of Muse's weekly debrief. */
+export interface WeekSection {
+  kind: "better" | "stuck" | "looked" | "focus" | "note";
+  title: string;
+  text: string;
+  /** Words it is about, each opening its page. */
+  words: string[];
+}
+
+/** Muse's weekly debrief, with the figures it was written from. */
+export interface WeekReport {
+  to: string;
+  at: number;
+  model: string;
+  title: string;
+  sections: WeekSection[];
+  /** The words Muse will aim at next week. */
+  focus: string[];
+  figures: WeekFigures;
+}
+
+/**
+ * A block on Muse's daily page (musepage.ts): Muse lays the page out from
+ * these, in any order and mix. `id` names it for what the owner does on it.
+ */
+export type MuseBlock = { id: string } & (
+  | { type: "heading"; text: string }
+  | { type: "text"; text: string; words: string[] }
+  | { type: "callout"; label: string; text: string; tone: "info" | "good" | "warn"; words: string[] }
+  | { type: "passage"; title: string; zh: string; en: string; source: { url: string; name: string } | null; words: string[] }
+  | { type: "cards"; title: string; cards: DrillCard[] }
+  | { type: "ask"; zh: string; en: string; about: string | null; check: "now" | "muse"; hint: string }
+  | { type: "words"; title: string; words: Array<{ word: string; note: string }> }
+  | { type: "figures"; items: Array<{ label: string; value: string; note: string }> }
+  | { type: "link"; url: string; title: string; note: string }
+  | { type: "episode"; episode: number; line: number | null; note: string }
+  | { type: "fold"; title: string; blocks: MuseBlock[] }
+);
+
+/** Something the owner did on a block, kept for Muse to read. */
+export interface MuseEvent {
+  block: string;
+  at: number;
+  kind: "open" | "card" | "answer" | "tap" | "done";
+  data: Record<string, unknown>;
+}
+
+/** What a block needs from the server to be drawn: a passage marked, words with where they stand, an episode's name. */
+export type MuseFilled =
+  | { kind: "passage"; text: TextAnalysis }
+  | { kind: "words"; words: Array<{ word: string; pinyin: string | null; gloss: string | null; standing: "deck" | "learning" | "listed" | "new" }> }
+  | { kind: "episode"; show: string; episode: string; known: number | null };
+
+/** Muse's page for a day. */
+export interface MusePage {
+  day: string;
+  at: number;
+  model: string;
+  title: string;
+  /** A line from Muse over the page. */
+  note: string;
+  /** "scroll": one page; "steps": a step per heading, one at a time. */
+  style: "scroll" | "steps";
+  blocks: MuseBlock[];
+  /** By block id, filled in when opened. */
+  filled: Record<string, MuseFilled>;
+  events: MuseEvent[];
+  today: boolean;
+}
+
+/** A page in the list of Muse's pages. */
+export interface MusePageListed {
+  day: string;
+  at: number;
+  title: string;
+  blocks: number;
+  /** Blocks the owner did something on. */
+  touched: number;
+  today: boolean;
+}
+
+/** A word to learn for an episode, with what learning it does for the episode. */
+export interface EpisodePlanWord {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  note: string | null;
+  must: boolean;
+  /** How often it is said, and the lines it alone keeps unreadable. */
+  count: number;
+  unlocks: number;
+  /** Why it is worth keeping (an HSK level, how many of the owner's sentences have it, Muse), or null for the show only. */
+  keepWhy: string | null;
+  /** Lines to learn it from, easiest first. */
+  lines: number[];
+}
+
+/** The next round of prep for an episode: worth keeping (to the deck), for the show only, and what is left to skip. */
+export interface EpisodePlan {
+  /** Chapter by chapter, for bite-size prep: each chapter's key words and the lines to check listening on. */
+  chapters: EpisodeChapterPlan[];
+  keep: EpisodePlanWord[];
+  show: EpisodePlanWord[];
+  skip: Array<{ word: string; count: number }>;
+  /** Words prepped for the show so far. */
+  prepped: string[];
+  /** Readiness now, and once the plan's words are learnt. */
+  now: { known: number; lines: number };
+  after: { known: number; lines: number };
+}
+
+/** A chapter's round: prep its key words, watch it, check, done. */
+export interface EpisodeChapterPlan {
+  /** The words that do most for this chapter, at most CHAPTER_WORDS, worth keeping or for the show as in the plan. */
+  words: EpisodePlanWord[];
+  /** Lines to listen to after watching, in story order. */
+  listen: number[];
+  done: boolean;
+  /** Retellings of the chapter, oldest first. */
+  retells: Retell[];
 }

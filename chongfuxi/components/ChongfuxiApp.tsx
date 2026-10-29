@@ -16,6 +16,7 @@ import { Account } from "./Account";
 import { BugButton } from "./BugReport";
 import { SyncPage } from "./SyncPage";
 import { TabIcon } from "./TabIcon";
+import { StuckList, useMuseNew } from "./Rescue";
 import { ReviewPanel } from "./ReviewPanel";
 import { StatsPanel } from "./StatsPanel";
 import { WordPageHost } from "./WordWall";
@@ -26,15 +27,17 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import { routeChoice, setRouteParam } from "@chongfuxi/lib/route";
 import { Loading, Waiting, fmt, message, useBackLayer, useOutbox, type Shell } from "./shared";
 
-const TAB_KEYS = ["review", "cards", "lookup", "stats", "settings"] as const;
+const TAB_KEYS = ["review", "cards", "muse", "lookup", "stats", "settings"] as const;
 type Tab = (typeof TAB_KEYS)[number];
 
-// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 查, 统计, 设置.
+// Each icon carries a character of the tab's Chinese name: 复习, 卡片, 思 (Muse), 查, 统计, 设置.
 const OFFLINE = "No connection: these counts may be out of date.";
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: "review", label: "Review" },
   { key: "cards", label: "Cards" },
+  // Everything from the owner's agent: its daily page, episodes, notes, stuck and new words.
+  { key: "muse", label: "Muse" },
   // The owner's only: every lookup asks a model.
   { key: "lookup", label: "Look up" },
   { key: "stats", label: "Stats" },
@@ -46,6 +49,8 @@ export function ChongfuxiApp() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("review");
+  // A dot on the Muse tab when Muse has something new since it was last opened here.
+  const museNew = useMuseNew();
   // The tab is in the address (lib/route.ts), so a reload comes back to it: read once on
   // the client, before the tab's own default can clear it, then kept up to date.
   const [routed, setRouted] = useState(false);
@@ -169,6 +174,7 @@ export function ChongfuxiApp() {
         )}
         {routed && summary?.viewer.configured && tab === "review" && <ReviewPanel shell={shell} onImport={() => go("settings", "pleco")} />}
         {routed && summary?.viewer.configured && tab === "cards" && <CardsPanel shell={shell} />}
+        {routed && summary?.viewer.configured && tab === "muse" && <StuckList shell={shell} />}
         {routed && summary?.viewer.configured && tab === "lookup" && <LookupPanel shell={shell} routed />}
         {routed && summary?.viewer.configured && tab === "stats" && <StatsPanel shell={shell} />}
         {routed && summary && tab === "settings" && <SettingsPanel shell={shell} start={settingsPage} />}
@@ -206,6 +212,7 @@ export function ChongfuxiApp() {
           >
             <span className="cf-tab-icon">
               <TabIcon kind={t.key} />
+              {t.key === "muse" && museNew && tab !== "muse" && <i className="cf-tab-dot" aria-label="New from Muse" />}
             </span>
             <span className="cf-tab-label">{t.label}</span>
           </button>

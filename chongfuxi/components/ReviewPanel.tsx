@@ -21,7 +21,7 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import { DUE_PER_NEW, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
+import { DUE_PER_NEW, RECALL_BACKLOG_PER_DAY, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses, readingOfSense } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -35,7 +35,7 @@ import { ReviewedSheet, type Answered } from "./Reviewed";
 import { SplitEditor } from "./SplitEditor";
 import { CardAnswers } from "./Notes";
 import { RecapSheet, worthRecap, type SessionReport } from "./Recap";
-import { RescueHook, StuckList, StuckWords } from "./Rescue";
+import { RescueHook } from "./Rescue";
 import { SynonymContrast } from "./Synonyms";
 import { Loading, AiPill, AiTag, DefineButton, History, HskTags, LongkuTag, PlecoTile, aiDefined, SentenceText, Sheet, Waiting, Word, fmt, message, span, useBackLayer, type Shell } from "./shared";
 
@@ -166,9 +166,10 @@ const EVERYTHING: SessionKinds = { read: true, recall: true, sentences: true, le
 /**
  * About how long what is due would take at the owner's own pace (the median
  * seconds a card of each kind takes in a session): the word cards, the due
- * sentences, and the new sentences mixed in with them (one per DUE_PER_NEW
- * due). New words' Learn steps are in the pace already, as they come between
- * cards. Null until there is a pace to go by.
+ * sentences, the new sentences mixed in with them (one per DUE_PER_NEW due),
+ * and, with New words chosen, the Learn steps the new words have left, each
+ * at the Read pace (the Learn log keeps no times; the owner found them left
+ * out). Null until there is a pace to go by.
  */
 function sessionTime(s: Summary, kinds: SessionKinds): string | null {
   const { read, produce, sentence } = s.pace ?? { read: null, produce: null, sentence: null };
@@ -178,13 +179,19 @@ function sessionTime(s: Summary, kinds: SessionKinds): string | null {
   const wordPace = (read ?? produce ?? 0) * share + (produce ?? read ?? 0) * (1 - share);
   const dueSentences = kinds.sentences ? s.dueSentences : 0;
   const fresh = kinds.sentences && s.newSentences ? Math.ceil((words + dueSentences) / DUE_PER_NEW) : 0;
-  const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace);
+  const learning = kinds.learn ? (s.learnSteps ?? 0) * (read ?? wordPace) : 0;
+  const seconds = words * wordPace + (dueSentences + fresh) * (sentence ?? wordPace) + learning;
   if (!seconds) return null;
   const minutes = Math.max(1, Math.round(seconds / 60));
   return minutes < 60 ? `~${minutes}m` : `~${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
 }
 
 /** Words with a card to show under these choices. A word with both cards due is shown once. */
+/** A count in the session bar: 3,250 as 3.2k, so four kinds fit beside the bar. */
+function short(n: number): string {
+  return n >= 1000 ? `${Math.floor(n / 100) / 10}k` : String(n);
+}
+
 function wordsDue(s: { dueWords: number; dueRead: number; dueRecall: number }, kinds: SessionKinds): number {
   if (kinds.read && kinds.recall) return s.dueWords;
   return kinds.read ? s.dueRead : kinds.recall ? s.dueRecall : 0;
@@ -202,7 +209,7 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   // A session under way is in the address, so a reload deals again what is still due
   // (lib/route.ts), with the kinds chosen on this device. Only drawn on the client.
   const [kinds, setKinds] = useState<SessionKinds>(() => rememberedKinds());
-  const [started, setStarted] = useState<"session" | "fast" | "rescue" | null>(() => (routeParam("review") === "session" ? "session" : null));
+  const [started, setStarted] = useState<"session" | "fast" | null>(() => (routeParam("review") === "session" ? "session" : null));
   const { setFocus, refresh } = shell;
   useRouteParam("review", started === "session" ? "session" : null);
   useEffect(() => {
@@ -229,11 +236,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
     setFocus(true);
     setStarted(how);
   };
-  // The stuck words and their rescues (Rescue.tsx).
-  const rescue = () => {
-    setFocus(true);
-    setStarted("rescue");
-  };
   // What the session did, kept as it goes, for a look back once it is left (the owner asked).
   const report = useRef<SessionReport | null>(null);
   const [recap, setRecap] = useState<SessionReport | null>(null);
@@ -253,7 +255,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   useEffect(() => () => setFocus(false), [setFocus]);
 
   if (started === "fast") return <FastReview shell={shell} onEnd={end} saved={resume.load()} />;
-  if (started === "rescue") return <StuckList shell={shell} onEnd={end} />;
   if (started) return <Session shell={shell} kinds={kinds} onEnd={end} onReport={(r) => (report.current = r)} />;
   return (
     <>
@@ -264,7 +265,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
         onChoose={choose}
         onStart={() => begin("session")}
         onFast={() => begin("fast")}
-        onRescue={rescue}
         onImport={onImport}
       />
     </>
@@ -278,7 +278,6 @@ function Today({
   onChoose,
   onStart,
   onFast,
-  onRescue,
   onImport,
 }: {
   shell: Shell;
@@ -286,7 +285,6 @@ function Today({
   onChoose: (k: SessionKinds) => void;
   onStart: () => void;
   onFast: () => void;
-  onRescue: () => void;
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
@@ -345,9 +343,6 @@ function Today({
       {/* The days either side of today: reviewed before, due after, by kind. */}
       <DayStrip summary={s} kinds={kinds} />
 
-      {/* Words forgotten again and again: one button, opening their list and AI rescues (Rescue.tsx). */}
-      <StuckWords onOpen={onRescue} />
-
       {/* What is due by kind, each row the choice to take that kind in or leave it out. */}
       <ul className="cf-kinds">
         <li>
@@ -367,7 +362,11 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to recall
-              <small>See the meaning, produce the word</small>
+              <small>
+                {s.recallWaiting > 0
+                  ? `${fmt(s.recallWaiting)} more first ones wait for the days after (${fmt(RECALL_BACKLOG_PER_DAY)} a day)`
+                  : "See the meaning, produce the word"}
+              </small>
             </span>
             <b>{fmt(s.dueRecall)}</b>
           </label>
@@ -894,7 +893,28 @@ export function Session({
         <div className="cf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
           <i style={{ width: `${progress}%` }} />
         </div>
-        <span className="cf-left">{more ? "more" : fmt(left)}</span>
+        {!list && !more && summary ? (
+          // What is left of each kind, as a small card in its colour and the count (the owner asked for every kind here, as icons).
+          <span className="cf-session-kinds" aria-label={`${fmt(left)} left`}>
+            {(
+              [
+                ["read", "Read", kinds.read ? summary.dueRead : 0],
+                ["recall", "Recall", kinds.recall ? summary.dueRecall : 0],
+                ["sentence", "Sentence", kinds.sentences ? summary.dueSentences : 0],
+                ["new", "New words", kinds.learn ? summary.toLearn : 0],
+              ] as Array<[string, string, number]>
+            )
+              .filter(([, , n]) => n > 0)
+              .map(([k, label, n]) => (
+                <span key={k} className={`is-${k}`} title={`${fmt(n)} ${label}`}>
+                  <i aria-hidden="true" />
+                  {short(n)}
+                </span>
+              ))}
+          </span>
+        ) : (
+          <span className="cf-left">{more ? "more" : fmt(left)}</span>
+        )}
         {log.length > 0 && (
           <button className="cf-session-log" onClick={() => setLookingBack(true)} aria-label={`Look back over ${log.length} answers`}>
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
@@ -906,26 +926,6 @@ export function Session({
           </button>
         )}
       </div>
-      {/* What is left of each kind, in its colour (the owner asked to see every kind here, not one total). */}
-      {!list && !more && summary && (
-        <p className="cf-session-kinds" aria-label="Left by kind">
-          {(
-            [
-              ["read", "Read", kinds.read ? summary.dueRead : 0],
-              ["recall", "Recall", kinds.recall ? summary.dueRecall : 0],
-              ["sentence", "Sentence", kinds.sentences ? summary.dueSentences : 0],
-              ["new", "New", kinds.learn ? summary.toLearn : 0],
-            ] as Array<[string, string, number]>
-          )
-            .filter(([, , n]) => n > 0)
-            .map(([k, label, n]) => (
-              <span key={k} className={`is-${k}`}>
-                <i aria-hidden="true" />
-                <b>{fmt(n)}</b> {label}
-              </span>
-            ))}
-        </p>
-      )}
       {lookingBack && (
         <ReviewedSheet
           log={log}

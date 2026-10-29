@@ -25,6 +25,7 @@ import type {
   TextToken,
 } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
+import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { say } from "./Drill";
@@ -100,34 +101,72 @@ function spans(ep: Episode): Array<{ from: number; to: number }> {
   }));
 }
 
+/** Where an element sits in a scrolling box, from the box's top: offsetTop is measured from its chapter, not the box. */
+const topIn = (box: HTMLElement, el: HTMLElement) => el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+
+/** The line said at a time: the last that starts at or before it. */
+function lineAt(ep: Episode, t: number): number {
+  let lo = 0;
+  let hi = ep.lines.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ep.lines[mid].s <= t) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
 /**
- * The chapters as one bar, each scene a segment as long as it runs, like
- * YouTube's. Dragging along it shows the scene under the finger with its
- * start; letting go (or a tap) opens it. Arrow keys step through.
+ * The episode as one bar, each scene a segment as long as it runs, like
+ * YouTube's, with a playhead where the script is. Dragging along it scrubs
+ * the script line by line as the finger moves (`onScrub`, the time under the
+ * finger), with the time, the chapter and the line in a tip; a tap jumps
+ * there. Arrow keys step a chapter (`onPick`).
  */
-function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; current: number; onPick: (i: number) => void; compact?: boolean }) {
+function ChapterBar({
+  ep,
+  current,
+  at,
+  onScrub,
+  onScrubEnd,
+  onPick,
+  compact = false,
+}: {
+  ep: Episode;
+  current: number;
+  /** Where the script is, on the clock. */
+  at: number;
+  onScrub: (t: number) => void;
+  /** Letting go, at the time last scrubbed to. */
+  onScrubEnd?: (t: number) => void;
+  onPick: (i: number) => void;
+  compact?: boolean;
+}) {
   const bar = useRef<HTMLDivElement>(null);
-  const [hover, setHover] = useState<{ i: number; x: number } | null>(null);
+  const [hover, setHover] = useState<{ i: number; x: number; t: number } | null>(null);
   const times = spans(ep);
   const total = Math.max(1, times[times.length - 1]?.to ?? ep.duration);
 
-  const sceneAt = (clientX: number) => {
+  const pointAt = (clientX: number) => {
     const box = bar.current!.getBoundingClientRect();
     const x = Math.min(Math.max(clientX - box.left, 0), box.width);
     const t = (x / box.width) * total;
     let i = times.findIndex((s) => t < s.to);
     if (i < 0) i = times.length - 1;
-    return { i, x };
+    return { i, x, t };
   };
-  const move = (clientX: number) => {
-    const { i, x } = sceneAt(clientX);
-    setHover({ i, x });
+  const scrub = (clientX: number) => {
+    const p = pointAt(clientX);
+    setHover(p);
+    onScrub(p.t);
   };
 
   const shown = hover?.i ?? current;
-  // Over the finger while scrubbing, else over the open chapter's middle; kept clear of the ends.
-  const at = hover ? `${hover.x}px` : `${((times[current].from + times[current].to) / 2 / total) * 100}%`;
-  const tipLeft = `clamp(${compact ? 120 : 70}px, ${at}, calc(100% - ${compact ? 120 : 70}px))`;
+  const headAt = hover ? hover.t : Math.min(Math.max(at, 0), total);
+  // Over the finger while scrubbing; kept clear of the ends.
+  const tipAt = hover ? `${hover.x}px` : `${(headAt / total) * 100}%`;
+  const tipLeft = `clamp(${compact ? 120 : 70}px, ${tipAt}, calc(100% - ${compact ? 120 : 70}px))`;
+  const said = hover ? ep.lines[lineAt(ep, hover.t)]?.zh : null;
   return (
     <div className={`cf-ch${compact ? " is-compact" : ""}`}>
       <div
@@ -141,16 +180,17 @@ function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; cur
         aria-valuenow={current + 1}
         aria-valuetext={`${current + 1}. ${ep.scenes[current].title}, ${clock(times[current].from)}`}
         onPointerDown={(e) => {
+          e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
-          move(e.clientX);
+          scrub(e.clientX);
         }}
-        onPointerMove={(e) => hover && move(e.clientX)}
-        onPointerUp={(e) => {
-          const { i } = sceneAt(e.clientX);
+        onPointerMove={(e) => hover && scrub(e.clientX)}
+        onPointerUp={() => {
+          if (hover) onScrubEnd?.(hover.t);
           setHover(null);
-          onPick(i);
         }}
         onPointerCancel={() => setHover(null)}
+        onLostPointerCapture={() => setHover(null)}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight" || e.key === "ArrowDown") onPick(Math.min(current + 1, ep.scenes.length - 1));
           else if (e.key === "ArrowLeft" || e.key === "ArrowUp") onPick(Math.max(current - 1, 0));
@@ -168,13 +208,16 @@ function ChapterBar({ ep, current, onPick, compact = false }: { ep: Episode; cur
             <i style={{ width: pct(ep.scenes[i].known) }} />
           </span>
         ))}
-        {hover && <span className="cf-ch-head" style={{ left: hover.x }} />}
+        <span className={`cf-ch-head${hover ? " is-held" : ""}`} style={{ left: `${(headAt / total) * 100}%` }} />
       </div>
-      {/* Compact (over the script), the time and title show only while scrubbing. */}
+      {/* Compact (over the script), the time, chapter and line show only while scrubbing. */}
       {(!compact || hover) && (
         <div className="cf-ch-tipline">
           <span className="cf-ch-tip" style={{ left: tipLeft }}>
-            <b>{clock(times[shown].from)}</b> <span className="cf-zh">{ep.scenes[shown].title}</span>
+            <span className="cf-ch-tip-top">
+              <b>{clock(hover ? hover.t : times[shown].from)}</b> <span className="cf-zh">{ep.scenes[shown].title}</span>
+            </span>
+            {said && <span className="cf-ch-tip-line cf-zh">{said}</span>}
           </span>
         </div>
       )}
@@ -237,6 +280,11 @@ function ProgressChart({ points }: { points: EpisodeProgress[] }) {
             {s.label} <b>{pct(shown[s.key])}</b>
           </span>
         ))}
+        {(shown.prepped ?? 0) > 0 && (
+          <span className="is-prepped">
+            of which prepped for the show <b>{pct(shown.prepped ?? 0)}</b>
+          </span>
+        )}
       </figcaption>
       <svg
         ref={svg}
@@ -644,7 +692,25 @@ function LinePanel({
 }
 
 /** The chapters across the top: the bar to scrub, and a chip each (start, title, how its lines grade), the one in view lit. */
-function ChapterStrip({ ep, current, grades, english, onPick }: { ep: Episode; current: number; grades: Grade[]; english: boolean; onPick: (i: number) => void }) {
+function ChapterStrip({
+  ep,
+  current,
+  at,
+  grades,
+  english,
+  onPick,
+  onScrub,
+  onScrubEnd,
+}: {
+  ep: Episode;
+  current: number;
+  at: number;
+  grades: Grade[];
+  english: boolean;
+  onPick: (i: number) => void;
+  onScrub: (t: number) => void;
+  onScrubEnd?: (t: number) => void;
+}) {
   const strip = useRef<HTMLDivElement>(null);
   const times = spans(ep);
   useEffect(() => {
@@ -654,13 +720,16 @@ function ChapterStrip({ ep, current, grades, english, onPick }: { ep: Episode; c
   }, [current]);
   return (
     <div className="cf-watch-chapters">
-      <ChapterBar ep={ep} current={current} onPick={onPick} compact />
+      <ChapterBar ep={ep} current={current} at={at} onScrub={onScrub} onScrubEnd={onScrubEnd} onPick={onPick} compact />
       <div className="cf-wchips" ref={strip}>
         {ep.scenes.map((sc, i) => {
           const part = grades.slice(sc.start, sc.end);
           return (
             <button key={i} className={`cf-wchip${i === current ? " is-on" : ""}`} onClick={() => onPick(i)}>
-              <span className="cf-wchip-at">{clock(times[i].from)}</span>
+              <span className="cf-wchip-at">
+                {clock(times[i].from)}
+                {ep.plan.chapters[i]?.done && <b className="cf-wchip-done"> ✓</b>}
+              </span>
               <span className="cf-wchip-title cf-zh">{sc.title}</span>
               {english && sc.titleEn && sc.titleEn !== sc.title && <span className="cf-wchip-en">{sc.titleEn}</span>}
               <span className="cf-wchip-grades" aria-label={`${pct(sc.known)} known`}>
@@ -712,7 +781,7 @@ const WHY_LABEL: Record<EpisodeCard["why"][number], string> = { must: "Must-know
  * for and Muse's note. Again brings it back a few cards later; Got it is
  * kept. Nothing touches a schedule.
  */
-function Practice({ ep, onAnswered }: { ep: Episode; onAnswered: (i: number, result: "got" | "again") => void }) {
+function Listening({ ep, onAnswered, onBack }: { ep: Episode; onAnswered: (i: number, result: "got" | "again") => void; onBack: () => void }) {
   const left = ep.deck.filter((c) => c.result !== "got");
   const [round, setRound] = useState<number[] | null>(null);
   const [shown, setShown] = useState(false);
@@ -742,7 +811,10 @@ function Practice({ ep, onAnswered }: { ep: Episode; onAnswered: (i: number, res
   if (!ep.deck.length)
     return (
       <div className="cf-watch-pane">
-        <p className="cf-muted">Nothing to practise yet: once Muse marks the must-knows, or you have trouble words in it, their lines show up here.</p>
+        <button className="cf-link cf-pr-back-link" onClick={onBack}>
+          ‹ Practice
+        </button>
+        <p className="cf-muted">No lines to listen through yet: once Muse marks the must-knows, or you have trouble words in it, their lines show up here.</p>
       </div>
     );
 
@@ -750,6 +822,9 @@ function Practice({ ep, onAnswered }: { ep: Episode; onAnswered: (i: number, res
     const got = ep.deck.length - left.length;
     return (
       <div className="cf-watch-pane cf-pr-home">
+        <button className="cf-link cf-pr-back-link" onClick={onBack}>
+          ‹ Practice
+        </button>
         <p className="cf-ep-big">
           {fmt(ep.deck.length)}
           <small> lines of {fmt(ep.lines.length)} to practise</small>
@@ -858,6 +933,927 @@ function Practice({ ep, onAnswered }: { ep: Episode; onAnswered: (i: number, res
   );
 }
 
+type YTPlayer = {
+  getCurrentTime(): number;
+  getPlayerState(): number;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
+  playVideo(): void;
+  pauseVideo(): void;
+  setPlaybackRate(rate: number): void;
+  destroy(): void;
+};
+type YTApi = { Player: new (el: HTMLElement, opts: Record<string, unknown>) => YTPlayer };
+
+/** YouTube's IFrame player API, loaded once. */
+let ytLoading: Promise<YTApi> | null = null;
+function loadYouTube(): Promise<YTApi> {
+  const w = window as unknown as { YT?: YTApi; onYouTubeIframeAPIReady?: () => void };
+  if (w.YT?.Player) return Promise.resolve(w.YT);
+  ytLoading ??= new Promise<YTApi>((resolve, reject) => {
+    const before = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      before?.();
+      resolve(w.YT!);
+    };
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    tag.onerror = () => {
+      ytLoading = null;
+      reject(new Error("YouTube's player couldn't load."));
+    };
+    document.head.appendChild(tag);
+  });
+  return ytLoading;
+}
+
+/** How often the player's time is read (ms). */
+const VIDEO_TICK = 250;
+/** One tap of the sync buttons (ms). */
+const NUDGE = 500;
+
+/** Video speeds, in the order a tap steps through them: slower first, for listening. */
+const SPEEDS = [1, 0.75, 0.5, 1.25];
+const SPEED_KEY = "cfx-video-speed";
+
+/** The video speed, remembered on the device, applied to the player when it is ready and whenever it changes. */
+function useSpeed(player: React.MutableRefObject<YTPlayer | null>) {
+  const [speed, setSpeed] = useState(1);
+  const ref = useRef(1);
+  ref.current = speed;
+  useEffect(() => {
+    try {
+      const kept = Number(localStorage.getItem(SPEED_KEY));
+      if (SPEEDS.includes(kept)) setSpeed(kept);
+    } catch {
+      // No storage: normal speed.
+    }
+  }, []);
+  useEffect(() => {
+    player.current?.setPlaybackRate?.(speed);
+  }, [speed, player]);
+  const next = () => {
+    const to = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+    setSpeed(to);
+    try {
+      localStorage.setItem(SPEED_KEY, String(to));
+    } catch {
+      // Not remembered.
+    }
+  };
+  /** For the player's onReady: the speed chosen before it was made. */
+  const apply = () => player.current?.setPlaybackRate?.(ref.current);
+  return { speed, next, apply };
+}
+
+function SpeedButton({ speed, onNext }: { speed: number; onNext: () => void }) {
+  return (
+    <button className={`cf-link cf-wv-speed${speed !== 1 ? " is-on" : ""}`} onClick={onNext} aria-label={`Speed ${speed}×, tap to change`}>
+      {speed}×
+    </button>
+  );
+}
+
+/** What the script asks of the player. */
+type VideoControl = { seek: (subtitleMs: number) => void; pause: () => void };
+
+/**
+ * The episode's YouTube video over the chapters (the owner: "line up the
+ * subtitles with the YouTube video embedded in our app"): its time, less the
+ * episode's offset, goes to the script as the subtitle clock. Play or pause,
+ * the clock, Follow (the script keeps the line being said in view), Sync
+ * (nudge the offset when the subtitles run early or late, kept for the
+ * episode) and hide or show the picture, which keeps playing.
+ */
+function VideoBar({
+  ep,
+  canWrite,
+  control,
+  follow,
+  onFollow,
+  onTime,
+}: {
+  ep: Episode;
+  canWrite: boolean;
+  control: React.MutableRefObject<VideoControl | null>;
+  follow: boolean;
+  onFollow: () => void;
+  onTime: (subtitleMs: number) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const player = useRef<YTPlayer | null>(null);
+  const rate = useSpeed(player);
+  const ready = useRef(rate.apply);
+  ready.current = rate.apply;
+  const [offset, setOffset] = useState(ep.offset);
+  const offsetRef = useRef(ep.offset);
+  const [playing, setPlaying] = useState(false);
+  const [now, setNow] = useState(0);
+  const [hidden, setHidden] = useState(false);
+  const [sync, setSync] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tell = useRef(onTime);
+  tell.current = onTime;
+
+  useEffect(() => {
+    if (!ep.video || !host.current) return;
+    let gone = false;
+    let tick: ReturnType<typeof setInterval> | undefined;
+    const el = document.createElement("div");
+    host.current.appendChild(el);
+    loadYouTube()
+      .then((YT) => {
+        if (gone) return;
+        player.current = new YT.Player(el, {
+          videoId: ep.video,
+          width: "100%",
+          height: "100%",
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0 },
+          events: {
+            onReady: () => ready.current(),
+            // 1 playing, 2 paused, 0 ended.
+            onStateChange: (e: { data: number }) => setPlaying(e.data === 1),
+            onError: () => setError("YouTube won't play this video here."),
+          },
+        });
+        control.current = {
+          seek: (ms) => player.current?.seekTo(Math.max(0, (ms + offsetRef.current) / 1000), true),
+          pause: () => player.current?.pauseVideo?.(),
+        };
+        tick = setInterval(() => {
+          const p = player.current;
+          if (!p?.getCurrentTime || p.getPlayerState?.() !== 1) return;
+          const t = p.getCurrentTime() * 1000 - offsetRef.current;
+          setNow(t);
+          tell.current(t);
+        }, VIDEO_TICK);
+      })
+      .catch((e) => setError(message(e)));
+    return () => {
+      gone = true;
+      if (tick) clearInterval(tick);
+      control.current = null;
+      player.current?.destroy?.();
+      player.current = null;
+      el.remove();
+    };
+  }, [ep.video, control]);
+
+  const nudge = (ms: number) => {
+    const next = offsetRef.current + ms;
+    offsetRef.current = next;
+    setOffset(next);
+    if (canWrite) send("episodes", { id: ep.id, offset: next }).catch((e) => setError(message(e)));
+  };
+
+  return (
+    <div className={`cf-wv${hidden ? " is-hidden" : ""}`}>
+      <div className="cf-wv-frame" ref={host} />
+      <div className="cf-wv-bar">
+        <button
+          className="cf-wv-play"
+          onClick={() => (playing ? player.current?.pauseVideo() : player.current?.playVideo())}
+          aria-label={playing ? "Pause" : "Play"}
+        >
+          {playing ? "❚❚" : "▶"}
+        </button>
+        <span className="cf-wv-clock">{clock(Math.max(0, now))}</span>
+        {!follow && (
+          <button className="cf-link cf-wv-follow" onClick={onFollow}>
+            ↓ Follow
+          </button>
+        )}
+        <span className="cf-wv-gap" />
+        <SpeedButton speed={rate.speed} onNext={rate.next} />
+        <button className={`cf-link${sync ? " is-on" : ""}`} onClick={() => setSync(!sync)} aria-expanded={sync}>
+          Sync
+        </button>
+        <button className="cf-link" onClick={() => setHidden(!hidden)}>
+          {hidden ? "Show video" : "Hide"}
+        </button>
+      </div>
+      {sync && (
+        <div className="cf-wv-sync">
+          <span>Subtitles {offset === 0 ? "on time" : `${Math.abs(offset / 1000).toFixed(1)} s ${offset > 0 ? "later" : "earlier"}`}</span>
+          <button className="cf-link" onClick={() => nudge(-NUDGE)} aria-label="Subtitles half a second earlier">
+            − 0.5 s
+          </button>
+          <button className="cf-link" onClick={() => nudge(NUDGE)} aria-label="Subtitles half a second later">
+            + 0.5 s
+          </button>
+        </div>
+      )}
+      {error && <p className="cf-error cf-wv-error">{error}</p>}
+    </div>
+  );
+}
+
+/** For the owner, on an episode with no video yet: its YouTube link, to watch with the script following. */
+function AddVideo({ ep, onAdded }: { ep: Episode; onAdded: (video: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [link, setLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  if (!open)
+    return (
+      <button className="cf-link cf-wv-add" onClick={() => setOpen(true)}>
+        ▶ Add the YouTube video
+      </button>
+    );
+  return (
+    <form
+      className="cf-wv-addform"
+      onSubmit={(e) => {
+        e.preventDefault();
+        send<{ video: string | null }>("episodes", { id: ep.id, video: link })
+          .then((r) => r.video && onAdded(r.video))
+          .catch((x) => setError(message(x)));
+      }}
+    >
+      <input type="url" inputMode="url" placeholder="youtube.com/watch?v=…" value={link} onChange={(e) => setLink(e.target.value)} aria-label="YouTube link" />
+      <button className="cf-btn" type="submit" disabled={!link.trim()}>
+        Add
+      </button>
+      {error && <p className="cf-error">{error}</p>}
+    </form>
+  );
+}
+
+/** A line with one word marked, or blanked. */
+function MarkedLine({ zh, word, blank = false }: { zh: string; word: string; blank?: boolean }) {
+  const parts = zh.split(word);
+  return (
+    <span className="cf-zh">
+      {parts.map((p, k) => (
+        <span key={k}>
+          {p}
+          {k < parts.length - 1 && (blank ? <span className="cf-pp-blank">＿＿</span> : <mark className="cf-pp-mark">{word}</mark>)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Practice (the owner: practice has to move readiness, but "I don't need to
+ * be 100%… I'm worried about having words in my deck that I'll never see
+ * again after the show"): the server's plan for the next round, at most
+ * PREP_MAX words ranked by what each does for the episode, split into worth
+ * keeping (into the deck once learnt) and for the show only (learnt here,
+ * never in the deck), with readiness now and after; then a short drill; and
+ * listening through the trouble lines as before.
+ */
+function Practice({
+  ep,
+  canWrite,
+  onAnswered,
+  onLearnt,
+}: {
+  ep: Episode;
+  canWrite: boolean;
+  onAnswered: (i: number, result: "got" | "again") => void;
+  onLearnt: () => void;
+}) {
+  const [mode, setMode] = useState<"chapters" | "home" | "drill" | "listen">("chapters");
+  if (mode === "chapters") return <ChapterRound ep={ep} canWrite={canWrite} onChanged={onLearnt} onWhole={() => setMode("home")} />;
+  const [last, setLast] = useState<{ kept: number; show: number; before: Episode["plan"]["now"] } | null>(null);
+  if (mode === "listen") return <Listening ep={ep} onAnswered={onAnswered} onBack={() => setMode("home")} />;
+  const plan = ep.plan;
+  const words = [...plan.keep, ...plan.show];
+  if (mode === "drill")
+    return (
+      <PrepDrill
+        ep={ep}
+        words={words}
+        onEnd={(kept, show) => {
+          setLast(kept + show ? { kept, show, before: plan.now } : null);
+          setMode("home");
+          if (kept + show) onLearnt();
+        }}
+      />
+    );
+  const listenLeft = ep.deck.filter((c) => c.result !== "got").length;
+  return (
+    <div className="cf-watch-pane cf-pp">
+      <button className="cf-link cf-pr-back-link" onClick={() => setMode("chapters")}>
+        ‹ Chapter by chapter
+      </button>
+      {last && (
+        <p className="cf-pp-done">
+          Learnt {fmt(last.kept + last.show)}
+          {last.kept ? ` · ${fmt(last.kept)} into your deck` : ""}
+          {last.show ? ` · ${fmt(last.show)} for the show` : ""}. Readiness {pct(last.before.known)} → <b>{pct(plan.now.known)}</b>
+        </p>
+      )}
+      {words.length ? (
+        <>
+          <p className="cf-pp-forecast">
+            <span className="cf-ep-big">
+              {pct(plan.now.known)} <small>→</small> {pct(plan.after.known)}
+            </span>
+            <small className="cf-muted">
+              words known with these {fmt(words.length)} · lines readable {pct(plan.now.lines)} → {pct(plan.after.lines)}
+            </small>
+          </p>
+          <button className="cf-btn cf-pp-start" onClick={() => setMode("drill")}>
+            Learn these {fmt(words.length)}
+          </button>
+          {plan.keep.length > 0 && (
+            <PlanList title="Worth keeping" sub="They join your deck and come back in reviews." words={plan.keep} />
+          )}
+          {plan.show.length > 0 && <PlanList title="Just for this show" sub="Learnt here, never in your deck." words={plan.show} />}
+        </>
+      ) : (
+        <p className="cf-muted">Nothing left worth learning for this one: you&apos;re ready to watch.</p>
+      )}
+      {plan.skip.length > 0 && (
+        <details className="cf-pp-skip">
+          <summary>
+            Skip these <span>{fmt(plan.skip.length)}</span>
+          </summary>
+          <p className="cf-muted">Said too rarely, or Muse marked them skip: not worth it to follow the show.</p>
+          <p className="cf-pp-chips">
+            {plan.skip.map((w) => (
+              <button key={w.word} className="cf-pp-chip cf-zh" onClick={() => wordpage.openWordPage(w.word)}>
+                {w.word} <small>×{w.count}</small>
+              </button>
+            ))}
+          </p>
+        </details>
+      )}
+      {plan.prepped.length > 0 && (
+        <section className="cf-pp-prepped">
+          <h3>
+            Prepped for this show <span>{fmt(plan.prepped.length)}</span>
+          </h3>
+          <p className="cf-pp-chips">
+            {plan.prepped.map((w) => (
+              <span key={w} className="cf-pp-chip is-prepped cf-zh">
+                {w}
+              </span>
+            ))}
+          </p>
+        </section>
+      )}
+      {ep.deck.length > 0 && (
+        <button className="cf-stuck cf-pp-listen" onClick={() => setMode("listen")}>
+          <span className="cf-stuck-text">
+            <b>Listen through the trouble lines</b>
+            <small>
+              {fmt(ep.deck.length)} lines · hear each, then read it{listenLeft < ep.deck.length ? ` · ${fmt(listenLeft)} left` : ""}
+            </small>
+          </span>
+          <i aria-hidden="true">›</i>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PlanList({ title, sub, words }: { title: string; sub: string; words: Episode["plan"]["keep"] }) {
+  return (
+    <section className="cf-pp-list">
+      <h3>
+        {title} <span>{fmt(words.length)}</span>
+      </h3>
+      <p className="cf-muted">{sub}</p>
+      <ul className="cf-stuck-list">
+        {words.map((w) => (
+          <li key={w.word}>
+            <button onClick={() => wordpage.openWordPage(w.word)}>
+              <span className="cf-stuck-zh cf-zh">{w.word}</span>
+              <span className="cf-stuck-body">
+                {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
+                {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
+                <span className="cf-stuck-why cf-pp-why">
+                  said {fmt(w.count)}×{w.unlocks ? ` · opens ${fmt(w.unlocks)} ${w.unlocks === 1 ? "line" : "lines"}` : ""}
+                  {w.keepWhy ? ` · ${w.keepWhy}` : ""}
+                  {w.must ? " · Muse: must-know" : ""}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** A word's three steps in the drill: meet it, read it in a line, recall it from the line's sense. */
+type PrepStep = { w: Episode["plan"]["keep"][number]; step: 0 | 1 | 2 };
+const PREP_BACK = 3;
+
+/**
+ * The round's words, three steps each, from the episode's own lines: meet
+ * it (reading, meaning, Muse's note, a line with it and the English), what
+ * it means in another line, then the line with it blanked and its English,
+ * to recall it. A miss comes back PREP_BACK cards later at the same step.
+ * Each word done is sent at once: into the deck when worth keeping, else
+ * prepped for the show.
+ */
+function PrepDrill({
+  ep,
+  words,
+  onEnd,
+  endLabel = "See how ready you are",
+}: {
+  ep: Episode;
+  words: Episode["plan"]["keep"];
+  onEnd: (kept: number, show: number) => void;
+  endLabel?: string;
+}) {
+  const [queue, setQueue] = useState<PrepStep[]>(() => words.map((w) => ({ w, step: 0 as const })));
+  const [shown, setShown] = useState(false);
+  const [done, setDone] = useState({ kept: 0, show: 0 });
+  const [error, setError] = useState<string | null>(null);
+  const card = queue[0];
+  const lineOf = (w: PrepStep["w"], k: number) => ep.lines[w.lines[Math.min(k, w.lines.length - 1)] ?? -1] ?? null;
+  const finish = (w: PrepStep["w"]) => {
+    const keep = !!w.keepWhy;
+    setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
+    send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).catch((e) => setError(message(e)));
+  };
+  const next = (passed: boolean) => {
+    const [c, ...rest] = queue;
+    let q = rest;
+    if (passed && c.step === 2) finish(c.w);
+    else {
+      const again: PrepStep = passed ? { w: c.w, step: (c.step + 1) as 1 | 2 } : c;
+      const at = Math.min(PREP_BACK, q.length);
+      q = [...q.slice(0, at), again, ...q.slice(at)];
+    }
+    setQueue(q);
+    setShown(false);
+  };
+  if (!card)
+    return (
+      <div className="cf-watch-pane cf-pr-home">
+        <p className="cf-ep-big">
+          {fmt(done.kept + done.show)} <small>learnt</small>
+        </p>
+        <p className="cf-muted">
+          {done.kept ? `${fmt(done.kept)} went into your deck: their first review is tomorrow. ` : ""}
+          {done.show ? `${fmt(done.show)} are prepped for this show only.` : ""}
+        </p>
+        {error && <p className="cf-error">{error}</p>}
+        <div className="cf-pr-starts">
+          <button className="cf-btn" onClick={() => onEnd(done.kept, done.show)}>
+            {endLabel}
+          </button>
+        </div>
+      </div>
+    );
+  const w = card.w;
+  const line = lineOf(w, card.step === 0 ? 0 : card.step === 1 ? 1 : 2);
+  const total = words.length * 3;
+  const left = queue.reduce((n, c) => n + (3 - c.step), 0);
+  return (
+    <div className="cf-pr cf-pp-drill">
+      <div className="cf-pp-progress" aria-hidden="true">
+        <span style={{ width: pct(1 - left / Math.max(1, total)) }} />
+      </div>
+      <p className="cf-pr-top">
+        <button className="cf-link" onClick={() => onEnd(done.kept, done.show)}>
+          Stop
+        </button>
+        <span>{["New word", "In a line", "Recall it"][card.step]}</span>
+        <span className={`cf-pp-kind${w.keepWhy ? " is-keep" : ""}`}>{w.keepWhy ? "Worth keeping" : "Just for this show"}</span>
+      </p>
+      <div className="cf-pr-card">
+        {card.step === 0 && (
+          <div className="cf-pp-meet">
+            <p className="cf-pp-word cf-zh">{w.word}</p>
+            {w.pinyin && <p className="cf-pp-py">{displayPinyin(w.pinyin)}</p>}
+            {w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
+            {w.note && <p className="cf-pp-note">✦ {w.note}</p>}
+            {line && (
+              <div className="cf-pp-line">
+                <p>
+                  <MarkedLine zh={line.zh} word={w.word} />
+                  <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
+                    🔊
+                  </button>
+                </p>
+                {line.en && <p className="cf-lp-en">{line.en}</p>}
+              </div>
+            )}
+          </div>
+        )}
+        {card.step === 1 && line && (
+          <div className="cf-pp-meet">
+            <p className="cf-muted">What does it mean here?</p>
+            <p className="cf-pp-big-line">
+              <MarkedLine zh={line.zh} word={w.word} />
+              <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
+                🔊
+              </button>
+            </p>
+            {shown && (
+              <>
+                <p className="cf-pp-py">
+                  <span className="cf-zh">{w.word}</span> {w.pinyin && displayPinyin(w.pinyin)}
+                </p>
+                {w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
+                {line.en && <p className="cf-lp-en">{line.en}</p>}
+              </>
+            )}
+          </div>
+        )}
+        {card.step === 2 && line && (
+          <div className="cf-pp-meet">
+            <p className="cf-muted">Which word goes in the gap?</p>
+            <p className="cf-pp-big-line">
+              <MarkedLine zh={line.zh} word={w.word} blank={!shown} />
+            </p>
+            {line.en ? <p className="cf-lp-en">{line.en}</p> : w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
+            {shown && (
+              <p className="cf-pp-py">
+                <span className="cf-zh">{w.word}</span> {w.pinyin && displayPinyin(w.pinyin)}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <p className="cf-error">{error}</p>}
+      <div className="cf-pr-buttons">
+        {card.step === 0 ? (
+          <button className="cf-btn" onClick={() => next(true)}>
+            Next
+          </button>
+        ) : !shown ? (
+          <button
+            className="cf-btn"
+            onClick={() => {
+              setShown(true);
+              if (line && card.step === 2) say(line.zh);
+            }}
+          >
+            Show
+          </button>
+        ) : (
+          <>
+            <button className="cf-btn cf-btn-ghost" onClick={() => next(false)}>
+              Not yet
+            </button>
+            <button className="cf-btn" onClick={() => next(true)}>
+              Got it
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type ChapterStepName = "prep" | "drill" | "watch" | "check" | "done";
+const CHAPTER_STEPS: Array<[ChapterStepName, string]> = [
+  ["prep", "Prep"],
+  ["watch", "Watch"],
+  ["check", "Check"],
+  ["done", "Done"],
+];
+const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened in this part?" };
+
+/**
+ * Practice chapter by chapter (the owner: "more bite size… watching this
+ * episode chapter by chapter so it's more digestible"): a short loop per
+ * chapter, from the first not done. Prep: what happens in it, and its key
+ * words (`plan.chapters`, at most CHAPTER_WORDS, worth keeping or for the
+ * show as in the whole plan) through the same drill. Watch: just that
+ * chapter, the video stopping at its end, its lines lit as they are said,
+ * subtitles on or off. Check: a few of its lines heard first, then retold in
+ * Chinese by Muse's question for it, graded. Done: marked, and the next.
+ */
+function ChapterRound({ ep, canWrite, onChanged, onWhole }: { ep: Episode; canWrite: boolean; onChanged: () => void; onWhole: () => void }) {
+  const chapters = ep.plan.chapters;
+  const first = chapters.findIndex((c) => !c.done);
+  const [c, setC] = useState(first >= 0 ? first : 0);
+  const [step, setStep] = useState<ChapterStepName>("prep");
+  const [subs, setSubs] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const sc = ep.scenes[c];
+  const plan = chapters[c];
+  if (!sc || !plan) return <p className="cf-watch-pane cf-muted">No chapters yet.</p>;
+  const span = spans(ep)[c];
+  const minutes = Math.max(1, Math.round((span.to - span.from) / 60000));
+  const go = (to: number) => {
+    setC(to);
+    setStep("prep");
+    setSubs(true);
+  };
+  if (step === "drill")
+    return (
+      <PrepDrill
+        ep={ep}
+        words={plan.words}
+        endLabel="Watch the chapter ›"
+        onEnd={(kept, show) => {
+          setStep("watch");
+          if (kept + show) onChanged();
+        }}
+      />
+    );
+  const at = CHAPTER_STEPS.findIndex(([k]) => k === step);
+  return (
+    <div className="cf-watch-pane cf-cr">
+      <div className="cf-cr-head">
+        <button className="cf-cr-nav" onClick={() => go(c - 1)} disabled={c === 0} aria-label="Chapter before">
+          ‹
+        </button>
+        <div className="cf-cr-title">
+          <small>
+            Chapter {c + 1} of {ep.scenes.length} · {minutes} min{plan.done ? " · ✓ done" : ""}
+          </small>
+          <b className="cf-zh">{sc.title}</b>
+        </div>
+        <button className="cf-cr-nav" onClick={() => go(c + 1)} disabled={c === ep.scenes.length - 1} aria-label="Chapter after">
+          ›
+        </button>
+      </div>
+      <ol className="cf-cr-steps" aria-label="Steps">
+        {CHAPTER_STEPS.map(([k, label], n) => (
+          <li key={k} className={n < at ? "is-past" : n === at ? "is-on" : ""}>
+            <button onClick={() => setStep(k)}>{label}</button>
+          </li>
+        ))}
+      </ol>
+      {error && <p className="cf-error">{error}</p>}
+      {step === "prep" && (
+        <section className="cf-cr-body">
+          {sc.summary && <ChapterSummary sc={sc} />}
+          {plan.words.length ? (
+            <>
+              <PlanList title="Key words" sub="The words that open up most of this chapter." words={plan.words} />
+              <div className="cf-pr-starts">
+                <button className="cf-btn" onClick={() => setStep("drill")}>
+                  Learn these {fmt(plan.words.length)}
+                </button>
+                <button className="cf-link" onClick={() => setStep("watch")}>
+                  Skip to watching ›
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="cf-muted">Nothing new worth learning in this one.</p>
+              <div className="cf-pr-starts">
+                <button className="cf-btn" onClick={() => setStep("watch")}>
+                  Watch it ›
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+      {step === "watch" && (
+        <section className="cf-cr-body">
+          <ChapterWatch ep={ep} c={c} subs={subs} onSubs={setSubs} />
+          <div className="cf-pr-starts">
+            <button className="cf-btn" onClick={() => setStep("check")}>
+              {ep.video ? "Watched it ›" : "Read it ›"}
+            </button>
+          </div>
+        </section>
+      )}
+      {step === "check" && (
+        <ChapterCheck
+          key={c}
+          ep={ep}
+          c={c}
+          canWrite={canWrite}
+          onDone={() => {
+            setStep("done");
+            if (!canWrite) return;
+            send("episodes", { id: ep.id, chapter: c, done: true })
+              .then(onChanged)
+              .catch((e) => setError(message(e)));
+          }}
+        />
+      )}
+      {step === "done" && (
+        <section className="cf-cr-body cf-cr-done">
+          <p className="cf-ep-big">
+            ✓ <small>Chapter {c + 1} done · {pct(sc.known)} known</small>
+          </p>
+          <div className="cf-pr-starts">
+            {c + 1 < ep.scenes.length && (
+              <button className="cf-btn" onClick={() => go(c + 1)}>
+                Next chapter · <span className="cf-zh">{ep.scenes[c + 1].title}</span>
+              </button>
+            )}
+            <button
+              className="cf-link"
+              onClick={() => {
+                setSubs(false);
+                setStep("watch");
+              }}
+            >
+              Rewatch without subtitles
+            </button>
+          </div>
+        </section>
+      )}
+      <button className="cf-link cf-cr-whole" onClick={onWhole}>
+        Whole episode · {fmt(ep.plan.keep.length + ep.plan.show.length)} words, listening
+      </button>
+    </div>
+  );
+}
+
+function ChapterSummary({ sc }: { sc: Episode["scenes"][number] }) {
+  const [en, setEn] = useState(false);
+  return (
+    <div className="cf-cr-summary">
+      <p className="cf-zh">{sc.summary}</p>
+      {sc.summaryEn &&
+        (en ? (
+          <p className="cf-muted">{sc.summaryEn}</p>
+        ) : (
+          <button className="cf-link" onClick={() => setEn(true)}>
+            English
+          </button>
+        ))}
+    </div>
+  );
+}
+
+/**
+ * One chapter to watch: its stretch of the video (YouTube's start and end,
+ * so it stops at the chapter's end), its lines lit as they are said, the
+ * English under each blurred until tapped, or all hidden to watch without
+ * subtitles; with no video, its lines to read, each
+ * said aloud on a tap.
+ */
+function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: boolean; onSubs: (on: boolean) => void }) {
+  const sc = ep.scenes[c];
+  const span = spans(ep)[c];
+  const host = useRef<HTMLDivElement>(null);
+  const player = useRef<YTPlayer | null>(null);
+  const rate = useSpeed(player);
+  const ready = useRef(rate.apply);
+  ready.current = rate.apply;
+  const [saying, setSaying] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const from = Math.max(0, Math.floor((span.from + ep.offset) / 1000));
+  const to = Math.ceil((span.to + ep.offset) / 1000);
+  useEffect(() => {
+    if (!ep.video || !host.current) return;
+    let gone = false;
+    let tick: ReturnType<typeof setInterval> | undefined;
+    const el = document.createElement("div");
+    host.current.appendChild(el);
+    loadYouTube()
+      .then((YT) => {
+        if (gone) return;
+        player.current = new YT.Player(el, {
+          videoId: ep.video,
+          width: "100%",
+          height: "100%",
+          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, start: from, end: to },
+          events: { onReady: () => ready.current(), onError: () => setError("YouTube won't play this video here.") },
+        });
+        tick = setInterval(() => {
+          const p = player.current;
+          if (!p?.getCurrentTime || p.getPlayerState?.() !== 1) return;
+          const t = p.getCurrentTime() * 1000 - ep.offset;
+          const i = lineAt(ep, t);
+          if (i >= sc.start && i < sc.end) setSaying(i);
+        }, VIDEO_TICK);
+      })
+      .catch((e) => setError(message(e)));
+    return () => {
+      gone = true;
+      if (tick) clearInterval(tick);
+      player.current?.destroy?.();
+      player.current = null;
+      el.remove();
+    };
+  }, [ep, sc, from, to]);
+  useEffect(() => {
+    if (saying === null || !list.current) return;
+    list.current.querySelector<HTMLElement>(`[data-cl="${saying}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [saying]);
+  return (
+    <div className="cf-cw">
+      {ep.video && <div className="cf-wv-frame cf-cw-frame" ref={host} />}
+      {error && <p className="cf-error">{error}</p>}
+      <div className="cf-cw-bar">
+        {ep.video && (
+          <button className="cf-link" onClick={() => player.current?.seekTo(from, true)}>
+            ↺ From the start
+          </button>
+        )}
+        <span className="cf-wv-gap" />
+        {ep.video && <SpeedButton speed={rate.speed} onNext={rate.next} />}
+        <button className={`cf-ep-entoggle${subs ? " is-on" : ""}`} onClick={() => onSubs(!subs)} aria-pressed={subs}>
+          Subtitles
+        </button>
+      </div>
+      <ol className={`cf-cw-lines${subs ? "" : " is-hidden"}`} ref={list}>
+        {ep.lines.slice(sc.start, sc.end).map((l, k) => {
+          const i = sc.start + k;
+          return (
+            <li key={i} data-cl={i} className={saying === i ? "is-saying" : ""}>
+              <button
+                className="cf-cw-line"
+                onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
+              >
+                <span className="cf-zh">{l.zh}</span>
+              </button>
+              {/* The English blurred, as in the script with English off: a tap shows it (the owner asked). */}
+              {l.en && <EnglishLine en={l.en} english={false} />}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** After a chapter: a few of its lines heard first (Again brings one back at the end), then retold in Chinese, graded; Finish marks it done. */
+function ChapterCheck({ ep, c, canWrite, onDone }: { ep: Episode; c: number; canWrite: boolean; onDone: () => void }) {
+  const plan = ep.plan.chapters[c];
+  const sc = ep.scenes[c];
+  const [queue, setQueue] = useState<number[]>(plan.listen);
+  const [shown, setShown] = useState(false);
+  // Each line is said as it comes up; the episode reloading underneath says nothing.
+  const lines = useRef(ep.lines);
+  lines.current = ep.lines;
+  useEffect(() => {
+    if (queue.length) say(lines.current[queue[0]].zh);
+  }, [queue]);
+  const i = queue[0];
+  return (
+    <section className="cf-cr-body">
+      {i !== undefined ? (
+        <div className="cf-cc-listen">
+          <p className="cf-muted">
+            Listen · {fmt(plan.listen.length - queue.length + 1)} of {fmt(plan.listen.length)}
+          </p>
+          <div className="cf-pr-card">
+            {!shown ? (
+              <div className="cf-pr-front">
+                <button className="cf-pr-play" onClick={() => say(ep.lines[i].zh)} aria-label="Hear the line again">
+                  🔊
+                </button>
+                <p className="cf-muted">What did they say?</p>
+              </div>
+            ) : (
+              <div className="cf-pr-back">
+                <p className="cf-pr-line cf-zh">{ep.lines[i].zh}</p>
+                {ep.lines[i].en && <p className="cf-lp-en">{ep.lines[i].en}</p>}
+              </div>
+            )}
+          </div>
+          <div className="cf-pr-buttons">
+            {!shown ? (
+              <button className="cf-btn" onClick={() => setShown(true)}>
+                Show
+              </button>
+            ) : (
+              <>
+                <button
+                  className="cf-btn cf-btn-ghost"
+                  onClick={() => {
+                    setShown(false);
+                    setQueue(queue.length > 1 ? [...queue.slice(1), i] : queue.slice(1));
+                  }}
+                >
+                  Again
+                </button>
+                <button
+                  className="cf-btn"
+                  onClick={() => {
+                    setShown(false);
+                    setQueue(queue.slice(1));
+                  }}
+                >
+                  Got it
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <h3 className="cf-cc-h">Retell it</h3>
+          <Question
+            question={sc.question ?? CHAPTER_QUESTION}
+            q={0}
+            initial={plan.retells}
+            canWrite={canWrite}
+            check={(answer) => send<{ retell: Retell }>("episodes", { id: ep.id, chapter: c, answer }).then((r) => r.retell)}
+          />
+          <div className="cf-pr-starts">
+            <button className="cf-btn" onClick={onDone}>
+              Finish chapter ✓
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 type Tab = "script" | "practice" | "words" | "after";
 
 /**
@@ -878,6 +1874,12 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const [nice, setNice] = useState(false);
   const script = useRef<HTMLDivElement>(null);
   const cache = useRef(new Map<number, LineWordInfo[]>());
+  // The video, when the episode has one: the line being said, and whether the script follows it.
+  const video = useRef<VideoControl | null>(null);
+  const [saying, setSaying] = useState<number | null>(null);
+  const [follow, setFollow] = useState(true);
+  const followRef = useRef(true);
+  followRef.current = follow;
   // English under each line, or blurred until tapped; remembered on the device.
   const [english, setEnglishState] = useState(true);
   useEffect(() => {
@@ -902,32 +1904,106 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       .catch((e) => setError(message(e)));
   }, [id]);
   useBackLayer(line !== null, () => setLine(null));
+  // Opening a line to study it pauses the video.
+  useEffect(() => {
+    if (line) video.current?.pause();
+  }, [line]);
 
   const must = useMemo(() => new Set((ep?.words ?? []).filter((w) => w.tier === "must" && !w.inDeck).map((w) => w.word)), [ep]);
   const grades = useMemo(() => (ep ? ep.lines.map((l) => gradeOf(l.tokens)) : []), [ep]);
   const noteAt = useMemo(() => new Map((ep?.notes ?? []).map((n) => [n.i, n])), [ep]);
 
+  // Where the script is on the clock: the first line at the top of it, for the bar's playhead.
+  const [topAt, setTopAt] = useState(0);
+  // While a chip's smooth scroll runs, the chapters it passes aren't lit one by one.
+  const gliding = useRef(0);
   // The chapter in view: the last whose heading is above the top of the script.
   const onScroll = () => {
     const box = script.current;
     if (!box || !ep) return;
+    const rows = box.querySelectorAll<HTMLElement>("[data-line]");
+    const edge = box.getBoundingClientRect().top + 12;
+    let lo = 0;
+    let hi = rows.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (rows[mid].getBoundingClientRect().bottom <= edge) lo = mid + 1;
+      else hi = mid;
+    }
+    const top = Number(rows[lo]?.dataset.line ?? 0);
+    setTopAt(ep.lines[top]?.s ?? 0);
+    if (Date.now() < gliding.current) return;
     const heads = box.querySelectorAll<HTMLElement>("[data-ch]");
     let now = 0;
     heads.forEach((h, k) => {
-      if (h.offsetTop <= box.scrollTop + 12) now = k;
+      if (h.getBoundingClientRect().top <= edge) now = k;
     });
     if (now !== scene) setScene(now);
   };
   const toChapter = (i: number) => {
     setScene(i);
+    if (ep && video.current) seek(spans(ep)[i].from);
     const head = script.current?.querySelector<HTMLElement>(`[data-ch="${i}"]`);
-    if (head) script.current!.scrollTo({ top: head.offsetTop, behavior: "smooth" });
+    if (!head) return;
+    gliding.current = Date.now() + 900;
+    script.current!.scrollTo({ top: topIn(script.current!, head), behavior: "smooth" });
+  };
+  // Scrubbing: straight to the line said at that time, no animation to fight the finger.
+  const scrubTo = (t: number) => {
+    if (!ep || !ep.lines.length) return;
+    scrubbing.current = Date.now() + 600;
+    const i = lineAt(ep, t);
+    const box = script.current;
+    const row = box?.querySelector<HTMLElement>(`[data-line="${i}"]`);
+    if (!box || !row) return;
+    gliding.current = 0;
+    // The chapter's heading stays in view when the line is its first.
+    const head = ep.scenes.findIndex((sc) => sc.start === i);
+    const target = head >= 0 ? box.querySelector<HTMLElement>(`[data-ch="${head}"]`) : null;
+    box.scrollTop = Math.max(0, topIn(box, target ?? row) - (target ? 0 : 8));
+  };
+  // The video's clock, as subtitle time: light the line being said and, while following, keep it in view.
+  const sayingRef = useRef<number | null>(null);
+  // While the bar is being scrubbed, the video's clock doesn't move the script.
+  const scrubbing = useRef(0);
+  const onVideoTime = (t: number) => {
+    if (!ep?.lines.length || Date.now() < scrubbing.current) return;
+    const i = lineAt(ep, t);
+    if (t < ep.lines[i].s - 300 || i === sayingRef.current) return;
+    sayingRef.current = i;
+    setSaying(i);
+    if (!followRef.current) return;
+    const box = script.current;
+    const row = box?.querySelector<HTMLElement>(`[data-line="${i}"]`);
+    if (!box || !row) return;
+    gliding.current = 0;
+    box.scrollTo({ top: Math.max(0, topIn(box, row) - box.clientHeight / 3), behavior: "smooth" });
+  };
+  const followAgain = () => {
+    followRef.current = true;
+    setFollow(true);
+    const i = sayingRef.current;
+    sayingRef.current = null;
+    if (i !== null && ep) onVideoTime(ep.lines[i].s);
+  };
+  // Scrolling by hand stops following, until Follow is tapped.
+  const handScroll = () => {
+    if (ep?.video && followRef.current) setFollow(false);
+  };
+  const seek = (ms: number) => {
+    if (!video.current) return;
+    video.current.seek(ms);
+    followRef.current = true;
+    setFollow(true);
+    scrubbing.current = 0;
+    sayingRef.current = null;
+    onVideoTime(ms);
   };
   const toLine = (i: number) => {
     if (!ep || i < 0 || i >= ep.lines.length) return;
     setLine({ i, word: null });
     const row = script.current?.querySelector<HTMLElement>(`[data-line="${i}"]`);
-    if (row && script.current) script.current.scrollTo({ top: Math.max(0, row.offsetTop - 80), behavior: "smooth" });
+    if (row && script.current) script.current.scrollTo({ top: Math.max(0, topIn(script.current, row) - 80), behavior: "smooth" });
   };
 
   const mustWords = ep?.words.filter((w) => w.tier === "must") ?? [];
@@ -961,7 +2037,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
           {(
             [
               ["script", "Script"],
-              ["practice", `Practice${ep.deck.some((c) => c.result !== "got") ? ` · ${ep.deck.filter((c) => c.result !== "got").length}` : ""}`],
+              ["practice", `Practice${ep.plan.keep.length + ep.plan.show.length ? ` · ${ep.plan.keep.length + ep.plan.show.length}` : ""}`],
               ["words", "Words"],
               ["after", "After"],
             ] as Array<[Tab, string]>
@@ -981,8 +2057,22 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {!ep && !error && <Loading label="Reading the subtitles…" />}
       {ep && tab === "script" && (
         <>
-          <ChapterStrip ep={ep} current={scene} grades={grades} english={english} onPick={toChapter} />
-          <div className="cf-watch-script" ref={script} onScroll={onScroll}>
+          {ep.video ? (
+            <VideoBar ep={ep} canWrite={canWrite} control={video} follow={follow} onFollow={followAgain} onTime={onVideoTime} />
+          ) : (
+            canWrite && <AddVideo ep={ep} onAdded={(v) => setEp((e) => (e ? { ...e, video: v } : e))} />
+          )}
+          <ChapterStrip
+            ep={ep}
+            current={scene}
+            at={topAt}
+            grades={grades}
+            english={english}
+            onPick={toChapter}
+            onScrub={scrubTo}
+            onScrubEnd={(t) => seek(t)}
+          />
+          <div className="cf-watch-script" ref={script} onScroll={onScroll} onTouchMove={handScroll} onWheel={handScroll}>
             <div className="cf-watch-key">
               {GRADES.map((g) => (
                 <span key={g.key}>
@@ -1010,13 +2100,27 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                       <li
                         key={i}
                         data-line={i}
-                        className={`cf-wl is-${grades[i]}${line?.i === i ? " is-on" : ""}${note ? " has-note" : ""}`}
+                        className={`cf-wl is-${grades[i]}${line?.i === i ? " is-on" : ""}${note ? " has-note" : ""}${saying === i ? " is-saying" : ""}`}
                         onClick={() => setLine({ i, word: null })}
                       >
-                        <span className="cf-wl-at">
-                          {clock(l.s)}
-                          {note && <b className="cf-gn-key">✦</b>}
-                        </span>
+                        {ep.video ? (
+                          <button
+                            className="cf-wl-at cf-wl-seek"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              seek(l.s);
+                            }}
+                            aria-label={`Play from ${clock(l.s)}`}
+                          >
+                            {clock(l.s)}
+                            {note && <b className="cf-gn-key">✦</b>}
+                          </button>
+                        ) : (
+                          <span className="cf-wl-at">
+                            {clock(l.s)}
+                            {note && <b className="cf-gn-key">✦</b>}
+                          </span>
+                        )}
                         <span className="cf-wl-text">
                           <LineText line={l} note={note} trouble={ep.trouble} must={must} onWord={(w) => setLine({ i, word: w })} />
                           {l.en && <EnglishLine en={l.en} english={english} />}
@@ -1033,8 +2137,14 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {ep && tab === "practice" && (
         <Practice
           ep={ep}
+          canWrite={canWrite}
           onAnswered={(i, result) =>
             setEp((e) => (e ? { ...e, deck: e.deck.map((c) => (c.i === i ? { ...c, result, tries: c.tries + 1 } : c)) } : e))
+          }
+          onLearnt={() =>
+            get<{ episode: Episode }>("episodes", { id })
+              .then((r) => setEp(r.episode))
+              .catch((e) => setError(message(e)))
           }
         />
       )}

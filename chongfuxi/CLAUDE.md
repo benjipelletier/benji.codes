@@ -43,7 +43,7 @@ app is where they are reviewed. Route: `/chongfuxi`.
 The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
-- Navigation is a bottom tab bar (thumb reach): Review, Cards, Look up (the
+- Navigation is a bottom tab bar (thumb reach): Review, Cards, Muse, Look up (the
   owner's only), Stats, Settings (Import until the owner renamed it; an old
   `tab=import` address still opens it).
   The header holds the title and one quiet line (`Glance` in
@@ -155,7 +155,7 @@ rejected as too themed. Keep it that way:
   schoolbook or paper motifs.
 - The bottom tabs are icons (`components/TabIcon.tsx`), each with one
   character of the tab's Chinese name set over it on a halo, in LXGW WenKai
-  (a modern regular script, the one exception to the sans: only 复卡查统入, and
+  (a modern regular script, the one exception to the sans: only 复卡思查统入, and
   the card foot's 魚记, are fetched, so a new character must be added to the
   URL in the layout), and the English small beneath; the current tab sits on
   a pill.
@@ -173,10 +173,13 @@ rejected as too themed. Keep it that way:
   it) in popups and a word sheet's tags.
 - A review session takes the whole screen: the shell hides its header and
   tabs (`shell.setFocus`), leaving a close button, a progress bar and the card.
-  Under the bar, one line of what is left of each kind the session takes
-  (Read, Recall, Sentence, New), a dot and the count in the kind's colour
-  (`cf-session-kinds`; the owner asked to see every kind there, not one
-  total); not on a list's review or once into new sentences.
+  Right of the bar, in place of one total, what is left of each kind the
+  session takes (Read, Recall, Sentence, New): a little card in the kind's
+  colour and its count, thousands as "3.2k" so all four fit, the full
+  figure on hover (`cf-session-kinds`; the owner asked for every kind
+  there, as icons, not words). A 2×2 grid and a row under the bar (left,
+  then right) were tried and taken back: the owner found them ugly. A
+  list's review and new sentences keep the one total.
 - Motion only answers the owner: the answer rises on reveal, an answered card
   slides right for Got it and left for Forgot. Reduced motion turns it off.
   The one exception is waiting: anything loading shows a little stack of
@@ -227,7 +230,10 @@ in between count as they do; gaps over 3 minutes are breaks, Fast review is
 left out, and a kind with under 10 answers takes the overall median. It
 counts the due word cards (Read and Recall in their proportion), the due
 sentences and the new sentences mixed in with them (one per `DUE_PER_NEW`
-due). Shown bare under Start ("~1h 56m", "~25m"): the owner wanted just the
+due), and with New words chosen the Learn steps the new words have left
+(`learnSteps` on the summary: four a word, fewer part way up), each at the
+Read pace, since the Learn log keeps no times (the owner found new words
+left out). Shown bare under Start ("~1h 56m", "~25m"): the owner wanted just the
 time. Above them, the days either
 side of today as a strip of bars, sliding sideways with today in the middle
 (`components/DayStrip.tsx`, route `days`): cards reviewed each day before
@@ -891,36 +897,43 @@ trips both count.
   (`SPEED_BACK`), a word is done at 2 right in a row (`SPEED_DONE`). It
   ends with the flips and minutes taken, and touches no schedule.
 - **Today's story** (the owner's idea, first written by the app's model
-  on demand; since replaced by one the owner's agent writes each morning,
-  `daily.ts`): at the top of the Memory kits list, two short paragraphs
+  on demand; then one the owner's agent wrote each morning, `daily.ts`;
+  now no screen of its own, a story being something Muse may put on its
+  page as a passage): it was at the top of the Memory kits list, two short paragraphs
   using the day's words, each in a sentence that shows its meaning, the rest
   simple, with a Chinese title and an English translation under each
   paragraph shown on a tap. The words are marked and open their word pages;
   any it left out are named. Kept a story a day (`chongfuxi_daily_story`,
   made on first use); the latest is shown, dated, "by Muse", with a line
   when today's isn't written yet. `rescue?story=1` reads it.
-- **Read** heads the Muse reviews screen: native pieces Muse found, to
-  read and then retell (see Lists written by the owner's agent).
-  Episodes to get ready for come under it, as **Watch** (see Getting
-  ready to watch a drama).
-- **Muse reviews** (the owner reframed the screen around Muse): Today's
-  button and the screen are called that (they were Memory kits). Cleaned
-  up at the owner's request: "Today's review" first ("Latest review" until
-  today's is written; "32 of 36 cards left"), the cards Muse writes from the
-  problem areas (see Lists written by the owner's agent); then Read and
-  Watch, each a heading with a quiet count and its rows, no line explaining
-  it; then the speed round, the story and Your notes as one grouped list,
-  a row each with a short figure (`cf-muse-tools`); then New words and the
-  stuck words' categories with no "Stuck words" heading over them (the
-  owner had it taken out).
+- **The Muse tab** (the owner: "put all this Muse stuff in its own page
+  with a button at the bottom"): a tab of its own between Cards and Look
+  up (`tab=muse`), its icon a speech bubble with 思, and a red dot on it
+  while anything from Muse is new (`useMuseNew`). The tab is the list that
+  was the full-screen Muse reviews screen, opened from a button on Today
+  (that button, `StuckWords`, is gone): `StuckList` without `onEnd` sits in
+  the app under the header, and whatever opens from it (a page, an episode,
+  a kit, the speed round, notes) takes the whole screen (`shell.setFocus`),
+  back returning to the tab. Before that, **Muse reviews** (the owner
+  reframed the screen around Muse; it was Memory kits). **Muse's
+  page** comes first ("Today's page", or "Latest page" until today's is laid
+  out; its title and how many of its blocks were done; see Muse's daily
+  page), then **Watch** (see Getting ready to watch a drama), then one
+  grouped list (`cf-muse-tools`): Earlier pages, the speed round and Your
+  notes; then New words and the stuck words' categories with no "Stuck
+  words" heading over them (the owner had it taken out). Today's review,
+  the story, Read and the weekly debrief had their own rows until the
+  owner found too many Muse things made and too few used (on Oct 27, 2026
+  that day's 39 cards had none answered, the day before's went ungraded,
+  and one reading had been read but never retold); they are now things
+  Muse may put on its page.
 - **New from Muse** (the owner asked for a little badge): a "New" pill
   (`NewBadge`) after the title of whatever Muse added or changed since it
-  was last opened on this device: today's review (by its `at`), the story
-  (by its `at`), Your notes (an answer newer than the last opening, from
+  was last opened on this device: the latest page (by its `at`, key
+  `page:<at>`), Your notes (an answer newer than the last opening, from
   `lastAnswer` on the notes route), an episode (its `updatedAt`: new
-  subtitles, a prep or line notes, `notes_at`). Readings keep their own
-  New state until opened. Today's Muse reviews button has the pill when
-  anything inside is new or a reading is unread. What was opened is kept
+  subtitles, a prep or line notes, `notes_at`). The Muse tab has a dot
+  when anything inside is new. What was opened is kept
   per device in localStorage (`lib/museSeen.ts`, key `cfx-muse-seen`),
   marked as each is opened; with no storage everything reads as new.
 - Settings › Algorithm has the Rescue group.
@@ -1283,7 +1296,18 @@ the design was silent and are still to be confirmed.
   164 Read no Read card came up (the owner: "not seeing Read cards").
   Within a kind, cards never answered (no odds, which used to rank first
   of all) are at most one in every `UNANSWERED_EVERY` (2) (`spreadEvery`);
-  the misses are spread after that. Fast review goes the other way: best known
+  the misses are spread after that. **The Recall backlog is spread out** (the owner,
+  facing about 3,200 Recall cards due at once from the Pleco seeding: "300
+  a day"): Recall cards never answered here (`answered = 0`) come into
+  review at most `RECALL_BACKLOG_PER_DAY` (300) a study day, less those
+  first answered that day (`recallRoom`), the least likely remembered
+  first; the rest wait for the days after. Nothing stored changes: it is
+  applied when cards are dealt (`nextCards` lets in only those ids) and
+  counted (`getSummary`'s `dueRecall` and `dueWords` leave the held ones
+  out, `recallWaiting` says how many wait, under Recall on Today), and the
+  day strip's forecast puts them on the days after, 300 a day. A list's
+  own review isn't held to it. New Recall cards opened by a first Got it on
+  Read count against it too. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
@@ -1634,7 +1658,64 @@ this. The owner's login is never involved, so the token is the agent's only.
 - In the app the Muse lists sit under "From your content" beside Spotify
   (`source: "muse"`), browsed, added, learnt and reviewed like any list.
 
-**The daily story** (`/api/chongfuxi/agent/story`, same token): GET gives
+**Muse's daily page** (`app/api/chongfuxi/musepage.ts`,
+`components/MusePage.tsx`; the owner: "give muse very generic, atomic tools
+to work with and it can choose how to layout an additional review
+everyday… full freedom", not in the main review, and not replacing the
+episode analyser). Muse lays out one page a day from blocks and reads what
+it needs through small data tools; everything the owner does on a page
+comes back to it, so it can make less of what goes unused.
+
+- **Write** (same token): GET `/api/chongfuxi/agent/muse` gives `day`,
+  `brief` (every block and tool, and to use what was done), `written`, and
+  the last 7 pages with their blocks and every event on them. POST `{
+  title, note?, style: scroll | steps, blocks, day?, model? }` keeps that
+  day's page (`chongfuxi_muse_page`, made on first use; posting again
+  replaces it, its events kept by block id). `checkBlocks` keeps each
+  block only in a shape the app can draw and names the rest back in
+  `dropped` by place (b9, b8.2 inside a fold): a page with nothing left is
+  refused. Ids are Muse's, else by place.
+- **Blocks** (`MuseBlock` in `lib/api.ts`, at most 60): heading; text (Muse's
+  prose, blank lines between paragraphs, **bold**, `words` linked to their
+  pages); callout (a label, info / good / warn); passage (Chinese Muse wrote
+  or quoted from the web, `en` lined up by paragraph, a source link, words to
+  underline: marked against the deck when opened, as the analyser marks it,
+  every word tappable with Word page ›, 🔊 Listen, English a paragraph at a
+  tap); cards (up to 40 of the review's card shapes, checked by drill.ts's
+  `checkCard`: a row with how far it got, opening the cards full screen,
+  "Go over the N missed"); ask (a question in Chinese answered by voice or
+  typing, `check: now` graded at once by the app's model at Look up's model
+  and effort against the passage it is `about`, or the page; `check: muse`
+  kept for Muse to answer on the next page, "Kept for Muse"); words (with
+  reading, meaning and standing: Known, Learning, On a list, New; each
+  opening its page); figures (up to 8 tiles); link; episode (opens it, the
+  page coming back after); fold (folded blocks, one level).
+- **Steps or scroll**: `steps` shows one heading's section at a time with
+  "Next · <the next heading>" (a `done` event each), `scroll` the whole page.
+- **What was done** (`chongfuxi_muse_event`, made on first use; route
+  `muse` POST, owner): the page opened, each card answered (`idx`, got or
+  missed, what was given), words tapped in a passage, answers (with the
+  grade when checked), a fold opened, a link or episode followed, steps done.
+- **Data tools** (same token): GET `/api/chongfuxi/agent/muse/data?what=`
+  `stuck` (words to revive and the new words on the ladder), `words` (up to
+  12 words' whole word pages), `log` (the review log between two days, at
+  most 3000 answers), `week` (the weekly figures, `weekFigures`), `lookups`,
+  `known` (strong words and the day's targets) and `sentences` (the
+  owner's sentences holding words); POST `…/muse/measure` `{ text }` or `{
+  url }` (how readable it is, the words not known, and a page's text to
+  quote from). The older material routes (drill, notes, reading, episodes,
+  week, story) stay as more data.
+- **Owner only, reads too** (route `muse`, GET `?list=1` the pages, else a
+  day's, the latest by default, filled in): a page may quote the web, and
+  the app is otherwise readable by anyone.
+- Nothing on it touches a schedule or goes into the main review.
+- Tested against a local Postgres (writing, the block check, filling,
+  events, answers kept for Muse, the data tools) and in the browser with a
+  stand-in page, scroll and steps, light and dark at 360px. Not yet run
+  with Muse or with an answer graded by the model.
+
+**The daily story** (`/api/chongfuxi/agent/story`, same token; no screen
+of its own since Muse's page, its material still there): GET gives
 the day's material (`storyMaterial`): `day` (the owner's study day, by the
 UTC offset of their last answer, turning over at `ROLLOVER_HOUR`), `targets`
 (the stuck words, up to 8, the new words on the Learn ladder, and up to 6 of
@@ -1680,11 +1761,10 @@ see: duplicate options, an order card of single characters or under 6
 characters (来 日 方 长), and a hint whose parts are in the prompt or answer
 ("theme, subject" on "The theme of this article…").
 
-In the app it heads the Muse reviews screen, "Today's review" with the
-cards left (also counted on Today's Muse reviews button, which shows when
-there is a review to do even with no new or stuck words), and opens full
-screen (`DrillView` in `components/Drill.tsx`): the title, Muse's note and
-date over the first card, then each card in its own way. A card that can
+Its own screen (`DrillView`, "Today's review" heading Muse reviews) was
+taken out for Muse's page, whose cards blocks take the same shapes, drawn
+by `DrillCardView` in `components/Drill.tsx`; the material route stays as
+data for Muse. As it was: each card in its own way. A card that can
 tell (cloze or choice picked, order checked, produce typed) marks Got it or
 Missed as suggested; the owner still taps one. Each answer is kept, the
 latest per card (`chongfuxi_drill_answer`, route `drill`, POST owner only;
@@ -1709,8 +1789,11 @@ question is named back in `failed`). GET there gives the material: `brief`,
 opened, finished, the words tapped, each retelling with its grade). Same
 token as the lists.
 
-Only the link, why, the questions and how it measured are kept
-(`chongfuxi_reading`): the text is fetched again when it is opened (kept
+Its screen (`ReadingView`, Read on Muse reviews) was taken out for Muse's
+page, where a piece is a passage block and its questions ask blocks; the
+answer box (`Question` in `components/Reading.tsx`) stays, for those and
+for episodes. As it was: only the link, why, the questions and how it
+measured were kept (`chongfuxi_reading`): the text is fetched again when it is opened (kept
 half an hour in the server's memory, `FETCH_KEEP_MS`, so reading then
 retelling fetch once), and opening one (route `reading?id=`) is owner only,
 since the app is readable by anyone and the pieces aren't ours to serve.
@@ -1771,6 +1854,33 @@ pair is dropped), and an unknown id or empty difference is named back in
 - Muse's review material carries `answered` (the latest answer to recent
   notes) so it can test those pairs.
 
+**The weekly debrief** (`app/api/chongfuxi/week.ts`, `components/Week.tsx`;
+the owner picked it from Muse's next steps): the app counts the week and
+Muse says what it means, so the figures are always true. GET
+`/api/chongfuxi/agent/week` (same token; `?to=YYYY-MM-DD`, the week's last
+study day, today's by default) gives `brief`, `written` and `figures`
+(`weekFigures`): for the seven study days ending `to`, beside the seven
+before, the days studied, minutes (the gaps between answers in a session,
+those over 3 minutes left out as breaks, as for the pace), answers by kind
+and got; then words through Learn (`learned_at`), word cards that passed 21
+days' stability (`MATURE_DAYS`), words forgotten twice or more, the words to
+revive now, lookups, notes, Muse's review answers, and each episode's share
+of words known at the start and end of the week (the last measure before it,
+else the first in it). POST `{ to?, title, sections: [{ kind: better | stuck
+| looked | focus | note, title, text, words }], focus, model? }` keeps it as
+that week's (`chongfuxi_week`, made on first use, one a week, a second
+replacing it) with the figures as they stand then; up to 8 sections, text
+900 characters, words only Chinese; refused with no section with text. In
+the app (route `week`, the latest, readable like the rest of the log) it is
+a row at the top of Muse reviews' list, "Weekly debrief" with its dates and
+the New badge (`week:<at>`), opening full screen: Muse's title, four tiles
+(cards answered, got it %, minutes, days studied), each up or down on last
+week, a line of the rest, Muse's sections with their words opening word
+pages, the words it will aim at, and the week's words folded away
+(forgotten most, matured, learnt, episodes). That screen (`Week.tsx`) was
+taken out a day later for Muse's page: the figures are the `week` data
+tool, and a debrief is something Muse may lay out on a page.
+
 **Getting ready to watch a drama** (`app/api/chongfuxi/episodes.ts`,
 `components/Watch.tsx`; the owner: "pre study a script or subtitles, using
 my corpus as a backbone and muse analysis helping", e.g. 隐秘的角落 episode
@@ -1779,7 +1889,7 @@ sentence cards for now; spoilers are fine; and scenes to scrub through "like
 YouTube chapter feature".
 
 - **In** (same token): POST `/api/chongfuxi/agent/episodes` `{ show,
-  episode, subtitles, english?, title?, source? }`, SRT asked for (timed,
+  episode, subtitles, english?, title?, source?, video? }`, SRT asked for (timed,
   the commonest; plain lines have no times for the chapter bar).
   `parseSubtitles` reads SRT, VTT, ASS or plain lines: tags and `\N`
   dropped, traditional made simplified (`simplified`), a bilingual line's
@@ -1797,8 +1907,8 @@ YouTube chapter feature".
   4 lines it is in (`episodeMaterial`). Measured as the text analyser
   measures (`analyse`, one paragraph a line), names counting as known.
 - **Prep**: POST `/api/chongfuxi/agent/episodes/prep` `{ id, words: [{ word,
-  tier: must | nice | skip, note }], names, scenes: [{ start, title, summary,
-  summaryEn, notes }], questions: [{ zh, en }], model? }` (`writePrep`).
+  tier: must | nice | skip, keep?, note }], names, scenes: [{ start, title, summary,
+  summaryEn, notes, question? }], questions: [{ zh, en }], model? }` (`writePrep`).
   Scenes are sorted by `start`, the first forced to 0, out-of-range ones
   dropped, at most 40; questions at most 8. A scene's `title` is a short
   Chinese title and `titleEn` its English (the owner wanted the chapters
@@ -1853,8 +1963,43 @@ YouTube chapter feature".
     marked as the analyser marks them, must-knows stronger, the owner's
     trouble words with a red wavy underline, the run Muse's note quotes on
     a grey wash, the English under it (blurred until tapped with English
-    off). A chip or the bar scrolls the script to its chapter; scrolling
-    lights the chapter in view.
+    off). A chip scrolls the script to its chapter (the chapters it glides
+    past aren't lit one by one); scrolling lights the chapter in view.
+  - **Scrubbing** (`ChapterBar`; the owner found the first version didn't
+    work well): dragging along the bar moves the script with the finger,
+    line by line, to the line said at that time (`lineAt`), with no
+    animation to fight it; the tip shows the time, the chapter and that
+    line. A tap jumps there. A playhead on the bar shows where the script
+    is (the first line at its top) as it is read or scrolled. The first
+    version only jumped on letting go, to the chapter's start, by a smooth
+    scroll that lit every chapter on the way; and every jump (a chip, a
+    line, the bar) read row positions with `offsetTop`, which
+    `content-visibility: auto` on each chapter makes relative to the
+    chapter, so jumps landed in the wrong place. Positions are now read
+    from the screen (`topIn`).
+  - **Watching with the video** (the owner: "line up the subtitles with
+    the YouTube video embedded in our app"). An episode has a YouTube video
+    (`chongfuxi_episode.video`; Muse gives `video` with the subtitles or
+    POSTs `{ id, video }` to agent/episodes, the owner pastes a link from
+    "▶ Add the YouTube video" (POST `episodes` `{ id, video }`), and a
+    source that is a YouTube link counts; `setEpisodeVideo`), and an
+    `offset` (`offset_ms`: video time minus subtitle time, for subtitles
+    timed to another release). With one, the Script tab has the video
+    over the chapters (`VideoBar`, YouTube's IFrame player API loaded once,
+    `loadYouTube`), played inline, and its clock (every `VIDEO_TICK`, 250
+    ms, less the offset) lights the line being said (`is-saying`) and,
+    while following, keeps it a third of the way down the script. Scrolling
+    the script by hand stops following; "↓ Follow" brings it back. A line's
+    time plays from there, a chip from its chapter, the scrub bar from where
+    it is let go (the video's clock doesn't move the script while
+    scrubbing). Opening a line pauses it. Sync nudges the offset half a
+    second at a time (`NUDGE`), kept for the episode; Hide takes the
+    picture away and keeps it playing. The speed button (`SpeedButton`, `useSpeed`;
+    the owner wanted the speed easy to change) steps 1× → 0.75× → 0.5× →
+    1.25× a tap (`SPEEDS`, slower first, for listening), filled when not
+    1×, remembered on the device (`cfx-video-speed`) and set on the player
+    when it is ready; a chapter's Watch step has it too. Tested with a stand-in player: the
+    cloud session can't reach YouTube.
   - A tap on a line (or a word in it) opens it at the foot of the screen
     (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next
     note, the line large with 🔊, its English, Muse's note (its kind,
@@ -1867,7 +2012,64 @@ YouTube chapter feature".
     with Muse's answer, its lookups, how many of the owner's sentences
     have it (and readable) with one, how often it is said in the episode,
     and Word page ›. Known words with nothing to say fold into one line.
-  - **Practice** (the owner: "a lot of sentences to get through… only do
+  - **Practice opens chapter by chapter** (`ChapterRound`; the owner: "more
+    bite size… watching this episode chapter by chapter so it's more
+    digestible"; they chose all four steps): a short loop per chapter, from
+    the first not done, ‹ › to any other, steps Prep · Watch · Check · Done
+    across the top (each a tap away). **Prep**: what happens (Chinese,
+    English on a tap) and its key words (`plan.chapters[c].words`: ranked
+    as the whole plan is but within the chapter, at most `CHAPTER_WORDS`
+    (5), worth keeping or for the show as there) through the same drill
+    (`PrepDrill`, its end "Watch the chapter ›"). **Watch**
+    (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
+    and `end`, so it stops at the chapter's end; "↺ From the start"), its
+    lines below lit as they are said (a tap jumps there), the English
+    under each blurred until tapped (the owner asked; `EnglishLine`, as in
+    the script with English off), a Subtitles switch blurring the Chinese too; with no video, its lines to read, each said
+    aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)
+    of its lines heard first (those with its key words, Muse's notes, then
+    the most new words; 5 to 30 characters; Again sends one to the end),
+    then retold in Chinese by Muse's question for the chapter (a scene's
+    `question` in the prep) or "这一段发生了什么？", graded at Look up's
+    model and effort against the chapter's lines (POST `episodes` `{ id,
+    chapter, answer }`, `chapterStep`; kept in
+    `chongfuxi_episode_chapter_retell`). **Done**: Finish marks it (`{ id,
+    chapter, done }`, `chongfuxi_episode_chapter`), its chip in the script
+    gets a ✓; then the next chapter, or "Rewatch without subtitles". Under
+    it, "Whole episode" opens the round below.
+  - **Practice** (the whole episode) is a round of prep that moves readiness (the owner found
+    the listening practice below couldn't: readiness counts only words
+    known, and it taught none; and "I don't need to be 100%… I'm worried
+    about having words in my deck that I'll never see again after the
+    show"). The server's plan (`planOf`, sent as `plan`): the words not
+    known, Muse's skips left out, ranked by what each does for the episode
+    (three for each line it alone keeps unreadable, plus how often it is
+    said, plus eight for a must-know), at most `PREP_MAX` (15, the owner's
+    cap), each **worth keeping** (on an HSK list, in `KEEP_SENTENCES` (5)
+    or more of the owner's sentences, or Muse's `keep: true`; Muse's
+    `keep: false` overrules) or **just for this show**; the rest listed to
+    skip, with readiness now and once the plan is learnt ("86% → 92%",
+    lines readable too). The tab counts the plan's words. "Learn these N"
+    runs a drill (`PrepDrill`) from the episode's own lines (each word's
+    easiest, as for the deck below): meet it (reading, meaning, Muse's
+    note, a line with it marked and its English), what it means in a line,
+    then which word fills the gap in a line (its English or meaning
+    shown); a miss comes back `PREP_BACK` (3) cards later at that step,
+    Stop leaves keeping what is done. A word done is sent at once (POST
+    `episodes` `{ id, learnt, keep, day }`, `learnEpisodeWord`): worth
+    keeping, into the deck (one addition, source `episode:<show>
+    <episode>`) and marked through Learn, due the next study day like a
+    word finished on the ladder; for the show, kept in
+    `chongfuxi_episode_prepped` (made on first use), never in the deck or
+    scheduled. A prepped word counts in the episode as still being learnt
+    (`standingIn`, before a must-know's forced new), so readiness rises;
+    `coverage.prepped` is the share it carries, kept with each day's
+    measure and shown in the graph's legend ("of which prepped for the
+    show"). After a round the episode is measured again: "Learnt 4 · 2
+    into your deck · 2 for the show. Readiness 86% → 90%", then the next
+    plan. "Prepped for this show" lists those words. Under it, **Listen
+    through the trouble lines** opens the listening practice (the owner:
+    "a lot of sentences to get through… only do
     the tough ones"; they chose the best line per word, heard then read):
     the lines the server picks (`pickDeck`, sent as `deck`): for each
     must-know not in the deck and each trouble word, its easiest line (the

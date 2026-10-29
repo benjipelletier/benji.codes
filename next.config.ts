@@ -137,10 +137,18 @@ const nextConfig: NextConfig = {
     "/api/chongfuxi/rescue": ["./chongfuxi/data/cedict.txt"],
     // The day's story material takes the stuck words, whose mix-up partners are checked against the dictionary.
     "/api/chongfuxi/agent/story": ["./chongfuxi/data/cedict.txt"],
+    // The weekly debrief's figures take the stuck words too.
+    "/api/chongfuxi/agent/week": ["./chongfuxi/data/cedict.txt"],
     // Episodes: subtitles split into words and measured against the deck, traditional made simplified.
-    "/api/chongfuxi/episodes": ["./chongfuxi/data/cedict.txt"],
+    // A word learnt in Practice and worth keeping goes into the deck, which links a chengyu into 龙库.
+    "/api/chongfuxi/episodes": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
     "/api/chongfuxi/agent/episodes": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/episodes/prep": ["./chongfuxi/data/cedict.txt", "./longku/data/chengyu.json"],
+    // Muse's daily page: passages split into words and measured, words looked up, the data tools.
+    "/api/chongfuxi/muse": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse/data": ["./chongfuxi/data/cedict.txt"],
+    "/api/chongfuxi/agent/muse/measure": ["./chongfuxi/data/cedict.txt"],
     // Muse's reading: each page split into words and measured against the deck.
     "/api/chongfuxi/reading": ["./chongfuxi/data/cedict.txt"],
     "/api/chongfuxi/agent/reading": ["./chongfuxi/data/cedict.txt"],

@@ -14,16 +14,16 @@
 // RESCUE_CLEAR Goods in a row.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Drill, EpisodeListed, KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckStory, StuckWord } from "@chongfuxi/lib/api";
+import type { EpisodeListed, MusePageListed, KitNewWord, Rescue as RescueData, RescueAttempt, RescueTreeNode, StuckWord } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { RESCUE_CLEAR } from "@chongfuxi/lib/review";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { markSeen, onSeen, seenAt } from "@chongfuxi/lib/museSeen";
-import { DrillView, drillLeft, say, useDrill } from "./Drill";
+import { say } from "./Drill";
+import { MusePageList, MusePageView, useMusePages } from "./MusePage";
 import { NotesView, useNoteCounts } from "./Notes";
-import { ReadingRows, ReadingView, latestReadings, unread, useReadings } from "./Reading";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -42,214 +42,110 @@ function useKits(): { stuck: StuckWord[]; fresh: KitNewWord[] } | null {
   return kits;
 }
 
-/** The latest story Muse wrote, for whether it is new. */
-function useStory(): StuckStory | null {
-  const [story, setStory] = useState<StuckStory | null>(null);
-  useEffect(() => {
-    get<{ story: StuckStory | null }>("rescue", { story: 1 })
-      .then((r) => setStory(r.story))
-      .catch(() => setStory(null));
-  }, []);
-  return story;
-}
-
 /**
  * What Muse has added or changed since it was last opened on this device
- * (lib/museSeen.ts): today's review, the story, answers to notes, an
- * episode. Readings say New by themselves until opened.
+ * (lib/museSeen.ts): its latest page, answers to notes, an episode.
  */
-function useMuseNews(
-  drill: Drill | null | undefined,
-  story: StuckStory | null,
-  lastAnswer: number | null | undefined,
-  episodes: EpisodeListed[] | null,
-) {
+function useMuseNews(page: MusePageListed | null | undefined, lastAnswer: number | null | undefined, episodes: EpisodeListed[] | null) {
   const [, redraw] = useState(0);
   useEffect(() => onSeen(() => redraw((n) => n + 1)), []);
   const news = {
-    drill: !!drill && !seenAt(`drill:${drill.at}`),
-    story: !!story && !seenAt(`story:${story.at}`),
+    page: !!page && !seenAt(`page:${page.at}`),
     notes: !!lastAnswer && lastAnswer > seenAt("notes"),
     episode: (e: EpisodeListed) => e.updatedAt > seenAt(`episode:${e.id}`),
   };
-  return { ...news, any: news.drill || news.story || news.notes || (episodes ?? []).some(news.episode) };
+  return { ...news, any: news.page || news.notes || (episodes ?? []).some(news.episode) };
+}
+
+/** Whether Muse has anything new since it was last opened on this device: for the dot on the Muse tab. */
+export function useMuseNew(): boolean {
+  const pages = useMusePages();
+  const episodes = useEpisodes();
+  const noteCounts = useNoteCounts();
+  return useMuseNews(pages?.[0] ?? null, noteCounts?.lastAnswer, episodes).any;
 }
 
 /**
- * On Today: one Muse reviews button (it was Memory kits) with how many new and stuck words there
- * are, opening their list (the owner reframed Words to revive to take in new
- * words too). Nothing when there are none.
+ * Muse's tab (the owner asked for "all this Muse stuff in its own page with a
+ * button at the bottom"; it was a full-screen list opened from Today): its
+ * page, Watch, earlier pages, the speed round, notes, new and stuck words.
+ * Anything opened from it (a page, an episode, a word's kit) takes the
+ * whole screen, and back comes to the tab. With `onEnd`, it is a screen of
+ * its own with a close button instead.
  */
-export function StuckWords({ onOpen }: { onOpen: () => void }) {
-  const kits = useKits();
-  const drill = useDrill();
-  const left = drillLeft(drill);
-  const toRead = unread(latestReadings(useReadings()));
-  const episodes = useEpisodes();
-  const noteCounts = useNoteCounts();
-  const news = useMuseNews(drill, useStory(), noteCounts?.lastAnswer, episodes);
-  const total = kits ? kits.stuck.length + kits.fresh.length : 0;
-  if (!kits || (!total && !left && !toRead && !episodes?.length)) return null;
-  const parts = [
-    toRead && `${fmt(toRead)} to read`,
-    left && `${fmt(left)} cards`,
-    kits.fresh.length && `${fmt(kits.fresh.length)} new`,
-    kits.stuck.length && `${fmt(kits.stuck.length)} stuck`,
-  ].filter(Boolean);
-  if (!parts.length && episodes?.length) parts.push(`${fmt(episodes.length)} ${episodes.length === 1 ? "episode" : "episodes"} to watch`);
-  return (
-    <button className="cf-stuck" onClick={onOpen}>
-      <span className="cf-stuck-text">
-        <b>
-          Muse reviews
-          {(news.any || toRead > 0) && <NewBadge />}
-        </b>
-        <small>{parts.join(" · ")}</small>
-      </span>
-      {total + left + toRead > 0 && <span className="cf-stuck-count">{fmt(total + left + toRead)}</span>}
-      <i aria-hidden="true">›</i>
-    </button>
-  );
-}
-
-/** The stuck words, full screen; a word opens its rescue over the list, and back comes to it. */
-export function StuckList({ shell, onEnd }: { shell: Shell; onEnd: () => void }) {
-  // A word's rescue, or the story with them all, over the list.
+export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }) {
+  // A word's rescue, Muse's page or anything else on the list, over it.
   const [open, setOpen] = useState<string | null>(null);
-  const [story, setStory] = useState(false);
   const [speed, setSpeed] = useState(false);
-  const [drill, setDrill] = useState(false);
-  const [reading, setReading] = useState<number | null>(null);
+  const [page, setPage] = useState(false);
+  const [pages, setPages] = useState(false);
   const [notes, setNotes] = useState(false);
   const [episode, setEpisode] = useState<number | null>(null);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
     setOpen(null);
-    setStory(false);
     setSpeed(false);
-    setDrill(false);
-    setReading(null);
+    setPage(false);
+    setPages(false);
     setNotes(false);
     setEpisode(null);
     setLoads((n) => n + 1);
   }, []);
-  useBackLayer(open !== null || story || speed || drill || reading !== null || notes || episode !== null, close);
-  if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
-  if (story) return <StoryView onEnd={close} />;
-  if (speed) return <SpeedRound onEnd={close} />;
-  if (drill) return <DrillView canWrite={shell.canWrite} onEnd={close} />;
-  if (reading !== null) return <ReadingView id={reading} canWrite={shell.canWrite} onEnd={close} />;
-  if (notes) return <NotesView onEnd={close} />;
-  if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={close} />;
-  return (
-    <StuckRows key={loads} onOpen={setOpen} onStory={() => setStory(true)} onSpeed={() => setSpeed(true)} onDrill={() => setDrill(true)} onRead={setReading} onNotes={() => setNotes(true)} onWatch={setEpisode} onEnd={onEnd} />
-  );
-}
-
-/** A paragraph with the stuck words in it marked, each opening its page. */
-function Marked({ zh, words }: { zh: string; words: string[] }) {
-  const sorted = [...words].sort((a, b) => b.length - a.length);
-  if (!sorted.length) return <>{zh}</>;
-  const parts = zh.split(new RegExp(`(${sorted.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`));
-  return (
-    <>
-      {parts.map((p, i) =>
-        words.includes(p) ? (
-          <button key={i} className="cf-story-w" onClick={() => wordpage.openWordPage(p)}>
-            {p}
-          </button>
-        ) : (
-          <span key={i}>{p}</span>
-        ),
-      )}
-    </>
-  );
-}
-
-/** Two paragraphs the model wrote with every stuck word in them; the English under each, on a tap. */
-function StoryView({ onEnd }: { onEnd: () => void }) {
-  const [story, setStory] = useState<StuckStory | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const [english, setEnglish] = useState<Set<number>>(new Set());
+  const over = open !== null || speed || page || pages || notes || episode !== null;
+  useBackLayer(over, close);
+  // In the tab, what opens over the list has the whole screen.
+  const { setFocus } = shell;
   useEffect(() => {
-    get<{ story: StuckStory | null }>("rescue", { story: 1 })
-      .then((r) => setStory(r.story))
-      .catch((e) => setError(message(e)));
-  }, []);
-  const dated = story ? new Date(`${story.day}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "";
-
+    if (!onEnd) setFocus(over);
+  }, [over, onEnd, setFocus]);
+  useEffect(() => () => (onEnd ? undefined : setFocus(false)), [onEnd, setFocus]);
+  useBackLayer(episode !== null && (page || pages), () => setEpisode(null));
+  // An episode opened from a page lies over it; closing it comes back to the list.
+  if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={page || pages ? () => setEpisode(null) : close} />;
+  if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
+  if (speed) return <SpeedRound onEnd={close} />;
+  if (page) return <MusePageView canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
+  if (pages) return <MusePageList canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
+  if (notes) return <NotesView onEnd={close} />;
   return (
-    <div className="cf-rescue">
-      <div className="cf-fast-top">
-        <button className="cf-close" onClick={onEnd} aria-label="Back to the list">
-          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
-            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
-        <p className="cf-rescue-top">{story && !story.today ? "Latest story" : "Today's story"}</p>
-      </div>
-      <div className="cf-rescue-in">
-        {error && <p className="cf-error">{error}</p>}
-        {story === undefined && !error && <Loading label="Opening…" />}
-        {story === null && <p className="cf-muted">No story yet. Muse writes one each morning with your stuck, new and due words.</p>}
-        {story && (
-          <>
-            <p className="cf-muted cf-story-by">
-              {dated} · by {story.model}
-              {!story.today && " · today's isn't written yet"}
-            </p>
-            {story.title && <h1 className="cf-story-title cf-zh">{story.title}</h1>}
-            {story.paragraphs.map((p, i) => (
-              <div key={i} className="cf-story-p">
-                <p className="cf-zh">
-                  <Marked zh={p.zh} words={story.words} />
-                </p>
-                {english.has(i) ? (
-                  <p className="cf-muted cf-story-en">{p.en}</p>
-                ) : (
-                  <button className="cf-link cf-story-show" onClick={() => setEnglish(new Set([...english, i]))}>
-                    Show English
-                  </button>
-                )}
-              </div>
-            ))}
-            {story.missing.length > 0 && <p className="cf-muted cf-story-note">Left out: {story.missing.join("、")}</p>}
-          </>
-        )}
-      </div>
-    </div>
+    <StuckRows
+      key={loads}
+      onOpen={setOpen}
+      onSpeed={() => setSpeed(true)}
+      onPage={() => setPage(true)}
+      onPages={() => setPages(true)}
+      onNotes={() => setNotes(true)}
+      onWatch={setEpisode}
+      onEnd={onEnd}
+    />
   );
 }
 
 function StuckRows({
   onOpen,
-  onStory,
   onSpeed,
-  onDrill,
-  onRead,
+  onPage,
+  onPages,
   onNotes,
   onWatch,
   onEnd,
 }: {
   onOpen: (word: string) => void;
-  onStory: () => void;
   onSpeed: () => void;
-  onDrill: () => void;
-  onRead: (id: number) => void;
+  onPage: () => void;
+  onPages: () => void;
   onNotes: () => void;
   onWatch: (id: number) => void;
-  onEnd: () => void;
+  onEnd?: () => void;
 }) {
   const kits = useKits();
   const noteCounts = useNoteCounts();
-  const readings = latestReadings(useReadings());
   const episodesOrNull = useEpisodes();
   const episodes = episodesOrNull ?? [];
-  const drill = useDrill();
-  const story = useStory();
-  const news = useMuseNews(drill, story, noteCounts?.lastAnswer, episodesOrNull);
-  const left = drillLeft(drill);
+  const pages = useMusePages();
+  const latest = pages?.[0] ?? null;
+  const news = useMuseNews(latest, noteCounts?.lastAnswer, episodesOrNull);
   const words = kits?.stuck ?? null;
   // Opening something marks it seen here, so its New badge goes.
   const open = (key: string | null, go: () => void) => () => {
@@ -258,36 +154,36 @@ function StuckRows({
   };
   const total = kits ? kits.stuck.length + kits.fresh.length : 0;
   return (
-    <div className="cf-rescue">
-      <div className="cf-fast-top">
-        <button className="cf-close" onClick={onEnd} aria-label="Back to Today">
-          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
-            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
-        <p className="cf-rescue-top">Muse reviews</p>
-      </div>
+    <div className={onEnd ? "cf-rescue" : "cf-muse-tab"}>
+      {onEnd && (
+        <div className="cf-fast-top">
+          <button className="cf-close" onClick={onEnd} aria-label="Back to Today">
+            <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          <p className="cf-rescue-top">Muse reviews</p>
+        </div>
+      )}
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
-        {/* Muse's cards for the day lead; reading and watching next; the smaller things as one list. */}
-        {drill && (
-          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={open(`drill:${drill.at}`, onDrill)}>
+        {/* Muse's page for the day leads; watching next; the smaller things as one list. */}
+        {latest && (
+          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={open(`page:${latest.at}`, onPage)}>
             <span className="cf-stuck-text">
               <b>
-                {drill.today ? "Today's review" : "Latest review"}
-                {news.drill && <NewBadge />}
+                {latest.today ? "Today's page" : "Latest page"}
+                {news.page && <NewBadge />}
               </b>
               <small>
-                {left
-                  ? `${fmt(left)} of ${fmt(drill.cards.length)} cards left`
-                  : `All ${fmt(drill.cards.length)} done${drill.today ? "" : " · today's not written yet"}`}
+                {latest.title}
+                {latest.touched ? ` · ${fmt(latest.touched)}/${fmt(latest.blocks)} done` : ""}
+                {latest.today ? "" : " · today's isn't laid out yet"}
               </small>
             </span>
-            {left > 0 && <span className="cf-stuck-count">{fmt(left)}</span>}
             <i aria-hidden="true">›</i>
           </button>
         )}
-        <ReadingRows readings={readings} onOpen={onRead} />
         <EpisodeRows
           episodes={episodes}
           isNew={news.episode}
@@ -296,8 +192,17 @@ function StuckRows({
             onWatch(id);
           }}
         />
-        {(total > 0 || (noteCounts?.total ?? 0) > 0) && (
+        {(total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 1) && (
           <ul className="cf-muse-tools">
+            {pages && pages.length > 1 && (
+              <li>
+                <button onClick={onPages}>
+                  <b>Earlier pages</b>
+                  <small>{fmt(pages.length - 1)}</small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
             {total > 0 && (
               <li>
                 <button onClick={onSpeed}>
@@ -307,19 +212,7 @@ function StuckRows({
                 </button>
               </li>
             )}
-            {total > 0 && (
-              <li>
-                <button onClick={open(story ? `story:${story.at}` : null, onStory)}>
-                  <b>
-                    Today&apos;s story
-                    {news.story && <NewBadge />}
-                  </b>
-                  <small>by Muse</small>
-                  <i aria-hidden="true">›</i>
-                </button>
-              </li>
-            )}
-            {noteCounts && noteCounts.total > 0 && (
+        {noteCounts && noteCounts.total > 0 && (
               <li>
                 <button onClick={open("notes", onNotes)}>
                   <b>
@@ -335,7 +228,7 @@ function StuckRows({
             )}
           </ul>
         )}
-        {kits && !total && !drill && !readings.length && !episodes.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
+        {kits && !total && !latest && !episodes.length && <p className="cf-muted">Nothing from Muse yet, and no new or stuck words right now.</p>}
         {kits && total > 0 && (
           <>
             {kits.fresh.length > 0 && (
