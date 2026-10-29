@@ -2,20 +2,21 @@
 
 // Everything there is a card for, or could be: the words, the sentences, the
 // Pleco word lists more words come from, and the words that share an English
-// meaning (Synonyms.tsx).
+// meaning (Synonyms.tsx), and the words taken for each other (Mixups.tsx).
 
 import { useCallback, useEffect, useState } from "react";
 import { routeChoice, useRouteParam } from "@chongfuxi/lib/route";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Learn } from "./Learn";
 import { ListsPanel } from "./ListsPanel";
+import { MixupsPanel } from "./Mixups";
 import { Session, type ListReview } from "./ReviewPanel";
 import { SentencesPanel } from "./SentencesPanel";
 import { SynonymsPanel } from "./Synonyms";
 import { WordsPanel } from "./WordsPanel";
 import { fmt, useBackLayer, type Shell } from "./shared";
 
-const SIDES = ["words", "sentences", "lists", "synonyms"] as const;
+const SIDES = ["words", "sentences", "lists", "synonyms", "mixups"] as const;
 type Side = (typeof SIDES)[number];
 
 export function CardsPanel({ shell }: { shell: Shell }) {
@@ -61,6 +62,7 @@ export function CardsPanel({ shell }: { shell: Shell }) {
     { key: "sentences", label: "Sentences", n: s?.sentences ?? null },
     { key: "lists", label: "Lists", n: null },
     { key: "synonyms", label: "Synonyms", n: null },
+    { key: "mixups", label: "Mix-ups", n: null },
   ];
   return (
     <>
@@ -104,6 +106,8 @@ export function CardsPanel({ shell }: { shell: Shell }) {
           <SentencesPanel shell={shell} find={find} />
         ) : side === "synonyms" ? (
           <SynonymsPanel />
+        ) : side === "mixups" ? (
+          <MixupsPanel />
         ) : (
           <ListsPanel
             shell={shell}

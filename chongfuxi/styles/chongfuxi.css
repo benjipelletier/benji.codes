@@ -613,7 +613,8 @@ body:has(.cfx) {
 .cf-switch {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  /* Five sides since Mix-ups: each as wide as its name, the rest shared. */
+  grid-auto-columns: auto;
   padding: 3px;
   border-radius: 12px;
   background: var(--cf-sunken);
@@ -628,8 +629,9 @@ body:has(.cfx) {
   background: none;
   color: var(--cf-ink-soft);
   font: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -12617,4 +12619,335 @@ button.cf-how-text {
 }
 .cf-cw-lines li.is-saying .cf-cw-line {
   background: none;
+}
+
+/* Cards › Mix-ups: words taken for each other, as small networks and pairs. */
+.cf-mx {
+  margin-top: 4px;
+}
+
+.cf-mx-about {
+  margin: 8px 0 10px;
+  font-size: 13.5px;
+}
+
+.cf-mx-empty {
+  padding: 24px 4px;
+}
+
+.cf-mx-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-mx-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf-mx-key-line {
+  width: 22px;
+  height: 0;
+  border-top: 3px solid var(--cf-recall);
+}
+
+.cf-mx-key-line.is-lookup {
+  border-top: 2px dashed var(--cf-ink-faint);
+}
+
+.cf-mx-key-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cf-rule-strong);
+  background: var(--cf-surface);
+}
+
+.cf-mx-key-dot.is-deck {
+  border-color: var(--cf-read);
+  background: color-mix(in srgb, var(--cf-read) 14%, var(--cf-surface));
+}
+
+.cf-mx-cluster {
+  margin: 0 0 14px;
+  padding: 8px 8px 10px;
+  border-radius: 16px;
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow);
+}
+
+.cf-mx-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cf-mx-edge line {
+  stroke: var(--cf-recall);
+  stroke-linecap: round;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+
+.cf-mx-edge.is-lookup line:not(.cf-mx-hit) {
+  stroke: var(--cf-ink-faint);
+  stroke-dasharray: 5 5;
+}
+
+.cf-mx-edge line.cf-mx-hit {
+  stroke: transparent;
+  stroke-width: 22px;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.cf-mx-edge.is-dim line:not(.cf-mx-hit) {
+  opacity: 0.15;
+}
+
+.cf-mx-node {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cf-mx-node circle {
+  fill: var(--cf-surface);
+  stroke: var(--cf-rule-strong);
+  stroke-width: 1.5px;
+}
+
+.cf-mx-node.is-deck circle {
+  fill: color-mix(in srgb, var(--cf-read) 14%, var(--cf-surface));
+  stroke: var(--cf-read);
+}
+
+.cf-mx-node.is-dictionary circle {
+  stroke-dasharray: 3 3;
+}
+
+.cf-mx-node.is-picked circle {
+  stroke-width: 3px;
+  fill: color-mix(in srgb, var(--cf-recall) 18%, var(--cf-surface));
+  stroke: var(--cf-recall);
+}
+
+.cf-mx-node.is-dim {
+  opacity: 0.3;
+}
+
+.cf-mx-zh {
+  fill: var(--cf-ink);
+  font-family: var(--cf-zh);
+  font-size: 16px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.cf-mx-py {
+  fill: var(--cf-ink-soft);
+  font-size: 10.5px;
+  text-anchor: middle;
+}
+
+.cf-mx-tap {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-detail {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-mx-word {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--cf-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-mx-word-zh {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cf-mx-word-body {
+  display: grid;
+  min-width: 0;
+}
+
+.cf-mx-word-py {
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-mx-word-gloss {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-standing {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-standing.is-deck {
+  color: var(--cf-read);
+}
+
+.cf-mx-evidence {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-mx-evidence li {
+  margin: 0 4px 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--cf-recall);
+  border-radius: 4px 10px 10px 4px;
+  background: var(--cf-sunken);
+}
+
+.cf-mx-evidence li.is-lookup {
+  border-left: 3px dashed var(--cf-ink-faint);
+}
+
+.cf-mx-evidence p {
+  margin: 0;
+}
+
+.cf-mx-ev-head {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-ev-sent {
+  margin-top: 2px !important;
+  font-size: 15px;
+}
+
+.cf-mx-ev-note {
+  margin-top: 2px !important;
+  font-size: 14px;
+}
+
+.cf-mx-ev-muse {
+  margin-top: 6px !important;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-mx-ev-by {
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cf-recall);
+}
+
+.cf-mx-with {
+  margin: 8px 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-partners {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cfx .cf-mx-partners button {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  text-align: left;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.cf-mx-count {
+  font-size: 12.5px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-mx-pairs {
+  margin-top: 6px;
+}
+
+.cfx .cf-mx-pair-row {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr) auto 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  cursor: pointer;
+}
+
+.cf-mx-pair-w {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.cf-mx-pair-line {
+  display: block;
+  border-radius: 4px;
+  background: var(--cf-recall);
+  opacity: 0.75;
+}
+
+.cf-mx-pair-line.is-lookup {
+  height: 0 !important;
+  border-top: 2px dashed var(--cf-ink-faint);
+  background: none;
+}
+
+.cf-mx-pair-row .cf-mx-count {
+  text-align: right;
+}
+
+.cf-mx-pair .cf-mx-detail {
+  margin: 0 8px 10px;
+}
+
+.cf-mx-ev-head .cf-zh {
+  font-size: inherit;
+  font-weight: 600;
 }

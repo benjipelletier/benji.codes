@@ -163,6 +163,18 @@ export async function listNotes(
   return { notes: await entriesOf(sql, owner, rows), ...counts, lastAnswer: counts.lastAnswer === null ? null : Math.round(counts.lastAnswer) };
 }
 
+/** Every note, newest first, up to `limit`, with Muse's answers: for the mix-up map (mixups.ts). */
+export async function allNotes(sql: Sql, owner: string, limit = 2000): Promise<NoteEntry[]> {
+  await ensureTable(sql);
+  const rows = (await sql.query(
+    `select ${NOTE_COLUMNS} ${NOTE_FROM}
+     where r.owner_email = $1 and r.comment is not null and r.cause = 'answer'
+     order by r.at desc limit $2`,
+    [owner, limit],
+  )) as unknown as NoteRow[];
+  return entriesOf(sql, owner, rows);
+}
+
 /**
  * A word's notes: written on its cards, written on a sentence card where it
  * was marked as the trouble, naming it, or answered as its partner. Newest first.

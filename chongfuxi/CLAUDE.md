@@ -1006,6 +1006,42 @@ dictionary's shown greyed after them, a dedicated AI comparison, and a place in 
   the group over the session (`contrast` on `SessionCard`, from
   `contrastsFor`). The owner chose this of the ideas for using the groups.
 
+## Mix-ups: a map of words taken for each other
+
+Asked for by the owner in October 2026: "based on words I mix up with other
+words when failing a card and adding why… a visualized map of words I often
+confuse together". Cards › Mix-ups (a fifth side; the switch's sides are now
+as wide as their names, `grid-auto-columns: auto`, so all five fit at 360px),
+`components/Mixups.tsx`, route `mixups` (readable by anyone, like the
+notes), `app/api/chongfuxi/mixups.ts`. No model, only what is kept:
+
+- **Pairs** (`mixupMap`): each note written after a Forgot (`allNotes` in
+  notes.ts, up to 2000) joins a word card's word with each word the note
+  names (`namedIn`) and the partner Muse gave answering it; a sentence
+  card's note joins the words it names with each other. A lookup naming
+  just two corpus words (`lookupWords`), not both inside one word asked
+  about (`inOneWord`), joins those two. A note weighs 2, a lookup 1
+  (`MIXUP_WEIGHT`); each pair keeps up to 6 of each, newest first, with
+  Muse's difference when the note was answered. A word inside the other
+  (发 / 发现) is never a pair.
+- **Clusters**: words joined directly or through others, strongest first
+  (at most 60). Each word with its pinyin, meaning, standing (deck, list,
+  or only the dictionary) and misses in 90 days.
+- **On screen**: a cluster of three or more words is a small network in an
+  SVG (`layout`: a force layout seeded on a circle in a fixed order, so it
+  is drawn the same each time, fitted to the box): a circle per word, blue
+  in the deck, plain on a list, dashed only in the dictionary, larger for
+  more misses, pinyin under it; a line per pair, Recall violet for notes,
+  grey dashed for lookup only, thicker the more often. A tap on a word
+  lights its lines and lists the words it was taken for (notes and
+  lookups counted), each opening the pair; a tap on a line (a wide unseen
+  line takes the finger) shows the two words (each opening its word page)
+  and why: each note with its card, the sentence, what was written and
+  Muse's difference, then the lookups. A pair on its own is a row under
+  "Pairs": the two words with the line between, opening the same.
+- Nothing is empty for long: with no pair yet it says how to make one
+  (swipe Forgot up and say which word it was taken for).
+
 ## The owner's corpus
 
 From `flashbackup-2610131958.pqb` (35,974 cards), with `hsk1-4 sentences`

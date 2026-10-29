@@ -1227,6 +1227,42 @@ export interface NoteEntry {
   answers: NoteAnswer[];
 }
 
+/** A word on the mix-up map (mixups.ts). */
+export interface MixupNode {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  standing: "deck" | "listed" | "dictionary";
+  /** Forgots (and lapses from being tapped) in the last 90 days. */
+  misses: number;
+}
+
+/** Two words taken for each other, and why we think so. */
+export interface MixupEdge {
+  a: string;
+  b: string;
+  /** 2 a note, 1 a lookup (MIXUP_WEIGHT). */
+  weight: number;
+  /** Notes written after a Forgot that join them, newest first, with Muse's difference when answered. */
+  notes: Array<{ id: string; at: number; kind: CardKind; word: string | null; note: string; sentence: string | null; difference: string | null }>;
+  /** Lookups comparing just the two. */
+  lookups: Array<{ query: string; at: number }>;
+}
+
+export interface MixupCluster {
+  nodes: MixupNode[];
+  edges: MixupEdge[];
+  weight: number;
+  last: number;
+}
+
+export interface MixupMap {
+  clusters: MixupCluster[];
+  /** Pairs in all, and notes read. */
+  pairs: number;
+  notes: number;
+}
+
 /** An answer shown on a word card's back. */
 export interface CardNoteAnswer {
   /** The note's card word, and what it was taken for. */
