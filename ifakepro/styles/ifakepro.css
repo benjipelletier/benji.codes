@@ -398,7 +398,13 @@ body.ifp-noscroll { overflow: hidden; }
 .song-sheet { --chart-bg: var(--sheet); background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 12px 10px 16px; box-shadow: var(--shadow); }
 @media (min-width: 640px) { .song-sheet { padding: 18px 26px 26px; } }
 /* On a phone the chart runs edge to edge, like iReal. */
-@media (max-width: 639px) { .song-sheet { margin: 0 -12px; border-radius: 0; border-width: 1px 0; padding: 10px 4px 14px; box-shadow: none; } }
+@media (max-width: 639px) {
+  .song-sheet { margin: 0 -12px; border-radius: 0; border-width: 1px 0; padding: 6px 4px 10px; box-shadow: none; }
+  /* Tighter above the chart, so more of the screen is chart. */
+  .song-main { padding-top: 2px; }
+  .crumbs a { padding: 3px 0; }
+  .song-bar { margin: 4px 0 6px; }
+}
 .song-sheet .chart-head { margin-bottom: 6px; }
 .key-move { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--paper-2); border-radius: 10px; }
 .key-move small { color: var(--ink-2); }

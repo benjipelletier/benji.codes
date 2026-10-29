@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type SongMeta, sanitizeMeta } from '@ifakepro/lib/chart';
 import { ALL_KEYS, type ChordStyle, keyDistance, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
 import { api, copyText, displayKey, download, personColor, usePref, when } from '@ifakepro/lib/client';
@@ -57,6 +57,10 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   const [dialog, setDialog] = useState<'info' | 'export' | 'copy' | null>(null);
   const [lastRemote, setLastRemote] = useState<{ name: string; agent: string | null; bars: number[]; at: number } | null>(null);
   const [barNumbers, setBarNumbers] = usePref<'on' | 'off'>('barNumbers', 'off');
+  // The whole chart on one screen, unless the person scrolls instead; editing wants full-size bars.
+  const [fitPref, setFitPref] = usePref<'on' | 'off'>('fitChart', 'on');
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const room = useScreenRoom(fitPref === 'on' && !editing, sheetRef);
 
   const { viewer } = useViewer();
   const [presBar, setPresBar] = useState<string | null>(null);
@@ -208,6 +212,14 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             </button>
           )}
           <button
+            className={`ifp-btn small ${fitPref === 'on' ? 'on' : ''}`}
+            onClick={() => setFitPref(fitPref === 'on' ? 'off' : 'on')}
+            aria-pressed={fitPref === 'on'}
+            title="Fit the whole chart on the screen, or show it full size and scroll"
+          >
+            ⤢ Fit
+          </button>
+          <button
             className={`ifp-btn small ${barNumbers === 'on' ? 'on' : ''}`}
             onClick={() => setBarNumbers(barNumbers === 'on' ? 'off' : 'on')}
             aria-pressed={barNumbers === 'on'}
@@ -301,7 +313,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           </div>
         )}
 
-        <div className="song-sheet">
+        <div className="song-sheet" ref={sheetRef}>
           <ChartHead
             meta={meta}
             playlist={song.playlist.title}
@@ -309,7 +321,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             onEdit={member && !deleted && !preview ? () => setDialog('info') : undefined}
           />
           {preview ? (
-            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} barNumbers={barNumbers === 'on'} />
+            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} barNumbers={barNumbers === 'on'} fitHeight={room} />
           ) : (
             <ChartEditor
               chart={doc.chart}
@@ -331,7 +343,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               canComment={member && !deleted}
               onComment={openComment}
               chordStyle={chordStyle}
-              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash, barNumbers: barNumbers === 'on' }}
+              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash, barNumbers: barNumbers === 'on', fitHeight: room }}
             />
           )}
         </div>
@@ -374,6 +386,41 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
     </div>
   );
 
+}
+
+/**
+ * The height left on screen for the chart, from where it starts down to the
+ * bottom of the window (above the phone's tab bar), or null when not fitting.
+ * Measured with the page scrolled to the top, and again whenever the window
+ * or anything above the chart changes size.
+ */
+function useScreenRoom(on: boolean, sheet: RefObject<HTMLDivElement | null>): number | null {
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!on) {
+      setRoom(null);
+      return;
+    }
+    const measure = () => {
+      const el = sheet.current;
+      const chart = el?.querySelector('.chart');
+      if (!el || !chart) return;
+      const top = chart.getBoundingClientRect().top + window.scrollY;
+      const bar = document.querySelector('.song-tabbar');
+      const barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
+      const pad = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+      setRoom(Math.max(240, Math.floor(window.innerHeight - top - barH - pad - 6)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = new ResizeObserver(measure);
+    if (sheet.current?.parentElement) ro.observe(sheet.current.parentElement);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro.disconnect();
+    };
+  }, [on, sheet]);
+  return room;
 }
 
 function SaveBadge({ status }: { status: string }) {

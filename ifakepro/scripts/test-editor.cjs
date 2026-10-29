@@ -207,6 +207,29 @@ const tl = (chart, i) => chart.bars[i].events.map((e) => `${e.kind === 'chord' ?
   await p.reload();
   await p.waitForSelector('.chart');
   assert.match(await p.locator('.bar').nth(1).innerText(), /F\s*7[\s\S]*C\s*7/);
+
+  step('a long chart fits the phone screen when reading, and is full size again while editing');
+  {
+    const long = await api('POST', `/playlists/${slug}/songs`, { blank: { title: 'Long Tune', key: 'C', form: 'aaba' } });
+    await p.goto(`${BASE}/ifakepro/p/${slug}/s/${long.ids[0]}`);
+    await p.waitForSelector('.chart');
+    await p.evaluate(() => document.fonts.ready);
+    await p.waitForTimeout(300);
+    const room = () => p.evaluate(() => ({
+      chartBottom: document.querySelector('.chart').getBoundingClientRect().bottom,
+      barTop: document.querySelector('.song-tabbar').getBoundingClientRect().top,
+      cs: parseFloat(getComputedStyle(document.querySelector('.chart-row')).fontSize),
+    }));
+    const fit = await room();
+    assert.ok(fit.chartBottom <= fit.barTop + 1, `32 bars fit above the tab bar (${Math.round(fit.chartBottom)} ≤ ${Math.round(fit.barTop)})`);
+    await p.click('button:has-text("Edit chart")');
+    await p.waitForSelector('.ed-sheet');
+    assert.ok((await room()).cs > fit.cs, 'editing shows the chart full size');
+    await p.click('.ed-done');
+    await p.click('button:has-text("Fit")');
+    assert.ok((await room()).chartBottom > fit.barTop, 'Fit off: full size, scrolls');
+    await p.click('button:has-text("Fit")');
+  }
   await phone.close();
 
   // ---------------------------------------------------------------- laptop: keyboard

@@ -39,7 +39,16 @@ export interface ChartViewProps {
   flash?: Set<string>;
   barNumbers?: boolean;
   className?: string;
+  /**
+   * Make the whole chart fit in this many pixels of height: its chord size
+   * (--cs) comes down until it does, but no smaller than MIN_FIT_CS, past
+   * which a long tune scrolls instead.
+   */
+  fitHeight?: number | null;
 }
+
+/** The smallest chord size fitting to a screen goes down to, in px: still readable on a phone. */
+const MIN_FIT_CS = 15;
 
 // Music symbols come from Petaluma Text, a SMuFL font: these are its code points.
 export const SMUFL = {
@@ -216,38 +225,61 @@ function fitBars(root: HTMLElement) {
   bodies.forEach((b, i) => fits[i] < 1 && b.style.setProperty('--fit', fits[i].toFixed(3)));
 }
 
-function useFitBars(deps: unknown[]) {
+/**
+ * Bring the chord size down until the chart is no taller than `max`. Every
+ * size in a chart is in em of --cs, so its height follows --cs almost
+ * exactly: a step or two of scaling lands it.
+ */
+function fitHeight(root: HTMLElement, max: number | null | undefined) {
+  root.style.removeProperty('--cs');
+  if (!max) return;
+  let h = root.scrollHeight;
+  if (h <= max) return;
+  const row = root.querySelector('.chart-row');
+  let cs = row ? parseFloat(getComputedStyle(row).fontSize) : 0;
+  for (let k = 0; k < 4 && cs > MIN_FIT_CS && h > max; k++) {
+    cs = Math.max(MIN_FIT_CS, Math.floor(cs * (max / h) * 100) / 100);
+    root.style.setProperty('--cs', `${cs}px`);
+    h = root.scrollHeight;
+  }
+}
+
+function useFitBars(deps: unknown[], maxHeight: number | null | undefined) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    fitBars(el);
+    const fit = () => {
+      fitHeight(el, maxHeight);
+      fitBars(el);
+    };
+    fit();
     // Again when the width changes (a phone turning, the editor opening) and once the chord font arrives.
     let w = el.clientWidth;
     const ro = new ResizeObserver(() => {
       if (el.clientWidth !== w) {
         w = el.clientWidth;
-        fitBars(el);
+        fit();
       }
     });
     ro.observe(el);
     let live = true;
-    document.fonts?.ready.then(() => live && fitBars(el));
+    document.fonts?.ready.then(() => live && fit());
     return () => {
       live = false;
       ro.disconnect();
     };
-  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [...deps, maxHeight]); // eslint-disable-line react-hooks/exhaustive-deps
   return ref;
 }
 
 function ChartViewInner(props: ChartViewProps) {
-  const { chart, shift = 0, flats = true, chordStyle = 'jazz', selection, onBarClick, presence, pins, onPin, changed, flash, barNumbers, beatGrid, className } = props;
+  const { chart, shift = 0, flats = true, chordStyle = 'jazz', selection, onBarClick, presence, pins, onPin, changed, flash, barNumbers, beatGrid, className, fitHeight } = props;
   const rows = layout(chart);
   const times = timeAt(chart);
   const ms = metersOf(chart);
   const ends = endings(chart.bars);
-  const ref = useFitBars([chart, shift, flats, chordStyle, barNumbers, beatGrid, className]);
+  const ref = useFitBars([chart, shift, flats, chordStyle, barNumbers, beatGrid, className], fitHeight);
   return (
     <div className={`chart ${className ?? ''}`} ref={ref}>
       {rows.map((row, ri) => (
