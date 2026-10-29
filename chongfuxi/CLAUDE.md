@@ -476,6 +476,15 @@ Built on the owner's corpus alone, since that is what answers lead with:
   run of characters holding the other, so 表达式 finds "表达 vs 表示" too),
   as it is typed or filled from a review card; then Recent, the latest six,
   the rest behind "Show all" (the owner's request; it was every question).
+  **Words opened from Look up are in it too** (the owner asked): a
+  suggestion, a chip, a word marked in a sentence, Word page › on an
+  answer, Enter on a word (`openFromLookup` in `LookupPanel.tsx`, POST
+  `lookup` `{ viewed: word }`, `viewLookupWord`) keeps the word in
+  `chongfuxi_lookup_view` (made on first use, the latest opening per word,
+  corpus words only), and the history (GET `lookup` gives `viewed`,
+  `listViewed`, up to 200) lists them among the questions by time: the
+  word large with its pinyin, its meaning under it, ›, opening its page
+  again; they count for "With 表达" too.
   After the blocks: Right? ✓ ✗ (a note when wrong); how the question was
   read, the model's summary and what the check changed folded away at the
   foot.

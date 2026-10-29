@@ -3,18 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { ownerOnly } from "../guard";
 import { AdditionError } from "../additions";
 import type { LookupFrom } from "@chongfuxi/lib/api";
-import { LookupError, addFromLookup, judgeLookup, linkLookup, listLookups, lookUpPhrase } from "../lookup";
+import { LookupError, addFromLookup, judgeLookup, linkLookup, listLookups, listViewed, lookUpPhrase, viewLookupWord } from "../lookup";
 import { bad, body } from "../params";
 
 export const dynamic = "force-dynamic";
 // A lookup is several model calls with the evidence in between.
 export const maxDuration = 300;
 
-/** Past lookups with their verdicts. Owner only, like every lookup. */
+/** Past lookups with their verdicts, and the words opened from Look up. Owner only, like every lookup. */
 export async function GET() {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  return NextResponse.json({ lookups: await listLookups(gate.sql, gate.owner) });
+  const [lookups, viewed] = await Promise.all([listLookups(gate.sql, gate.owner), listViewed(gate.sql, gate.owner)]);
+  return NextResponse.json({ lookups, viewed });
 }
 
 /**
@@ -22,12 +23,22 @@ export async function GET() {
  * { q, verdict: "right" | "wrong" | null, note? }: the owner's verdict on it.
  * { q, add: word }: put one of its words in the deck (an addition, undone
  * through additions/[id]).
+ * { viewed: word }: a word opened from Look up, kept for the history.
  * A lookup asked from a card carries `from` (LookupFrom), kept beside it once answered.
  */
 export async function POST(req: NextRequest) {
   const gate = await ownerOnly();
   if ("refused" in gate) return gate.refused;
-  const input = await body<{ q?: string; fresh?: boolean; verdict?: "right" | "wrong" | null; note?: string; add?: string; from?: LookupFrom }>(req);
+  const input = await body<{ q?: string; viewed?: string; fresh?: boolean; verdict?: "right" | "wrong" | null; note?: string; add?: string; from?: LookupFrom }>(req);
+  if (typeof input?.viewed === "string") {
+    try {
+      await viewLookupWord(gate.sql, gate.owner, input.viewed.trim());
+    } catch (e) {
+      if (e instanceof LookupError) return bad(e.message, 422);
+      throw e;
+    }
+    return NextResponse.json({ ok: true });
+  }
   const q = input?.q?.trim();
   if (!q || q.length > 200) return bad("what do you want to say?");
   if (input && "verdict" in input) {

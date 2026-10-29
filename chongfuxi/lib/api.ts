@@ -1047,6 +1047,15 @@ export interface LookupListed {
   words: string[];
 }
 
+/** A word opened from Look up (a suggestion, a chip), its latest opening: in the history beside the questions. */
+export interface LookupViewed {
+  word: string;
+  at: number;
+  pinyin: string | null;
+  gloss: string | null;
+  inDeck: boolean;
+}
+
 /** A group of words sharing an English key (synonyms.ts): a row of Cards › Synonyms. */
 export interface SynonymGroupRow {
   key: string;

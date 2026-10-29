@@ -17,7 +17,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import type { LookupAnswer, LookupBlock, LookupListed, LookupSentence, LookupSource, LookupWord, LookupFrom, SentenceSuggestion, WordSuggestion } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupBlock, LookupListed, LookupViewed, LookupSentence, LookupSource, LookupWord, LookupFrom, SentenceSuggestion, WordSuggestion } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { get, send } from "@chongfuxi/lib/client";
 import { Loading, AiPill, message, type Shell } from "./shared";
@@ -152,7 +152,7 @@ function WordPageLink({ zh, ctx }: { zh: string; ctx: Ctx }) {
   const status = ctx.words[zh]?.deck?.status;
   if (status !== "deck" && status !== "listed") return null;
   return (
-    <button className="cf-link cf-lk-page" onClick={() => wordpage.openWordPage(zh)}>
+    <button className="cf-link cf-lk-page" onClick={() => openFromLookup(zh)}>
       Word page ›
     </button>
   );
@@ -845,7 +845,7 @@ function WordChips({ words, label }: { words: string[]; label?: string }) {
     <p className="cf-lk-words">
       {label && <span className="cf-lk-words-label">{label}</span>}
       {words.map((w) => (
-        <button key={w} className="cf-lk-wchip" onClick={() => wordpage.openWordPage(w)}>
+        <button key={w} className="cf-lk-wchip" onClick={() => openFromLookup(w)}>
           <span className="cf-zh">{w}</span> ›
         </button>
       ))}
@@ -874,7 +874,7 @@ function Suggestions({
     <ul className="cf-lk-suggest" role="listbox" aria-label="Your words">
       {words.map((w) => (
         <li key={w.word}>
-          <button role="option" aria-selected={false} onClick={() => wordpage.openWordPage(w.word)}>
+          <button role="option" aria-selected={false} onClick={() => openFromLookup(w.word)}>
             <span className="cf-zh cf-lk-sg-zh">{w.word}</span>
             <span className="cf-lk-sg-body">
               {w.pinyin && <span className="cf-lk-py">{displayPinyin(w.pinyin)}</span>}
@@ -917,7 +917,7 @@ function MarkedWords({ zh, words }: { zh: string; words: string[] }) {
     <>
       {parts.map((p, i) =>
         words.includes(p) ? (
-          <button key={i} className="cf-lk-sg-mark" onClick={() => wordpage.openWordPage(p)}>
+          <button key={i} className="cf-lk-sg-mark" onClick={() => openFromLookup(p)}>
             {p}
           </button>
         ) : (
@@ -928,35 +928,74 @@ function MarkedWords({ zh, words }: { zh: string; words: string[] }) {
   );
 }
 
+/**
+ * A word opened from Look up (a suggestion, a chip, a marked word, Enter on
+ * a word): its page opens, and it is kept for the history beside the
+ * questions (the owner's request), which hears and reloads.
+ */
+const viewedListeners = new Set<() => void>();
+function openFromLookup(word: string) {
+  wordpage.openWordPage(word);
+  send("lookup", { viewed: word })
+    .then(() => viewedListeners.forEach((f) => f()))
+    .catch(() => {});
+}
+
 const RECENT = 6;
 const hanRuns = (text: string): string[] => text.match(/[\u3400-\u9fff]+/g) ?? [];
 
+/** A question asked, or a word opened from Look up: the history has both, by time. */
+type Past = { q: LookupListed } | { w: LookupViewed };
+const pastAt = (p: Past) => ("q" in p ? p.q.at : p.w.at);
+const pastText = (p: Past) => ("q" in p ? p.q.query : p.w.word);
+
 /**
- * Past questions: first those sharing Chinese with what is in the field (one
- * holding the other: 表达 finds "表达 vs 表示", and so does 表达式), then the
- * most recent, the rest a tap away. At the owner's request; it was every
- * question, newest first.
+ * Past questions and words opened, newest first: first those sharing Chinese
+ * with what is in the field (one holding the other: 表达 finds "表达 vs 表示",
+ * and so does 表达式), then the most recent, the rest a tap away. At the
+ * owner's request; it was every question, newest first, and words opened
+ * left no trace.
  */
-function History({ past, typed, onPick }: { past: LookupListed[]; typed: string; onPick: (q: string) => void }) {
+function History({ past, viewed, typed, onPick }: { past: LookupListed[]; viewed: LookupViewed[]; typed: string; onPick: (q: string) => void }) {
   const [all, setAll] = useState(false);
+  const items: Past[] = [...past.map((q) => ({ q })), ...viewed.map((w) => ({ w }))].sort((a, b) => pastAt(b) - pastAt(a));
   const wanted = hanRuns(typed);
   const related = wanted.length
-    ? past.filter((l) => hanRuns(l.query).some((r) => wanted.some((w) => r.includes(w) || w.includes(r))))
+    ? items.filter((p) => hanRuns(pastText(p)).some((r) => wanted.some((w) => r.includes(w) || w.includes(r))))
     : [];
-  const rest = past.filter((l) => !related.includes(l));
+  const rest = items.filter((p) => !related.includes(p));
   const recent = all ? rest : rest.slice(0, RECENT);
-  const row = (l: LookupListed) => (
-    <li key={l.query}>
-      {/* The question on one line, the kind it was read as under it, the verdict at the end: opens the answer. */}
-      <button className="cf-lk-hist" onClick={() => onPick(l.query)}>
-        <span className="cf-lk-hist-q">{l.query}</span>
-        {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
-        <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
-      </button>
-      {/* The words it was about, each to its page. */}
-      {l.words.length > 0 && <WordChips words={l.words} />}
-    </li>
-  );
+  const row = (p: Past) => {
+    if ("w" in p) {
+      const w = p.w;
+      return (
+        <li key={`w:${w.word}`}>
+          {/* A word opened: the word, its reading and meaning, opening its page again. */}
+          <button className="cf-lk-hist cf-lk-hist-word" onClick={() => openFromLookup(w.word)}>
+            <span className="cf-lk-hist-q">
+              <span className="cf-zh">{w.word}</span>
+              {w.pinyin && <span className="cf-lk-py">{displayPinyin(w.pinyin)}</span>}
+            </span>
+            <span className="cf-lk-hist-kind">{w.gloss ?? (w.inDeck ? "In your deck" : "On a list")}</span>
+            <em className="cf-lk-hist-go" aria-hidden="true">›</em>
+          </button>
+        </li>
+      );
+    }
+    const l = p.q;
+    return (
+      <li key={`q:${l.query}`}>
+        {/* The question on one line, the kind it was read as under it, the verdict at the end: opens the answer. */}
+        <button className="cf-lk-hist" onClick={() => onPick(l.query)}>
+          <span className="cf-lk-hist-q">{l.query}</span>
+          {l.kind && <span className="cf-lk-hist-kind">{KIND[l.kind]}</span>}
+          <em className={`cf-lk-mark is-${l.verdict ?? "none"}`}>{l.verdict === "right" ? "✓" : l.verdict === "wrong" ? "✗" : ""}</em>
+        </button>
+        {/* The words it was about, each to its page. */}
+        {l.words.length > 0 && <WordChips words={l.words} />}
+      </li>
+    );
+  };
   return (
     <>
       {related.length > 0 && (
@@ -1001,7 +1040,7 @@ export function LookupPanel({
   const [answer, setAnswer] = useState<LookupAnswer | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [past, setPast] = useState<LookupListed[] | null>(null);
+  const [past, setPast] = useState<{ lookups: LookupListed[]; viewed: LookupViewed[] } | null>(null);
   const field = useRef<HTMLInputElement>(null);
   // The type-ahead: words of the corpus matching what is typed (no model), for that text.
   const [suggest, setSuggest] = useState<{ q: string; words: WordSuggestion[]; sentences: SentenceSuggestion[] } | null>(null);
@@ -1029,7 +1068,7 @@ export function LookupPanel({
         .then((r) => r.words)
         .catch(() => []);
     }
-    if (words?.some((w) => w.word === q)) return wordpage.openWordPage(q);
+    if (words?.some((w) => w.word === q)) return openFromLookup(q);
     void ask(q);
   };
 
@@ -1044,9 +1083,15 @@ export function LookupPanel({
 
   useEffect(() => {
     if (!shell.canWrite || answer) return;
-    get<{ lookups: LookupListed[] }>("lookup")
-      .then((r) => setPast(r.lookups))
-      .catch(() => setPast([]));
+    const load = () =>
+      get<{ lookups: LookupListed[]; viewed?: LookupViewed[] }>("lookup")
+        .then((r) => setPast({ lookups: r.lookups, viewed: r.viewed ?? [] }))
+        .catch(() => setPast({ lookups: [], viewed: [] }));
+    void load();
+    viewedListeners.add(load);
+    return () => {
+      viewedListeners.delete(load);
+    };
   }, [shell.canWrite, answer]);
 
   // Asked again on a reload; until then the address is left as it came.
@@ -1118,9 +1163,10 @@ export function LookupPanel({
       {error && <p className="cf-error">{error}</p>}
       {answer && <Answer key={answer.query + answer.at} a={answer} shell={shell} onAgain={() => void ask(answer.query, true)} />}
 
-      {!answer && !busy && past && past.length > 0 && (
+      {!answer && !busy && past && past.lookups.length + past.viewed.length > 0 && (
         <History
-          past={past}
+          past={past.lookups}
+          viewed={past.viewed}
           typed={typed}
           onPick={(q) => {
             setTyped(q);

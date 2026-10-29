@@ -7388,6 +7388,37 @@ button.cf-synclog-row {
   color: var(--cf-ink-faint);
 }
 
+/* A word opened from Look up: the word large, its reading beside it, the meaning under, › at the end. */
+.cf-lk-hist-word .cf-lk-hist-q {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cf-lk-hist-word .cf-lk-hist-q .cf-zh {
+  font-size: 18px;
+}
+
+.cf-lk-hist-word .cf-lk-py {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cf-ink-soft, var(--cf-ink-faint));
+}
+
+.cf-lk-hist-word .cf-lk-hist-kind {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cf-lk-hist-go {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-style: normal;
+  font-size: 18px;
+  color: var(--cf-ink-faint);
+}
+
 .cf-lk-hist .cf-lk-mark {
   grid-column: 2;
   grid-row: 1 / span 2;

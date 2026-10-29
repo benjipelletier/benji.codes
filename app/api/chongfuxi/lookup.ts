@@ -16,11 +16,13 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaTool } from "@anthropic-ai/sdk/helpers/beta/json-schema";
-import type { LookupAnswer, LookupAnswerV1, LookupFrom, LookupDeck, LookupListed, LookupSentence } from "@chongfuxi/lib/api";
+import type { LookupAnswer, LookupAnswerV1, LookupFrom, LookupDeck, LookupListed, LookupSentence, LookupViewed } from "@chongfuxi/lib/api";
+import type { Definition } from "@chongfuxi/lib/dict";
 import { addWords } from "./additions";
 import type { Sql } from "./db";
 import { loadDict } from "./dictfile";
 import { dictEntry } from "./headwords";
+import { promptSenses, shownPinyin } from "./review";
 import { checkAnswer, citedIds, fromV1, mistakeKey, normaliseAnswer, type ModelAnswer } from "./lookup-check";
 import { dictionary, englishCandidates, neighbours, newSeen, searchSentences, together, type Seen } from "./lookup-evidence";
 
@@ -342,6 +344,15 @@ export async function ensureLookupTables(sql: Sql) {
     )
   `;
   await sql`create index if not exists chongfuxi_lookup_card_card on chongfuxi_lookup_card (owner_email, card_id)`;
+  // Words opened from Look up (a suggestion, a chip, Enter on a word), the latest opening each.
+  await sql`
+    create table if not exists chongfuxi_lookup_view (
+      owner_email text not null,
+      word text not null,
+      at timestamptz not null default now(),
+      primary key (owner_email, word)
+    )
+  `;
   ready = true;
 }
 
@@ -582,6 +593,40 @@ export async function addFromLookup(sql: Sql, owner: string, query: string, word
   if (!/^[\u3400-\u9fff]{1,8}$/.test(word)) throw new LookupError("Only a Chinese word can go in the deck.");
   if (!dictEntry(word)) throw new LookupError(`${word} isn't a dictionary word, so it has no definition to put on a card.`);
   return addWords(sql, owner, `lookup:${normalise(query)}`, [word], loadDict());
+}
+
+/** Words opened from Look up kept for the history, at most. */
+const VIEWED_MAX = 200;
+
+/** A word opened from Look up: kept (its latest opening) for the history. Only corpus words. */
+export async function viewLookupWord(sql: Sql, owner: string, word: string) {
+  if (!/^[\u3400-\u9fff]{1,12}$/.test(word)) throw new LookupError("Only a Chinese word.");
+  await ensureLookupTables(sql);
+  await sql`
+    insert into chongfuxi_lookup_view (owner_email, word)
+    select ${owner}, ${word}
+    where exists (select 1 from chongfuxi_word where owner_email = ${owner} and word = ${word})
+    on conflict (owner_email, word) do update set at = now()
+  `;
+}
+
+/** Words opened from Look up, newest first, with reading and meaning as the type-ahead shows them. */
+export async function listViewed(sql: Sql, owner: string): Promise<LookupViewed[]> {
+  await ensureLookupTables(sql);
+  const rows = (await sql`
+    select v.word, (extract(epoch from v.at) * 1000)::double precision as at, w.pinyin, w.defs, w.status
+    from chongfuxi_lookup_view v
+    join chongfuxi_word w on w.owner_email = v.owner_email and w.word = v.word
+    where v.owner_email = ${owner}
+    order by v.at desc limit ${VIEWED_MAX}
+  `) as unknown as Array<{ word: string; at: number; pinyin: string | null; defs: Definition[]; status: string }>;
+  return rows.map((r) => ({
+    word: r.word,
+    at: Math.round(r.at),
+    pinyin: shownPinyin(r.pinyin, r.defs),
+    gloss: promptSenses(r.defs, r.pinyin).slice(0, 2).join("; ") || null,
+    inDeck: r.status === "deck",
+  }));
 }
 
 /** Past lookups, newest first, with the owner's verdicts. */
