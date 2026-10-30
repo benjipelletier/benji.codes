@@ -5031,16 +5031,52 @@ button.cf-synclog-row {
   color: var(--cf-ink-soft);
 }
 
-.cf-sheet-remove {
-  margin-top: 22px;
-  padding-top: 14px;
-  border-top: 1px solid var(--cf-rule);
+/* A word page's Remove from deck: a quiet red pill under the tags, then a dialog to confirm. */
+.cfx .cf-wp-remove {
+  margin: 10px 0 6px;
+  color: var(--cf-down);
+  background: var(--cf-down-soft);
 }
 
-.cf-sheet-remove p {
+.cf-confirm-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  align-items: end;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--cf-scrim);
+}
+
+.cf-confirm {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 20px 18px 16px;
+  border: 1px solid var(--cf-sheet-edge);
+  border-radius: 18px;
+  background: var(--cf-surface);
+  box-shadow: var(--cf-shadow);
+}
+
+.cf-confirm h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.cf-confirm p {
   margin: 0 0 10px;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--cf-ink-soft);
+}
+
+.cf-confirm .cf-confirm-alt {
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-confirm .cf-buttons {
+  margin-top: 14px;
 }
 
 .cf-btn-quiet {

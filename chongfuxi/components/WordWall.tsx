@@ -332,6 +332,7 @@ export function WordSheet({
   const [allTripped, setAllTripped] = useState(false);
   // Removing it from the deck: asked once, then done.
   const [removing, setRemoving] = useState<"ask" | "busy" | null>(null);
+  useBackLayer(removing !== null, () => setRemoving(null));
   // Not in the corpus at all: only a dictionary word, which can still be added.
   const [missing, setMissing] = useState(false);
   // Put in the deck from here: the addition, to undo. The page is loaded again (`loads`) either way.
@@ -452,6 +453,12 @@ export function WordSheet({
               {d.suspended && <span className="cf-tag">suspended</span>}
               <PlecoTile word={word} inline />
             </p>
+          )}
+          {/* Near the top, where it is looked for (the owner's request; it sat at the foot of the page). */}
+          {canWrite && d?.status === "deck" && (
+            <button className="cf-link cf-wp-remove" onClick={() => setRemoving("ask")}>
+              Remove from deck
+            </button>
           )}
         </header>
 
@@ -797,9 +804,18 @@ export function WordSheet({
                 </button>
               </section>
             )}
-            {canWrite && d.status === "deck" && (
-              <section className="cf-sheet-remove">
-                {removing === "ask" && (
+            {canWrite && d.status === "deck" && removing && (
+              <div className="cf-confirm-scrim" onClick={() => removing === "ask" && setRemoving(null)}>
+                <div
+                  className="cf-confirm"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby="cf-remove-title"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 id="cf-remove-title">
+                    Remove <span className="cf-zh">{word}</span> from your deck?
+                  </h3>
                   <p>
                     Its {d.cards.length === 1 ? "card goes" : `${d.cards.length} cards go`}
                     {(() => {
@@ -808,22 +824,17 @@ export function WordSheet({
                     })()}
                     . Sentences that need it lock again (up to {fmt(d.sentences.readable)}). This can&apos;t be undone.
                   </p>
-                )}
-                <div className="cf-buttons">
-                  {removing === "ask" && (
-                    <button className="cf-btn cf-btn-ghost" onClick={() => setRemoving(null)}>
+                  <p className="cf-confirm-alt">To stop seeing it but keep its history, suspend it from a card instead (停).</p>
+                  <div className="cf-buttons">
+                    <button className="cf-btn cf-btn-ghost" disabled={removing === "busy"} onClick={() => setRemoving(null)}>
                       Keep it
                     </button>
-                  )}
-                  <button
-                    className={`cf-btn ${removing ? "cf-btn-danger" : "cf-btn-quiet"}`}
-                    disabled={removing === "busy"}
-                    onClick={() => (removing === "ask" ? void remove() : setRemoving("ask"))}
-                  >
-                    {removing === "busy" ? "Removing…" : removing === "ask" ? `Remove ${word}` : "Remove from deck"}
-                  </button>
+                    <button className="cf-btn cf-btn-danger" disabled={removing === "busy"} onClick={() => void remove()}>
+                      {removing === "busy" ? "Removing…" : `Remove ${word}`}
+                    </button>
+                  </div>
                 </div>
-              </section>
+              </div>
             )}
           </>
         )}

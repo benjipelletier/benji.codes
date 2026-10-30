@@ -1295,7 +1295,14 @@ the design was silent and are still to be confirmed.
   a name, or only in the dictionary) has "Add to deck" at the top of its
   page (the owner's request; `word` POST `{action: "add"}`, `addFromPage`:
   one addition, source "page", a new Read card), then "Added… Undo", which
-  undoes the addition; Remove from deck shows only for deck words. The page
+  undoes the addition. **Remove from deck** (deck words only) is a quiet
+  red pill under the tags, near the top (the owner asked for it there; it
+  sat at the foot of the page, after the sentences, where they didn't find
+  it), opening a dialog over the page (`cf-confirm`, back or a tap outside
+  closing it): how many cards and answers go, how many sentences lock
+  again, that it can't be undone, and that suspending keeps the history;
+  Keep it / Remove 发现 (`word` POST `{action: "remove"}`, `removeWord`),
+  after which the page closes. The page
   sits under the app's header, which stays in view (the owner asked), and
   covers the screen only while a review hides the header. Removing or bringing back a word on it
   tells the screens showing it (`onChange`); "Open them under Sentences"
