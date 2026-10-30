@@ -1881,34 +1881,6 @@ label.cf-kind {
   outline-offset: 2px;
 }
 
-.cf-stepper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cf-stepper b {
-  font-size: 16px;
-  min-width: 2.2ch;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-stepper button {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  border: 0;
-  background: var(--cf-sunken);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.cf-stepper button:disabled {
-  opacity: 0.4;
-}
-
 /* Today fits a phone's screen without scrolling: on anything but a tall
  * window the heading goes (the date says it) and the rows close up. */
 @media (max-height: 940px) {
@@ -1949,12 +1921,16 @@ label.cf-kind {
     min-height: 52px;
     padding: 6px 16px;
   }
+
+  .cfx .cf-kind.is-fold .cf-kind-main {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
 }
 
 @media (max-height: 700px) {
   .cf-today-date,
-  .cf-kind small,
-  .cf-kind .cf-first {
+  .cf-kind small {
     display: none;
   }
 
@@ -13300,99 +13276,170 @@ button.cf-how-text {
   color: var(--cf-accent);
 }
 
-/* The daily limits' sheet: each kind, its figures, and its max as a chip. */
-.cf-limits {
-  list-style: none;
-  margin: 0;
+/* A kind on Today that folds open: the tick on its own, the rest of the row
+ * the button that opens it, onto its figures and its daily max. */
+.cfx .cf-kind.is-fold {
+  gap: 0;
   padding: 0;
-  border: 1px solid var(--cf-rule);
-  border-radius: 14px;
-  background: var(--cf-surface);
 }
 
-.cf-limits > li {
+.cf-kind-tick {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 0 12px 0 16px;
+  cursor: pointer;
+}
+
+.cfx .cf-kind-main {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 60px;
-  padding: 8px 14px;
-  border-left: 3px solid var(--cf-kind);
-}
-
-.cf-limits > li:first-child {
-  border-top-left-radius: 14px;
-}
-
-.cf-limits > li:last-child {
-  border-bottom-left-radius: 14px;
-}
-
-.cf-limits > li + li {
-  border-top: 1px solid var(--cf-rule);
-}
-
-.cf-limits > li > span {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.cf-limits > li > span small {
-  font-size: 12.5px;
-  font-weight: 400;
-  color: var(--cf-ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-limits .is-read {
-  --cf-kind: var(--cf-read);
-}
-
-.cf-limits .is-produce {
-  --cf-kind: var(--cf-recall);
-}
-
-.cf-limits .is-sentence {
-  --cf-kind: var(--cf-sentence);
-}
-
-/* Under a kind on Today: its first-time cards at a glance, a slim meter of
- * today's against the max and the figures; a tap opens the daily limits. */
-.cfx .cf-first {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: calc(100% + 6px);
-  white-space: nowrap;
-  margin: 2px 0 0 -6px;
-  padding: 3px 6px;
+  padding: 10px 16px 10px 2px;
   border: 0;
-  border-radius: 8px;
   background: none;
-  color: var(--cf-ink-soft);
+  color: inherit;
   font: inherit;
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
   text-align: left;
   cursor: pointer;
 }
 
-.cfx .cf-first:active {
-  background: var(--cf-sunken);
+.cf-kind-main > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.cf-first:focus-visible {
-  outline: 2px solid var(--cf-accent);
-  outline-offset: 1px;
+.cf-kind-main > b {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
-.cf-first-go {
+.cf-kind.is-off .cf-kind-main > span,
+.cf-kind.is-off .cf-kind-main > b {
   color: var(--cf-ink-faint);
+}
+
+.cf-kind-chev {
+  flex: none;
+  color: var(--cf-ink-faint);
+  transition: transform 0.2s ease;
+}
+
+.is-open .cf-kind-chev {
+  transform: rotate(180deg);
+}
+
+.cf-kind-main:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: -2px;
+}
+
+/* Opened: the max, and what waits. Kept clear of the Start button when
+ * scrolled to. */
+.cf-kind-more {
+  padding: 4px 16px 14px 50px;
+  scroll-margin-bottom: 160px;
+  animation: cf-fade 0.15s ease both;
+}
+
+.cf-kind-more.is-read {
+  --cf-kind: var(--cf-read);
+}
+
+.cf-kind-more.is-produce {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-kind-more.is-sentence {
+  --cf-kind: var(--cf-sentence);
+}
+
+.cf-kind-max {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 14px;
+  font-weight: 600;
+}
+
+.cf-kind-max > span:first-child {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-kind-max small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+/* − 300 + : a number a step at a time, in place of a drop-down. */
+.cf-stepper {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: var(--cf-surface);
+}
+
+.cfx .cf-stepper button {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cf-accent);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1;
+  cursor: pointer;
+}
+
+.cfx .cf-stepper button:active:not(:disabled) {
+  background: var(--cf-accent-soft);
+}
+
+.cfx .cf-stepper button:disabled {
+  color: var(--cf-ink-faint);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cf-stepper button:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: -2px;
+}
+
+.cf-stepper output {
+  min-width: 52px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Under a kind on Today: its first-time cards at a glance, a slim meter of
+ * today's against the max and the figures, on one line. */
+.cf-kind .cf-first {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .cf-first-meter {
@@ -13421,41 +13468,7 @@ button.cf-how-text {
   color: var(--cf-ink-faint);
 }
 
-/* A choice as a small pill with a chevron: tapped, a sheet of choices opens
- * (in place of a native drop-down, which the owner found ugly). */
-.cfx .cf-choice-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 10px 0 11px;
-  border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
-  background: var(--cf-surface);
-  color: var(--cf-ink-soft);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.cfx .cf-choice-chip svg {
-  color: var(--cf-ink-faint);
-}
-
-.cfx .cf-choice-chip:active {
-  background: var(--cf-sunken);
-}
-
-.cf-choice-chip:focus-visible,
-.cf-choice:focus-visible,
-.cf-habit:focus-visible {
-  outline: 2px solid var(--cf-accent);
-  outline-offset: 2px;
-}
-
-/* A sheet of choices: a title, a note, and the choices as large tiles. */
+/* A sheet's title and note. */
 .cf-choice-h {
   margin: 6px 40px 4px 0;
   font-size: 19px;
@@ -13468,30 +13481,9 @@ button.cf-how-text {
   line-height: 1.45;
 }
 
-.cf-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.cfx .cf-choice {
-  min-height: 52px;
-  padding: 0 8px;
-  border: 1px solid var(--cf-rule);
-  border-radius: 14px;
-  background: var(--cf-surface);
-  color: var(--cf-ink);
-  font: inherit;
-  font-size: 15px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-
-.cfx .cf-choice.is-on {
-  border-color: transparent;
-  background: var(--cf-accent);
-  color: var(--cf-on-accent);
+.cf-habit:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
 }
 
 /* On Today, beside the date: adding words as a habit, a small pill. */

@@ -4,77 +4,80 @@
 // words every day… I want the app to guide me through it"): a ring of today's
 // words against the daily goal, the streak, and a sheet with the week, the
 // goal, and words worth adding a tap away (app/api/chongfuxi/habit.ts). Also
-// the sheet of choices the daily max and the goal are picked from, in place of
-// a native drop-down (the owner found it ugly).
+// `Stepper`, how the goal and Today's daily max are changed.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HabitView } from "@chongfuxi/lib/api";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { Sheet, fmt, message, type Shell } from "./shared";
 
-/** A choice as the chip that opens its sheet: the value, and a small chevron. */
-export function ChoiceChip({ label, onOpen, disabled }: { label: string; onOpen: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      className="cf-choice-chip"
-      disabled={disabled}
-      onClick={(e) => {
-        // Inside a row's label: change the choice, never the row's tick.
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen();
-      }}
-    >
-      {label}
-      <svg viewBox="0 0 10 6" width="9" height="6" aria-hidden="true">
-        <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </button>
-  );
-}
-
-/** A choice of numbers as large chips in a sheet, the current one filled; a tap picks it and closes. */
-export function ChoiceSheet<T extends number | null>({
-  title,
-  note,
-  choices,
+/**
+ * A number changed a step at a time, − and + either side of it, in place of
+ * a drop-down (the owner disliked those). Taps change it at once on screen
+ * and are sent half a second after the last, or on leaving.
+ */
+export function Stepper<T extends number | null>({
+  name,
+  steps,
   value,
   label,
-  onPick,
-  onClose,
+  onChange,
 }: {
-  title: string;
-  note?: string;
-  choices: T[];
+  name: string;
+  /** In order, smallest first. */
+  steps: T[];
   value: T;
   label: (v: T) => string;
-  onPick: (v: T) => void;
-  onClose: () => void;
+  onChange: (v: T) => void;
 }) {
+  const [shown, setShown] = useState<T>(value);
+  const pending = useRef<{ timer: number; v: T } | null>(null);
+  const send = useRef(onChange);
+  send.current = onChange;
+  useEffect(() => {
+    if (!pending.current) setShown(value);
+  }, [value]);
+  // Leaving with a change not yet sent sends it.
+  useEffect(
+    () => () => {
+      const p = pending.current;
+      if (!p) return;
+      window.clearTimeout(p.timer);
+      send.current(p.v);
+    },
+    [],
+  );
+  // A value between the steps sits at the nearest one; none (null) is past the last.
+  let at = steps.indexOf(shown);
+  if (at < 0)
+    at =
+      shown === null
+        ? steps.length - 1
+        : steps.reduce((best, s, k) => (s !== null && Math.abs(s - shown) < Math.abs((steps[best] ?? Infinity) - shown) ? k : best), 0);
+  const go = (d: number) => {
+    const next = steps[Math.max(0, Math.min(steps.length - 1, at + d))];
+    setShown(next);
+    if (pending.current) window.clearTimeout(pending.current.timer);
+    pending.current = {
+      v: next,
+      timer: window.setTimeout(() => {
+        pending.current = null;
+        send.current(next);
+      }, 500),
+    };
+  };
   return (
-    <Sheet label={title} onClose={onClose}>
-      <h2 className="cf-choice-h">{title}</h2>
-      {note && <p className="cf-muted cf-choice-note">{note}</p>}
-      <div className="cf-choice-grid" role="radiogroup" aria-label={title}>
-        {choices.map((c) => (
-          <button
-            key={String(c)}
-            role="radio"
-            aria-checked={c === value}
-            className={`cf-choice${c === value ? " is-on" : ""}`}
-            onClick={() => {
-              onPick(c);
-              onClose();
-            }}
-          >
-            {label(c)}
-          </button>
-        ))}
-      </div>
-    </Sheet>
+    <span className="cf-stepper" role="group" aria-label={name}>
+      <button type="button" aria-label="Fewer" disabled={at <= 0} onClick={() => go(-1)}>
+        −
+      </button>
+      <output aria-live="polite">{label(shown)}</output>
+      <button type="button" aria-label="More" disabled={at >= steps.length - 1} onClick={() => go(1)}>
+        +
+      </button>
+    </span>
   );
 }
 
@@ -133,7 +136,6 @@ export function HabitPill({ shell }: { shell: Shell }) {
 
 /** The week as bars against the goal, the goal to change, and words worth adding, each a tap. */
 function HabitSheet({ habit, onChanged, onClose }: { habit: HabitView; onChanged: () => void; onClose: () => void }) {
-  const [picking, setPicking] = useState(false);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +184,8 @@ function HabitSheet({ habit, onChanged, onClose }: { habit: HabitView; onChanged
           ))}
         </div>
         <p className="cf-habit-goalline">
-          Goal <ChoiceChip label={`${habit.goal} a day`} onOpen={() => setPicking(true)} />
+          <span>Goal, words a day</span>
+          <Stepper name="Goal, words a day" steps={GOALS} value={habit.goal} label={(n) => fmt(n)} onChange={(goal) => void send("habit", { goal }).then(onChanged)} />
         </p>
 
         <h3 className="cf-h3">Worth adding next</h3>
@@ -212,18 +215,6 @@ function HabitSheet({ habit, onChanged, onClose }: { habit: HabitView; onChanged
         {!habit.suggest.length && <p className="cf-muted">Nothing on your lists holds sentences back: add from Pleco, or Cards › Lists.</p>}
         <p className="cf-muted cf-choice-note">More from Cards › Lists (a lesson at a time), or from Pleco, which syncs in.</p>
       </Sheet>
-      {/* The goal's choices over the sheet: back returns to it. */}
-      {picking && (
-        <ChoiceSheet
-          title="New words a day"
-          note="Added to your deck however they come in: Pleco, a list, a word's page, Look up, an episode."
-          choices={GOALS}
-          value={habit.goal}
-          label={(n) => `${n}`}
-          onPick={(goal) => void send("habit", { goal }).then(onChanged)}
-          onClose={() => setPicking(false)}
-        />
-      )}
     </>
   );
 }

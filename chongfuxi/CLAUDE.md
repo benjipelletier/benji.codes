@@ -1399,16 +1399,18 @@ the design was silent and are still to be confirmed.
   `firstToday` and `firstWaiting` for the screen) and in the day strip's
   forecast (Read and Recall held cards on the days after, the max a day).
   On Today each row's line is `FirstLine`: a slim meter in the row's colour
-  (first-time cards answered today against the max), "12 / 300 new",
-  "+2.9k later" in grey for those still to come after today, and a faint
-  "›", on one line; the line is a button opening `LimitsSheet`, which holds
-  every kind's max (each kind's figures, "N today · 2.9k not yet seen", and
-  its max as a chip, `ChoiceChip` in `components/Habit.tsx`, opening a
-  `ChoiceSheet` of "No max" to 1,000 as large tiles over it). The max was
-  first a native drop-down on each row (the owner found it ugly), then a
-  chip on each row (too cluttered and confusing; the owner wanted the
-  "+2.9k later" kept on Today). Opening or changing it never ticks or
-  unticks the row. It replaced "2,604 more first
+  (first-time cards answered today against the max), "12 / 300 new" and
+  "+2.9k later" in grey for those still to come after today, on one line.
+  Each row folds open (`KindRow`; the owner wanted "the whole row
+  collapsible, with an option to change it once I open it"): the tick box
+  alone takes the kind in or leaves it out, and the rest of the row is a
+  button, a chevron at its end, opening it in place (one at a time,
+  scrolled clear of the Start button) onto "Max new a day" with a stepper (`Stepper` in `components/Habit.tsx`: − 300 +,
+  stepping through 10 to 1,000 then No max, sent half a second after the
+  last tap or on closing). The max was first a native drop-down on each
+  row, then a chip opening a sheet of choices, then one sheet for every
+  kind: the owner disliked the drop-downs and found the chips cluttered,
+  and wanted "+2.9k later" kept on Today. It replaced "2,604 more first
   ones wait for the days after (300 a day)" and the rows' one-line
   descriptions. New Recall cards opened by a first Got it on
   Read count against it too. Fast review goes the other way: best known
@@ -1430,8 +1432,7 @@ the design was silent and are still to be confirmed.
   filling to green with a tick once met, "Added 2 / 5 ›"), so it costs the
   screen no height; it is the owner's only. It opens `HabitSheet`: today
   large with the streak, the week as bars against a dashed goal line
-  (green when met), the goal as a chip opening a `ChoiceSheet` over it
-  (back returns to the sheet), and "Worth adding next": words on the
+  (green when met), the goal as a stepper (1 to 50), and "Worth adding next": words on the
   owner's lists that each keep sentences locked, with "+N" sentences, the
   word opening its page and "+ Add" adding it there (POST `word`
   `{ action: "add" }`), which refreshes the counts.

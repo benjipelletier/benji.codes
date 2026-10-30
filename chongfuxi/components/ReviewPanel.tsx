@@ -28,7 +28,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
-import { ChoiceChip, ChoiceSheet, HabitPill } from "./Habit";
+import { HabitPill, Stepper } from "./Habit";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
@@ -272,37 +272,24 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   );
 }
 
-/** The choices for a kind's daily max of first-time cards; null is no limit. */
-const MAX_CHOICES: Array<number | null> = [null, 10, 20, 50, 100, 200, 300, 500, 1000];
-const maxLabel = (n: number | null) => (n === null ? "No max" : `${fmt(n)} a day`);
-const KIND_NAMES: Record<DailyKind, string> = { read: "Words to read", recall: "Words to recall", sentence: "Sentences" };
+/** The steps a kind's daily max goes through, smallest first; null, no limit, is past the last. */
+const MAX_STEPS: Array<number | null> = [10, 20, 50, 100, 200, 300, 500, 1000, null];
+const maxLabel = (n: number | null) => (n === null ? "No max" : fmt(n));
 
 /**
- * Under a kind on Today, one quiet line: a slim meter of its first-time cards
- * answered today against the day's max, "12 / 300 new", and how many more wait
- * for the days after (the owner wanted figures, not sentences, and the
- * "later" kept here). The max itself is set in `LimitsSheet`, which a tap on
- * the line opens (the chips beside each row were too cluttered). Cards
- * already on a schedule are never held.
+ * Under a kind on Today, one quiet line (the owner wanted figures, not
+ * sentences): a slim meter of its first-time cards answered today against the
+ * day's max, "12 / 300 new", and how many more wait for the days after.
+ * Cards already on a schedule are never held.
  */
-function FirstLine({ kind, s, onOpen }: { kind: DailyKind; s: Summary; onOpen: () => void }) {
+function FirstLine({ kind, s }: { kind: DailyKind; s: Summary }) {
   const max = s.dailyMax?.[kind] ?? null;
   const done = s.firstToday?.[kind] ?? 0;
   const all = s.firstWaiting?.[kind] ?? 0;
   // Still to come after today: those held by the max, or the rest of the pool.
   const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
   return (
-    <button
-      type="button"
-      className="cf-first"
-      aria-label={`${done}${max !== null ? ` of ${max}` : ""} new today${later ? `, ${later} later` : ""}: new cards a day`}
-      onClick={(e) => {
-        // Inside the row's label: open the limits, never tick the row.
-        e.preventDefault();
-        e.stopPropagation();
-        onOpen();
-      }}
-    >
+    <small className="cf-first">
       {max !== null && (
         <i className="cf-first-meter" aria-hidden="true">
           <i style={{ width: `${max ? Math.min(100, (100 * done) / max) : 100}%` }} />
@@ -313,58 +300,88 @@ function FirstLine({ kind, s, onOpen }: { kind: DailyKind; s: Summary; onOpen: (
         {max !== null && <> / {fmt(max)}</>} new
       </span>
       {later > 0 && <span className="cf-first-later">+{short(later)} later</span>}
-      <span className="cf-first-go" aria-hidden="true">
-        ›
-      </span>
-    </button>
+    </small>
   );
 }
 
-const KINDS: DailyKind[] = ["read", "recall", "sentence"];
-
 /**
- * Every kind's daily max in one place, away from the main screen (the owner:
- * the max edited from a drop-down, not on Today): what each has had today,
- * how many first-time cards wait in all, and the max as a chip opening its
- * choices over this sheet.
+ * A kind on Today: the tick takes it in or leaves it out; the rest of the row
+ * folds open (the owner wanted the row collapsible, with the max changed once
+ * open, rather than any drop-down), onto the daily max as a stepper and how
+ * many first-time cards wait.
  */
-function LimitsSheet({ s, shell, onClose }: { s: Summary; shell: Shell; onClose: () => void }) {
-  const [editing, setEditing] = useState<DailyKind | null>(null);
-  const maxOf = (k: DailyKind) => s.dailyMax?.[k] ?? null;
+function KindRow({
+  kind,
+  name,
+  className,
+  on,
+  onTick,
+  due,
+  s,
+  shell,
+  open,
+  onToggle,
+}: {
+  kind: DailyKind;
+  name: string;
+  className: string;
+  on: boolean;
+  onTick: (on: boolean) => void;
+  due: number;
+  s: Summary;
+  shell: Shell;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const max = s.dailyMax?.[kind] ?? null;
+  const done = s.firstToday?.[kind] ?? 0;
+  const all = s.firstWaiting?.[kind] ?? 0;
+  const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
+  // Opened, brought into view above the Start button.
+  const more = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open) more.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [open]);
   return (
-    <>
-      <Sheet label="New cards a day" onClose={onClose}>
-        <h2 className="cf-choice-h">New cards a day</h2>
-        <p className="cf-muted cf-choice-note">The most first-time cards each kind brings in a day; the rest wait for the days after. Cards already on a schedule always come when due.</p>
-        <ul className="cf-limits">
-          {KINDS.map((k) => {
-            const max = maxOf(k);
-            const all = s.firstWaiting?.[k] ?? 0;
-            return (
-              <li key={k} className={`is-${k === "recall" ? "produce" : k}`}>
-                <span>
-                  {KIND_NAMES[k]}
-                  <small>
-                    {fmt(s.firstToday?.[k] ?? 0)} today · {short(all)} not yet seen
-                  </small>
-                </span>
-                {shell.canWrite ? <ChoiceChip label={maxLabel(max)} onOpen={() => setEditing(k)} /> : <small>{maxLabel(max)}</small>}
-              </li>
-            );
-          })}
-        </ul>
-      </Sheet>
-      {editing && (
-        <ChoiceSheet
-          title={`${KIND_NAMES[editing]}: new a day`}
-          choices={[...MAX_CHOICES, ...(maxOf(editing) !== null && !MAX_CHOICES.includes(maxOf(editing)) ? [maxOf(editing)] : [])]}
-          value={maxOf(editing)}
-          label={maxLabel}
-          onPick={(value) => void send("daily-max", { kind: editing, max: value }).then(shell.refresh)}
-          onClose={() => setEditing(null)}
-        />
+    <li className={open ? "is-open" : undefined}>
+      <div className={`cf-kind is-fold ${className}${on ? "" : " is-off"}`}>
+        <label className="cf-kind-tick">
+          <input type="checkbox" checked={on} aria-label={`Include ${name.toLowerCase()}`} onChange={(e) => onTick(e.target.checked)} />
+          <i className="cf-tick" />
+        </label>
+        <button type="button" className="cf-kind-main" aria-expanded={open} onClick={onToggle}>
+          <span>
+            {name}
+            <FirstLine kind={kind} s={s} />
+          </span>
+          <b>{fmt(due)}</b>
+          <svg className="cf-kind-chev" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
+            <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      {open && (
+        <div className={`cf-kind-more ${className}`} ref={more}>
+          <div className="cf-kind-max">
+            <span>
+              Max new a day
+              <small>First-time cards only</small>
+            </span>
+            {shell.canWrite ? (
+              <Stepper
+                name={`${name}: new a day, at most`}
+                steps={MAX_STEPS}
+                value={max}
+                label={maxLabel}
+                onChange={(value) => void send("daily-max", { kind, max: value }).then(shell.refresh)}
+              />
+            ) : (
+              <b>{maxLabel(max)}</b>
+            )}
+          </div>
+        </div>
       )}
-    </>
+    </li>
   );
 }
 
@@ -385,8 +402,8 @@ function Today({
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
-  // The daily limits' sheet.
-  const [limits, setLimits] = useState(false);
+  // The kind folded open, to see its figures and change its max.
+  const [opened, setOpened] = useState<DailyKind | null>(null);
   if (!s) return null;
   // A Fast review left part way through today, to carry on.
   const keptFast = resume.load()?.marked ? resume.load() : null;
@@ -423,7 +440,6 @@ function Today({
 
   return (
     <div className="cf-today">
-      {limits && <LimitsSheet s={s} shell={shell} onClose={() => setLimits(false)} />}
       <div className="cf-today-top">
         <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
         {/* Adding words as a habit: today's against the goal, a tap from words worth adding. */}
@@ -449,39 +465,27 @@ function Today({
 
       {/* What is due by kind, each row the choice to take that kind in or leave it out. */}
       <ul className="cf-kinds">
-        <li>
-          <label className={`cf-kind is-read${kinds.read ? "" : " is-off"}`}>
-            <input type="checkbox" checked={kinds.read} onChange={(e) => onChoose({ ...kinds, read: e.target.checked })} />
-            <i className="cf-tick" />
-            <span>
-              Words to read
-              <FirstLine kind="read" s={s} onOpen={() => setLimits(true)} />
-            </span>
-            <b>{fmt(s.dueRead)}</b>
-          </label>
-        </li>
-        <li>
-          <label className={`cf-kind is-produce${kinds.recall ? "" : " is-off"}`}>
-            <input type="checkbox" checked={kinds.recall} onChange={(e) => onChoose({ ...kinds, recall: e.target.checked })} />
-            <i className="cf-tick" />
-            <span>
-              Words to recall
-              <FirstLine kind="recall" s={s} onOpen={() => setLimits(true)} />
-            </span>
-            <b>{fmt(s.dueRecall)}</b>
-          </label>
-        </li>
-        <li>
-          <label className={`cf-kind is-sentence${kinds.sentences ? "" : " is-off"}`}>
-            <input type="checkbox" checked={kinds.sentences} onChange={(e) => onChoose({ ...kinds, sentences: e.target.checked })} />
-            <i className="cf-tick" />
-            <span>
-              Sentences
-              <FirstLine kind="sentence" s={s} onOpen={() => setLimits(true)} />
-            </span>
-            <b>{fmt(s.dueSentences)}</b>
-          </label>
-        </li>
+        {(
+          [
+            ["read", "Words to read", "is-read", "read", s.dueRead],
+            ["recall", "Words to recall", "is-produce", "recall", s.dueRecall],
+            ["sentence", "Sentences", "is-sentence", "sentences", s.dueSentences],
+          ] as const
+        ).map(([kind, name, className, choice, due]) => (
+          <KindRow
+            key={kind}
+            kind={kind}
+            name={name}
+            className={className}
+            on={kinds[choice]}
+            onTick={(on) => onChoose({ ...kinds, [choice]: on })}
+            due={due}
+            s={s}
+            shell={shell}
+            open={opened === kind}
+            onToggle={() => setOpened((o) => (o === kind ? null : kind))}
+          />
+        ))}
         {/* New words wait out of the review until they have been learned with sentences: in the session, a step every fifth card. */}
         {s.toLearn > 0 && (
           <li>
