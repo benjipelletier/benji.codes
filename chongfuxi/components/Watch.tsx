@@ -8,7 +8,8 @@
 // line graded by its words, Muse's notes on lines marked, the owner's
 // trouble words underlined; a tap on a line opens it at the foot with what
 // the corpus has on its words. Words: how ready, over time, and the words to
-// learn. After watching: questions graded like a reading's retelling.
+// learn. (After, the whole episode's questions, was taken out at the owner's
+// request; a chapter's Check still retells it.)
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -1192,6 +1193,39 @@ function MarkedLine({ zh, word, blank = false }: { zh: string; word: string; bla
   );
 }
 
+type PlanWord = Episode["plan"]["keep"][number];
+/** The owner's choice per word, into the deck or for the show only; unset follows the plan. */
+type Keeps = { of: (w: PlanWord) => boolean; set: (word: string, keep: boolean) => void };
+
+/**
+ * Which words go into the deck once learnt: the plan's suggestion (worth
+ * keeping) unless the owner ticked otherwise (their ask: "let me choose which
+ * word I wanna keep in my deck"), remembered on the device per episode.
+ */
+function useKeeps(id: number): Keeps {
+  const key = `cfx-ep-keep:${id}`;
+  const [chosen, setChosen] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  });
+  return {
+    of: (w) => chosen[w.word] ?? !!w.keepWhy,
+    set: (word, keep) =>
+      setChosen((c) => {
+        const next = { ...c, [word]: keep };
+        try {
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch {
+          // Without storage the choice holds until the episode is closed.
+        }
+        return next;
+      }),
+  };
+}
+
 /**
  * Practice (the owner: practice has to move readiness, but "I don't need to
  * be 100%… I'm worried about having words in my deck that I'll never see
@@ -1213,8 +1247,10 @@ function Practice({
   onLearnt: () => void;
 }) {
   const [mode, setMode] = useState<"chapters" | "home" | "drill" | "listen">("chapters");
-  if (mode === "chapters") return <ChapterRound ep={ep} canWrite={canWrite} onChanged={onLearnt} onWhole={() => setMode("home")} />;
   const [last, setLast] = useState<{ kept: number; show: number; before: Episode["plan"]["now"] } | null>(null);
+  const keeps = useKeeps(ep.id);
+  if (mode === "chapters")
+    return <ChapterRound ep={ep} canWrite={canWrite} keeps={keeps} onChanged={onLearnt} onWhole={() => setMode("home")} />;
   if (mode === "listen") return <Listening ep={ep} onAnswered={onAnswered} onBack={() => setMode("home")} />;
   const plan = ep.plan;
   const words = [...plan.keep, ...plan.show];
@@ -1223,6 +1259,7 @@ function Practice({
       <PrepDrill
         ep={ep}
         words={words}
+        keeps={keeps}
         onEnd={(kept, show) => {
           setLast(kept + show ? { kept, show, before: plan.now } : null);
           setMode("home");
@@ -1257,9 +1294,11 @@ function Practice({
             Learn these {fmt(words.length)}
           </button>
           {plan.keep.length > 0 && (
-            <PlanList title="Worth keeping" sub="They join your deck and come back in reviews." words={plan.keep} />
+            <PlanList title="Worth keeping" sub="Ticked ones join your deck and come back in reviews." words={plan.keep} keeps={keeps} />
           )}
-          {plan.show.length > 0 && <PlanList title="Just for this show" sub="Learnt here, never in your deck." words={plan.show} />}
+          {plan.show.length > 0 && (
+            <PlanList title="Just for this show" sub="Learnt here, never in your deck, unless you tick them." words={plan.show} keeps={keeps} />
+          )}
         </>
       ) : (
         <p className="cf-muted">Nothing left worth learning for this one: you&apos;re ready to watch.</p>
@@ -1308,7 +1347,7 @@ function Practice({
   );
 }
 
-function PlanList({ title, sub, words }: { title: string; sub: string; words: Episode["plan"]["keep"] }) {
+function PlanList({ title, sub, words, keeps }: { title: string; sub: string; words: PlanWord[]; keeps?: Keeps }) {
   return (
     <section className="cf-pp-list">
       <h3>
@@ -1317,7 +1356,7 @@ function PlanList({ title, sub, words }: { title: string; sub: string; words: Ep
       <p className="cf-muted">{sub}</p>
       <ul className="cf-stuck-list">
         {words.map((w) => (
-          <li key={w.word}>
+          <li key={w.word} className={keeps ? "cf-pp-row" : undefined}>
             <button onClick={() => wordpage.openWordPage(w.word)}>
               <span className="cf-stuck-zh cf-zh">{w.word}</span>
               <span className="cf-stuck-body">
@@ -1330,6 +1369,14 @@ function PlanList({ title, sub, words }: { title: string; sub: string; words: Ep
                 </span>
               </span>
             </button>
+            {/* Into the deck once learnt, or for this show only: the owner's choice, the plan's by default. */}
+            {keeps && (
+              <label className={`cf-pp-keep${keeps.of(w) ? " is-on" : ""}`}>
+                <input type="checkbox" checked={keeps.of(w)} onChange={(e) => keeps.set(w.word, e.target.checked)} aria-label={`Keep ${w.word} in your deck`} />
+                <i className="cf-tick" />
+                <small>Deck</small>
+              </label>
+            )}
           </li>
         ))}
       </ul>
@@ -1352,11 +1399,14 @@ const PREP_BACK = 3;
 function PrepDrill({
   ep,
   words,
+  keeps,
   onEnd,
   endLabel = "See how ready you are",
 }: {
   ep: Episode;
   words: Episode["plan"]["keep"];
+  /** Which go into the deck once learnt; without it, the plan's suggestion. */
+  keeps?: Keeps;
   onEnd: (kept: number, show: number) => void;
   endLabel?: string;
 }) {
@@ -1367,7 +1417,7 @@ function PrepDrill({
   const card = queue[0];
   const lineOf = (w: PrepStep["w"], k: number) => ep.lines[w.lines[Math.min(k, w.lines.length - 1)] ?? -1] ?? null;
   const finish = (w: PrepStep["w"]) => {
-    const keep = !!w.keepWhy;
+    const keep = keeps ? keeps.of(w) : !!w.keepWhy;
     setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
     send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).catch((e) => setError(message(e)));
   };
@@ -1415,7 +1465,9 @@ function PrepDrill({
           Stop
         </button>
         <span>{["New word", "In a line", "Recall it"][card.step]}</span>
-        <span className={`cf-pp-kind${w.keepWhy ? " is-keep" : ""}`}>{w.keepWhy ? "Worth keeping" : "Just for this show"}</span>
+        <span className={`cf-pp-kind${(keeps ? keeps.of(w) : w.keepWhy) ? " is-keep" : ""}`}>
+          {(keeps ? keeps.of(w) : w.keepWhy) ? "Into your deck" : "Just for this show"}
+        </span>
       </p>
       <div className="cf-pr-card">
         {card.step === 0 && (
@@ -1522,7 +1574,19 @@ const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened
  * subtitles on or off. Check: a few of its lines heard first, then retold in
  * Chinese by Muse's question for it, graded. Done: marked, and the next.
  */
-function ChapterRound({ ep, canWrite, onChanged, onWhole }: { ep: Episode; canWrite: boolean; onChanged: () => void; onWhole: () => void }) {
+function ChapterRound({
+  ep,
+  canWrite,
+  keeps,
+  onChanged,
+  onWhole,
+}: {
+  ep: Episode;
+  canWrite: boolean;
+  keeps: Keeps;
+  onChanged: () => void;
+  onWhole: () => void;
+}) {
   const chapters = ep.plan.chapters;
   const first = chapters.findIndex((c) => !c.done);
   const [c, setC] = useState(first >= 0 ? first : 0);
@@ -1544,6 +1608,7 @@ function ChapterRound({ ep, canWrite, onChanged, onWhole }: { ep: Episode; canWr
       <PrepDrill
         ep={ep}
         words={plan.words}
+        keeps={keeps}
         endLabel="Watch the chapter ›"
         onEnd={(kept, show) => {
           setStep("watch");
@@ -1581,7 +1646,12 @@ function ChapterRound({ ep, canWrite, onChanged, onWhole }: { ep: Episode; canWr
           {sc.summary && <ChapterSummary sc={sc} />}
           {plan.words.length ? (
             <>
-              <PlanList title="Key words" sub="The words that open up most of this chapter." words={plan.words} />
+              <PlanList
+                title="Key words"
+                sub="The words that open up most of this chapter. Tick Deck to keep one in your reviews; the rest are for this show only."
+                words={plan.words}
+                keeps={canWrite ? keeps : undefined}
+              />
               <div className="cf-pr-starts">
                 <button className="cf-btn" onClick={() => setStep("drill")}>
                   Learn these {fmt(plan.words.length)}
@@ -1854,11 +1924,12 @@ function ChapterCheck({ ep, c, canWrite, onDone }: { ep: Episode; c: number; can
   );
 }
 
-type Tab = "script" | "practice" | "words" | "after";
+type Tab = "script" | "practice" | "words";
 
 /**
  * An episode as one screen, like an app: a bar on top (close, the episode,
- * how ready), tabs (Script, Words, After), and in Script the chapters fixed
+ * how ready), tabs (Script, Practice, Words; After, the whole episode's
+ * questions, was taken out at the owner's request), and in Script the chapters fixed
  * across the top over the whole script, which scrolls under them, the
  * chapter in view lit. Each line is graded by its words (a bar down its
  * left), Muse's notes marked like Genius annotations, trouble words
@@ -2039,7 +2110,6 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
               ["script", "Script"],
               ["practice", `Practice${ep.plan.keep.length + ep.plan.show.length ? ` · ${ep.plan.keep.length + ep.plan.show.length}` : ""}`],
               ["words", "Words"],
-              ["after", "After"],
             ] as Array<[Tab, string]>
           ).map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "is-on" : ""} onClick={() => setTab(k)}>
@@ -2189,27 +2259,6 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                 </ul>
               )}
             </section>
-          )}
-        </div>
-      )}
-      {ep && tab === "after" && (
-        <div className="cf-watch-pane">
-          {ep.questions.length ? (
-            <>
-              <p className="cf-muted">Answer in Chinese, out loud or typed. Each answer is checked for the Chinese and against what happens.</p>
-              {ep.questions.map((q, i) => (
-                <Question
-                  key={i}
-                  question={q}
-                  q={i}
-                  initial={ep.retells.filter((t) => t.q === i)}
-                  canWrite={canWrite}
-                  check={(answer) => send<{ retell: Retell }>("episodes", { id: ep.id, q: i, answer }).then((x) => x.retell)}
-                />
-              ))}
-            </>
-          ) : (
-            <p className="cf-muted">Muse hasn&apos;t written questions for this episode yet.</p>
           )}
         </div>
       )}

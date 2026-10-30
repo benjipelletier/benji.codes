@@ -2009,7 +2009,8 @@ YouTube chapter feature".
   length, lines, % known, Prepped or Waiting for Muse); Today's Muse reviews
   button shows for them too. An episode (`EpisodeView`) is one screen like
   an app, not a page that scrolls (the owner's ask): a bar on top (close,
-  the show and episode, "% known" opening Words), then three tabs:
+  the show and episode, "% known" opening Words), then three tabs (Script,
+  Practice, Words):
   - **Script**: the chapters fixed under the tabs (`ChapterStrip`): the
     scrub bar (as before, its time and title showing only while scrubbing)
     and a chip per chapter (start, the whole title on up to two lines,
@@ -2114,7 +2115,14 @@ YouTube chapter feature".
     note, a line with it marked and its English), what it means in a line,
     then which word fills the gap in a line (its English or meaning
     shown); a miss comes back `PREP_BACK` (3) cards later at that step,
-    Stop leaves keeping what is done. A word done is sent at once (POST
+    Stop leaves keeping what is done. **The owner chooses what joins the
+    deck** (their ask: "let me choose which word I wanna keep in my deck"):
+    every plan word, in a chapter's key words and the whole episode's
+    lists, has a Deck tick box at the end of its row (`useKeeps`, `Keeps`),
+    ticked as the plan suggests (worth keeping) until changed, remembered
+    per episode on the device (`cfx-ep-keep:<id>`); the drill's pill says
+    "Into your deck" or "Just for this show" by it, and that is what is
+    sent. A word done is sent at once (POST
     `episodes` `{ id, learnt, keep, day }`, `learnEpisodeWord`): worth
     keeping, into the deck (one addition, source `episode:<show>
     <episode>`) and marked through Learn, due the next study day like a
@@ -2148,7 +2156,10 @@ YouTube chapter feature".
     material lists the lines last marked Again (`again`).
   - **Words**: readiness and its graph, how the lines read, the
     must-knows and their list, the names, the other words not known.
-  - **After watching**: Muse's questions, graded as before.
+  - **After** (Muse's questions on the whole episode, graded as a
+    reading's retelling) was a fourth tab until the owner had it taken
+    out; the questions stay in the prep and Muse's material, and a
+    chapter's Check still retells it.
 - **Readiness over time** (the owner wanted to see it go up): each measure
   is kept, one row per study day, the latest that day winning
   (`chongfuxi_episode_progress`: words known, known with the must-knows,
