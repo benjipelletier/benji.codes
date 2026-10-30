@@ -278,21 +278,31 @@ const maxLabel = (n: number | null) => (n === null ? "No max" : `${fmt(n)} a day
 const KIND_NAMES: Record<DailyKind, string> = { read: "Words to read", recall: "Words to recall", sentence: "Sentences" };
 
 /**
- * Under a kind on Today, its first-time cards at a glance (the owner wanted
- * figures, not sentences): a slim meter of those answered today against the
- * day's max, "12 / 300 new", how many more there are, and the max as a small
- * chip opening a sheet of choices to change it (the owner: edited away from
- * the main screen, and the native drop-down was ugly). Cards already on a
- * schedule are never held.
+ * Under a kind on Today, one quiet line: a slim meter of its first-time cards
+ * answered today against the day's max, "12 / 300 new", and how many more wait
+ * for the days after (the owner wanted figures, not sentences, and the
+ * "later" kept here). The max itself is set in `LimitsSheet`, which a tap on
+ * the line opens (the chips beside each row were too cluttered). Cards
+ * already on a schedule are never held.
  */
-function FirstLine({ kind, s, shell, onEdit }: { kind: DailyKind; s: Summary; shell: Shell; onEdit: (k: DailyKind) => void }) {
+function FirstLine({ kind, s, onOpen }: { kind: DailyKind; s: Summary; onOpen: () => void }) {
   const max = s.dailyMax?.[kind] ?? null;
   const done = s.firstToday?.[kind] ?? 0;
   const all = s.firstWaiting?.[kind] ?? 0;
   // Still to come after today: those held by the max, or the rest of the pool.
   const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
   return (
-    <small className="cf-first">
+    <button
+      type="button"
+      className="cf-first"
+      aria-label={`${done}${max !== null ? ` of ${max}` : ""} new today${later ? `, ${later} later` : ""}: new cards a day`}
+      onClick={(e) => {
+        // Inside the row's label: open the limits, never tick the row.
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
       {max !== null && (
         <i className="cf-first-meter" aria-hidden="true">
           <i style={{ width: `${max ? Math.min(100, (100 * done) / max) : 100}%` }} />
@@ -303,24 +313,58 @@ function FirstLine({ kind, s, shell, onEdit }: { kind: DailyKind; s: Summary; sh
         {max !== null && <> / {fmt(max)}</>} new
       </span>
       {later > 0 && <span className="cf-first-later">+{short(later)} later</span>}
-      {shell.canWrite ? <ChoiceChip label={maxLabel(max)} onOpen={() => onEdit(kind)} /> : <span className="cf-first-later">{maxLabel(max)}</span>}
-    </small>
+      <span className="cf-first-go" aria-hidden="true">
+        ›
+      </span>
+    </button>
   );
 }
 
-/** The sheet a kind's daily max is picked from. */
-function MaxSheet({ kind, s, shell, onClose }: { kind: DailyKind; s: Summary; shell: Shell; onClose: () => void }) {
-  const max = s.dailyMax?.[kind] ?? null;
+const KINDS: DailyKind[] = ["read", "recall", "sentence"];
+
+/**
+ * Every kind's daily max in one place, away from the main screen (the owner:
+ * the max edited from a drop-down, not on Today): what each has had today,
+ * how many first-time cards wait in all, and the max as a chip opening its
+ * choices over this sheet.
+ */
+function LimitsSheet({ s, shell, onClose }: { s: Summary; shell: Shell; onClose: () => void }) {
+  const [editing, setEditing] = useState<DailyKind | null>(null);
+  const maxOf = (k: DailyKind) => s.dailyMax?.[k] ?? null;
   return (
-    <ChoiceSheet
-      title={`${KIND_NAMES[kind]}: new a day`}
-      note="First-time cards only, at most this many a day; the rest wait for the days after. Cards already on a schedule always come when due."
-      choices={[...MAX_CHOICES, ...(max !== null && !MAX_CHOICES.includes(max) ? [max] : [])]}
-      value={max}
-      label={maxLabel}
-      onPick={(value) => void send("daily-max", { kind, max: value }).then(shell.refresh)}
-      onClose={onClose}
-    />
+    <>
+      <Sheet label="New cards a day" onClose={onClose}>
+        <h2 className="cf-choice-h">New cards a day</h2>
+        <p className="cf-muted cf-choice-note">The most first-time cards each kind brings in a day; the rest wait for the days after. Cards already on a schedule always come when due.</p>
+        <ul className="cf-limits">
+          {KINDS.map((k) => {
+            const max = maxOf(k);
+            const all = s.firstWaiting?.[k] ?? 0;
+            return (
+              <li key={k} className={`is-${k === "recall" ? "produce" : k}`}>
+                <span>
+                  {KIND_NAMES[k]}
+                  <small>
+                    {fmt(s.firstToday?.[k] ?? 0)} today · {short(all)} not yet seen
+                  </small>
+                </span>
+                {shell.canWrite ? <ChoiceChip label={maxLabel(max)} onOpen={() => setEditing(k)} /> : <small>{maxLabel(max)}</small>}
+              </li>
+            );
+          })}
+        </ul>
+      </Sheet>
+      {editing && (
+        <ChoiceSheet
+          title={`${KIND_NAMES[editing]}: new a day`}
+          choices={[...MAX_CHOICES, ...(maxOf(editing) !== null && !MAX_CHOICES.includes(maxOf(editing)) ? [maxOf(editing)] : [])]}
+          value={maxOf(editing)}
+          label={maxLabel}
+          onPick={(value) => void send("daily-max", { kind: editing, max: value }).then(shell.refresh)}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -341,8 +385,8 @@ function Today({
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
-  // A kind's daily max being picked, in a sheet outside the row's label.
-  const [editing, setEditing] = useState<DailyKind | null>(null);
+  // The daily limits' sheet.
+  const [limits, setLimits] = useState(false);
   if (!s) return null;
   // A Fast review left part way through today, to carry on.
   const keptFast = resume.load()?.marked ? resume.load() : null;
@@ -379,7 +423,7 @@ function Today({
 
   return (
     <div className="cf-today">
-      {editing && <MaxSheet kind={editing} s={s} shell={shell} onClose={() => setEditing(null)} />}
+      {limits && <LimitsSheet s={s} shell={shell} onClose={() => setLimits(false)} />}
       <div className="cf-today-top">
         <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
         {/* Adding words as a habit: today's against the goal, a tap from words worth adding. */}
@@ -411,7 +455,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to read
-              <FirstLine kind="read" s={s} shell={shell} onEdit={setEditing} />
+              <FirstLine kind="read" s={s} onOpen={() => setLimits(true)} />
             </span>
             <b>{fmt(s.dueRead)}</b>
           </label>
@@ -422,7 +466,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to recall
-              <FirstLine kind="recall" s={s} shell={shell} onEdit={setEditing} />
+              <FirstLine kind="recall" s={s} onOpen={() => setLimits(true)} />
             </span>
             <b>{fmt(s.dueRecall)}</b>
           </label>
@@ -433,7 +477,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Sentences
-              <FirstLine kind="sentence" s={s} shell={shell} onEdit={setEditing} />
+              <FirstLine kind="sentence" s={s} onOpen={() => setLimits(true)} />
             </span>
             <b>{fmt(s.dueSentences)}</b>
           </label>

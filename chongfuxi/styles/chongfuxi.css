@@ -1953,7 +1953,8 @@ label.cf-kind {
 
 @media (max-height: 700px) {
   .cf-today-date,
-  .cf-kind small {
+  .cf-kind small,
+  .cf-kind .cf-first {
     display: none;
   }
 
@@ -13299,21 +13300,105 @@ button.cf-how-text {
   color: var(--cf-accent);
 }
 
-/* Under a kind on Today: its first-time cards at a glance, a slim meter of
- * today's against the max, the figures, and the max as a chip opening its choices. */
-.cf-kind small.cf-first {
+/* The daily limits' sheet: each kind, its figures, and its max as a chip. */
+.cf-limits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+}
+
+.cf-limits > li {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
-  margin-top: 4px;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--cf-kind);
+}
+
+.cf-limits > li:first-child {
+  border-top-left-radius: 14px;
+}
+
+.cf-limits > li:last-child {
+  border-bottom-left-radius: 14px;
+}
+
+.cf-limits > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-limits > li > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cf-limits > li > span small {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--cf-ink-soft);
   font-variant-numeric: tabular-nums;
+}
+
+.cf-limits .is-read {
+  --cf-kind: var(--cf-read);
+}
+
+.cf-limits .is-produce {
+  --cf-kind: var(--cf-recall);
+}
+
+.cf-limits .is-sentence {
+  --cf-kind: var(--cf-sentence);
+}
+
+/* Under a kind on Today: its first-time cards at a glance, a slim meter of
+ * today's against the max and the figures; a tap opens the daily limits. */
+.cfx .cf-first {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% + 6px);
+  white-space: nowrap;
+  margin: 2px 0 0 -6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--cf-ink-soft);
+  font: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cfx .cf-first:active {
+  background: var(--cf-sunken);
+}
+
+.cf-first:focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 1px;
+}
+
+.cf-first-go {
+  color: var(--cf-ink-faint);
+  font-size: 14px;
+  line-height: 1;
 }
 
 .cf-first-meter {
   position: relative;
   flex: none;
-  width: 44px;
+  width: 32px;
   height: 5px;
   border-radius: 3px;
   background: var(--cf-sunken);

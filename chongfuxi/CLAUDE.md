@@ -1400,12 +1400,14 @@ the design was silent and are still to be confirmed.
   forecast (Read and Recall held cards on the days after, the max a day).
   On Today each row's line is `FirstLine`: a slim meter in the row's colour
   (first-time cards answered today against the max), "12 / 300 new",
-  "+2.9k later" in grey for those still to come after today, and the max as
-  a small chip ("300 a day ⌄", `ChoiceChip` in `components/Habit.tsx`)
-  opening a sheet of choices (`ChoiceSheet`: "No max", 10 to 1,000 as
-  large tiles, the current one filled; `MaxSheet`, rendered by `Today`
-  outside the row's label). It was a native drop-down until the owner
-  found it ugly. Changing it refreshes the summary and never ticks or
+  "+2.9k later" in grey for those still to come after today, and a faint
+  "›", on one line; the line is a button opening `LimitsSheet`, which holds
+  every kind's max (each kind's figures, "N today · 2.9k not yet seen", and
+  its max as a chip, `ChoiceChip` in `components/Habit.tsx`, opening a
+  `ChoiceSheet` of "No max" to 1,000 as large tiles over it). The max was
+  first a native drop-down on each row (the owner found it ugly), then a
+  chip on each row (too cluttered and confusing; the owner wanted the
+  "+2.9k later" kept on Today). Opening or changing it never ticks or
   unticks the row. It replaced "2,604 more first
   ones wait for the days after (300 a day)" and the rows' one-line
   descriptions. New Recall cards opened by a first Got it on
@@ -1425,7 +1427,7 @@ the design was silent and are still to be confirmed.
   yesterday, today joining once met; over the last year) and the week,
   oldest first, plus `listBlockers`' learn-next words as suggestions. On
   Today it is a pill beside the date (`HabitPill`: a small ring, orange
-  filling to green with a tick once met, "2 / 5 words ›"), so it costs the
+  filling to green with a tick once met, "Added 2 / 5 ›"), so it costs the
   screen no height; it is the owner's only. It opens `HabitSheet`: today
   large with the streak, the week as bars against a dashed goal line
   (green when met), the goal as a chip opening a `ChoiceSheet` over it

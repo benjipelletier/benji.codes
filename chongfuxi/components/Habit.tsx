@@ -120,7 +120,7 @@ export function HabitPill({ shell }: { shell: Shell }) {
       >
         <Ring n={habit.today} goal={habit.goal} />
         <span className="cf-habit-text">
-          <b>{fmt(habit.today)}</b> / {fmt(habit.goal)} words
+          Added <b>{fmt(habit.today)}</b> / {fmt(habit.goal)}
         </span>
         <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
           <path d="M1 1l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
