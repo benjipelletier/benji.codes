@@ -18,6 +18,8 @@ import type {
   EpisodeChapterPlan,
   EpisodeLine,
   EpisodeLineNote,
+  EpisodeLineBlurb,
+  EpisodeCastMember,
   EpisodeListed,
   EpisodePlan,
   EpisodePlanWord,
@@ -41,6 +43,7 @@ import { ownersDay } from "./daily";
 import { notesForWord } from "./notes";
 import { ReadingError, gradeAnswer } from "./reading";
 import { rescueHooks, stuckWords } from "./rescue";
+import { dictEntry } from "./headwords";
 import { hskOf } from "./review";
 import { simplified } from "./spotify";
 import { videoId } from "./youtube";
@@ -95,6 +98,8 @@ async function ensureTables(sql: Sql) {
   // Muse's notes on lines, like Genius annotations.
   await sql`alter table chongfuxi_episode add column if not exists notes jsonb`;
   await sql`alter table chongfuxi_episode add column if not exists notes_at timestamptz`;
+  // Muse's study notes on hard lines (writeBlurbs), by line.
+  await sql`alter table chongfuxi_episode add column if not exists blurbs jsonb`;
   // How each practice line was last answered.
   await sql`
     create table if not exists chongfuxi_episode_card (
@@ -285,6 +290,8 @@ const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0
 type Prep = {
   words: Array<{ word: string; tier: EpisodeWord["tier"]; note: string | null; keep?: boolean | null }>;
   names: string[];
+  /** Who's who: each person's name and who they are (older preps have none). */
+  cast?: Array<{ name: string; who: string }>;
   scenes: EpisodeScene[];
   questions: Array<{ zh: string; en: string }>;
 };
@@ -300,6 +307,7 @@ type Row = {
   model: string | null;
   known: number | null;
   notes: EpisodeLineNote[] | null;
+  blurbs: EpisodeLineBlurb[] | null;
   /** When it last changed: subtitles, prep or line notes. */
   updated: number;
   /** Its YouTube video id, and video time minus subtitle time (ms). */
@@ -311,7 +319,7 @@ type Row = {
 async function rowOf(sql: Sql, owner: string, id: number): Promise<Row> {
   await ensureTables(sql);
   const [row] = (await sql`
-    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes,
+    select id::int as id, show, episode, title, (extract(epoch from at) * 1000)::double precision as at, lines, prep, model, known, notes, blurbs,
            (extract(epoch from greatest(at, prepped_at, notes_at)) * 1000)::double precision as updated, video, offset_ms, source
     from chongfuxi_episode where owner_email = ${owner} and id = ${id}
   `) as unknown as Row[];
@@ -435,10 +443,11 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
 }
 
 const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
-{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...], "question": { "zh", "en" } }], "questions": [{ "zh", "en" }] }
-Any of words, names, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
+{ "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "cast": [{ "name", "who" }], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...], "question": { "zh", "en" } }], "questions": [{ "zh", "en" }] }
+Any of words, names, cast, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first). "keep": whether the word is worth keeping in their deck after the show (common, useful beyond it) or only for this show (plot words, rare, slang, a one-off): words they learn for the show alone never enter their deck. Leave it out to let the app decide (an HSK word, or one in several of their sentences, is kept).
 - names: every person and place name as written in the subtitles (they will stop counting as unknown).
+- cast: who's who, shown at the top of the script so the learner can keep the characters straight: every character who speaks or is talked about, main ones first, "name" exactly as the subtitles write it (the name they're mostly called by: 许红豆, 谢之遥, 红豆 if that is what people say), "who" in English, a few words: their role and how they relate to the others ("hotel front desk manager; Hongdou's boss"). No spoilers beyond this episode.
 - scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss. "question": one simple question in Chinese (with English) about what happens in the scene, for them to answer after watching it chapter by chapter, needing the scene's key words.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
 
@@ -448,7 +457,15 @@ Then annotate lines like Genius annotates lyrics, in as many POSTs as you like t
 { "id": …, "lines": [{ "i": <line index>, "quote": "<the exact run of the line it is about, or omit for the whole line>", "kind": "trouble" | "slang" | "grammar" | "culture" | "meaning" | "listening", "text": "…", "words": ["corpus words it is about"] }], "replace": false }
 - First every line with one of their trouble words ("trouble" in the material, with why: a stuck word's pattern, a recent Forgot, their own note): kind "trouble", saying how the word is used here and what to tell it apart from, in their terms (the partner they mix it up with, what they wrote).
 - Then lines that are hard to follow for other reasons: slang or dialect, a grammar point, a cultural reference, a meaning other than the dictionary's, or something hard to catch by ear (fast, swallowed, a homophone).
-- "text" is 1 to 3 sentences in English, Chinese in Chinese; don't translate the line (the English is shown already). Skip lines with nothing worth saying. A note replaces the one already on its line.`;
+- "text" is 1 to 3 sentences in English, Chinese in Chinese; don't translate the line (the English is shown already). Skip lines with nothing worth saying. A note replaces the one already on its line.
+
+Last, a study note for every hard line ("hard" in the material: two or more words they don't know, or one of their trouble words; "blurbed" lists those done), shown at the top of the line when they open it, with everything they need to learn the sentence in one place. POST /api/chongfuxi/agent/episodes/blurbs, as many times as you like:
+{ "id": …, "blurbs": [{ "i": <line index>, "meaning": "…", "literal": "…", "parts": [{ "zh": "…", "text": "…" }], "tip": "…" }], "replace": false }
+- meaning: what the line means, said naturally in English, with what's implied in the scene (who is talking to whom, the tone); not a copy of the subtitle English.
+- literal: how it is built, piece by piece, when that helps ("you can tell me your room number?"); "" when it adds nothing.
+- parts: the words, patterns and sounds worth knowing in it, each "zh" the Chinese exactly as in the line and "text" what it does here in a sentence: the new words first (reading and meaning, and whether it's common), then grammar, slang or fixed phrases, then anything hard to catch by ear. Two to six.
+- tip: one thing to take away (a pattern to reuse, what to tell it apart from, how they'd say it themselves); "" when none.
+Skip a line whose new words are only names. A note replaces the one on its line.`;
 
 /** What Muse needs to prep an episode, or the list of episodes and whether each is prepped. Readable by the agent. */
 export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: number) {
@@ -475,6 +492,12 @@ export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: n
     trouble: [...trouble.values()].map((t) => ({ ...t, lines: (at.get(t.word) ?? []).slice(0, TROUBLE_LINES) })),
     // Lines you have already annotated.
     annotated: (r.notes ?? []).map((n) => n.i),
+    // Hard lines (two or more words not known, or a trouble word): each wants a study note (blurbs); and those that have one.
+    hard: r.lines.flatMap((_, i) => {
+      const toks = tokens[i] ?? [];
+      return toks.filter((t) => t.k === "unknown").length >= HARD_NEW || toks.some((t) => trouble.has(t.t)) ? [i] : [];
+    }),
+    blurbed: (r.blurbs ?? []).map((b) => b.i),
     // Practice lines they last marked Again (heard, then read): worth a note if they have none.
     again: ((await sql`
       select i, tries from chongfuxi_episode_card where owner_email = ${owner} and episode_id = ${id} and result = 'again' order by i
@@ -490,6 +513,9 @@ export async function episodeMaterial(sql: Sql, owner: string, dict: Dict, id: n
     })),
   };
 }
+
+/** The people's names in an episode, for the grader to be lenient about (the owner won't know them). */
+const namesOf = (prep: Prep | null) => [...new Set([...(prep?.cast ?? []).map((c) => c.name), ...(prep?.names ?? [])])];
 
 const clock = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -543,7 +569,15 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
       keep: typeof w.keep === "boolean" ? w.keep : null,
     }))
     .filter((w) => HAN.test(w.word));
-  const names = [...new Set((Array.isArray(input.names) ? input.names : []).map((x) => str(x, 12)).filter((x) => HAN.test(x)))];
+  const cast = (Array.isArray(input.cast) ? input.cast : [])
+    .map((x) => (x ?? {}) as Record<string, unknown>)
+    .map((x) => ({ name: str(x.name, 12), who: str(x.who, 160) }))
+    .filter((x, k, all) => HAN.test(x.name) && all.findIndex((y) => y.name === x.name) === k)
+    .slice(0, CAST_MAX);
+  // Everyone in the cast is a name too, so they stop counting as unknown.
+  const names = [
+    ...new Set([...(Array.isArray(input.names) ? input.names : []).map((x) => str(x, 12)), ...cast.map((c) => c.name)].filter((x) => HAN.test(x))),
+  ];
   const starts = new Set<number>();
   const scenes = (Array.isArray(input.scenes) ? input.scenes : [])
     .map((x) => (x ?? {}) as Record<string, unknown>)
@@ -572,10 +606,12 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
   const given = (k: string) => Array.isArray(input[k]);
   const old = r.prep;
   if (!old && !words.length && !scenes.length) throw new AgentError("Give at least the words or the scenes.");
-  if (!given("words") && !given("names") && !given("scenes") && !given("questions")) throw new AgentError("Give the words, names, scenes or questions.");
+  if (!given("words") && !given("names") && !given("cast") && !given("scenes") && !given("questions"))
+    throw new AgentError("Give the words, names, cast, scenes or questions.");
   const prep: Prep = {
     words: given("words") || !old ? words : old.words,
-    names: given("names") || !old ? names : old.names,
+    names: given("names") || given("cast") || !old ? [...new Set([...names, ...(given("names") || !old ? [] : old.names)])] : old.names,
+    cast: given("cast") || !old ? cast : (old.cast ?? []),
     scenes: given("scenes") || !old ? scenes : old.scenes,
     questions: given("questions") || !old ? questions : old.questions,
   };
@@ -585,7 +621,7 @@ export async function writePrep(sql: Sql, owner: string, dict: Dict, input: Reco
   `;
   const must = prep.words.filter((w) => w.tier === "must").map((w) => w.word);
   const list = given("words") && must.length ? await writeList(sql, owner, dict, { path: [r.show, r.episode], words: must, replace: true }) : null;
-  return { id, words: prep.words.length, must: must.length, names: prep.names.length, scenes: prep.scenes.length, questions: prep.questions.length, list };
+  return { id, words: prep.words.length, must: must.length, names: prep.names.length, cast: prep.cast?.length ?? 0, scenes: prep.scenes.length, questions: prep.questions.length, list };
 }
 
 /** Episodes measured on the list each time it is read, at most, when today's measure is missing (each is a full analysis). */
@@ -729,11 +765,13 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     autoScenes: !prep?.scenes.length,
     words,
     names: prep?.names ?? [],
+    cast: castOf(prep, a.looks),
     questions: prep?.questions ?? [],
     retells: retells.map((t) => ({ ...t.result, q: t.q, answer: t.answer, at: Math.round(t.at) })),
     coverage: measured.coverage,
     progress: await progressOf(sql, owner, id),
     notes: r.notes ?? [],
+    blurbs: r.blurbs ?? [],
     trouble: Object.fromEntries(trouble),
     deck: await deckOf(sql, owner, id, pickDeck(r.lines, tokens, targets, (r.notes ?? []).map((n) => n.i))),
     plan: await (async () => {
@@ -754,7 +792,7 @@ export async function gradeEpisodeAnswer(sql: Sql, owner: string, id: number, q:
   if (!HAN.test(said)) throw new ReadingError("Answer in Chinese.");
   const question = r.prep?.questions[q];
   if (!question) throw new ReadingError("No such question.");
-  const result = await gradeAnswer(r.lines.map((l) => l.zh).join("\n"), `${r.show} ${r.episode}`, question, said);
+  const result = await gradeAnswer(r.lines.map((l) => l.zh).join("\n"), `${r.show} ${r.episode}`, question, said, namesOf(r.prep));
   await sql`insert into chongfuxi_episode_retell (owner_email, episode_id, q, answer, result) values (${owner}, ${id}, ${q}, ${said}, ${JSON.stringify(result)}::jsonb)`;
   return { ...result, q, answer: said, at: Date.now() };
 }
@@ -765,6 +803,11 @@ const NOTE_DAYS = 90;
 const TROUBLE_LINES = 8;
 const LINE_NOTE_KINDS: LineNoteKind[] = ["trouble", "slang", "grammar", "culture", "meaning", "listening"];
 const LINE_NOTES_MAX = 1500;
+/** People in Muse's cast, at most. */
+const CAST_MAX = 40;
+/** Study notes on hard lines (writeBlurbs), at most, and a line is hard with this many words not known. */
+const BLURBS_MAX = 1500;
+const HARD_NEW = 2;
 const LINE_NOTE_TEXT = 500;
 
 /**
@@ -810,6 +853,56 @@ function wordLines(tokens: TextToken[][]): Map<string, number[]> {
     }
   });
   return at;
+}
+
+/** Who's who: Muse's cast with each name's reading, or the names alone until it writes one. */
+function castOf(prep: Prep | null, looks: Record<string, { p: string; gloss: string | null } | null>): EpisodeCastMember[] {
+  if (!prep) return [];
+  // A name's reading as the subtitles' words read it, else each character's commonest (a surname's may be off: 单 shàn).
+  const reading = (name: string) =>
+    looks[name]?.p ??
+    ([...name].every((c) => dictEntry(c)) ? [...name].map((c) => dictEntry(c)!.p).join(" ") : null);
+  const cast = (prep.cast ?? []).map((c) => ({ name: c.name, pinyin: reading(c.name), who: c.who }));
+  const named = new Set(cast.map((c) => c.name));
+  return [...cast, ...prep.names.filter((n) => !named.has(n)).map((name) => ({ name, pinyin: reading(name), who: "" }))];
+}
+
+/**
+ * Muse's study notes on hard lines (POST agent/episodes/blurbs): { id,
+ * blurbs: [{ i, meaning, literal?, parts?: [{ zh, text }], tip? }], replace? }.
+ * One a line, replacing what was there; `replace` drops every other. The
+ * owner asked for everything needed to learn a hard sentence in one place
+ * when it is opened in the script.
+ */
+export async function writeBlurbs(sql: Sql, owner: string, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const failed: Array<{ i: unknown; why: string }> = [];
+  const given: EpisodeLineBlurb[] = [];
+  for (const raw of Array.isArray(input.blurbs) ? input.blurbs : []) {
+    const x = (raw ?? {}) as Record<string, unknown>;
+    const i = typeof x.i === "number" && Number.isInteger(x.i) ? x.i : -1;
+    if (!r.lines[i]) {
+      failed.push({ i: x.i, why: "no such line" });
+      continue;
+    }
+    const meaning = str(x.meaning, 400);
+    if (!meaning) {
+      failed.push({ i, why: "no meaning" });
+      continue;
+    }
+    const parts = (Array.isArray(x.parts) ? x.parts : [])
+      .map((p) => (p ?? {}) as Record<string, unknown>)
+      .map((p) => ({ zh: str(p.zh, 40), text: str(p.text, 400) }))
+      .filter((p) => p.text && (p.zh === "" || HAN.test(p.zh)))
+      .slice(0, 8);
+    given.push({ i, meaning, literal: str(x.literal, 400), parts, tip: str(x.tip, 400) });
+  }
+  const byLine = new Map<number, EpisodeLineBlurb>(input.replace === true ? [] : (r.blurbs ?? []).map((b) => [b.i, b]));
+  for (const b of given) byLine.set(b.i, b);
+  const blurbs = [...byLine.values()].sort((a, b) => a.i - b.i).slice(0, BLURBS_MAX);
+  await sql`update chongfuxi_episode set blurbs = ${JSON.stringify(blurbs)}::jsonb, notes_at = now() where owner_email = ${owner} and id = ${id}`;
+  return { written: given.length, blurbs: blurbs.length, failed };
 }
 
 /**
@@ -1208,7 +1301,7 @@ export async function chapterStep(sql: Sql, owner: string, input: Record<string,
   const end = c + 1 < scenes.length ? scenes[c + 1].start : r.lines.length;
   const body = r.lines.slice(sc.start, end).map((l) => l.zh).join("\n");
   const question = sc.question ?? CHAPTER_QUESTION;
-  const result = await gradeAnswer(body, `${r.show} ${r.episode} · ${sc.title}`, question, said);
+  const result = await gradeAnswer(body, `${r.show} ${r.episode} · ${sc.title}`, question, said, namesOf(r.prep));
   await sql`
     insert into chongfuxi_episode_chapter_retell (owner_email, episode_id, chapter, answer, result)
     values (${owner}, ${id}, ${c}, ${said}, ${JSON.stringify(result)}::jsonb)

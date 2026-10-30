@@ -1977,6 +1977,31 @@ YouTube chapter feature".
   whole to the Muse list `Muse/<show>/<episode>` (`writeList`, `replace`), so
   they learn and review like any list. Until it is prepped, scenes are cut
   at pauses of 8 s or more with at least 8 lines between (`autoScenes`).
+- **Cast** (the owner: "a place for all the characters… at the top of
+  the script"): the prep takes `cast: [{ name, who }]` (at most
+  `CAST_MAX`, 40; each name also counts as a name), and the episode sends
+  `cast` (`castOf`: Muse's, then any other names with no who), each
+  name's reading from the subtitles' words, else each character's. At the
+  top of the Script, `CastList`: "Characters", four shown and "All N",
+  each name large (a tap says it), its pinyin and who they are.
+- **Names are graded leniently** (the owner: "I likely won't know the
+  characters"): a chapter retelling or an episode question is graded with
+  the cast and names (`namesOf`) and `NAMES_LENIENT` in reading.ts's
+  `gradeAnswer`: a missing, wrong or homophone name, pinyin, or a
+  description in its place is fine when it's clear who is meant, and a
+  name alone never makes it almost or wrong.
+- **Study notes on hard lines** (the owner: for the hard sentences, "a
+  blurb when opening up the sentence… with everything I need there in one
+  place"): POST `/api/chongfuxi/agent/episodes/blurbs` `{ id, blurbs: [{
+  i, meaning, literal?, parts?: [{ zh, text }], tip? }], replace? }`
+  (`writeBlurbs`, one a line, `chongfuxi_episode.blurbs`, at most
+  `BLURBS_MAX`). The material lists `hard` (lines with `HARD_NEW` (2) or
+  more words not known, or a trouble word) and `blurbed`, and the brief
+  asks for one on every hard line. Shown first in the line's panel
+  (`BlurbCard`, "✦ Muse on this line"): the meaning said naturally, how
+  it is built literally, its parts (each Chinese part opening its word
+  page) and one thing to take away; the line is marked ✦ in the script
+  like a note, and ✦ Next note steps through both.
 - **Line notes, like Genius** (the owner wanted it to work like Genius
   does for lyrics, with Muse writing from what it knows they have trouble
   with): POST `/api/chongfuxi/agent/episodes/lines` `{ id, lines: [{ i,
@@ -2072,6 +2097,18 @@ YouTube chapter feature".
     with Muse's answer, its lookups, how many of the owner's sentences
     have it (and readable) with one, how often it is said in the episode,
     and Word page ›. Known words with nothing to say fold into one line.
+  - **Lines open from Practice too** (the owner: "make the sentences
+    clickable"): `OpenLine`, a context EpisodeView gives Practice, opens
+    the same line panel over it: a drill's line (`LineLink`, after the
+    answer shows on a test step), a chapter Watch line's › (pausing the
+    video; the line itself still plays from there), a Check line once
+    shown, a listening card once shown.
+  - **Back steps through it** (the owner asked for better back support):
+    an open line, then a chapter's later step (to Prep), the drill or
+    listening (to the whole episode), the whole episode (to chapter by
+    chapter), then Practice or Words (to the Script), then the episode.
+    "Whole episode" did nothing: Practice declared state after an early
+    return, so switching modes broke React's hook order; fixed with it.
   - **Practice opens chapter by chapter** (`ChapterRound`; the owner: "more
     bite size… watching this episode chapter by chapter so it's more
     digestible"; they chose all four steps): a short loop per chapter, from
@@ -2083,7 +2120,9 @@ YouTube chapter feature".
     (`PrepDrill`, its end "Watch the chapter ›"). **Watch**
     (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
     and `end`, so it stops at the chapter's end; "↺ From the start"), its
-    lines below lit as they are said (a tap jumps there), the English
+    lines below lit as they are said, the one being said kept near the
+    top of the lines (`SAYING_ROOM`, 56 px down, the page itself not
+    moved; it was kept at the foot, the owner asked) (a tap jumps there), the English
     under each blurred until tapped (the owner asked; `EnglishLine`, as in
     the script with English off), a Subtitles switch blurring the Chinese too; with no video, its lines to read, each said
     aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)

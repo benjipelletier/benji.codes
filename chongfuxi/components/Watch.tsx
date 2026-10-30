@@ -11,7 +11,7 @@
 // learn. (After, the whole episode's questions, was taken out at the owner's
 // request; a chapter's Check still retells it.)
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   EpisodeLineNote,
   EpisodeListed,
@@ -103,6 +103,25 @@ function spans(ep: Episode): Array<{ from: number; to: number }> {
 }
 
 /** Where an element sits in a scrolling box, from the box's top: offsetTop is measured from its chapter, not the box. */
+/**
+ * Opens a line at the foot of the screen with all the corpus has on it, from
+ * anywhere in the episode: Practice's lines too (the owner: "make the
+ * sentences clickable"). Null outside an episode.
+ */
+const OpenLine = createContext<((i: number) => void) | null>(null);
+
+/** A line's text that opens the line, where a line can be opened; plain text elsewhere. */
+function LineLink({ i, children }: { i: number; children: React.ReactNode }) {
+  const open = useContext(OpenLine);
+  if (!open || i < 0) return <>{children}</>;
+  return (
+    <button className="cf-line-link" onClick={() => open(i)} aria-label="Open the line">
+      {children}
+      <i aria-hidden="true">›</i>
+    </button>
+  );
+}
+
 const topIn = (box: HTMLElement, el: HTMLElement) => el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
 
 /** The line said at a time: the last that starts at or before it. */
@@ -593,6 +612,7 @@ function LinePanel({
 }) {
   const line = ep.lines[i];
   const note = ep.notes.find((n) => n.i === i);
+  const blurb = (ep.blurbs ?? []).find((b) => b.i === i);
   const [words, setWords] = useState<LineWordInfo[] | null>(cache.get(i) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(focus);
@@ -618,7 +638,9 @@ function LinePanel({
       live = false;
     };
   }, [cache, ep.id, i]);
-  const nextNote = ep.notes.find((n) => n.i > i) ?? ep.notes[0];
+  const marks = [...new Set([...ep.notes.map((n) => n.i), ...(ep.blurbs ?? []).map((b) => b.i)])].sort((a, b) => a - b);
+  const nextMark = marks.find((m) => m > i) ?? marks[0];
+  const nextNote = nextMark === undefined ? undefined : { i: nextMark };
   const rank = (w: LineWordInfo) => (ep.trouble[w.word] ? 0 : must.has(w.word) ? 1 : w.standing === "unknown" ? 2 : w.standing === "learning" ? 3 : 4);
   const worth = (w: LineWordInfo) => rank(w) < 4 || !!w.parts?.length || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
   const shown = (words ?? []).filter(worth).sort((a, b) => rank(a) - rank(b));
@@ -654,6 +676,7 @@ function LinePanel({
           </button>
         </p>
         {line.en && <p className="cf-lp-en">{line.en}</p>}
+        {blurb && <BlurbCard b={blurb} />}
         {note && (
           <div className={`cf-lp-note is-${note.kind}`}>
             <p className="cf-lp-note-head">
@@ -691,6 +714,77 @@ function LinePanel({
     </div>
   );
 }
+
+/**
+ * Muse's study note on a hard line, at the top of its panel (the owner
+ * wanted everything to learn the sentence in one place): what it means,
+ * how it is built, its parts, one thing to take away.
+ */
+function BlurbCard({ b }: { b: Episode["blurbs"][number] }) {
+  return (
+    <section className="cf-lb">
+      <p className="cf-lb-head">✦ Muse on this line</p>
+      <p className="cf-lb-meaning">{b.meaning}</p>
+      {b.literal && (
+        <p className="cf-lb-literal">
+          <span>Literally</span> {b.literal}
+        </p>
+      )}
+      {b.parts.length > 0 && (
+        <ul className="cf-lb-parts">
+          {b.parts.map((p, k) => (
+            <li key={k}>
+              {p.zh && (
+                <button className="cf-lb-zh cf-zh" onClick={() => wordpage.openWordPage(p.zh)} title="Word page">
+                  {p.zh}
+                </button>
+              )}
+              <span>{p.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {b.tip && (
+        <p className="cf-lb-tip">
+          <span>Take away</span> {b.tip}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Who's who at the top of the script: Muse's cast, a tap for who each is (the owner: "a place for all the characters"). */
+function CastList({ cast }: { cast: Episode["cast"] }) {
+  const [open, setOpen] = useState(false);
+  if (!cast.length) return null;
+  const shown = open ? cast : cast.slice(0, CAST_FOLDED);
+  return (
+    <section className="cf-cast">
+      <p className="cf-cast-h">
+        Characters <span>{fmt(cast.length)}</span>
+      </p>
+      <ul>
+        {shown.map((c) => (
+          <li key={c.name}>
+            <button className="cf-cast-name cf-zh" onClick={() => say(c.name)} aria-label={`Hear ${c.name}`}>
+              {c.name}
+            </button>
+            <span className="cf-cast-body">
+              {c.pinyin && <span className="cf-cast-py">{displayPinyin(c.pinyin)}</span>}
+              {c.who && <span className="cf-cast-who">{c.who}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {cast.length > CAST_FOLDED && (
+        <button className="cf-link cf-cast-more" onClick={() => setOpen(!open)}>
+          {open ? "Fewer" : `All ${fmt(cast.length)}`}
+        </button>
+      )}
+    </section>
+  );
+}
+const CAST_FOLDED = 4;
 
 /** The chapters across the top: the bar to scrub, and a chip each (start, title, how its lines grade), the one in view lit. */
 function ChapterStrip({
@@ -885,6 +979,7 @@ function Listening({ ep, onAnswered, onBack }: { ep: Episode; onAnswered: (i: nu
           <div className="cf-pr-back">
             <p className="cf-pr-line">
               <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
+              <LineLink i={ep.lines.indexOf(line)}>{null}</LineLink>
               <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
                 🔊
               </button>
@@ -1249,6 +1344,9 @@ function Practice({
   const [mode, setMode] = useState<"chapters" | "home" | "drill" | "listen">("chapters");
   const [last, setLast] = useState<{ kept: number; show: number; before: Episode["plan"]["now"] } | null>(null);
   const keeps = useKeeps(ep.id);
+  // Back steps out: from the drill or listening to the whole episode, from there to chapter by chapter.
+  useBackLayer(mode !== "chapters", () => setMode("chapters"));
+  useBackLayer(mode === "drill" || mode === "listen", () => setMode("home"));
   if (mode === "chapters")
     return <ChapterRound ep={ep} canWrite={canWrite} keeps={keeps} onChanged={onLearnt} onWhole={() => setMode("home")} />;
   if (mode === "listen") return <Listening ep={ep} onAnswered={onAnswered} onBack={() => setMode("home")} />;
@@ -1415,7 +1513,8 @@ function PrepDrill({
   const [done, setDone] = useState({ kept: 0, show: 0 });
   const [error, setError] = useState<string | null>(null);
   const card = queue[0];
-  const lineOf = (w: PrepStep["w"], k: number) => ep.lines[w.lines[Math.min(k, w.lines.length - 1)] ?? -1] ?? null;
+  const lineIndex = (w: PrepStep["w"], k: number) => w.lines[Math.min(k, w.lines.length - 1)] ?? -1;
+  const lineOf = (w: PrepStep["w"], k: number) => ep.lines[lineIndex(w, k)] ?? null;
   const finish = (w: PrepStep["w"]) => {
     const keep = keeps ? keeps.of(w) : !!w.keepWhy;
     setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
@@ -1453,6 +1552,7 @@ function PrepDrill({
     );
   const w = card.w;
   const line = lineOf(w, card.step === 0 ? 0 : card.step === 1 ? 1 : 2);
+  const lineI = lineIndex(w, card.step === 0 ? 0 : card.step === 1 ? 1 : 2);
   const total = words.length * 3;
   const left = queue.reduce((n, c) => n + (3 - c.step), 0);
   return (
@@ -1479,7 +1579,9 @@ function PrepDrill({
             {line && (
               <div className="cf-pp-line">
                 <p>
-                  <MarkedLine zh={line.zh} word={w.word} />
+                  <LineLink i={lineI}>
+                    <MarkedLine zh={line.zh} word={w.word} />
+                  </LineLink>
                   <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
                     🔊
                   </button>
@@ -1493,7 +1595,13 @@ function PrepDrill({
           <div className="cf-pp-meet">
             <p className="cf-muted">What does it mean here?</p>
             <p className="cf-pp-big-line">
-              <MarkedLine zh={line.zh} word={w.word} />
+              {shown ? (
+                <LineLink i={lineI}>
+                  <MarkedLine zh={line.zh} word={w.word} />
+                </LineLink>
+              ) : (
+                <MarkedLine zh={line.zh} word={w.word} />
+              )}
               <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
                 🔊
               </button>
@@ -1513,7 +1621,13 @@ function PrepDrill({
           <div className="cf-pp-meet">
             <p className="cf-muted">Which word goes in the gap?</p>
             <p className="cf-pp-big-line">
-              <MarkedLine zh={line.zh} word={w.word} blank={!shown} />
+              {shown ? (
+                <LineLink i={lineI}>
+                  <MarkedLine zh={line.zh} word={w.word} />
+                </LineLink>
+              ) : (
+                <MarkedLine zh={line.zh} word={w.word} blank />
+              )}
             </p>
             {line.en ? <p className="cf-lp-en">{line.en}</p> : w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
             {shown && (
@@ -1593,6 +1707,8 @@ function ChapterRound({
   const [step, setStep] = useState<ChapterStepName>("prep");
   const [subs, setSubs] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Back from a later step (or the drill) comes to the chapter's Prep.
+  useBackLayer(step !== "prep", () => setStep("prep"));
   const sc = ep.scenes[c];
   const plan = chapters[c];
   if (!sc || !plan) return <p className="cf-watch-pane cf-muted">No chapters yet.</p>;
@@ -1752,6 +1868,9 @@ function ChapterSummary({ sc }: { sc: Episode["scenes"][number] }) {
  * subtitles; with no video, its lines to read, each
  * said aloud on a tap.
  */
+/** How far below the top of the lines the line being said is kept (px): the one before it still in view. */
+const SAYING_ROOM = 56;
+
 function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: boolean; onSubs: (on: boolean) => void }) {
   const sc = ep.scenes[c];
   const span = spans(ep)[c];
@@ -1798,10 +1917,14 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
       el.remove();
     };
   }, [ep, sc, from, to]);
+  // The line being said near the top of the lines (the owner's ask; "nearest" left it at the foot), the page itself not moved.
   useEffect(() => {
-    if (saying === null || !list.current) return;
-    list.current.querySelector<HTMLElement>(`[data-cl="${saying}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const box = list.current;
+    const row = saying === null ? null : box?.querySelector<HTMLElement>(`[data-cl="${saying}"]`);
+    if (!box || !row) return;
+    box.scrollTo({ top: Math.max(0, topIn(box, row) - SAYING_ROOM), behavior: "smooth" });
   }, [saying]);
+  const openLine = useContext(OpenLine);
   return (
     <div className="cf-cw">
       {ep.video && <div className="cf-wv-frame cf-cw-frame" ref={host} />}
@@ -1823,12 +1946,26 @@ function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: b
           const i = sc.start + k;
           return (
             <li key={i} data-cl={i} className={saying === i ? "is-saying" : ""}>
-              <button
-                className="cf-cw-line"
-                onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
-              >
-                <span className="cf-zh">{l.zh}</span>
-              </button>
+              <div className="cf-cw-row">
+                <button
+                  className="cf-cw-line"
+                  onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
+                >
+                  <span className="cf-zh">{l.zh}</span>
+                </button>
+                {openLine && (
+                  <button
+                    className="cf-cw-open"
+                    onClick={() => {
+                      player.current?.pauseVideo?.();
+                      openLine(i);
+                    }}
+                    aria-label="Open the line"
+                  >
+                    ›
+                  </button>
+                )}
+              </div>
               {/* The English blurred, as in the script with English off: a tap shows it (the owner asked). */}
               {l.en && <EnglishLine en={l.en} english={false} />}
             </li>
@@ -1869,7 +2006,9 @@ function ChapterCheck({ ep, c, canWrite, onDone }: { ep: Episode; c: number; can
               </div>
             ) : (
               <div className="cf-pr-back">
-                <p className="cf-pr-line cf-zh">{ep.lines[i].zh}</p>
+                <p className="cf-pr-line cf-zh">
+                  <LineLink i={i}>{ep.lines[i].zh}</LineLink>
+                </p>
                 {ep.lines[i].en && <p className="cf-lp-en">{ep.lines[i].en}</p>}
               </div>
             )}
@@ -1974,6 +2113,8 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       .then((r) => setEp(r.episode))
       .catch((e) => setError(message(e)));
   }, [id]);
+  // Back from Practice or Words comes to the Script; from an open line, closes it.
+  useBackLayer(tab !== "script", () => setTab("script"));
   useBackLayer(line !== null, () => setLine(null));
   // Opening a line to study it pauses the video.
   useEffect(() => {
@@ -1983,6 +2124,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const must = useMemo(() => new Set((ep?.words ?? []).filter((w) => w.tier === "must" && !w.inDeck).map((w) => w.word)), [ep]);
   const grades = useMemo(() => (ep ? ep.lines.map((l) => gradeOf(l.tokens)) : []), [ep]);
   const noteAt = useMemo(() => new Map((ep?.notes ?? []).map((n) => [n.i, n])), [ep]);
+  const blurbAt = useMemo(() => new Set((ep?.blurbs ?? []).map((b) => b.i)), [ep]);
 
   // Where the script is on the clock: the first line at the top of it, for the bar's playhead.
   const [topAt, setTopAt] = useState(0);
@@ -2143,6 +2285,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             onScrubEnd={(t) => seek(t)}
           />
           <div className="cf-watch-script" ref={script} onScroll={onScroll} onTouchMove={handScroll} onWheel={handScroll}>
+            <CastList cast={ep.cast ?? []} />
             <div className="cf-watch-key">
               {GRADES.map((g) => (
                 <span key={g.key}>
@@ -2166,11 +2309,12 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                   {ep.lines.slice(sc.start, sc.end).map((l, k) => {
                     const i = sc.start + k;
                     const note = noteAt.get(i);
+                    const marked = !!note || blurbAt.has(i);
                     return (
                       <li
                         key={i}
                         data-line={i}
-                        className={`cf-wl is-${grades[i]}${line?.i === i ? " is-on" : ""}${note ? " has-note" : ""}${saying === i ? " is-saying" : ""}`}
+                        className={`cf-wl is-${grades[i]}${line?.i === i ? " is-on" : ""}${marked ? " has-note" : ""}${saying === i ? " is-saying" : ""}`}
                         onClick={() => setLine({ i, word: null })}
                       >
                         {ep.video ? (
@@ -2183,12 +2327,12 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                             aria-label={`Play from ${clock(l.s)}`}
                           >
                             {clock(l.s)}
-                            {note && <b className="cf-gn-key">✦</b>}
+                            {marked && <b className="cf-gn-key">✦</b>}
                           </button>
                         ) : (
                           <span className="cf-wl-at">
                             {clock(l.s)}
-                            {note && <b className="cf-gn-key">✦</b>}
+                            {marked && <b className="cf-gn-key">✦</b>}
                           </span>
                         )}
                         <span className="cf-wl-text">
@@ -2205,6 +2349,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
         </>
       )}
       {ep && tab === "practice" && (
+        <OpenLine.Provider value={(i) => setLine({ i, word: null })}>
         <Practice
           ep={ep}
           canWrite={canWrite}
@@ -2217,6 +2362,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
               .catch((e) => setError(message(e)))
           }
         />
+        </OpenLine.Provider>
       )}
       {ep && tab === "words" && (
         <div className="cf-watch-pane">
@@ -2262,14 +2408,14 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
           )}
         </div>
       )}
-      {ep && tab === "script" && line && (
+      {ep && (tab === "script" || tab === "practice") && line && (
         <LinePanel
           ep={ep}
           i={line.i}
           focus={line.word}
           must={must}
           cache={cache.current}
-          onMove={toLine}
+          onMove={tab === "script" ? toLine : (i) => i >= 0 && i < ep.lines.length && setLine({ i, word: null })}
           onFocus={(w) => setLine({ i: line.i, word: w })}
           onClose={() => setLine(null)}
         />

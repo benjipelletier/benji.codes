@@ -1342,6 +1342,30 @@ export interface EpisodeLineNote {
   words: string[];
 }
 
+/** Someone in an episode: their name as written, its reading, and who they are (Muse's cast). */
+export interface EpisodeCastMember {
+  name: string;
+  pinyin: string | null;
+  /** Who they are, in English, a few words ("the hotel's front desk manager; Xu Hongdou's boss"). */
+  who: string;
+}
+
+/**
+ * Muse's study note on a hard line (POST agent/episodes/blurbs): everything to
+ * learn the sentence in one place, shown at the top of the line's panel.
+ */
+export interface EpisodeLineBlurb {
+  i: number;
+  /** What it means, said naturally (not the subtitle's English). */
+  meaning: string;
+  /** How it is built: literally, piece by piece; "" when nothing to add. */
+  literal: string;
+  /** The parts worth knowing: a word, a pattern or a sound, each with what it does here. */
+  parts: Array<{ zh: string; text: string }>;
+  /** One thing to take away, or how to say something like it; "" when none. */
+  tip: string;
+}
+
 /** A word in an episode the owner has had trouble with: a stuck word's category, a recent Forgot, or a note written about it. */
 export interface EpisodeTrouble {
   word: string;
@@ -1407,6 +1431,8 @@ export interface EpisodeView extends EpisodeListed {
   /** Words not known, Muse's must-knows first, then by how often they are said. */
   words: EpisodeWord[];
   names: string[];
+  /** Who's who, Muse's cast; or the names alone, with no who, until it writes one. */
+  cast: EpisodeCastMember[];
   questions: Array<{ zh: string; en: string }>;
   retells: Retell[];
   /** Shares (0–1): words known now; known once the must-knows are learnt; lines readable now. */
@@ -1424,6 +1450,8 @@ export interface EpisodeView extends EpisodeListed {
   list: string | null;
   /** Muse's notes on lines, by line. */
   notes: EpisodeLineNote[];
+  /** Muse's study notes on hard lines, by line. */
+  blurbs: EpisodeLineBlurb[];
   /** Words in the episode the owner has had trouble with, by word. */
   trouble: Record<string, EpisodeTrouble>;
   /** The lines to practise, in story order. */

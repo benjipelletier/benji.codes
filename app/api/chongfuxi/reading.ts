@@ -309,6 +309,12 @@ const RETELL_SYSTEM = `You check a Chinese learner's spoken or typed answer to a
 - why: in English, one to three short sentences: what exactly is wrong and why (name the word or pattern), and if they misread the text, what it actually says. When it is correct, what was good about it.`;
 
 /**
+ * For an episode: the owner asked that names not be graded strictly, since
+ * they likely won't know the characters' names.
+ */
+const NAMES_LENIENT = `The learner is watching a drama and likely doesn't know the characters' names. Grade names leniently: a missing, wrong, misspelled or homophone name, a name written in pinyin, or a description in place of one (那个女的, 她的老板, 前台) is fine as long as it is clear who they mean. Never grade "almost" or "wrong" because of a name alone, and don't mention a name in "why" unless they plainly mixed two people up. In "fixed", use the right name without remarking on it.`;
+
+/**
  * An answer in Chinese to a question about a text, graded by the app's model
  * at Look up's model and effort (never lower): its Chinese, and whether it
  * fits what the text says. Shared by readings and episodes (episodes.ts).
@@ -318,6 +324,8 @@ export async function gradeAnswer(
   title: string,
   question: { zh: string; en: string },
   said: string,
+  /** The people in it, for an episode: the learner won't know them well, so names are graded leniently. */
+  names: string[] = [],
 ): Promise<Omit<Retell, "q" | "answer" | "at">> {
   const apiKey = process.env.CHONGFUXI_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new ReadingError("No Anthropic API key is set (CHONGFUXI_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY).");
@@ -326,7 +334,15 @@ export async function gradeAnswer(
     max_tokens: 2000,
     system: RETELL_SYSTEM,
     output_config: { effort: EFFORT, format: { type: "json_schema", schema: RETELL_SCHEMA as unknown as Record<string, unknown> } },
-    messages: [{ role: "user", content: `<text title="${title}">\n${body.slice(0, CONTEXT_MAX)}\n</text>\n\nQuestion: ${question.zh} (${question.en})\nTheir answer: ${said}` }],
+    messages: [
+      {
+        role: "user",
+        content:
+          `<text title="${title}">\n${body.slice(0, CONTEXT_MAX)}\n</text>\n\n` +
+          (names.length ? `${NAMES_LENIENT}\nNames in it: ${names.join("、")}\n\n` : "") +
+          `Question: ${question.zh} (${question.en})\nTheir answer: ${said}`,
+      },
+    ],
   });
   const raw = message.content.flatMap((c) => (c.type === "text" ? [c.text] : [])).join("");
   let given: Record<string, unknown>;
