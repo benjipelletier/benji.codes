@@ -1401,9 +1401,12 @@ the design was silent and are still to be confirmed.
   On Today each row's line is `FirstLine`: a slim meter in the row's colour
   (first-time cards answered today against the max), "12 / 300 new",
   "+2.9k later" in grey for those still to come after today, and the max as
-  a small chip, a native drop-down ("300 a day ▾", "No max", 10 to 1,000),
-  sized to its text (`field-sizing: content`); changing it refreshes the
-  summary and never ticks or unticks the row. It replaced "2,604 more first
+  a small chip ("300 a day ⌄", `ChoiceChip` in `components/Habit.tsx`)
+  opening a sheet of choices (`ChoiceSheet`: "No max", 10 to 1,000 as
+  large tiles, the current one filled; `MaxSheet`, rendered by `Today`
+  outside the row's label). It was a native drop-down until the owner
+  found it ugly. Changing it refreshes the summary and never ticks or
+  unticks the row. It replaced "2,604 more first
   ones wait for the days after (300 a day)" and the rows' one-line
   descriptions. New Recall cards opened by a first Got it on
   Read count against it too. Fast review goes the other way: best known
@@ -1411,6 +1414,25 @@ the design was silent and are still to be confirmed.
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
   yesterday scores high just for being fresh.
+- **Adding words every day** (the owner: "a way to track and make sure I
+  keep adding new words every day… I want the app to guide me through
+  it"): a daily goal of words added (`app/api/chongfuxi/habit.ts`,
+  `chongfuxi_add_goal`, made on first use; 5 to start, 1 to
+  `ADD_GOAL_TOP`, set by POST `habit` `{ goal }`, owner only). Words count
+  however they came in, from every addition (`chongfuxi_addition`, less
+  those undone), by study day (the day's cutoff). GET `habit` gives the
+  goal, today's count, the streak (days that met the goal back from
+  yesterday, today joining once met; over the last year) and the week,
+  oldest first, plus `listBlockers`' learn-next words as suggestions. On
+  Today it is a pill beside the date (`HabitPill`: a small ring, orange
+  filling to green with a tick once met, "2 / 5 words ›"), so it costs the
+  screen no height; it is the owner's only. It opens `HabitSheet`: today
+  large with the streak, the week as bars against a dashed goal line
+  (green when met), the goal as a chip opening a `ChoiceSheet` over it
+  (back returns to the sheet), and "Worth adding next": words on the
+  owner's lists that each keep sentences locked, with "+N" sentences, the
+  word opening its page and "+ Add" adding it there (POST `word`
+  `{ action: "add" }`), which refreshes the counts.
 - **Learn**: a new word (a Read card never answered, from Pleco
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in

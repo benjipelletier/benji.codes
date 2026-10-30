@@ -12,6 +12,19 @@ export interface Viewer {
   email: string | null;
 }
 
+/** The habit of adding words (habit.ts): the daily goal, today, the streak, and words worth adding next. */
+export interface HabitView {
+  goal: number;
+  /** Words added today, however they came in, less any undone. */
+  today: number;
+  /** Days in a row that met the goal, today counted once met. */
+  streak: number;
+  /** Words added each of the last seven study days, oldest first, today last. */
+  week: number[];
+  /** Words on the owner's lists that alone keep the most sentences locked. */
+  suggest: Blocker[];
+}
+
 /** The kinds a daily max applies to: first-time Read cards, first-time Recall cards, new sentences. */
 export type DailyKind = "read" | "recall" | "sentence";
 export type DailyMax = Record<DailyKind, number | null>;

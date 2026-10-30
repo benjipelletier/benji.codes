@@ -1921,7 +1921,7 @@ label.cf-kind {
     display: none;
   }
 
-  .cf-today-date {
+  .cf-today-top {
     margin-bottom: 8px;
   }
 
@@ -13300,7 +13300,7 @@ button.cf-how-text {
 }
 
 /* Under a kind on Today: its first-time cards at a glance, a slim meter of
- * today's against the max, the figures, and the max as a quiet drop-down. */
+ * today's against the max, the figures, and the max as a chip opening its choices. */
 .cf-kind small.cf-first {
   display: flex;
   flex-wrap: wrap;
@@ -13336,26 +13336,313 @@ button.cf-how-text {
   color: var(--cf-ink-faint);
 }
 
-.cfx .cf-first-max {
-  appearance: none;
-  -webkit-appearance: none;
-  /* As wide as the choice shown, not the longest one ("No max", not "1,000 a day"). */
-  field-sizing: content;
+/* A choice as a small pill with a chevron: tapped, a sheet of choices opens
+ * (in place of a native drop-down, which the owner found ugly). */
+.cfx .cf-choice-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 28px;
-  padding: 0 22px 0 9px;
+  padding: 0 10px 0 11px;
   border: 1px solid var(--cf-rule-strong);
   border-radius: 999px;
-  background: var(--cf-surface)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a92a0' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E")
-    no-repeat right 8px center;
+  background: var(--cf-surface);
   color: var(--cf-ink-soft);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.cf-first-max:focus-visible {
+.cfx .cf-choice-chip svg {
+  color: var(--cf-ink-faint);
+}
+
+.cfx .cf-choice-chip:active {
+  background: var(--cf-sunken);
+}
+
+.cf-choice-chip:focus-visible,
+.cf-choice:focus-visible,
+.cf-habit:focus-visible {
   outline: 2px solid var(--cf-accent);
   outline-offset: 2px;
+}
+
+/* A sheet of choices: a title, a note, and the choices as large tiles. */
+.cf-choice-h {
+  margin: 6px 40px 4px 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.cf-choice-note {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.cf-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.cfx .cf-choice {
+  min-height: 52px;
+  padding: 0 8px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cfx .cf-choice.is-on {
+  border-color: transparent;
+  background: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
+
+/* On Today, beside the date: adding words as a habit, a small pill. */
+.cf-today-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cfx .cf-habit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  /* Over the margins either side: the date's line keeps its height. */
+  margin: -6px 0 -6px auto;
+  padding: 0 11px 0 6px;
+  border: 1px solid var(--cf-rule);
+  border-radius: 999px;
+  background: var(--cf-surface);
+  color: var(--cf-ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cfx .cf-habit:active {
+  background: var(--cf-sunken);
+}
+
+.cf-habit-text b {
+  font-weight: 700;
+  color: var(--cf-ink);
+}
+
+.cf-habit > svg:last-child {
+  color: var(--cf-ink-faint);
+}
+
+.cf-habit-ring {
+  flex: none;
+}
+
+.cf-habit-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.cf-habit-ring-bg {
+  stroke: var(--cf-sunken);
+}
+
+.cf-habit-ring-fg {
+  stroke: var(--cf-new);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;
+}
+
+.cf-habit-ring.is-met .cf-habit-ring-fg {
+  stroke: var(--cf-up);
+}
+
+.cf-habit-tick {
+  fill: none;
+  stroke: var(--cf-up);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The sheet: today large, the week as bars, the goal, and words to add. */
+.cf-habit-big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 14px;
+  font-size: 15px;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-habit-big b {
+  font-size: 34px;
+  font-weight: 750;
+  color: var(--cf-ink);
+}
+
+.cf-habit-streak {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--cf-up-soft);
+  color: var(--cf-up);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.cf-habit-week {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  height: 84px;
+  padding-bottom: 18px;
+}
+
+/* The goal, a dashed line across the bars. */
+.cf-habit-goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed var(--cf-rule-strong);
+  pointer-events: none;
+}
+
+.cf-habit-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.cf-habit-day > i {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 4px 4px 0 0;
+  background: var(--cf-new);
+  opacity: 0.55;
+}
+
+.cf-habit-day.is-met > i {
+  background: var(--cf-up);
+  opacity: 1;
+}
+
+.cf-habit-day > small {
+  position: absolute;
+  bottom: -18px;
+  font-size: 11px;
+  color: var(--cf-ink-faint);
+}
+
+.cf-habit-day.is-today > small {
+  color: var(--cf-ink);
+  font-weight: 650;
+}
+
+.cf-habit-goalline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 24px;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-habit-suggest {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid var(--cf-rule);
+  border-radius: 14px;
+  background: var(--cf-surface);
+  overflow: hidden;
+}
+
+.cf-habit-suggest > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 14px;
+}
+
+.cf-habit-suggest > li + li {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-habit-word {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 4px 8px 14px;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-habit-word .cf-zh {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.cf-habit-word-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+  color: var(--cf-read);
+}
+
+.cf-habit-word-body small {
+  font-size: 12.5px;
+  color: var(--cf-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-habit-unlocks {
+  flex: none;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cf-habit-suggest .cf-link {
+  flex: none;
+  min-height: 40px;
+  font-weight: 650;
+}
+
+.cf-habit-added {
+  flex: none;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cf-up);
 }

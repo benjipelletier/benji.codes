@@ -28,6 +28,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
+import { ChoiceChip, ChoiceSheet, HabitPill } from "./Habit";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
@@ -273,31 +274,23 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
 
 /** The choices for a kind's daily max of first-time cards; null is no limit. */
 const MAX_CHOICES: Array<number | null> = [null, 10, 20, 50, 100, 200, 300, 500, 1000];
+const maxLabel = (n: number | null) => (n === null ? "No max" : `${fmt(n)} a day`);
+const KIND_NAMES: Record<DailyKind, string> = { read: "Words to read", recall: "Words to recall", sentence: "Sentences" };
 
 /**
  * Under a kind on Today, its first-time cards at a glance (the owner wanted
  * figures, not sentences): a slim meter of those answered today against the
- * day's max, "12 / 300 new", how many more there are, and the max itself as a
- * small drop-down to change it (the owner: edited from a drop-down, not on the
- * main screen). Cards already on a schedule are never held.
+ * day's max, "12 / 300 new", how many more there are, and the max as a small
+ * chip opening a sheet of choices to change it (the owner: edited away from
+ * the main screen, and the native drop-down was ugly). Cards already on a
+ * schedule are never held.
  */
-function FirstLine({ kind, s, shell }: { kind: DailyKind; s: Summary; shell: Shell }) {
-  const [saving, setSaving] = useState(false);
+function FirstLine({ kind, s, shell, onEdit }: { kind: DailyKind; s: Summary; shell: Shell; onEdit: (k: DailyKind) => void }) {
   const max = s.dailyMax?.[kind] ?? null;
   const done = s.firstToday?.[kind] ?? 0;
   const all = s.firstWaiting?.[kind] ?? 0;
   // Still to come after today: those held by the max, or the rest of the pool.
   const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
-  const set = async (value: number | null) => {
-    setSaving(true);
-    try {
-      await send("daily-max", { kind, max: value });
-      shell.refresh();
-    } finally {
-      setSaving(false);
-    }
-  };
-  const label = (n: number | null) => (n === null ? "No max" : `${fmt(n)} a day`);
   return (
     <small className="cf-first">
       {max !== null && (
@@ -310,25 +303,24 @@ function FirstLine({ kind, s, shell }: { kind: DailyKind; s: Summary; shell: She
         {max !== null && <> / {fmt(max)}</>} new
       </span>
       {later > 0 && <span className="cf-first-later">+{short(later)} later</span>}
-      {shell.canWrite ? (
-        <select
-          className="cf-first-max"
-          value={max === null ? "" : String(max)}
-          disabled={saving}
-          aria-label="New a day, at most"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => void set(e.target.value === "" ? null : Number(e.target.value))}
-        >
-          {[...MAX_CHOICES, ...(max !== null && !MAX_CHOICES.includes(max) ? [max] : [])].map((n) => (
-            <option key={n ?? "none"} value={n === null ? "" : String(n)}>
-              {label(n)}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <span className="cf-first-later">{label(max)}</span>
-      )}
+      {shell.canWrite ? <ChoiceChip label={maxLabel(max)} onOpen={() => onEdit(kind)} /> : <span className="cf-first-later">{maxLabel(max)}</span>}
     </small>
+  );
+}
+
+/** The sheet a kind's daily max is picked from. */
+function MaxSheet({ kind, s, shell, onClose }: { kind: DailyKind; s: Summary; shell: Shell; onClose: () => void }) {
+  const max = s.dailyMax?.[kind] ?? null;
+  return (
+    <ChoiceSheet
+      title={`${KIND_NAMES[kind]}: new a day`}
+      note="First-time cards only, at most this many a day; the rest wait for the days after. Cards already on a schedule always come when due."
+      choices={[...MAX_CHOICES, ...(max !== null && !MAX_CHOICES.includes(max) ? [max] : [])]}
+      value={max}
+      label={maxLabel}
+      onPick={(value) => void send("daily-max", { kind, max: value }).then(shell.refresh)}
+      onClose={onClose}
+    />
   );
 }
 
@@ -349,6 +341,8 @@ function Today({
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
+  // A kind's daily max being picked, in a sheet outside the row's label.
+  const [editing, setEditing] = useState<DailyKind | null>(null);
   if (!s) return null;
   // A Fast review left part way through today, to carry on.
   const keptFast = resume.load()?.marked ? resume.load() : null;
@@ -385,7 +379,12 @@ function Today({
 
   return (
     <div className="cf-today">
-      <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
+      {editing && <MaxSheet kind={editing} s={s} shell={shell} onClose={() => setEditing(null)} />}
+      <div className="cf-today-top">
+        <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
+        {/* Adding words as a habit: today's against the goal, a tap from words worth adding. */}
+        <HabitPill shell={shell} />
+      </div>
       <h2 className="cf-today-title">Today</h2>
 
       <div className="cf-today-head">
@@ -412,7 +411,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to read
-              <FirstLine kind="read" s={s} shell={shell} />
+              <FirstLine kind="read" s={s} shell={shell} onEdit={setEditing} />
             </span>
             <b>{fmt(s.dueRead)}</b>
           </label>
@@ -423,7 +422,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to recall
-              <FirstLine kind="recall" s={s} shell={shell} />
+              <FirstLine kind="recall" s={s} shell={shell} onEdit={setEditing} />
             </span>
             <b>{fmt(s.dueRecall)}</b>
           </label>
@@ -434,7 +433,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Sentences
-              <FirstLine kind="sentence" s={s} shell={shell} />
+              <FirstLine kind="sentence" s={s} shell={shell} onEdit={setEditing} />
             </span>
             <b>{fmt(s.dueSentences)}</b>
           </label>
