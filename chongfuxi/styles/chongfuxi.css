@@ -5032,7 +5032,7 @@ button.cf-synclog-row {
 
 /* A word page's Remove from deck: a quiet red pill under the tags, then a dialog to confirm. */
 .cfx .cf-wp-remove {
-  margin: 10px 0 6px;
+  margin: 10px 0 0;
   color: var(--cf-down);
   background: var(--cf-down-soft);
 }
@@ -9687,7 +9687,8 @@ button.cf-how-text {
 }
 
 .cfx .cf-wp-kit {
-  margin: 0 0 18px;
+  /* Clear of the tags above: the Pleco round touched the box (the owner's screenshot). */
+  margin: 14px 0 18px;
 }
 
 .cf-kit-over {
