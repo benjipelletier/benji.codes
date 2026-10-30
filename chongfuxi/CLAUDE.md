@@ -1833,6 +1833,18 @@ comes back to it, so it can make less of what goes unused.
   url }` (how readable it is, the words not known, and a page's text to
   quote from). The older material routes (drill, notes, reading, episodes,
   week, story) stay as more data.
+- **龙库 as data** (the owner asked for a read API so Muse can see which
+  chengyu syllables to learn next, then: "I don't want longku to be
+  opinionated on what to learn next, that's muses job"): GET
+  `/api/longku/read` (`longku/lib/read.ts`), public like 龙库's bank, so no
+  token. It ranks nothing: `bank` (each word with pinyin, gloss, syllables,
+  tier, recalls, misses, strength, added, last recalled, due), `removed`
+  (`longku_excluded`), `syllables` (every one, alphabetical: yours starting
+  and ending there, the corpus's, `comesUp`, the share of usage ending
+  there) and `measures` (words, chains by `minChains`, playability, dead
+  ends). `?corpus=zhi,ji&per=30` (up to 40 syllables, 200 words each; ü as
+  ü or v) adds the corpus words starting on each, by frequency, marked
+  `held` / `removed`, with `chainChange` if added. Named in Muse's brief.
 - **Owner only, reads too** (route `muse`, GET `?list=1` the pages, else a
   day's, the latest by default, filled in): a page may quote the web, and
   the app is otherwise readable by anyone.
