@@ -1010,8 +1010,11 @@ dictionary's shown greyed after them, a dedicated AI comparison, and a place in 
 
 Asked for by the owner in October 2026: "based on words I mix up with other
 words when failing a card and adding why… a visualized map of words I often
-confuse together". Cards › Mix-ups (a fifth side; the switch's sides are now
-as wide as their names, `grid-auto-columns: auto`, so all five fit at 360px),
+confuse together". Cards › **Similar** › Mix-ups (it was a fifth side, Mix-ups,
+beside Synonyms; the owner found five tabs cluttered, so the two share one
+side, Similar, with a pair of pills inside, Mix-ups and Same English, the
+latter being Synonyms as before; each keeps its address, `cards=mixups` and
+`cards=synonyms`, and Similar reopens on the one open last),
 `components/Mixups.tsx`, route `mixups` (readable by anyone, like the
 notes), `app/api/chongfuxi/mixups.ts`. No model, only what is kept:
 
