@@ -23,7 +23,7 @@ import { wordSentences } from "./wordpage";
 export class SynonymError extends Error {}
 
 /** A key is a group's only when it comes this early in at least two of its words' entries (0 first). */
-const NEAR_TOP = 2;
+export const NEAR_TOP = 2;
 /** Groups listed at a time. */
 const LIST = 60;
 /** Dictionary words shown after the owner's (always, greyed), at most. */
@@ -73,7 +73,7 @@ async function ensureTables(sql: Sql) {
  * aren't the ones last cut (a digest of them and their definitions), or the
  * cutting has changed.
  */
-async function ensureKeys(sql: Sql, owner: string) {
+export async function ensureKeys(sql: Sql, owner: string) {
   await ensureTables(sql);
   const [now] = (await sql`
     select (coalesce(sum(hashtext(word || ':' || defs::text)::bigint), 0) % 2147483647)::int as digest

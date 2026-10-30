@@ -13215,3 +13215,60 @@ button.cf-how-text {
 .cf-cast-more {
   margin: 2px 0 6px;
 }
+
+/* Synonyms on the mix-up map: words sharing an English key, not mixed up; drawn faint (the owner: "super greyed out"). */
+.cf-mx-node.is-synonym {
+  opacity: 0.28;
+}
+
+.cf-mx-node.is-synonym circle {
+  fill: var(--cf-surface);
+  stroke: var(--cf-ink-faint);
+  stroke-dasharray: 2 3;
+}
+
+.cf-mx-node.is-synonym .cf-mx-zh {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cf-mx-node.is-synonym .cf-mx-py {
+  display: none;
+}
+
+.cf-mx-node.is-synonym.is-picked {
+  opacity: 0.85;
+}
+
+.cf-mx-node.is-synonym.is-dim {
+  opacity: 0.1;
+}
+
+.cf-mx-edge.is-synonym line:not(.cf-mx-hit) {
+  stroke: var(--cf-ink-faint);
+  stroke-dasharray: 1 4;
+  opacity: 0.35;
+}
+
+.cf-mx-edge.is-synonym.is-dim line:not(.cf-mx-hit) {
+  opacity: 0.08;
+}
+
+.cf-mx-key .is-faint {
+  opacity: 0.6;
+}
+
+.cf-mx-key-line.is-synonym {
+  border-top: 2px dotted var(--cf-ink-faint);
+  opacity: 0.6;
+}
+
+.cf-mx-same {
+  margin: 8px 8px 4px;
+  font-size: 13.5px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-mx-partners.is-same {
+  opacity: 0.7;
+}

@@ -1235,12 +1235,16 @@ export interface MixupNode {
   standing: "deck" | "listed" | "dictionary";
   /** Forgots (and lapses from being tapped) in the last 90 days. */
   misses: number;
+  /** Not mixed up with anything: a word sharing an English key with one that was, drawn faint. */
+  synonym?: boolean;
 }
 
 /** Two words taken for each other, and why we think so. */
 export interface MixupEdge {
   a: string;
   b: string;
+  /** The English key the two share, on a synonym line (not a mix-up): drawn faint, weight 0. */
+  key?: string;
   /** 2 a note, 1 a lookup (MIXUP_WEIGHT). */
   weight: number;
   /** Notes written after a Forgot that join them, newest first, with Muse's difference when answered. */

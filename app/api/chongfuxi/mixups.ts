@@ -11,6 +11,7 @@ import type { Sql } from "./db";
 import { dictEntry, loadHeadwords } from "./headwords";
 import { ensureLookupTables, lookupWords } from "./lookup";
 import { allNotes } from "./notes";
+import { NEAR_TOP, ensureKeys } from "./synonyms";
 import { promptSenses, shownPinyin } from "./review";
 import type { Definition } from "@chongfuxi/lib/dict";
 
@@ -20,6 +21,13 @@ export const MIXUP_WEIGHT = { note: 2, lookup: 1 } as const;
 const PAIR_EVIDENCE = 6;
 /** Clusters sent, at most, the strongest first. */
 const MAX_CLUSTERS = 60;
+/**
+ * Words sharing an English key with a mixed-up word (Synonyms' keys, near the
+ * top of both entries), drawn faint beside it: at most this many a word, and
+ * only from keys shared by this many words or fewer (wider ones say little).
+ */
+const SYNONYMS_PER_WORD = 3;
+const SYNONYM_KEY_MAX = 12;
 
 const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
@@ -69,13 +77,17 @@ export async function mixupMap(sql: Sql, owner: string): Promise<MixupMap> {
   const words = [...new Set(edges.flatMap((e) => [e.a, e.b]))];
   if (!words.length) return { clusters: [], pairs: 0, notes: notes.length };
 
+  // Words sharing an English key with each (the owner's ask: other synonyms, "super greyed out").
+  const synonyms = await synonymsOf(sql, owner, words);
+  const extra = [...new Set([...synonyms.values()].flat().map((x) => x.word))].filter((w) => !words.includes(w));
+
   // Each word as the app shows it, with its misses in the last 90 days.
   const rows = (await sql`
     select w.word, w.status, w.pinyin, w.defs,
            (select count(*)::int from chongfuxi_review r
             where r.owner_email = w.owner_email and r.word = w.word and r.grade = 'forgot'
               and r.cause in ('answer', 'tapped') and r.at > now() - interval '90 days') as misses
-    from chongfuxi_word w where w.owner_email = ${owner} and w.word = any(${words}::text[])
+    from chongfuxi_word w where w.owner_email = ${owner} and w.word = any(${[...words, ...extra]}::text[])
   `) as unknown as Array<{ word: string; status: string; pinyin: string | null; defs: Definition[] | null; misses: number }>;
   const byWord = new Map(rows.map((r) => [r.word, r]));
   const nodeOf = (word: string): MixupNode => {
@@ -100,12 +112,35 @@ export async function mixupMap(sql: Sql, owner: string): Promise<MixupMap> {
   };
   for (const e of edges) parent.set(find(e.a), find(e.b));
   const groups = new Map<string, { words: string[]; edges: MixupEdge[] }>();
+  const faint = new Set<string>();
   for (const w of words) (groups.get(find(w)) ?? groups.set(find(w), { words: [], edges: [] }).get(find(w))!).words.push(w);
   for (const e of edges) groups.get(find(e.a))!.edges.push(e);
   const last = (e: MixupEdge) => Math.max(0, ...e.notes.map((n) => n.at), ...e.lookups.map((l) => l.at));
+  // Each cluster's synonyms: a word not mixed up with anything joins the cluster of the first word it is a synonym of;
+  // one already in this cluster gets a faint line; one mixed up elsewhere stays there (clusters are never joined by them).
+  const placed = new Set(words);
+  for (const g of groups.values()) {
+    const had = new Set(g.words);
+    const lines: MixupEdge[] = [];
+    for (const w of [...g.words]) {
+      for (const syn of synonyms.get(w) ?? []) {
+        if (had.has(syn.word)) {
+          if (!g.edges.some((e) => (e.a === w && e.b === syn.word) || (e.b === w && e.a === syn.word)) && !lines.some((e) => key(e.a, e.b) === key(w, syn.word)))
+            lines.push({ a: w, b: syn.word, key: syn.key, weight: 0, notes: [], lookups: [] });
+        } else if (!placed.has(syn.word)) {
+          placed.add(syn.word);
+          had.add(syn.word);
+          g.words.push(syn.word);
+          faint.add(syn.word);
+          lines.push({ a: w, b: syn.word, key: syn.key, weight: 0, notes: [], lookups: [] });
+        }
+      }
+    }
+    g.edges.push(...lines);
+  }
   const clusters = [...groups.values()]
     .map((g) => ({
-      nodes: g.words.map(nodeOf),
+      nodes: g.words.map((w) => (faint.has(w) ? { ...nodeOf(w), synonym: true } : nodeOf(w))),
       edges: g.edges.sort((x, y) => y.weight - x.weight),
       weight: g.edges.reduce((n, e) => n + e.weight, 0),
       last: Math.max(...g.edges.map(last)),
@@ -113,4 +148,36 @@ export async function mixupMap(sql: Sql, owner: string): Promise<MixupMap> {
     .sort((x, y) => y.weight - x.weight || y.last - x.last)
     .slice(0, MAX_CLUSTERS);
   return { clusters, pairs: edges.length, notes: notes.length };
+}
+
+/**
+ * For each word, up to SYNONYMS_PER_WORD others sharing an English key with
+ * it near the top of both entries (Synonyms' `chongfuxi_gloss_key`), in the
+ * deck first, with the key; keys shared by more than SYNONYM_KEY_MAX words
+ * are left out.
+ */
+async function synonymsOf(sql: Sql, owner: string, words: string[]): Promise<Map<string, Array<{ word: string; key: string }>>> {
+  const out = new Map<string, Array<{ word: string; key: string }>>();
+  if (!words.length) return out;
+  await ensureKeys(sql, owner);
+  const rows = (await sql`
+    with mine as (
+      select word, key, rank from chongfuxi_gloss_key where owner_email = ${owner} and word = any(${words}::text[]) and rank <= ${NEAR_TOP}
+    ), small as (
+      select key from chongfuxi_gloss_key where owner_email = ${owner} and key in (select key from mine)
+      group by key having count(*) <= ${SYNONYM_KEY_MAX}
+    )
+    select m.word, o.word as other, m.key
+    from mine m
+    join small using (key)
+    join chongfuxi_gloss_key o on o.owner_email = ${owner} and o.key = m.key and o.word <> m.word and o.rank <= ${NEAR_TOP}
+    join chongfuxi_word w on w.owner_email = ${owner} and w.word = o.word
+    order by m.word, (w.status = 'deck') desc, m.rank + o.rank, char_length(o.word), o.word
+  `) as unknown as Array<{ word: string; other: string; key: string }>;
+  for (const r of rows) {
+    if (r.other.includes(r.word) || r.word.includes(r.other)) continue;
+    const list = out.get(r.word) ?? out.set(r.word, []).get(r.word)!;
+    if (list.length < SYNONYMS_PER_WORD && !list.some((x) => x.word === r.other)) list.push({ word: r.other, key: r.key });
+  }
+  return out;
 }

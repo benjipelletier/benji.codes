@@ -1041,6 +1041,23 @@ notes), `app/api/chongfuxi/mixups.ts`. No model, only what is kept:
   "Pairs": the two words with the line between, opening the same.
 - Nothing is empty for long: with no pair yet it says how to make one
   (swipe Forgot up and say which word it was taken for).
+- **Synonyms, faint** (the owner: "add other nodes… other synonyms based
+  on English slug but have them super greyed out"): each mixed-up word
+  brings up to `SYNONYMS_PER_WORD` (3) words sharing an English key with
+  it near the top of both entries (Synonyms' `chongfuxi_gloss_key`, rank
+  within `NEAR_TOP`; keys shared by more than `SYNONYM_KEY_MAX` (12) words
+  left out; deck words first; a word inside the other never), `synonymsOf`
+  in mixups.ts. One not mixed up with anything joins the cluster of the
+  first word it is a synonym of (`synonym: true` on the node); one already
+  in the cluster gets only a line (`key` on the edge, weight 0) where no
+  mix-up joins the two; a word mixed up in another cluster stays there, so
+  synonyms never join clusters. Drawn smaller, dashed, at about a quarter
+  opacity, no pinyin, with dotted lines; the force layout pulls them half
+  as hard and a little further out, so the mix-ups keep the map's shape.
+  A tap on one lists "Same English" (dimmer, under "Mixed up with"); a
+  tap on its line says "Not mixed up yet: both mean “sense”" with
+  Compare › opening that Synonyms group. A pair with synonyms is drawn as
+  a network; only bare pairs stay rows.
 
 ## The owner's corpus
 

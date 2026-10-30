@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import * as synpage from "@chongfuxi/lib/synpage";
 import type { MixupCluster, MixupEdge, MixupMap, MixupNode } from "@chongfuxi/lib/api";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { get } from "@chongfuxi/lib/client";
@@ -18,9 +19,10 @@ type Pick = { word: string } | { pair: [string, string] } | null;
 
 const WIDTH = 328;
 /** A node's radius: room for its characters, a little more for words missed more. */
-const radiusOf = (n: MixupNode) => Math.max(20, [...n.word].length * 8.5 + 6) + Math.min(n.misses, 8) * 0.9;
+const radiusOf = (n: MixupNode) =>
+  n.synonym ? Math.max(15, [...n.word].length * 7 + 4) : Math.max(20, [...n.word].length * 8.5 + 6) + Math.min(n.misses, 8) * 0.9;
 /** A line's width by how often the two were mixed up. */
-const strokeOf = (e: MixupEdge) => Math.min(1.5 + e.weight * 0.8, 7);
+const strokeOf = (e: MixupEdge) => (e.key ? 1.2 : Math.min(1.5 + e.weight * 0.8, 7));
 const noteBacked = (e: MixupEdge) => e.notes.length > 0;
 const same = (e: MixupEdge, a: string, b: string) => (e.a === a && e.b === b) || (e.a === b && e.b === a);
 
@@ -57,8 +59,9 @@ function layout(c: MixupCluster): { at: Map<string, { x: number; y: number }>; h
       const dx = p[j].x - p[i].x;
       const dy = p[j].y - p[i].y;
       const d = Math.max(Math.hypot(dx, dy), 1);
-      const want = r[i] + r[j] + Math.max(34, 70 - e.weight * 4);
-      const pull = (d - want) * 0.06;
+      // A synonym line pulls gently and sits a little further out, so mix-ups stay the shape of the map.
+      const want = r[i] + r[j] + (e.key ? 46 : Math.max(34, 70 - e.weight * 4));
+      const pull = (d - want) * (e.key ? 0.03 : 0.06);
       f[i].x += (dx / d) * pull;
       f[i].y += (dy / d) * pull;
       f[j].x -= (dx / d) * pull;
@@ -96,7 +99,7 @@ function ClusterMap({ c, pick, onPick }: { c: MixupCluster; pick: Pick; onPick: 
         const a = at.get(e.a)!;
         const b = at.get(e.b)!;
         return (
-          <g key={`${e.a}|${e.b}`} className={`cf-mx-edge${noteBacked(e) ? "" : " is-lookup"}${lit(e) ? "" : " is-dim"}`}>
+          <g key={`${e.a}|${e.b}`} className={`cf-mx-edge${e.key ? " is-synonym" : noteBacked(e) ? "" : " is-lookup"}${lit(e) ? "" : " is-dim"}`}>
             <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={strokeOf(e)} />
             {/* A wider line nobody sees, so a finger finds it. */}
             <line
@@ -118,7 +121,7 @@ function ClusterMap({ c, pick, onPick }: { c: MixupCluster; pick: Pick; onPick: 
         return (
           <g
             key={n.word}
-            className={`cf-mx-node is-${n.standing}${picked === n.word ? " is-picked" : ""}${near.has(n.word) ? "" : " is-dim"}`}
+            className={`cf-mx-node is-${n.standing}${n.synonym ? " is-synonym" : ""}${picked === n.word ? " is-picked" : ""}${near.has(n.word) ? "" : " is-dim"}`}
             transform={`translate(${p.x} ${p.y})`}
             role="button"
             aria-label={n.word}
@@ -166,6 +169,14 @@ function PairDetail({ e, nodes }: { e: MixupEdge; nodes: Map<string, MixupNode> 
     <div className="cf-mx-detail">
       <WordLine n={nodes.get(e.a)} />
       <WordLine n={nodes.get(e.b)} />
+      {e.key && (
+        <p className="cf-mx-same">
+          Not mixed up yet: both mean “{e.key}”.{" "}
+          <button className="cf-link" onClick={() => synpage.openGroup(e.key!)}>
+            Compare ›
+          </button>
+        </p>
+      )}
       <ul className="cf-mx-evidence">
         {e.notes.map((n) => (
           <li key={n.id}>
@@ -194,11 +205,13 @@ function PairDetail({ e, nodes }: { e: MixupEdge; nodes: Map<string, MixupNode> 
 
 /** A word picked: the word, then each word it was taken for, strongest first. */
 function WordDetail({ word, c, nodes, onPair }: { word: string; c: MixupCluster; nodes: Map<string, MixupNode>; onPair: (a: string, b: string) => void }) {
-  const mine = c.edges.filter((e) => e.a === word || e.b === word);
+  const all = c.edges.filter((e) => e.a === word || e.b === word);
+  const mine = all.filter((e) => !e.key);
+  const same = all.filter((e) => e.key);
   return (
     <div className="cf-mx-detail">
       <WordLine n={nodes.get(word)} />
-      <p className="cf-mx-with">Mixed up with</p>
+      {mine.length > 0 && <p className="cf-mx-with">Mixed up with</p>}
       <ul className="cf-mx-partners">
         {mine.map((e) => {
           const other = e.a === word ? e.b : e.a;
@@ -217,6 +230,25 @@ function WordDetail({ word, c, nodes, onPair }: { word: string; c: MixupCluster;
           );
         })}
       </ul>
+      {same.length > 0 && (
+        <>
+          <p className="cf-mx-with">Same English</p>
+          <ul className="cf-mx-partners is-same">
+            {same.map((e) => {
+              const other = e.a === word ? e.b : e.a;
+              return (
+                <li key={other}>
+                  <button onClick={() => onPair(word, other)}>
+                    <span className="cf-zh">{other}</span>
+                    <span className="cf-mx-count">{e.key}</span>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -289,6 +321,9 @@ export function MixupsPanel() {
             </span>
             <span>
               <i className="cf-mx-key-dot is-listed" /> not yet
+            </span>
+            <span className="is-faint">
+              <i className="cf-mx-key-line is-synonym" /> same English
             </span>
           </p>
           {webs.map((c) => (
