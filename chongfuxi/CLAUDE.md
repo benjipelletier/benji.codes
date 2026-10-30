@@ -1082,10 +1082,13 @@ the design was silent and are still to be confirmed.
   through twelve of its sentences of five characters or more: those several
   decks share first, then those nearest nine characters, labelled proverbs
   (【谚】) last. Shorter ones (我哥哥。) are used only when the word has nothing
-  longer. After those, sentences where the word is only part of a longer
-  CC-CEDICT headword around it (手 in 住手, 日 in 周日), since they show the
-  compound, not the word (`contextFit`; the decks' word breaks often split
-  compounds, so tokens alone can't say). A word with no readable sentence of its own at all
+  longer. Sentences where the word is only part of a longer
+  CC-CEDICT headword around it (手 in 住手, 日 in 周日, 即 in 立即) are left
+  out while it has any of its own, since they show the compound, not the
+  word (`contextFit`; the decks' word breaks often split compounds, so
+  tokens alone can't say). They used to come after the rest, but a word
+  with few sentences of its own reached them in its turns: the owner got
+  我们要他立即离开 on 即's card. Learn picks its sentences the same way. A word with no readable sentence of its own at all
   (县, only ever met in 县城 and 县长) is shown in one where it is part of a
   longer word, the word marked in it, rather than alone: the owner found
   sentences for it in Look up while its card showed none. Back: pinyin, every

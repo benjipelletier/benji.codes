@@ -98,26 +98,25 @@ export async function wordsToLearn(
   }>;
 
   // Where the word is only part of a longer word (手 in 住手), the sentence
-  // teaches the compound: those go after the rest.
+  // teaches the compound: those only when there is nothing else.
   const headwords = loadHeadwords();
   const picked = new Map<
     string,
     Array<(typeof candidates)[number] & { bound: boolean; repeated: boolean }>
   >();
   for (const w of words) {
-    picked.set(
-      w,
-      candidates
-        .filter((x) => x.word === w)
-        .map((x) => ({ ...x, ...contextFit(x.zh, w, (h) => headwords.has(h)) }))
-        .sort(
-          (a, b) =>
-            Number(a.bound) - Number(b.bound) ||
-            a.blockers.length - b.blockers.length ||
-            a.rn - b.rn,
-        )
-        .slice(0, SENTENCES_PER_WORD),
-    );
+    const all = candidates
+      .filter((x) => x.word === w)
+      .map((x) => ({ ...x, ...contextFit(x.zh, w, (h) => headwords.has(h)) }))
+      .sort(
+        (a, b) =>
+          Number(a.bound) - Number(b.bound) ||
+          a.blockers.length - b.blockers.length ||
+          a.rn - b.rn,
+      );
+    // Those only when it has none of its own, as for a Read card (即 shown in 立即).
+    const own = all.filter((x) => !x.bound);
+    picked.set(w, (own.length ? own : all).slice(0, SENTENCES_PER_WORD));
   }
   const dressed = await sentenceDresser(
     sql,

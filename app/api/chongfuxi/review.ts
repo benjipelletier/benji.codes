@@ -654,11 +654,14 @@ async function dress(sql: Sql, owner: string, cards: CardRow[], day: StudyDay, a
       .filter((x) => x.word === c.word)
       .map((x) => ({ ...x, fit: contextFit(x.zh, x.word, (w) => headwords.has(w)) }))
       .map((x) => ({ ...x, worse: Number(x.fit.bound) + (recall && x.fit.repeated ? 2 : 0) }))
-      .sort((a, b) => a.worse - b.worse || a.rn - b.rn)
-      .slice(0, CONTEXT_POOL);
-    if (!mine.length) continue;
+      .sort((a, b) => a.worse - b.worse || a.rn - b.rn);
+    // Sentences where it is only part of a longer word (即 in 立即) only when it has none of its own:
+    // sorted last, the turns still reached them for a word with few (the owner met 立即 on 即's card).
+    const own = mine.filter((x) => !x.fit.bound);
+    const pool = (own.length ? own : mine).slice(0, CONTEXT_POOL);
+    if (!pool.length) continue;
     // A different sentence each time, and not the one the word's other card is on.
-    const pick = mine[(c.answered + (recall ? 1 : 0)) % mine.length];
+    const pick = pool[(c.answered + (recall ? 1 : 0)) % pool.length];
     chosen.set(c.id, { id: pick.id, zh: pick.zh, en: pick.en, sources: pick.sources });
   }
 
