@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type SongMeta, sanitizeMeta } from '@ifakepro/lib/chart';
 import { ALL_KEYS, type ChordStyle, keyDistance, prefersFlats, transposeKey } from '@ifakepro/lib/chords';
 import { api, copyText, displayKey, download, personColor, usePref, when } from '@ifakepro/lib/client';
@@ -14,6 +14,7 @@ import type { CommentDTO, PlaylistSummary, SongDetail, VersionDetail } from '@if
 import { ChartEditor } from './ChartEditor';
 import { ChartHead, ChartView, type Selection } from './ChartView';
 import { ActivityFeed, CommentsPanel, VersionsPanel } from './Panels';
+import { type VoicePreview, VoicePanel } from './VoiceEdit';
 import { AgentPill, Avatar, Dialog, Menu, Spinner, Tabs, useToast, useViewer } from './ui';
 import { useSongSync } from './useSongSync';
 
@@ -57,6 +58,14 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   const [dialog, setDialog] = useState<'info' | 'export' | 'copy' | null>(null);
   const [lastRemote, setLastRemote] = useState<{ name: string; agent: string | null; bars: number[]; at: number } | null>(null);
   const [barNumbers, setBarNumbers] = usePref<'on' | 'off'>('barNumbers', 'off');
+  // The whole chart on one screen, unless the person scrolls instead; editing wants full-size bars.
+  const [fitPref, setFitPref] = usePref<'on' | 'off'>('fitChart', 'on');
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // A voice edit: the song it started from, and what it shows while they talk.
+  const [voice, setVoice] = useState<{ base: Doc; revision: number } | null>(null);
+  const [voicePreview, setVoicePreview] = useState<VoicePreview | null>(null);
+  const [voiceH, setVoiceH] = useState(0);
+  const room = useScreenRoom(fitPref === 'on' && !editing, sheetRef, voice ? voiceH : 0);
 
   const { viewer } = useViewer();
   const [presBar, setPresBar] = useState<string | null>(null);
@@ -118,6 +127,30 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
   }, [editable]);
 
   const previewChanged = useMemo(() => (preview ? diffCharts(doc.chart, preview.chart).changed : undefined), [preview, doc.chart]);
+  const voiceChart = voice ? (voicePreview?.doc ?? voice.base).chart : null;
+  const voiceChanged = useMemo(
+    () => (voice && voicePreview?.doc ? diffCharts(voice.base.chart, voicePreview.doc.chart).changed : undefined),
+    [voice, voicePreview],
+  );
+  const voiceFocus: Selection | null = voicePreview?.focus.length
+    ? { from: Math.min(...voicePreview.focus) - 1, to: Math.max(...voicePreview.focus) - 1, ev: null }
+    : null;
+  const startVoice = async () => {
+    setEditing(false);
+    setSel(null);
+    await sync.saveNow(); // edits not yet saved go first, so the voice edit starts from the song as saved
+    setVoicePreview(null);
+    setVoice({ base: sync.doc, revision: sync.revision });
+  };
+  const onVoicePreview = useCallback((p: VoicePreview | null) => setVoicePreview(p), []);
+  const endVoice = (saved: { doc: Doc; revision: number } | null) => {
+    if (saved) {
+      sync.reload(saved.doc, saved.revision);
+      toast('Saved your voice edit');
+    }
+    setVoice(null);
+    setVoicePreview(null);
+  };
 
   const openComment = (id: string) => {
     setCommentBar(id);
@@ -202,11 +235,29 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               ))}
             </select>
           </label>
-          {editable && (
+          {editable && !voice && (
+            <button
+              className="ifp-btn small"
+              onClick={startVoice}
+              disabled={shift !== 0}
+              title={shift !== 0 ? 'Switch “View in” back to the written key to edit by voice' : 'Say what to change: “on bar 4, change the D7 to C6”'}
+            >
+              🎙 Voice
+            </button>
+          )}
+          {editable && !voice && (
             <button className={`ifp-btn small ${editing ? 'primary' : ''}`} onClick={() => (editing ? (setEditing(false), setSel(null)) : setEditing(true))} aria-pressed={editing}>
               {editing ? 'Done editing' : '✎ Edit chart'}
             </button>
           )}
+          <button
+            className={`ifp-btn small ${fitPref === 'on' ? 'on' : ''}`}
+            onClick={() => setFitPref(fitPref === 'on' ? 'off' : 'on')}
+            aria-pressed={fitPref === 'on'}
+            title="Fit the whole chart on the screen, or show it full size and scroll"
+          >
+            ⤢ Fit
+          </button>
           <button
             className={`ifp-btn small ${barNumbers === 'on' ? 'on' : ''}`}
             onClick={() => setBarNumbers(barNumbers === 'on' ? 'off' : 'on')}
@@ -301,7 +352,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
           </div>
         )}
 
-        <div className="song-sheet">
+        <div className="song-sheet" ref={sheetRef}>
           <ChartHead
             meta={meta}
             playlist={song.playlist.title}
@@ -309,7 +360,9 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
             onEdit={member && !deleted && !preview ? () => setDialog('info') : undefined}
           />
           {preview ? (
-            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} barNumbers={barNumbers === 'on'} />
+            <ChartView chart={preview.chart} shift={shift} flats={flats} chordStyle={chordStyle} changed={previewChanged} barNumbers={barNumbers === 'on'} fitHeight={room} />
+          ) : voiceChart ? (
+            <ChartView chart={voiceChart} flats={flats} chordStyle={chordStyle} selection={voiceFocus} changed={voiceChanged} barNumbers fitHeight={room} className="chart-voice" />
           ) : (
             <ChartEditor
               chart={doc.chart}
@@ -331,7 +384,7 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
               canComment={member && !deleted}
               onComment={openComment}
               chordStyle={chordStyle}
-              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash, barNumbers: barNumbers === 'on' }}
+              view={{ shift, flats, presence, pins, onPin: openComment, flash: sync.flash, barNumbers: barNumbers === 'on', fitHeight: room }}
             />
           )}
         </div>
@@ -361,6 +414,9 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
         ))}
       </div>
       {sheet && <div className="sheet-scrim" onClick={() => setSheet(false)} />}
+      {voice && (
+        <VoicePanel songId={song.id} revision={voice.revision} base={voice.base} onPreview={onVoicePreview} onDone={endVoice} onHeight={setVoiceH} />
+      )}
 
       {dialog === 'info' && (
         <SongInfoDialog
@@ -374,6 +430,42 @@ function SongEditor({ song, onReload }: { song: SongDetail; onReload: () => void
     </div>
   );
 
+}
+
+/**
+ * The height left on screen for the chart, from where it starts down to the
+ * bottom of the window (above the phone's tab bar, or `reserve`, a panel
+ * docked at the bottom, if taller), or null when not fitting.
+ * Measured with the page scrolled to the top, and again whenever the window
+ * or anything above the chart changes size.
+ */
+function useScreenRoom(on: boolean, sheet: RefObject<HTMLDivElement | null>, reserve = 0): number | null {
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!on) {
+      setRoom(null);
+      return;
+    }
+    const measure = () => {
+      const el = sheet.current;
+      const chart = el?.querySelector('.chart');
+      if (!el || !chart) return;
+      const top = chart.getBoundingClientRect().top + window.scrollY;
+      const bar = document.querySelector('.song-tabbar');
+      const barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
+      const pad = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+      setRoom(Math.max(240, Math.floor(window.innerHeight - top - Math.max(barH, reserve) - pad - 6)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = new ResizeObserver(measure);
+    if (sheet.current?.parentElement) ro.observe(sheet.current.parentElement);
+    return () => {
+      window.removeEventListener('resize', measure);
+      ro.disconnect();
+    };
+  }, [on, sheet, reserve]);
+  return room;
 }
 
 function SaveBadge({ status }: { status: string }) {

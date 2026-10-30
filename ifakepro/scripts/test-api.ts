@@ -341,6 +341,46 @@ const eve = `eve.${run}@example.com`;
   assert.equal((await asAgent('GET', '/agent', undefined, `ifp_${'x'.repeat(43)}`)).status, 401);
   assert.deepEqual((await ok(ann, 'GET', '/agent-tokens')).tokens, []);
 
+  step('voice · editors only; reading what was said saves nothing');
+  {
+    const { ids: vIds } = await ok(ADMIN, 'POST', `/playlists/${slug}/songs`, { blank: { title: 'Voice Test', key: 'C' } });
+    const vid = vIds[0];
+    const fresh = await ok(ADMIN, 'GET', `/songs/${vid}`);
+    const bar = (id: string, ch: string) => ({ id, events: [{ id: `${id}.0`, at: 0, dur: 96, kind: 'chord', ch }] });
+    const chart4 = { v: 2, bars: [bar('v1', 'C'), bar('v2', 'F'), bar('v3', 'G'), bar('v4', 'D7')] };
+    const rev = (await ok(ADMIN, 'PATCH', `/songs/${vid}`, { baseRevision: fresh.revision, meta: fresh.meta, chart: chart4 })).revision;
+    assert.equal((await call(null, 'POST', `/songs/${vid}/voice`, { revision: rev, transcript: 'bar 4' })).status, 401);
+    assert.equal((await call(eve, 'POST', `/songs/${vid}/voice`, { revision: rev, transcript: 'bar 4' })).status, 403);
+    const partial = await call(ann, 'POST', `/songs/${vid}/voice`, { revision: rev, transcript: 'on bar four change the D7' });
+    if (partial.status === 503) console.log('· (no Anthropic key on the server: skipping the voice checks)');
+    else {
+      assert.equal(partial.status, 200, JSON.stringify(partial.json));
+      assert.deepEqual(partial.json.focus, [4], 'the bar named lights up before the edit is clear');
+      assert.deepEqual(partial.json.ops, []);
+      assert.equal(partial.json.preview, null);
+      const done = await ok(ann, 'POST', `/songs/${vid}/voice`, { revision: rev, transcript: 'on bar four change the D7 to C six', final: true });
+      assert.deepEqual(done.summary, ['Bar 4: D7 → C6']);
+      assert.equal(done.preview.chart.bars[3].events[0].ch, 'C6');
+      assert.deepEqual(done.changes.bars, [{ n: 4, was: 4, before: 'D7', after: 'C6' }]);
+      assert.equal((await ok(null, 'GET', `/songs/${vid}`)).revision, rev, 'a preview saves nothing');
+      assert.equal((await call(ann, 'POST', `/songs/${vid}/voice`, { revision: rev - 1, transcript: 'bar 4' })).status, 409);
+      const empty = await ok(ann, 'POST', `/songs/${vid}/voice`, { revision: rev, transcript: '   ' });
+      assert.deepEqual(empty.ops, []);
+
+      step('voice · keeping the edits saves them as the person, marked Voice; bad edits are refused');
+      assert.equal((await call(ann, 'POST', `/songs/${vid}/voice/apply`, { revision: rev, ops: [{ op: 'chords', bars: 9, text: 'C' }], transcript: 'x' })).status, 422);
+      assert.equal((await call(eve, 'POST', `/songs/${vid}/voice/apply`, { revision: rev, ops: done.ops, transcript: 'x' })).status, 403);
+      const kept = await ok(ann, 'POST', `/songs/${vid}/voice/apply`, { revision: rev, ops: done.ops, transcript: done.heard });
+      assert.equal(kept.revision, rev + 1);
+      assert.equal(kept.chart.bars[3].events[0].ch, 'C6');
+      const v = (await ok(null, 'GET', `/songs/${vid}/versions`)).versions[0];
+      assert.equal(v.agent, 'Voice');
+      assert.equal(v.author.id, `dev:${ann}`);
+      assert.equal(v.note, 'Bar 4: change D7 to C6.');
+      assert.equal((await call(ann, 'POST', `/songs/${vid}/voice/apply`, { revision: rev, ops: done.ops, transcript: 'x' })).status, 409, 'a stale voice edit is refused');
+    }
+  }
+
   console.log('\nall API checks passed');
 })().catch((e) => {
   console.error(e);

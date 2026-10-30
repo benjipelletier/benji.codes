@@ -398,7 +398,13 @@ body.ifp-noscroll { overflow: hidden; }
 .song-sheet { --chart-bg: var(--sheet); background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; padding: 12px 10px 16px; box-shadow: var(--shadow); }
 @media (min-width: 640px) { .song-sheet { padding: 18px 26px 26px; } }
 /* On a phone the chart runs edge to edge, like iReal. */
-@media (max-width: 639px) { .song-sheet { margin: 0 -12px; border-radius: 0; border-width: 1px 0; padding: 10px 4px 14px; box-shadow: none; } }
+@media (max-width: 639px) {
+  .song-sheet { margin: 0 -12px; border-radius: 0; border-width: 1px 0; padding: 6px 4px 10px; box-shadow: none; }
+  /* Tighter above the chart, so more of the screen is chart. */
+  .song-main { padding-top: 2px; }
+  .crumbs a { padding: 3px 0; }
+  .song-bar { margin: 4px 0 6px; }
+}
 .song-sheet .chart-head { margin-bottom: 6px; }
 .key-move { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--paper-2); border-radius: 10px; }
 .key-move small { color: var(--ink-2); }
@@ -784,3 +790,30 @@ html { scroll-padding-top: 64px; }
   .print-page { box-shadow: none; padding: 0; margin: 0; break-after: page; }
   .print-page:last-child { break-after: auto; }
 }
+
+/* ---- Voice edits (components/VoiceEdit.tsx): a panel docked at the bottom while someone talks ---- */
+.voice-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+  background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -6px 24px #0003;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px;
+}
+@media (min-width: 1000px) { .voice-sheet { left: 50%; transform: translateX(-50%); width: min(720px, 100% - 40px); bottom: 16px; border: 1px solid var(--line); border-radius: 16px; padding-bottom: 12px; } }
+.voice-head { display: flex; align-items: center; gap: 10px; }
+.voice-state { flex: 1; font-size: 14px; color: var(--ink-2); }
+.voice-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.voice-dot.on { background: #d93a2b; box-shadow: 0 0 0 0 #d93a2b88; animation: voice-pulse 1.4s ease-out infinite; }
+@keyframes voice-pulse { to { box-shadow: 0 0 0 10px #d93a2b00; } }
+@media (prefers-reduced-motion: reduce) { .voice-dot.on { animation: none; } }
+.voice-said { font-size: 18px; line-height: 1.35; color: var(--ink); margin: 0; overflow-wrap: anywhere; }
+.voice-said.empty { color: var(--ink-3); font-style: italic; }
+.voice-changes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; font-weight: 600; color: var(--agent); }
+.voice-changes li::before { content: '✦ '; font-size: 11px; }
+.voice-changes li.bad { color: #c0392b; font-weight: 500; }
+.voice-changes li.bad::before { content: '⚠ '; }
+.voice-error { margin: 0; font-size: 13px; color: #c0392b; }
+.voice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.voice-type { display: flex; gap: 8px; }
+.voice-type input { flex: 1; min-width: 0; font-size: 16px !important; }
+.voice-switch { align-self: flex-start; font-size: 13px; }
+/* While someone talks, the bars they name light up and the bars that change are tinted. */
+.chart-voice .bar.sel { background: var(--agent-soft); box-shadow: inset 0 0 0 max(2px, 0.06em) var(--agent); }

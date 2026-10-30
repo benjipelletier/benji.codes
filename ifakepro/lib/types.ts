@@ -129,6 +129,24 @@ export interface AgentToken {
   lastUsedAt: string | null;
 }
 
+/** What a voice edit heard so far, and the edits it makes (POST /songs/[id]/voice). */
+export interface VoiceResult {
+  /** What they said, tidied into one sentence of instructions. */
+  heard: string;
+  /** The bars the latest words are about. */
+  focus: number[];
+  ops: Record<string, unknown>[];
+  /** One line per change, "Bar 4: D7 → C6". */
+  summary: string[];
+  /** Still mid-instruction. */
+  unfinished: boolean;
+  /** Edits the chart refused, and why. */
+  errors: string[];
+  /** The chart with the edits, to preview; null when there are none yet. */
+  preview: { meta: SongMeta; chart: Chart } | null;
+  changes: { bars: { n: number; was: number | null; before: string | null; after: string }[]; removed: number[] } | null;
+}
+
 export interface PresenceDTO {
   user: Person;
   barId: string | null;
