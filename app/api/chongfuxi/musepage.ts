@@ -406,7 +406,7 @@ Data tools (same token), take what you need:
 - ?what=known  strong words to write with, and today's target words
 - ?what=sentences&words=发觉  their own sentences holding the words (readable first)
 - POST /api/chongfuxi/agent/muse/measure { "text" } or { "url" }  how readable it is for them, the words they don't know; with a url, the page's text
-- GET /api/longku/next?limit=15&per=3  龙库 (their chengyu chain game): the syllables none of their chengyu start on, dead ends first (their words end there, so chains die), each with how often it comes up and the chengyu to learn on it (tier, gloss, chains saved). To suggest some, put them on a Muse list (POST agent/lists); added to the deck, they join 龙库 by themselves.
+- GET /api/longku/read  龙库 (their chengyu chain game, where each chengyu must start on the syllable the last one ended on) as data: their chengyu with syllables, strength and due dates; per syllable how many of theirs start and end there, the corpus counts and how often it comes up; the measures (chains, dead ends, playability). ?corpus=zhi,ji&per=30 adds the corpus chengyu starting on those syllables by frequency, each marked held or removed with the change in chains if added. What to do with it is yours. To suggest chengyu, put them on a Muse list (POST agent/lists); added to the deck, they join 龙库 by themselves.
 - Also still there: GET agent/drill (problem areas: notes, trips, attempts), agent/notes (notes to answer), agent/reading (past readings), agent/episodes.`;
 
 /** What Muse needs to lay out a page: the brief, today, and its recent pages with everything done on them. */
