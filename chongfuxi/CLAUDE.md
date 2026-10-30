@@ -1400,6 +1400,10 @@ the design was silent and are still to be confirmed.
   its first real answer, Read and then Recall as usual, comes a day later.
   How each step went is kept in `chongfuxi_learn` (a row per session and
   word, each step once by its id) for reading back, and touches no schedule.
+  The headword opens the word's page as on a review card (a faint › after
+  it, back returning to the step): on the meet step at once, since it is
+  no test, and on the others once the answer shows (the owner couldn't
+  get to the word from a Fill the gap card).
   A word already known needn't climb: the card's 会 "Know it" tile (owner,
   any step) takes it off the ladder at once, saved as a step graded "known"
   that marks it learned like the last step does, so it joins the review from

@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LearnSentence, LearnStep, LearnStepDone, LearnWord, LookupFrom } from "@chongfuxi/lib/api";
 import * as bugs from "@chongfuxi/lib/bugs";
+import * as wordpage from "@chongfuxi/lib/wordpage";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { afterStep, isLearned, pickNext, progressOf, sentencesFor, startItems, stepDone, stepOf, type LearnItem } from "@chongfuxi/lib/learn";
@@ -195,7 +196,7 @@ export function LearnCard({ ladder, shell }: { ladder: Ladder; shell: Shell }) {
       {step === "cloze" && <Cloze w={item.word} s={current.sentences[0] ?? null} revealed={revealed} />}
       {step === "word" && (
         <>
-          <Word word={item.word.word} />
+          <Word word={item.word.word} onOpen={revealed ? () => wordpage.openWordPage(item.word.word) : undefined} />
           {revealed && <Meaning w={item.word} />}
           {revealed && !item.word.senses.length && ladder.canWrite && (
             <DefineButton word={item.word.word} onDefined={(r) => ladder.defined(item.word.word, r.pinyin, r.defs.flatMap((d) => d.senses))} />
@@ -414,7 +415,8 @@ function Meet({
 }) {
   return (
     <>
-      <Word word={w.word} />
+      {/* Its page from the headword, as on a review card's back (the owner couldn't get to it from Learn). */}
+      <Word word={w.word} onOpen={() => wordpage.openWordPage(w.word)} />
       <Meaning w={w} />
       {!w.senses.length && onDefined && <DefineButton word={w.word} onDefined={onDefined} />}
       {sentences.length > 0 ? (
@@ -499,7 +501,7 @@ function Cloze({
       )}
       {revealed && (
         <div className="cf-back">
-          <Word word={w.word} />
+          <Word word={w.word} onOpen={() => wordpage.openWordPage(w.word)} />
           {w.pinyin && (
             <div className="cf-card-pinyin">{displayPinyin(w.pinyin)}</div>
           )}
