@@ -1381,7 +1381,31 @@ the design was silent and are still to be confirmed.
   counted (`getSummary`'s `dueRecall` and `dueWords` leave the held ones
   out, `recallWaiting` says how many wait, under Recall on Today), and the
   day strip's forecast puts them on the days after, 300 a day. A list's
-  own review isn't held to it. New Recall cards opened by a first Got it on
+  own review isn't held to it. **Now the owner's own max, per kind** (the
+  owner: "instead of us choosing a limit for each of these sections behind
+  the scenes", with figures rather than sentences, and the max changed from
+  a drop-down, not on the main screen; they chose first-time cards only, on
+  all three rows): `dailyMax` (`chongfuxi_daily_max`, made on first use;
+  read, recall, sentence; null is no limit; Recall 300 by default, the
+  others none), set by POST `daily-max` `{ kind, max }` (owner,
+  `setDailyMax`, 0 to `DAILY_MAX_TOP`). Each kind's cards never answered
+  here (Read cards through Learn, their first answer still to come; Recall
+  cards; new sentences) come in at most that many a study day, less those
+  first answered that day (`firstToday`, `roomFor`; `firstTimeIds` for
+  Read and Recall, the least likely remembered first); cards already on a
+  schedule are never held. Applied in `nextCards`, in Fast review
+  (`fastCards`), in the summary (`dueRead`, `dueRecall`, `dueWords`,
+  `readWaiting`, `recallWaiting`, `newSentencesToday`, with `dailyMax`,
+  `firstToday` and `firstWaiting` for the screen) and in the day strip's
+  forecast (Read and Recall held cards on the days after, the max a day).
+  On Today each row's line is `FirstLine`: a slim meter in the row's colour
+  (first-time cards answered today against the max), "12 / 300 new",
+  "+2.9k later" in grey for those still to come after today, and the max as
+  a small chip, a native drop-down ("300 a day ▾", "No max", 10 to 1,000),
+  sized to its text (`field-sizing: content`); changing it refreshes the
+  summary and never ticks or unticks the row. It replaced "2,604 more first
+  ones wait for the days after (300 a day)" and the rows' one-line
+  descriptions. New Recall cards opened by a first Got it on
   Read count against it too. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be

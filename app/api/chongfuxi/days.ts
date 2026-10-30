@@ -4,8 +4,7 @@
 // Learn log and the cards.
 
 import type { Sql } from "./db";
-import { ACTIVE, WAITING_TO_LEARN, recallRoom } from "./review";
-import { RECALL_BACKLOG_PER_DAY } from "@chongfuxi/lib/review";
+import { ACTIVE, WAITING_TO_LEARN, dailyMax, roomFor } from "./review";
 import type { DayBar, Days } from "@chongfuxi/lib/api";
 import type { StudyDay } from "@chongfuxi/lib/day";
 
@@ -88,19 +87,24 @@ export async function getDays(sql: Sql, owner: string, day: StudyDay): Promise<D
     const bar = ahead[r.d - 1];
     if (bar) Object.assign(bar, { read: r.read, recall: r.recall, sentence: r.sentence });
   }
-  // The Recall backlog held past today comes in RECALL_BACKLOG_PER_DAY a day after it.
-  const [backlog] = (await sql.query(
-    `select count(*)::int as n from chongfuxi_card c
-     where c.owner_email = $1 and c.kind = 'produce' and c.answered = 0 and ${ACTIVE} and not ${WAITING_TO_LEARN}
-       and c.due <= to_timestamp($2::double precision / 1000)`,
-    [owner, day.cutoff],
-  )) as unknown as Array<{ n: number }>;
-  let waiting = Math.max(0, backlog.n - (await recallRoom(sql, owner, day)));
-  for (const bar of ahead) {
-    if (!waiting) break;
-    const take = Math.min(waiting, RECALL_BACKLOG_PER_DAY);
-    bar.recall += take;
-    waiting -= take;
+  // First-time Read and Recall cards held past today by the daily max come in that many a day after it.
+  const max = await dailyMax(sql, owner);
+  for (const [kind, key, card] of [["read", "read", "read"], ["recall", "recall", "produce"]] as const) {
+    const cap = max[kind];
+    if (cap === null || cap === 0) continue;
+    const [backlog] = (await sql.query(
+      `select count(*)::int as n from chongfuxi_card c
+       where c.owner_email = $1 and c.kind = $3 and c.answered = 0 and ${ACTIVE} and not ${WAITING_TO_LEARN}
+         and c.due <= to_timestamp($2::double precision / 1000)`,
+      [owner, day.cutoff, card],
+    )) as unknown as Array<{ n: number }>;
+    let waiting = Math.max(0, backlog.n - (await roomFor(sql, owner, day, kind)));
+    for (const bar of ahead) {
+      if (!waiting) break;
+      const take = Math.min(waiting, cap);
+      bar[key] += take;
+      waiting -= take;
+    }
   }
 
   // Days in a row with an answer, counting today only once there is one.

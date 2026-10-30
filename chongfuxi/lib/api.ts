@@ -12,6 +12,10 @@ export interface Viewer {
   email: string | null;
 }
 
+/** The kinds a daily max applies to: first-time Read cards, first-time Recall cards, new sentences. */
+export type DailyKind = "read" | "recall" | "sentence";
+export type DailyMax = Record<DailyKind, number | null>;
+
 export interface Summary {
   viewer: Viewer;
   /** Words in the deck: the ones with cards, which are the ones that count as known. */
@@ -33,8 +37,18 @@ export interface Summary {
   /** The same, by kind of card. A word with both due is in both, and shown once. */
   dueRead: number;
   dueRecall: number;
-  /** Recall cards never answered that are due but held for later days (`RECALL_BACKLOG_PER_DAY`). */
+  /** Recall cards never answered that are due but held for later days by the daily max. */
   recallWaiting: number;
+  /** The same for Read cards (through Learn, their first answer still to come). */
+  readWaiting: number;
+  /** New sentences today may still take: the pool, or the room left under the daily max. */
+  newSentencesToday: number;
+  /** The owner's daily max of first-time cards per kind (null: no limit), set on Today. */
+  dailyMax: DailyMax;
+  /** First-time cards of each kind answered today, against the max. */
+  firstToday: Record<DailyKind, number>;
+  /** First-time cards of each kind there are in all: Read and Recall due and never answered, sentences readable and never read. */
+  firstWaiting: Record<DailyKind, number>;
   dueSentences: number;
   /** Readable sentences not yet seen here: the pool new sentences come from, with no daily limit. */
   newSentences: number;

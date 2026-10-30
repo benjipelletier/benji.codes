@@ -184,7 +184,7 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
       ["Word order", "Retrievability ↑", "LEAST_LIKELY_FIRST"],
       ["Read / Recall", "take turns", "takeTurns"],
       ["Never answered", `≤ 1 / ${UNANSWERED_EVERY} word cards`, "UNANSWERED_EVERY"],
-      ["Recall backlog", `${RECALL_BACKLOG_PER_DAY} first answers / day`, "RECALL_BACKLOG_PER_DAY"],
+      ["First-time a day", `your max, set on Today (Recall ${RECALL_BACKLOG_PER_DAY} until set)`, "dailyMax"],
       ["Last misses", `≤ 1 / ${MISS_EVERY} word cards`, "MISS_EVERY"],
       ["Sentence order", "Due ↑", "nextCards()"],
       ["Burying", "1 card / word / day", "nextCards()"],

@@ -10,6 +10,8 @@ import { SUSPENDED_WORD, ensureSuspendedSentences } from "./suspended";
 import type { Sql } from "./db";
 import { dictEntry, loadHeadwords } from "./headwords";
 import type {
+  DailyKind,
+  DailyMax,
   Blocker,
   CardHistory,
   Coverage,
@@ -156,18 +158,89 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 // ------------------------------------------------------------------ counts --
 
 /**
- * How many more backlog Recall cards (never answered here) today may take:
- * RECALL_BACKLOG_PER_DAY less those first answered today.
+ * The owner's daily max of first-time cards per kind (the owner: a max a day
+ * "instead of us choosing a limit for each of these sections behind the
+ * scenes", set on Today): cards never answered here are let in at most this
+ * many a study day, counting those first answered that day; the rest wait
+ * for the days after. Cards already on a schedule are never held. Null is
+ * no limit. Read and Recall count their cards, Sentences its new sentences.
  */
-export async function recallRoom(sql: Sql, owner: string, day: StudyDay): Promise<number> {
-  const [r] = (await sql`
-    select count(*)::int as n from (
-      select card_id from chongfuxi_review
-      where owner_email = ${owner} and kind = 'produce' and cause = 'answer'
+export const DAILY_MAX_DEFAULT: DailyMax = { read: null, recall: RECALL_BACKLOG_PER_DAY, sentence: null };
+/** The largest max that can be set. */
+export const DAILY_MAX_TOP = 2000;
+
+let dailyMaxReady = false;
+async function ensureDailyMax(sql: Sql) {
+  if (dailyMaxReady) return;
+  await sql`
+    create table if not exists chongfuxi_daily_max (
+      owner_email text primary key,
+      read int,
+      recall int,
+      sentence int,
+      at timestamptz not null default now()
+    )
+  `;
+  dailyMaxReady = true;
+}
+
+export async function dailyMax(sql: Sql, owner: string): Promise<DailyMax> {
+  await ensureDailyMax(sql);
+  const [r] = (await sql`select read, recall, sentence from chongfuxi_daily_max where owner_email = ${owner}`) as unknown as DailyMax[];
+  return r ?? DAILY_MAX_DEFAULT;
+}
+
+/** Set one kind's max (null: no limit). Owner only, through route `daily-max`. */
+export async function setDailyMax(sql: Sql, owner: string, kind: DailyKind, max: number | null): Promise<DailyMax> {
+  const value = max === null ? null : Math.max(0, Math.min(DAILY_MAX_TOP, Math.round(max)));
+  const next = { ...(await dailyMax(sql, owner)), [kind]: value };
+  await sql`
+    insert into chongfuxi_daily_max (owner_email, read, recall, sentence) values (${owner}, ${next.read}, ${next.recall}, ${next.sentence})
+    on conflict (owner_email) do update set read = excluded.read, recall = excluded.recall, sentence = excluded.sentence, at = now()
+  `;
+  return next;
+}
+
+/** Cards of each kind first answered on this study day: what counts against the day's max. */
+export async function firstToday(sql: Sql, owner: string, day: StudyDay): Promise<Record<DailyKind, number>> {
+  const rows = (await sql`
+    select kind, count(*)::int as n from (
+      select card_id, min(kind) as kind from chongfuxi_review
+      where owner_email = ${owner} and cause = 'answer'
       group by card_id having min(day) = ${day.day}::date
-    ) started
-  `) as unknown as Array<{ n: number }>;
-  return Math.max(0, RECALL_BACKLOG_PER_DAY - r.n);
+    ) started group by kind
+  `) as unknown as Array<{ kind: string; n: number }>;
+  const n = (k: string) => rows.find((r) => r.kind === k)?.n ?? 0;
+  return { read: n("read"), recall: n("produce"), sentence: n("sentence") };
+}
+
+/** How many more first-time cards of a kind today may take; Infinity with no limit. */
+export async function roomFor(sql: Sql, owner: string, day: StudyDay, kind: DailyKind): Promise<number> {
+  const max = (await dailyMax(sql, owner))[kind];
+  if (max === null) return Infinity;
+  return Math.max(0, max - (await firstToday(sql, owner, day))[kind]);
+}
+
+/** How many more backlog Recall cards (never answered here) today may take. */
+export const recallRoom = (sql: Sql, owner: string, day: StudyDay) => roomFor(sql, owner, day, "recall");
+
+/**
+ * The never-answered Read or Recall cards today may take, least likely
+ * remembered first, up to the day's room; null when there is no limit.
+ */
+async function firstTimeIds(sql: Sql, owner: string, day: StudyDay, kind: "read" | "produce", at: number): Promise<number[] | null> {
+  const room = await roomFor(sql, owner, day, kind === "read" ? "read" : "recall");
+  if (room === Infinity) return null;
+  if (room === 0) return [];
+  return ((await sql.query(
+    `select c.id::int as id from chongfuxi_card c
+     where c.owner_email = $1 and c.kind = $6 and c.answered = 0 and ${ACTIVE} and not ${WAITING_TO_LEARN}
+       and c.due <= to_timestamp($2::double precision / 1000)
+       and not exists (select 1 from chongfuxi_review r where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word)
+     order by ${LEAST_LIKELY_FIRST("$5", "$3")}
+     limit $4`,
+    [owner, day.cutoff, day.day, room, at, kind],
+  )) as unknown as Array<{ id: number }>).map((r) => r.id);
 }
 
 export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promise<Omit<Summary, "viewer">> {
@@ -203,6 +276,10 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
        (select count(*) from active a
           where a.kind = 'produce' and a.answered = 0 and a.due <= to_timestamp($3::double precision / 1000)
             and not exists (select 1 from today t where t.word = a.word))::int as backlog_recall,
+       -- The Read backlog: due, never answered here (through Learn, its first answer still to come).
+       (select count(*) from active a
+          where a.kind = 'read' and a.answered = 0 and a.due <= to_timestamp($3::double precision / 1000)
+            and not exists (select 1 from today t where t.word = a.word))::int as backlog_read,
        -- Words due only by a backlog Recall card (their Read card isn't due), for the word count.
        (select count(distinct a.word) from active a
           where a.kind = 'produce' and a.answered = 0 and a.due <= to_timestamp($3::double precision / 1000)
@@ -236,8 +313,16 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     [owner, day.day, day.cutoff],
   )) as unknown as Array<Record<string, number>>;
   const r = rows[0];
-  // Backlog Recall cards beyond today's room wait for the days after.
-  const waiting = Math.max(0, r.backlog_recall - (await recallRoom(sql, owner, day)));
+  // First-time cards beyond today's room wait for the days after.
+  const [max, first, readRoom, recallLeft, sentenceRoom] = await Promise.all([
+    dailyMax(sql, owner),
+    firstToday(sql, owner, day),
+    roomFor(sql, owner, day, "read"),
+    roomFor(sql, owner, day, "recall"),
+    roomFor(sql, owner, day, "sentence"),
+  ]);
+  const waiting = Math.max(0, r.backlog_recall - recallLeft);
+  const readWaiting = Math.max(0, r.backlog_read - readRoom);
   return {
     pace: await paceOf(sql, owner, day),
     words: r.words,
@@ -249,10 +334,16 @@ export async function getSummary(sql: Sql, owner: string, day: StudyDay): Promis
     readable: r.readable,
     oneAway: r.one_away,
     locked: r.locked,
-    dueWords: r.due_words - Math.min(waiting, r.backlog_only_words),
-    dueRead: r.due_read,
+    // A word due only by held cards isn't due today: those held only on Recall are counted exactly, those held on Read at most.
+    dueWords: Math.max(0, r.due_words - Math.min(waiting, r.backlog_only_words) - readWaiting),
+    dueRead: r.due_read - readWaiting,
     dueRecall: r.due_recall - waiting,
     recallWaiting: waiting,
+    readWaiting,
+    newSentencesToday: sentenceRoom === Infinity ? r.new_sentences : Math.min(r.new_sentences, sentenceRoom),
+    dailyMax: max,
+    firstToday: first,
+    firstWaiting: { read: r.backlog_read, recall: r.backlog_recall, sentence: r.new_sentences },
     dueSentences: r.due_sentences,
     newSentences: r.new_sentences,
     retired: r.retired,
@@ -345,20 +436,15 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // odds) and cards never answered (no odds), spread through them.
   // The Recall backlog (never answered here) is let in RECALL_BACKLOG_PER_DAY a
   // study day, those least likely remembered first; the rest wait. Not on a list's review.
-  const backlogIds =
-    inList || o.recall === false
-      ? null
-      : ((await sql.query(
-          `select c.id::int as id from chongfuxi_card c
-           where c.owner_email = $1 and c.kind = 'produce' and c.answered = 0 and ${ACTIVE} and not ${WAITING_TO_LEARN}
-             and c.due <= to_timestamp($2::double precision / 1000)
-             and not exists (select 1 from chongfuxi_review r where r.owner_email = c.owner_email and r.day = $3::date and r.word = c.word)
-           order by ${LEAST_LIKELY_FIRST("$5", "$3")}
-           limit $4`,
-          [owner, cutoff, day.day, await recallRoom(sql, owner, day), at],
-        )) as unknown as Array<{ id: number }>).map((r) => r.id);
-  const held = (kind: "read" | "produce") =>
-    kind === "produce" && backlogIds ? `and (c.answered > 0 or c.id = any(array[${backlogIds.map(Number).join(",")}]::bigint[]))` : "";
+  // Each kind's first-time cards, held to the owner's daily max (dailyMax); not on a list's review.
+  const firstIds = {
+    read: inList || o.read === false ? null : await firstTimeIds(sql, owner, day, "read", at),
+    produce: inList || o.recall === false ? null : await firstTimeIds(sql, owner, day, "produce", at),
+  };
+  const held = (kind: "read" | "produce") => {
+    const ids = firstIds[kind];
+    return ids ? `and (c.answered > 0 or c.id = any(array[${ids.map(Number).join(",")}]::bigint[]))` : "";
+  };
   const pool = async (kind: "read" | "produce", answered: boolean) =>
     (await sql.query(
       `select ${CARD_COLUMNS},
@@ -425,7 +511,9 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // word still waiting for Learn last. A word never yet read in a sentence
   // breaks a tie; past that a fixed shuffle, so sources and lengths are mixed.
   const due = wordCards.length + dueSentences.length;
-  const left = !withSentences ? 0 : o.more ? o.limit : Math.min(o.limit, Math.ceil(due / DUE_PER_NEW));
+  // Never more new sentences than the day's max has room for (with Keep going too).
+  const sentenceRoom = !withSentences || inList ? 0 : await roomFor(sql, owner, day, "sentence");
+  const left = !withSentences ? 0 : Math.min(sentenceRoom, o.more ? o.limit : Math.min(o.limit, Math.ceil(due / DUE_PER_NEW)));
   const fresh = left
     ? ((await sql.query(
         `with cand as (
@@ -497,7 +585,10 @@ export async function fastCards(
   limit: number,
   at = Date.now(),
 ): Promise<{ cards: FastCard[]; total: number | null }> {
-  const where = `c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and ${ACTIVE} and not ${WAITING_TO_LEARN}
+  // First-time Read cards only as many as the day's max lets in, as in a session.
+  const ids = await firstTimeIds(sql, owner, day, "read", at);
+  const held = ids ? `and (c.answered > 0 or c.id = any(array[${ids.map(Number).join(",")}]::bigint[]))` : "";
+  const where = `c.owner_email = $1 and c.kind = 'read' and c.meaning_id is null and ${ACTIVE} and not ${WAITING_TO_LEARN} ${held}
        and c.due <= to_timestamp($2::double precision / 1000)
        and not exists (
          select 1 from chongfuxi_review r

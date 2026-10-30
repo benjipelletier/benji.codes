@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
+import type { CardHistory, DailyKind, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -21,7 +21,7 @@ import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
-import { DUE_PER_NEW, RECALL_BACKLOG_PER_DAY, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
+import { DUE_PER_NEW, REFILL_AT, SESSION_BATCH as BATCH, blankOut } from "@chongfuxi/lib/review";
 import { LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { mainFirst, mainSenses, readingOfSense } from "@chongfuxi/lib/senses";
 import type { Definition } from "@chongfuxi/lib/dict";
@@ -271,6 +271,67 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   );
 }
 
+/** The choices for a kind's daily max of first-time cards; null is no limit. */
+const MAX_CHOICES: Array<number | null> = [null, 10, 20, 50, 100, 200, 300, 500, 1000];
+
+/**
+ * Under a kind on Today, its first-time cards at a glance (the owner wanted
+ * figures, not sentences): a slim meter of those answered today against the
+ * day's max, "12 / 300 new", how many more there are, and the max itself as a
+ * small drop-down to change it (the owner: edited from a drop-down, not on the
+ * main screen). Cards already on a schedule are never held.
+ */
+function FirstLine({ kind, s, shell }: { kind: DailyKind; s: Summary; shell: Shell }) {
+  const [saving, setSaving] = useState(false);
+  const max = s.dailyMax?.[kind] ?? null;
+  const done = s.firstToday?.[kind] ?? 0;
+  const all = s.firstWaiting?.[kind] ?? 0;
+  // Still to come after today: those held by the max, or the rest of the pool.
+  const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
+  const set = async (value: number | null) => {
+    setSaving(true);
+    try {
+      await send("daily-max", { kind, max: value });
+      shell.refresh();
+    } finally {
+      setSaving(false);
+    }
+  };
+  const label = (n: number | null) => (n === null ? "No max" : `${fmt(n)} a day`);
+  return (
+    <small className="cf-first">
+      {max !== null && (
+        <i className="cf-first-meter" aria-hidden="true">
+          <i style={{ width: `${max ? Math.min(100, (100 * done) / max) : 100}%` }} />
+        </i>
+      )}
+      <span className="cf-first-n">
+        <b>{fmt(done)}</b>
+        {max !== null && <> / {fmt(max)}</>} new
+      </span>
+      {later > 0 && <span className="cf-first-later">+{short(later)} later</span>}
+      {shell.canWrite ? (
+        <select
+          className="cf-first-max"
+          value={max === null ? "" : String(max)}
+          disabled={saving}
+          aria-label="New a day, at most"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => void set(e.target.value === "" ? null : Number(e.target.value))}
+        >
+          {[...MAX_CHOICES, ...(max !== null && !MAX_CHOICES.includes(max) ? [max] : [])].map((n) => (
+            <option key={n ?? "none"} value={n === null ? "" : String(n)}>
+              {label(n)}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="cf-first-later">{label(max)}</span>
+      )}
+    </small>
+  );
+}
+
 /** Before a session: what is due, what to include, and how many new sentences a day. */
 function Today({
   shell,
@@ -351,7 +412,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to read
-              <small>See the word, know what it means</small>
+              <FirstLine kind="read" s={s} shell={shell} />
             </span>
             <b>{fmt(s.dueRead)}</b>
           </label>
@@ -362,11 +423,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Words to recall
-              <small>
-                {s.recallWaiting > 0
-                  ? `${fmt(s.recallWaiting)} more first ones wait for the days after (${fmt(RECALL_BACKLOG_PER_DAY)} a day)`
-                  : "See the meaning, produce the word"}
-              </small>
+              <FirstLine kind="recall" s={s} shell={shell} />
             </span>
             <b>{fmt(s.dueRecall)}</b>
           </label>
@@ -377,9 +434,7 @@ function Today({
             <i className="cf-tick" />
             <span>
               Sentences
-              <small>
-                {fmt(s.dueSentences)} due again; new ones mixed in, from {fmt(s.newSentences)} readable
-              </small>
+              <FirstLine kind="sentence" s={s} shell={shell} />
             </span>
             <b>{fmt(s.dueSentences)}</b>
           </label>
