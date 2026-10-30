@@ -1830,6 +1830,17 @@ comes back to it, so it can make less of what goes unused.
   url }` (how readable it is, the words not known, and a page's text to
   quote from). The older material routes (drill, notes, reading, episodes,
   week, story) stay as more data.
+- **龙库's next syllables** (the owner: "an read API for longku for my muse
+  to see which new chengyus syllables I should learn next"): GET
+  `/api/longku/next?limit=15&per=3` (`longku/lib/next.ts`), public like
+  龙库's bank, so no token. The syllables none of the bank's words start on,
+  dead ends first (words end there, so chains die), then by `comesUp` (the
+  share of usage ending there, what playability rises by); each with up to
+  `per` chengyu to learn there, by tier, then chains saved (`minChains`),
+  then frequency, skipping words held, removed from 龙库 (`longku_excluded`)
+  or read the same as one held (a variant). `bank` gives the words, chains,
+  playability and dead ends as they stand. Named in Muse's brief, with
+  putting picks on a Muse list to suggest them.
 - **Owner only, reads too** (route `muse`, GET `?list=1` the pages, else a
   day's, the latest by default, filled in): a page may quote the web, and
   the app is otherwise readable by anyone.
