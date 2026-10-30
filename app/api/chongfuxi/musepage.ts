@@ -406,7 +406,13 @@ Data tools (same token), take what you need:
 - ?what=known  strong words to write with, and today's target words
 - ?what=sentences&words=发觉  their own sentences holding the words (readable first)
 - POST /api/chongfuxi/agent/muse/measure { "text" } or { "url" }  how readable it is for them, the words they don't know; with a url, the page's text
-- GET /api/longku/read  龙库 (their chengyu chain game, where each chengyu must start on the syllable the last one ended on) as data: their chengyu with syllables, strength and due dates; per syllable how many of theirs start and end there, the corpus counts and how often it comes up; the measures (chains, dead ends, playability). ?corpus=zhi,ji&per=30 adds the corpus chengyu starting on those syllables by frequency, each marked held or removed with the change in chains if added. What to do with it is yours. To suggest chengyu, put them on a Muse list (POST agent/lists); added to the deck, they join 龙库 by themselves.
+- GET /api/longku/read (no token needed)  龙库, their chengyu chain game: each chengyu played must start on the syllable the last one ended on, so what counts is which syllables their chengyu start and end on. What to do with it is yours.
+  - "bank": their chengyu, each with pinyin, gloss, starts and ends (syllables), tier (core, common, uncommon, rare), recalls, misses, strength, added, lastRecalled, due.
+  - "removed": chengyu they took out of 龙库.
+  - "syllables": every syllable with yoursStart, yoursEnd, corpusStart, corpusEnd and comesUp (the share of all chengyu usage ending on it: the chance an opponent's chengyu leaves them there).
+  - "measures": words; chains (the fewest chains that play every one of their chengyu once); playability (the share of usage they have an answer to); deadEnds (syllables theirs end on and none start on, where their chains stop).
+  - ?corpus=zhi,ji&per=30: the corpus chengyu starting on those syllables (up to 40 syllables, 200 each), most frequent first, each with held, removed and chainChange (negative means fewer chains if added).
+  - To suggest chengyu, put them on a Muse list (POST agent/lists); added to the deck, they join 龙库 by themselves.
 - Also still there: GET agent/drill (problem areas: notes, trips, attempts), agent/notes (notes to answer), agent/reading (past readings), agent/episodes.`;
 
 /** What Muse needs to lay out a page: the brief, today, and its recent pages with everything done on them. */
