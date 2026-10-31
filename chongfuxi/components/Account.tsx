@@ -1,15 +1,24 @@
 "use client";
 
-// Who is here, at the right of the header: the owner's initial, opening a
-// small menu with the address and Sign out; anyone else, Sign in (and a note
-// that the deck is read-only for them).
+// Who is here, at the right of the header, and the pages that aren't tabs:
+// the owner's 笨鸡 (anyone else's initial, or a menu button when signed out)
+// opens a small menu with Stats and Settings (taken off the tab bar, which the
+// owner found cluttered), then the address and Sign out, or Sign in.
 
 import { useEffect, useRef, useState } from "react";
 import type { Viewer } from "@chongfuxi/lib/api";
 import { signInWithGoogle, signOut } from "@chongfuxi/lib/auth-client";
 import { message, useBackLayer } from "./shared";
+import { TabIcon } from "./TabIcon";
 
-export function Account({ viewer }: { viewer: Viewer }) {
+/** The pages kept in this menu rather than on the tab bar. */
+export type MenuPage = "stats" | "settings";
+const PAGES: Array<{ key: MenuPage; label: string; sub: string }> = [
+  { key: "stats", label: "Stats", sub: "Reviews, retention, forecast" },
+  { key: "settings", label: "Settings", sub: "Bring words in, algorithm, bugs" },
+];
+
+export function Account({ viewer, page, onPage }: { viewer: Viewer; page: string; onPage: (p: MenuPage) => void }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,18 +46,54 @@ export function Account({ viewer }: { viewer: Viewer }) {
     }
   };
 
+  const pages = (
+    <nav className="cf-acct-pages" aria-label="More">
+      {PAGES.map((p) => (
+        <button
+          key={p.key}
+          role="menuitem"
+          className={`cf-acct-page${page === p.key ? " is-on" : ""}`}
+          aria-current={page === p.key ? "page" : undefined}
+          onClick={() => {
+            setOpen(false);
+            onPage(p.key);
+          }}
+        >
+          <span className="cf-acct-page-icon">
+            <TabIcon kind={p.key} />
+          </span>
+          <span>
+            {p.label}
+            <small>{p.sub}</small>
+          </span>
+        </button>
+      ))}
+    </nav>
+  );
+
   if (!viewer.configured) return null;
 
+  // Signed out: the deck is read-only; the menu has the pages and Sign in.
   if (!viewer.email) {
     return (
-      <div className="cf-acct">
+      <div className="cf-acct" ref={box}>
         <span className="cf-tag" title="This is Benji's deck: anyone can look, only he can review">
           read-only
         </span>
-        <button className="cf-acct-signin" disabled={busy} onClick={() => go(signInWithGoogle)}>
-          {busy ? "Opening…" : "Sign in"}
+        <button className="cf-acct-me" aria-haspopup="menu" aria-expanded={open} aria-label="Menu" onClick={() => setOpen(!open)}>
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
         </button>
-        {error && <p className="cf-acct-error cf-error">{error}</p>}
+        {open && (
+          <div className="cf-acct-menu" role="menu">
+            {pages}
+            {error && <p className="cf-error">{error}</p>}
+            <button className="cf-btn cf-btn-ghost" role="menuitem" disabled={busy} onClick={() => go(signInWithGoogle)}>
+              {busy ? "Opening…" : "Sign in"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -69,6 +114,7 @@ export function Account({ viewer }: { viewer: Viewer }) {
       </button>
       {open && (
         <div className="cf-acct-menu" role="menu">
+          {pages}
           <p className="cf-acct-who">
             <b>{viewer.email}</b>
             <span>

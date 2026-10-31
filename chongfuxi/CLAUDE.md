@@ -43,9 +43,13 @@ app is where they are reviewed. Route: `/chongfuxi`.
 The owner practises on an Android phone; the desktop is secondary. Design and
 check every screen at 360px wide first.
 
-- Navigation is a bottom tab bar (thumb reach): Review, Cards, Muse, Look up (the
-  owner's only), Stats, Settings (Import until the owner renamed it; an old
-  `tab=import` address still opens it).
+- Navigation is a bottom tab bar (thumb reach) of four: Review, Cards, Muse,
+  Look up (the owner's only). Stats and Settings (Import until the owner
+  renamed it; an old `tab=import` address still opens it) were tabs too
+  until the owner found six "hella cluttered": they are now the first two
+  rows of the header's menu (`MenuPage` in `components/Account.tsx`), each
+  with its tab icon and a line under it, still pages in the address
+  (`tab=stats`, `tab=settings`) that back leaves for Review.
   The header holds the title and one quiet line (`Glance` in
   `ChongfuxiApp.tsx`): words in the deck, distinct characters across them,
   and the sentences unlocked (readable), with "/ all of them" small beside
@@ -55,7 +59,8 @@ check every screen at 360px wide first.
   is one per deck word; the old boxes counted word cards, Read plus Recall,
   which is why the figure went from about 4k to 3k.) Signing in sits at the
   right of the title (`components/Account.tsx`): the owner's 笨鸡 (Benji) opens a
-  menu with the address and Sign out; anyone else gets Sign in.
+  menu with Stats, Settings, the address and Sign out; signed out, a menu
+  button opens Stats, Settings and Sign in.
 - Settings is a menu (`components/SettingsPanel.tsx`; it was Import), since
   stacked as one page it had grown messy: a row per page, title and one line
   under it, each opening the page with "‹ Settings" above to come back

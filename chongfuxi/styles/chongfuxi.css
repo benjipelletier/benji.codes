@@ -5580,6 +5580,62 @@ button.cf-synclog-row {
   animation: cf-fade 0.15s ease both;
 }
 
+/* The pages that aren't tabs (Stats, Settings), first in the menu. */
+.cf-acct-pages {
+  display: flex;
+  flex-direction: column;
+  margin: -6px -6px 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cf-rule);
+}
+
+.cfx .cf-acct-page {
+  --cf-tab-halo: var(--cf-surface);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cfx .cf-acct-page:active,
+.cfx .cf-acct-page.is-on {
+  --cf-tab-halo: var(--cf-sunken);
+  background: var(--cf-sunken);
+}
+
+.cf-acct-page > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-acct-page small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--cf-ink-soft);
+}
+
+.cf-acct-page-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  color: var(--cf-ink-soft);
+}
+
+.cf-acct-page.is-on .cf-acct-page-icon {
+  color: var(--cf-accent);
+}
+
 .cf-acct-who {
   display: flex;
   flex-direction: column;

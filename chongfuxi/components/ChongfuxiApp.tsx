@@ -40,10 +40,13 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: "muse", label: "Muse" },
   // The owner's only: every lookup asks a model.
   { key: "lookup", label: "Look up" },
+  // Stats and Settings (bringing material in, bug reports, how cards are chosen; it was
+  // Import) are pages in the header's menu: six tabs were too many for the bar.
   { key: "stats", label: "Stats" },
-  // Bringing material in, bug reports, and how cards are chosen (it was Import).
   { key: "settings", label: "Settings" },
 ];
+/** The tabs on the bar; the rest open from the header's menu. */
+const BAR: Tab[] = ["review", "cards", "muse", "lookup"];
 
 export function ChongfuxiApp() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -158,7 +161,7 @@ export function ChongfuxiApp() {
             </span>
           </h1>
           {/* Who is here, and signing in or out. */}
-          {summary && <Account viewer={summary.viewer} />}
+          {summary && <Account viewer={summary.viewer} page={tab} onPage={(p) => go(p)} />}
         </div>
         {/* At a glance: words and characters known, and how much of the corpus they read. */}
         <Glance summary={summary} />
@@ -203,7 +206,7 @@ export function ChongfuxiApp() {
 
       {/* At the bottom, where a thumb reaches on a phone. */}
       <nav className="cf-tabs">
-        {TABS.filter((t) => t.key !== "lookup" || canWrite).map((t) => (
+        {TABS.filter((t) => BAR.includes(t.key) && (t.key !== "lookup" || canWrite)).map((t) => (
           <button
             key={t.key}
             className={`cf-tab${tab === t.key ? " is-on" : ""}`}
