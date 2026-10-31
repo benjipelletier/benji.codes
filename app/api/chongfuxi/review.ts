@@ -60,7 +60,6 @@ import {
   spreadEvery,
   takeTurns,
   UNANSWERED_EVERY,
-  RECALL_BACKLOG_PER_DAY,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
@@ -158,35 +157,14 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 // ------------------------------------------------------------------ counts --
 
 /**
- * The most first-time cards per kind let in a study day: cards never
- * answered here come in at most this many, counting those first answered
- * that day; the rest wait for the days after. Cards already on a schedule
- * are never held. Null is no limit. Recall's default spreads the backlog the
- * Pleco seeding left (the owner: "300 a day"). The owner could set these on
- * Today for a while, then had the control taken out as too much: the max
- * they last set (`chongfuxi_daily_max`) still holds, else the default.
+ * The most first-time cards per kind let in a study day: none. Recall's
+ * backlog was held to 300 a day, then the owner set a max per kind on
+ * Today; they had the control taken out as too much, then the max itself:
+ * "just remove the max, show me all the cards". Kept as a function so the
+ * counts and the queue read one place, should a limit ever come back.
  */
-export const DAILY_MAX_DEFAULT: DailyMax = { read: null, recall: RECALL_BACKLOG_PER_DAY, sentence: null };
-
-let dailyMaxReady = false;
-async function ensureDailyMax(sql: Sql) {
-  if (dailyMaxReady) return;
-  await sql`
-    create table if not exists chongfuxi_daily_max (
-      owner_email text primary key,
-      read int,
-      recall int,
-      sentence int,
-      at timestamptz not null default now()
-    )
-  `;
-  dailyMaxReady = true;
-}
-
-export async function dailyMax(sql: Sql, owner: string): Promise<DailyMax> {
-  await ensureDailyMax(sql);
-  const [r] = (await sql`select read, recall, sentence from chongfuxi_daily_max where owner_email = ${owner}`) as unknown as DailyMax[];
-  return r ?? DAILY_MAX_DEFAULT;
+export async function dailyMax(_sql: Sql, _owner: string): Promise<DailyMax> {
+  return { read: null, recall: null, sentence: null };
 }
 
 /** Cards of each kind first answered on this study day: what counts against the day's max. */
@@ -422,8 +400,6 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // has the lower odds, and thousands of due Recall cards kept the due Read
   // cards out of the batch. Within a kind, cards answered before (each by its
   // odds) and cards never answered (no odds), spread through them.
-  // The Recall backlog (never answered here) is let in RECALL_BACKLOG_PER_DAY a
-  // study day, those least likely remembered first; the rest wait. Not on a list's review.
   // Each kind's first-time cards, held to the owner's daily max (dailyMax); not on a list's review.
   const firstIds = {
     read: inList || o.read === false ? null : await firstTimeIds(sql, owner, day, "read", at),

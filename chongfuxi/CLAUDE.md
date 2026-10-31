@@ -1371,42 +1371,20 @@ the design was silent and are still to be confirmed.
   164 Read no Read card came up (the owner: "not seeing Read cards").
   Within a kind, cards never answered (no odds, which used to rank first
   of all) are at most one in every `UNANSWERED_EVERY` (2) (`spreadEvery`);
-  the misses are spread after that. **The Recall backlog is spread out** (the owner,
-  facing about 3,200 Recall cards due at once from the Pleco seeding: "300
-  a day"): Recall cards never answered here (`answered = 0`) come into
-  review at most `RECALL_BACKLOG_PER_DAY` (300) a study day, less those
-  first answered that day (`recallRoom`), the least likely remembered
-  first; the rest wait for the days after. Nothing stored changes: it is
-  applied when cards are dealt (`nextCards` lets in only those ids) and
-  counted (`getSummary`'s `dueRecall` and `dueWords` leave the held ones
-  out, `recallWaiting` says how many wait, under Recall on Today), and the
-  day strip's forecast puts them on the days after, 300 a day. A list's
-  own review isn't held to it. **For a while the owner's own max, per
-  kind** (the owner: "instead of us choosing a limit for each of these
-  sections behind the scenes"; they chose first-time cards only, on all
-  three rows), set on Today, first from a native drop-down, then a chip
-  opening a sheet of choices, then rows that folded open onto a − / +
-  stepper; the owner then had the control taken out as too much. What
-  stays: `dailyMax`, the max last set (`chongfuxi_daily_max`; the owner's
-  Recall was 200 then), else `DAILY_MAX_DEFAULT` (Recall 300, Read and
-  Sentences no limit); the `daily-max` route that set it is gone, so it
-  changes only in the database. Each kind's cards never
-  answered here (Read cards through Learn, their first answer still to
-  come; Recall cards; new sentences) come in at most that many a study
-  day, less those first answered that day (`firstToday`, `roomFor`;
-  `firstTimeIds` for Read and Recall, the least likely remembered first);
-  cards already on a schedule are never held. Applied in `nextCards`, in
-  Fast review (`fastCards`), in the summary (`dueRead`, `dueRecall`,
-  `dueWords`, `readWaiting`, `recallWaiting`, `newSentencesToday`, with
-  `dailyMax`, `firstToday` and `firstWaiting` for the screen) and in the
-  day strip's forecast. On Today each row is a plain tick row (`KindRow`)
-  whose line is `FirstLine`: a slim meter in the row's colour (first-time
-  cards answered today against the max, where there is one), "12 / 300
-  new" and "+2.9k later" in grey for those still to come after today, on
-  one line (the owner wanted "+2.9k later" kept). It replaced "2,604 more first
-  ones wait for the days after (300 a day)" and the rows' one-line
-  descriptions. New Recall cards opened by a first Got it on
-  Read count against it too. Fast review goes the other way: best known
+  the misses are spread after that. **No daily max** (the owner: "just
+  remove the max, show me all the cards"): every card due comes in, first
+  time or not. Before that, Recall cards never answered here were let in
+  300 a day (`RECALL_BACKLOG_PER_DAY`, the owner's figure for the Pleco
+  seeding's backlog of about 3,200), then the owner set a max per kind on
+  Today (a native drop-down, then a chip opening a sheet of choices, then
+  rows folding open onto a − / + stepper), then had the control taken out
+  as too much, then the max itself. `dailyMax` now gives no limit for any
+  kind; the plumbing stays (`firstToday`, `roomFor`, `firstTimeIds`,
+  `readWaiting`, `recallWaiting`, the forecast's spreading), all a no-op
+  while there is no limit, and the `chongfuxi_daily_max` table is no
+  longer read. On Today each row is a plain tick row (`KindRow`) whose
+  line is `FirstLine`: first-time cards answered today ("12 new"; with a
+  max it showed a meter, "/ 300" and "+2.9k later"). Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
