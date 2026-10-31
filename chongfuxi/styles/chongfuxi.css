@@ -13374,43 +13374,6 @@ button.cf-how-text {
   font-variant-numeric: tabular-nums;
 }
 
-/* Under a kind on Today: its first-time cards at a glance, a slim meter of
- * today's against the max and the figures, on one line. */
-.cf-kind .cf-first {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 3px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-first-meter {
-  position: relative;
-  flex: none;
-  width: 32px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--cf-sunken);
-  overflow: hidden;
-}
-
-.cf-first-meter > i {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 3px;
-  background: var(--cf-kind);
-}
-
-.cf-first-n b {
-  font-weight: 700;
-  color: var(--cf-ink);
-}
-
-.cf-first-later {
-  color: var(--cf-ink-faint);
-}
-
 /* A sheet's title and note. */
 .cf-choice-h {
   margin: 6px 40px 4px 0;

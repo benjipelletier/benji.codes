@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { CardHistory, DailyKind, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
+import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
@@ -273,60 +273,29 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
 }
 
 /**
- * Under a kind on Today, one quiet line (the owner wanted figures, not
- * sentences): a slim meter of its first-time cards answered today against the
- * day's max, "12 / 300 new", and how many more wait for the days after.
- * Cards already on a schedule are never held.
+ * A kind on Today: the row is the choice to take it in or leave it out, its
+ * name and what is due. A line of first-time figures under the name ("12
+ * new", "+2.9k later") was taken off: the owner didn't like it.
  */
-function FirstLine({ kind, s }: { kind: DailyKind; s: Summary }) {
-  const max = s.dailyMax?.[kind] ?? null;
-  const done = s.firstToday?.[kind] ?? 0;
-  const all = s.firstWaiting?.[kind] ?? 0;
-  // Still to come after today: those held by the max, or the rest of the pool.
-  const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
-  return (
-    <small className="cf-first">
-      {max !== null && (
-        <i className="cf-first-meter" aria-hidden="true">
-          <i style={{ width: `${max ? Math.min(100, (100 * done) / max) : 100}%` }} />
-        </i>
-      )}
-      <span className="cf-first-n">
-        <b>{fmt(done)}</b>
-        {max !== null && <> / {fmt(max)}</>} new
-      </span>
-      {later > 0 && <span className="cf-first-later">+{short(later)} later</span>}
-    </small>
-  );
-}
-
-/** A kind on Today: the row is the choice to take it in or leave it out, its first-time figures under its name. */
 function KindRow({
-  kind,
   name,
   className,
   on,
   onTick,
   due,
-  s,
 }: {
-  kind: DailyKind;
   name: string;
   className: string;
   on: boolean;
   onTick: (on: boolean) => void;
   due: number;
-  s: Summary;
 }) {
   return (
     <li>
       <label className={`cf-kind ${className}${on ? "" : " is-off"}`}>
         <input type="checkbox" checked={on} onChange={(e) => onTick(e.target.checked)} />
         <i className="cf-tick" />
-        <span>
-          {name}
-          <FirstLine kind={kind} s={s} />
-        </span>
+        <span>{name}</span>
         <b>{fmt(due)}</b>
       </label>
     </li>
@@ -420,13 +389,11 @@ function Today({
         ).map(([kind, name, className, choice, due]) => (
           <KindRow
             key={kind}
-            kind={kind}
             name={name}
             className={className}
             on={kinds[choice]}
             onTick={(on) => onChoose({ ...kinds, [choice]: on })}
             due={due}
-            s={s}
           />
         ))}
         {/* New words wait out of the review until they have been learned with sentences: in the session, a step every fifth card. */}

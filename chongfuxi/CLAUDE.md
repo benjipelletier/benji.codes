@@ -1387,9 +1387,10 @@ the design was silent and are still to be confirmed.
   kind; the plumbing stays (`firstToday`, `roomFor`, `firstTimeIds`,
   `readWaiting`, `recallWaiting`, the forecast's spreading), all a no-op
   while there is no limit, and the `chongfuxi_daily_max` table is no
-  longer read. On Today each row is a plain tick row (`KindRow`) whose
-  line is `FirstLine`: first-time cards answered today ("12 new"; with a
-  max it showed a meter, "/ 300" and "+2.9k later"). Fast review goes the other way: best known
+  longer read. On Today each row is a plain tick row (`KindRow`): its name
+  and what is due. A line under the name of first-time cards answered today
+  ("12 new"; with a max, a meter, "/ 300" and "+2.9k later") was taken off
+  too: the owner didn't like it. Fast review goes the other way: best known
   first (highest stability, then Pleco's score, which separates the many
   cards seeded at the cap, then lowest difficulty), so the easy ones can be
   swept through; recall odds can't say that, since a word forgotten
