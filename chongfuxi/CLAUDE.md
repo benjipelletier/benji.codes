@@ -2101,8 +2101,8 @@ YouTube chapter feature".
   length, lines, % known, Prepped or Waiting for Muse); Today's Muse reviews
   button shows for them too. An episode (`EpisodeView`) is one screen like
   an app, not a page that scrolls (the owner's ask): a bar on top (close,
-  the show and episode, "% known" opening Words), then three tabs (Script,
-  Practice, Words):
+  the show and episode, "% known" opening Words), then two tabs (Script,
+  Words; Practice was a third until the owner had it taken out, below):
   - **Script**: the chapters fixed under the tabs (`ChapterStrip`): the
     scrub bar (as before, its time and title showing only while scrubbing)
     and a chip per chapter (start, the whole title on up to two lines,
@@ -2152,137 +2152,58 @@ YouTube chapter feature".
     1×, remembered on the device (`cfx-video-speed`) and set on the player
     when it is ready; a chapter's Watch step has it too. Tested with a stand-in player: the
     cloud session can't reach YouTube.
-  - A tap on a line (or a word in it) opens it at the foot of the screen
-    (`LinePanel`, back closing it): ‹ › a line before or after, ✦ Next
-    note, the line large with 🔊, its English, Muse's note (its kind,
-    the quote, the text), then its words as they live in the corpus
-    (`lineWords`, GET `episodes?id=&line=`, kept per line while open):
-    trouble words first, then must-knows, new, learning; each with
-    pinyin, gloss and where it stands (the trouble category, New, On a
-    list, Learning, Known), opening to its Read and Recall cards (how
-    strong, when due, lapses), its kit's hook, the owner's notes on it
-    with Muse's answer, its lookups, how many of the owner's sentences
-    have it (and readable) with one, how often it is said in the episode,
-    and Word page ›. Known words with nothing to say fold into one line.
-  - **Lines open from Practice too** (the owner: "make the sentences
-    clickable"): `OpenLine`, a context EpisodeView gives Practice, opens
-    the same line panel over it: a drill's line (`LineLink`, after the
-    answer shows on a test step), a chapter Watch line's › (pausing the
-    video; the line itself still plays from there), a Check line once
-    shown, a listening card once shown.
-  - **Back steps through it** (the owner asked for better back support):
-    an open line, then a chapter's later step or its walk (to Walk), the drill or
-    listening (to the whole episode), the whole episode (to chapter by
-    chapter), then Practice or Words (to the Script), then the episode.
-    "Whole episode" did nothing: Practice declared state after an early
-    return, so switching modes broke React's hook order; fixed with it.
-  - **Practice opens chapter by chapter** (`ChapterRound`; the owner: "more
-    bite size… watching this episode chapter by chapter so it's more
-    digestible"; they chose all four steps): a short loop per chapter, from
-    the first not done, ‹ › to any other, steps Walk · Watch · Check · Done
-    across the top (each a tap away). **Walk** (`ChapterWalk`; it was Prep,
-    the chapter's key words through the word drill, until the owner asked
-    for something "more immersive and conducive for learning the specific
-    items in context", heard from the video rather than a made-up voice,
-    and "a way to go through the chapter and all the difficulties and
-    Muse's thoughts"): what happens (Chinese, English on a tap), how many
-    lines, key words and Muse's notes, then "Walk through it": the
-    chapter's hard lines one at a time in story order (`walkStops`: a line
-    with Muse's study note or line note, a key word at its first line in
-    the chapter, a trouble word, or two or more new words). Each stop plays
-    the line from the video (`LineClip`: from `CLIP_BEFORE` (400 ms) before
-    it to `CLIP_AFTER` (300 ms) after, then paused, however it was
-    started; ↺ Again, "From the line before" for its lead-in, the
-    episode's speed; the phone's voice only with no video). A stop with
-    key words (`plan.chapters[c].words`, at most `CHAPTER_WORDS` (5))
-    first shows the line with them blanked, "Listen for the missing word";
-    Show gives the line with its words marked (a tap opens that word's
-    page: it opened the line's panel, which the owner found repeated the
-    stop), the English blurred until tapped, every new word in the line
-    with its Deck tick (the key words first, ticked as the plan suggests;
-    the others, from the line's tokens with `looks` for their reading and
-    meaning, unticked; "N new words · Add all to deck" ticks the lot, the
-    owner's ask), Muse's study note (`BlurbCard`) and line note
-    (`NoteCard`). Got it learns its key words (into the deck or for the
-    show, as ticked) and the other words ticked for the deck
-    (`learnEpisodeWord`), Again later brings the stop back
-    `WALK_BACK` (3) stops on; the end says how many went where, "Watch the
-    chapter ›". **Watch**
-    (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
-    and `end`, so it stops at the chapter's end; "↺ From the start"), its
-    lines below lit as they are said, the one being said kept near the
-    top of the lines (`SAYING_ROOM`, 56 px down, the page itself not
-    moved; it was kept at the foot, the owner asked) (a tap jumps there), the English
-    under each blurred until tapped (the owner asked; `EnglishLine`, as in
-    the script with English off), a Subtitles switch blurring the Chinese too; with no video, its lines to read, each said
-    aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)
-    of its lines heard first, each its clip from the video (`LineClip`) (those with its key words, Muse's notes, then
-    the most new words; 5 to 30 characters; Again sends one to the end),
-    then retold in Chinese by Muse's question for the chapter (a scene's
-    `question` in the prep) or "这一段发生了什么？", graded at Look up's
-    model and effort against the chapter's lines (POST `episodes` `{ id,
-    chapter, answer }`, `chapterStep`; kept in
-    `chongfuxi_episode_chapter_retell`). **Done**: Finish marks it (`{ id,
-    chapter, done }`, `chongfuxi_episode_chapter`), its chip in the script
-    gets a ✓; then the next chapter, or "Rewatch without subtitles". Under
-    it, "Whole episode" opens the round below.
-  - **Practice** (the whole episode) is a round of prep that moves readiness (the owner found
-    the listening practice below couldn't: readiness counts only words
-    known, and it taught none; and "I don't need to be 100%… I'm worried
-    about having words in my deck that I'll never see again after the
-    show"). The server's plan (`planOf`, sent as `plan`): the words not
-    known, Muse's skips left out, ranked by what each does for the episode
-    (three for each line it alone keeps unreadable, plus how often it is
-    said, plus eight for a must-know), at most `PREP_MAX` (15, the owner's
-    cap), each **worth keeping** (on an HSK list, in `KEEP_SENTENCES` (5)
-    or more of the owner's sentences, or Muse's `keep: true`; Muse's
-    `keep: false` overrules) or **just for this show**; the rest listed to
-    skip, with readiness now and once the plan is learnt ("86% → 92%",
-    lines readable too). The tab counts the plan's words. "Learn these N"
-    runs a drill (`PrepDrill`) from the episode's own lines (each word's
-    easiest, as for the deck below): meet it (reading, meaning, Muse's
-    note, a line with it marked and its English), what it means in a line,
-    then which word fills the gap in a line (its English or meaning
-    shown); a miss comes back `PREP_BACK` (3) cards later at that step,
-    Stop leaves keeping what is done. **The owner chooses what joins the
-    deck** (their ask: "let me choose which word I wanna keep in my deck"):
-    every plan word, in a chapter's key words and the whole episode's
-    lists, has a Deck tick box at the end of its row (`useKeeps`, `Keeps`),
-    ticked as the plan suggests (worth keeping) until changed, remembered
-    per episode on the device (`cfx-ep-keep:<id>`); the drill's pill says
-    "Into your deck" or "Just for this show" by it, and that is what is
-    sent. A word done is sent at once (POST
-    `episodes` `{ id, learnt, keep, day }`, `learnEpisodeWord`): worth
-    keeping, into the deck (one addition, source `episode:<show>
-    <episode>`) and marked through Learn, due the next study day like a
-    word finished on the ladder; for the show, kept in
-    `chongfuxi_episode_prepped` (made on first use), never in the deck or
-    scheduled. A prepped word counts in the episode as still being learnt
-    (`standingIn`, before a must-know's forced new), so readiness rises;
-    `coverage.prepped` is the share it carries, kept with each day's
-    measure and shown in the graph's legend ("of which prepped for the
-    show"). After a round the episode is measured again: "Learnt 4 · 2
-    into your deck · 2 for the show. Readiness 86% → 90%", then the next
-    plan. "Prepped for this show" lists those words. Under it, **Listen
-    through the trouble lines** opens the listening practice (the owner:
-    "a lot of sentences to get through… only do
-    the tough ones"; they chose the best line per word, heard then read):
-    the lines the server picks (`pickDeck`, sent as `deck`): for each
-    must-know not in the deck and each trouble word, its easiest line (the
-    fewest other words not known, then nearest twelve characters, then one
-    with English), a second, away from the first, for a word said three
-    times or more (`SECOND_LINE_AT`), and every line Muse annotated; a line
-    serving several is one card, in story order. A card plays the line
-    with the phone's voice ("Listen. What did they say?", 🔊 again); Show
-    gives the Chinese with its words marked (a tap opens the word page),
-    the English, the words it was picked for with pinyin, gloss and trouble,
-    Muse's note, and why it was picked; Again brings it back
-    `AGAIN_AFTER` (3) cards later, Got it moves on. Each answer is kept,
-    the latest per line with the tries (`chongfuxi_episode_card`, POST
-    `episodes` `{ id, card, result }`); the tab counts the lines not yet
-    got, the home shows got / again / not tried, Carry on, and after a
-    round "Go over the N again". Nothing touches a schedule. Muse's
-    material lists the lines last marked Again (`again`).
+  - **A line laid open, like Genius** (`LineView`; the owner: tapping a
+    sentence should open "the same genius window" as a walk's stop): a tap
+    on a line, or a word in it, opens it over the episode (back or ×
+    closing it, ‹ › a line before or after, the video paused): its clip
+    from the video (`LineClip`), then `StopCard`: the line with its words
+    marked (a tap on a word opens its page), the English blurred until
+    tapped, every new word in the line (the plan's words first, `planWords`,
+    ticked as the plan suggests; the others from the line's tokens with
+    `looks`, unticked; "N new words · Add all to deck"), Muse's study note
+    (`BlurbCard`) and line note (`NoteCard`). "Add N to deck" sends the
+    ticked ones (`learnEpisodeWord`, `keep`) and the episode is fetched
+    again; "Next line ›" moves on. It replaced the line panel at the foot
+    of the screen (`LinePanel`: each word's cards, kit hook, notes and
+    lookups, all on the word's page too).
+  - **Walk this chapter** (`ChapterWalk`; the owner asked for something
+    "more immersive and conducive for learning the specific items in
+    context", heard from the video rather than a made-up voice, and "a way
+    to go through the chapter and all the difficulties and Muse's
+    thoughts"; then for it as an icon on the chapter): footprints and a
+    count at the right of each chapter's heading in the Script, opening
+    the chapter's hard lines one at a time over the episode, in story order
+    (`walkStops`: a line with Muse's study note or line note, a key word
+    at its first line in the chapter (`plan.chapters[c].words`, at most
+    `CHAPTER_WORDS` (5)), a trouble word, or two or more new words). Each
+    stop plays the line from the video (`LineClip`: from `CLIP_BEFORE`
+    (400 ms) before it to `CLIP_AFTER` (300 ms) after, then paused,
+    however it was started; ↺ Again, "From the line before" for its
+    lead-in, the episode's speed; the phone's voice only with no video).
+    A stop with key words first shows the line with them blanked, "Listen
+    for the missing word"; Show lays it open as `StopCard` does for any
+    line. Got it learns its key words (into the deck or for the show, as
+    ticked) and the other words ticked for the deck (`learnWords`), Again
+    later brings the stop back `WALK_BACK` (3) stops on; the end says how
+    many went where, "Back to the script". **The owner chooses what joins
+    the deck** (their ask: "let me choose which word I wanna keep in my
+    deck"): each word's Deck tick (`useKeeps`, `Keeps`), as the plan
+    suggests until changed, remembered per episode on the device
+    (`cfx-ep-keep:<id>`). A word learnt is sent at once (POST `episodes`
+    `{ id, learnt, keep, day }`, `learnEpisodeWord`): kept, into the deck
+    (one addition, source `episode:<show> <episode>`) and marked through
+    Learn, due the next study day; for the show, kept in
+    `chongfuxi_episode_prepped`, never in the deck, counted in the episode
+    as still being learnt (`standingIn`), so readiness rises
+    (`coverage.prepped`).
+  - **Practice, taken out** (the owner: "just remove the practice
+    section", once the walk was on the Script): a tab with the chapter
+    round (Prep, later the walk; Watch, the chapter's stretch of the video
+    with its lines lit; Check, three lines heard then a retelling graded
+    by the model; Done, marking it), the whole-episode plan with its word
+    drill (`PrepDrill`), and listening through the trouble lines. The
+    server still has their parts (the plan, `chapterStep`'s retelling,
+    `chongfuxi_episode_chapter`, the listening deck), unused by the app.
   - **Words**: readiness and its graph, how the lines read, the
     must-knows and their list, the names, the other words not known.
   - **After** (Muse's questions on the whole episode, graded as a

@@ -11,18 +11,15 @@
 // learn. (After, the whole episode's questions, was taken out at the owner's
 // request; a chapter's Check still retells it.)
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   EpisodeLineNote,
   EpisodeListed,
   EpisodeProgress,
   EpisodeTrouble,
-  EpisodeCard,
   EpisodeView as Episode,
   EpisodeWord,
   LineNoteKind,
-  LineWordInfo,
-  Retell,
   TextToken,
 } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
@@ -30,8 +27,7 @@ import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { say } from "./Drill";
-import { Question } from "./Reading";
-import { Highlighted, Loading, fmt, message, useBackLayer } from "./shared";
+import { Loading, fmt, message, useBackLayer } from "./shared";
 
 /** The episodes Muse has handed in. */
 export function useEpisodes(): EpisodeListed[] | null {
@@ -100,26 +96,6 @@ function spans(ep: Episode): Array<{ from: number; to: number }> {
     from: i === 0 ? 0 : at(sc.start),
     to: i + 1 < ep.scenes.length ? at(ep.scenes[i + 1].start) : Math.max(ep.duration, at(sc.start)),
   }));
-}
-
-/** Where an element sits in a scrolling box, from the box's top: offsetTop is measured from its chapter, not the box. */
-/**
- * Opens a line at the foot of the screen with all the corpus has on it, from
- * anywhere in the episode: Practice's lines too (the owner: "make the
- * sentences clickable"). Null outside an episode.
- */
-const OpenLine = createContext<((i: number) => void) | null>(null);
-
-/** A line's text that opens the line, where a line can be opened; plain text elsewhere. */
-function LineLink({ i, children }: { i: number; children: React.ReactNode }) {
-  const open = useContext(OpenLine);
-  if (!open || i < 0) return <>{children}</>;
-  return (
-    <button className="cf-line-link" onClick={() => open(i)} aria-label="Open the line">
-      {children}
-      <i aria-hidden="true">›</i>
-    </button>
-  );
 }
 
 const topIn = (box: HTMLElement, el: HTMLElement) => el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
@@ -436,17 +412,6 @@ const KIND_LABEL: Record<LineNoteKind, string> = {
   listening: "Listening",
 };
 
-const TROUBLE_LABEL: Record<EpisodeTrouble["kind"], string> = {
-  mixed: "Mixed up",
-  produce: "Can't produce",
-  context: "Breaks in context",
-  slipping: "Slipping",
-  stuck: "Won't stick",
-  leech: "Leech",
-  forgot: "Forgot lately",
-  note: "You wrote about it",
-};
-
 /** A line's words with the quoted run of Muse's note marked, trouble words underlined; a tap on a word picks it. */
 function LineText({
   line,
@@ -493,217 +458,6 @@ function LineText({
         </span>
       ))}
     </span>
-  );
-}
-
-const strength = (days: number) => (days < 1 ? "under a day" : days < 60 ? `${Math.round(days)} days` : `${Math.round(days / 30)} months`);
-const dueIn = (at: number) => {
-  const d = Math.round((at - Date.now()) / 86_400_000);
-  return d <= 0 ? "due now" : d === 1 ? "due tomorrow" : `due in ${d} days`;
-};
-
-/** One word of the selected line, as it lives in the corpus; opened, everything the corpus has on it. */
-function CorpusWord({ w, trouble, open, onToggle }: { w: LineWordInfo; trouble: EpisodeTrouble | undefined; open: boolean; onToggle: () => void }) {
-  const state =
-    w.standing === "unknown"
-      ? { cls: "new", label: w.status === "listed" ? "On a list" : "New" }
-      : w.parts
-        ? { cls: "parts", label: "From its parts" }
-        : w.standing === "learning"
-          ? { cls: "learning", label: "Learning" }
-          : { cls: "known", label: "Known" };
-  return (
-    <li className={`cf-lw${open ? " is-open" : ""}`}>
-      <button className="cf-lw-head" onClick={onToggle} aria-expanded={open}>
-        <span className="cf-zh">{w.word}</span>
-        {w.pinyin && <span className="cf-lw-py">{displayPinyin(w.pinyin)}</span>}
-        <span className={`cf-lw-state is-${trouble ? "trouble" : state.cls}`}>{trouble ? TROUBLE_LABEL[trouble.kind] : state.label}</span>
-      </button>
-      {w.gloss && <p className="cf-lw-gloss">{w.gloss}</p>}
-      {open && (
-        <div className="cf-lw-more">
-          {trouble && (
-            <p className="cf-lw-trouble">
-              {trouble.why}
-              {trouble.partner && (
-                <>
-                  {" "}
-                  · with{" "}
-                  <button className="cf-word-link cf-zh" onClick={() => wordpage.openWordPage(trouble.partner!)}>
-                    {trouble.partner}
-                  </button>
-                </>
-              )}
-            </p>
-          )}
-          {w.parts && (
-            <p className="cf-lw-line">
-              Not in your deck: read as <span className="cf-zh">{w.parts.join(" + ")}</span>, which you know. It may mean more than its parts.
-            </p>
-          )}
-          {w.cards.length > 0 && (
-            <p className="cf-lw-line">
-              {w.cards.map((c, i) => (
-                <span key={c.kind}>
-                  {i > 0 && " · "}
-                  <b className={`cf-lw-kind is-${c.kind}`}>{c.kind === "read" ? "Read" : "Recall"}</b>{" "}
-                  {c.suspended ? "suspended" : c.answered ? `${strength(c.stability)} strong, ${dueIn(c.due)}` : "not answered yet"}
-                  {c.lapses > 0 && `, ${c.lapses} ${c.lapses === 1 ? "lapse" : "lapses"}`}
-                </span>
-              ))}
-            </p>
-          )}
-          {w.hook && <p className="cf-lw-hook">{w.hook}</p>}
-          {w.notes.map((n) => (
-            <div key={n.id} className="cf-lw-note">
-              <p>“{n.note}”</p>
-              {n.answers[0] && <p className="cf-muted">{n.answers[0].partner ? <span className="cf-zh">{n.answers[0].partner}: </span> : null}{n.answers[0].difference}</p>}
-            </div>
-          ))}
-          {w.lookups.length > 0 && (
-            <p className="cf-lw-line">
-              Looked up: {w.lookups.map((l) => l.query).join(" · ")}
-            </p>
-          )}
-          <p className="cf-lw-line">
-            In {fmt(w.sentences.all)} of your sentences ({fmt(w.sentences.readable)} readable) · said {fmt(w.inEpisode)}× here
-          </p>
-          {w.sentences.example && (
-            <p className="cf-lw-example">
-              <span className="cf-zh">
-                <Highlighted text={w.sentences.example.zh} word={w.word} />
-              </span>
-              {w.sentences.example.en && <span className="cf-muted"> {w.sentences.example.en}</span>}
-            </p>
-          )}
-          <button className="cf-link" onClick={() => wordpage.openWordPage(w.word)}>
-            Word page ›
-          </button>
-        </div>
-      )}
-    </li>
-  );
-}
-
-/**
- * The line picked, over the foot of the screen like a Genius annotation:
- * the line, its English, Muse's note, and every word as it lives in the
- * corpus (cards, notes, lookups, sentences), the trouble and new ones first,
- * the known ones folded into a line. ‹ › step a line, ✦ to the next note.
- */
-function LinePanel({
-  ep,
-  i,
-  focus,
-  must,
-  cache,
-  onMove,
-  onFocus,
-  onClose,
-}: {
-  ep: Episode;
-  i: number;
-  focus: string | null;
-  must: Set<string>;
-  cache: Map<number, LineWordInfo[]>;
-  onMove: (i: number) => void;
-  onFocus: (w: string | null) => void;
-  onClose: () => void;
-}) {
-  const line = ep.lines[i];
-  const note = ep.notes.find((n) => n.i === i);
-  const blurb = (ep.blurbs ?? []).find((b) => b.i === i);
-  const [words, setWords] = useState<LineWordInfo[] | null>(cache.get(i) ?? null);
-  const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(focus);
-  const body = useRef<HTMLDivElement>(null);
-  useEffect(() => setOpen(focus), [focus]);
-  useEffect(() => {
-    body.current?.scrollTo({ top: 0 });
-    const kept = cache.get(i);
-    setError(null);
-    if (kept) {
-      setWords(kept);
-      return;
-    }
-    setWords(null);
-    let live = true;
-    get<{ words: LineWordInfo[] }>("episodes", { id: ep.id, line: i })
-      .then((r) => {
-        cache.set(i, r.words);
-        if (live) setWords(r.words);
-      })
-      .catch((e) => live && setError(message(e)));
-    return () => {
-      live = false;
-    };
-  }, [cache, ep.id, i]);
-  const marks = [...new Set([...ep.notes.map((n) => n.i), ...(ep.blurbs ?? []).map((b) => b.i)])].sort((a, b) => a - b);
-  const nextMark = marks.find((m) => m > i) ?? marks[0];
-  const nextNote = nextMark === undefined ? undefined : { i: nextMark };
-  const rank = (w: LineWordInfo) => (ep.trouble[w.word] ? 0 : must.has(w.word) ? 1 : w.standing === "unknown" ? 2 : w.standing === "learning" ? 3 : 4);
-  const worth = (w: LineWordInfo) => rank(w) < 4 || !!w.parts?.length || w.notes.length > 0 || w.hook !== null || w.lookups.length > 0 || w.word === focus;
-  const shown = (words ?? []).filter(worth).sort((a, b) => rank(a) - rank(b));
-  const rest = (words ?? []).filter((w) => !worth(w));
-  return (
-    <div className="cf-lp" role="dialog" aria-label={`Line ${i + 1}`}>
-      <div className="cf-lp-top">
-        <button className="cf-lp-step" onClick={() => onMove(i - 1)} disabled={i === 0} aria-label="Line before">
-          ‹
-        </button>
-        <span className="cf-lp-at">
-          {clock(line.s)} · line {fmt(i + 1)}
-        </span>
-        <button className="cf-lp-step" onClick={() => onMove(i + 1)} disabled={i >= ep.lines.length - 1} aria-label="Line after">
-          ›
-        </button>
-        {nextNote && nextNote.i !== i && (
-          <button className="cf-lp-next" onClick={() => onMove(nextNote.i)}>
-            ✦ Next note
-          </button>
-        )}
-        <button className="cf-close cf-lp-close" onClick={onClose} aria-label="Close the line">
-          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      <div className="cf-lp-body" ref={body}>
-        <p className="cf-lp-line">
-          <LineText line={line} note={note} trouble={ep.trouble} must={must} focus={focus} onWord={(w) => onFocus(w)} />
-          <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
-            🔊
-          </button>
-        </p>
-        {line.en && <p className="cf-lp-en">{line.en}</p>}
-        {blurb && <BlurbCard b={blurb} />}
-        {note && <NoteCard note={note} />}
-        {error && <p className="cf-error">{error}</p>}
-        {!words && !error && <Loading small label="Looking in your corpus…" />}
-        {words && (
-          <>
-            <ul className="cf-lw-list">
-              {shown.map((w) => (
-                <CorpusWord key={w.word} w={w} trouble={ep.trouble[w.word]} open={open === w.word} onToggle={() => setOpen(open === w.word ? null : w.word)} />
-              ))}
-            </ul>
-            {rest.length > 0 && (
-              <p className="cf-lw-rest">
-                Known:{" "}
-                {rest.map((w, k) => (
-                  <span key={w.word}>
-                    {k > 0 && " · "}
-                    <button className="cf-word-link cf-zh" onClick={() => wordpage.openWordPage(w.word)}>
-                      {w.word}
-                    </button>
-                  </span>
-                ))}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -851,172 +605,6 @@ function GradeBar({ grades }: { grades: Grade[] }) {
           </span>
         ))}
       </p>
-    </div>
-  );
-}
-
-/** A practice line Again comes back this many cards later in the round. */
-const AGAIN_AFTER = 3;
-
-const WHY_LABEL: Record<EpisodeCard["why"][number], string> = { must: "Must-know", trouble: "Your trouble", note: "Muse's note" };
-
-/**
- * Practice (the owner: "a lot of sentences to get through… only do the
- * tough ones"): the lines the server picked, one card each. The line is
- * heard first (the phone's voice), as it will be when watching; Show gives
- * the Chinese with its words marked, the English, the words it was picked
- * for and Muse's note. Again brings it back a few cards later; Got it is
- * kept. Nothing touches a schedule.
- */
-function Listening({ ep, onAnswered, onBack }: { ep: Episode; onAnswered: (i: number, result: "got" | "again") => void; onBack: () => void }) {
-  const left = ep.deck.filter((c) => c.result !== "got");
-  const [round, setRound] = useState<number[] | null>(null);
-  const [shown, setShown] = useState(false);
-  const [missed, setMissed] = useState<Set<number>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const must = useMemo(() => new Set(ep.deck.flatMap((c) => c.words)), [ep]);
-  const noteAt = useMemo(() => new Map(ep.notes.map((n) => [n.i, n])), [ep]);
-
-  const start = (lines: number[]) => {
-    setRound(lines);
-    setShown(false);
-    setMissed(new Set());
-    if (lines.length) say(ep.lines[lines[0]].zh);
-  };
-  const answer = (result: "got" | "again") => {
-    if (!round) return;
-    const [i, ...rest] = round;
-    send("episodes", { id: ep.id, card: i, result }).catch((e) => setError(message(e)));
-    onAnswered(i, result);
-    const next = result === "again" ? [...rest.slice(0, AGAIN_AFTER), i, ...rest.slice(AGAIN_AFTER)] : rest;
-    if (result === "again") setMissed((m) => new Set(m).add(i));
-    setRound(next);
-    setShown(false);
-    if (next.length) say(ep.lines[next[0]].zh);
-  };
-
-  if (!ep.deck.length)
-    return (
-      <div className="cf-watch-pane">
-        <button className="cf-link cf-pr-back-link" onClick={onBack}>
-          ‹ Practice
-        </button>
-        <p className="cf-muted">No lines to listen through yet: once Muse marks the must-knows, or you have trouble words in it, their lines show up here.</p>
-      </div>
-    );
-
-  if (!round || !round.length) {
-    const got = ep.deck.length - left.length;
-    return (
-      <div className="cf-watch-pane cf-pr-home">
-        <button className="cf-link cf-pr-back-link" onClick={onBack}>
-          ‹ Practice
-        </button>
-        <p className="cf-ep-big">
-          {fmt(ep.deck.length)}
-          <small> lines of {fmt(ep.lines.length)} to practise</small>
-        </p>
-        <p className="cf-muted">One or two of the easiest lines for each must-know and trouble word, and the lines Muse wrote a note on. Hear each, then read it.</p>
-        <div className="cf-ep-meter" aria-hidden="true">
-          <span className="is-known" style={{ width: pct(got / ep.deck.length) }} />
-        </div>
-        <p className="cf-muted cf-ep-figs">
-          {fmt(got)} got · {fmt(ep.deck.filter((c) => c.result === "again").length)} to go over again · {fmt(ep.deck.filter((c) => !c.result).length)} not tried
-        </p>
-        {round && <p className="cf-pr-done">Round done{missed.size ? `: ${fmt(missed.size)} needed again` : ", every line got"}.</p>}
-        {error && <p className="cf-error">{error}</p>}
-        <div className="cf-pr-starts">
-          {left.length > 0 && (
-            <button className="cf-btn" onClick={() => start(left.map((c) => c.i))}>
-              {got ? `Carry on · ${fmt(left.length)} left` : `Start · ${fmt(left.length)} lines`}
-            </button>
-          )}
-          {missed.size > 0 && (
-            <button className="cf-btn cf-btn-ghost" onClick={() => start([...missed])}>
-              Go over the {fmt(missed.size)} again
-            </button>
-          )}
-          {!left.length && (
-            <button className="cf-btn cf-btn-ghost" onClick={() => start(ep.deck.map((c) => c.i))}>
-              Go through all {fmt(ep.deck.length)} again
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const i = round[0];
-  const line = ep.lines[i];
-  const card = ep.deck.find((c) => c.i === i)!;
-  const note = noteAt.get(i);
-  const scene = ep.scenes.find((sc) => i >= sc.start && i < sc.end);
-  return (
-    <div className="cf-pr">
-      <p className="cf-pr-top">
-        <span>{fmt(round.length)} left</span>
-        <span className="cf-zh">{scene?.title}</span>
-        <span>{clock(line.s)}</span>
-      </p>
-      <div className="cf-pr-card">
-        {!shown ? (
-          <div className="cf-pr-front">
-            <button className="cf-pr-play" onClick={() => say(line.zh)} aria-label="Hear the line again">
-              🔊
-            </button>
-            <p className="cf-muted">Listen. What did they say?</p>
-            {card.words.length > 0 && <p className="cf-pr-for">For {card.words.length === 1 ? "a word" : `${card.words.length} words`} you&apos;re learning</p>}
-          </div>
-        ) : (
-          <div className="cf-pr-back">
-            <p className="cf-pr-line">
-              <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
-              <LineLink i={ep.lines.indexOf(line)}>{null}</LineLink>
-              <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
-                🔊
-              </button>
-            </p>
-            {line.en && <p className="cf-lp-en">{line.en}</p>}
-            {card.words.map((w) => {
-              const look = ep.looks[w];
-              const t = ep.trouble[w];
-              return (
-                <p key={w} className="cf-pr-word">
-                  <span className="cf-zh">{w}</span> {look?.p && <b>{displayPinyin(look.p)}</b>} <span className="cf-muted">{look?.gloss}</span>
-                  {t && <span className="cf-pr-trouble"> · {TROUBLE_LABEL[t.kind]}</span>}
-                </p>
-              );
-            })}
-            {note && (
-              <div className={`cf-lp-note is-${note.kind}`}>
-                <p className="cf-lp-note-head">
-                  <span>✦ {KIND_LABEL[note.kind]}</span>
-                  {note.quote && <span className="cf-zh">「{note.quote}」</span>}
-                </p>
-                <p className="cf-lp-note-text">{note.text}</p>
-              </div>
-            )}
-            <p className="cf-pr-why">{card.why.map((w) => WHY_LABEL[w]).join(" · ")}</p>
-          </div>
-        )}
-      </div>
-      {error && <p className="cf-error">{error}</p>}
-      <div className="cf-pr-buttons">
-        {!shown ? (
-          <button className="cf-btn" onClick={() => setShown(true)}>
-            Show
-          </button>
-        ) : (
-          <>
-            <button className="cf-btn cf-btn-ghost" onClick={() => answer("again")}>
-              Again
-            </button>
-            <button className="cf-btn" onClick={() => answer("got")}>
-              Got it
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -1265,21 +853,6 @@ function AddVideo({ ep, onAdded }: { ep: Episode; onAdded: (video: string) => vo
   );
 }
 
-/** A line with one word marked, or blanked. */
-function MarkedLine({ zh, word, blank = false }: { zh: string; word: string; blank?: boolean }) {
-  const parts = zh.split(word);
-  return (
-    <span className="cf-zh">
-      {parts.map((p, k) => (
-        <span key={k}>
-          {p}
-          {k < parts.length - 1 && (blank ? <span className="cf-pp-blank">＿＿</span> : <mark className="cf-pp-mark">{word}</mark>)}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 type PlanWord = Episode["plan"]["keep"][number];
 /** The owner's choice per word, into the deck or for the show only; unset follows the plan. */
 type Keeps = { of: (w: PlanWord) => boolean; set: (word: string, keep: boolean) => void };
@@ -1311,354 +884,6 @@ function useKeeps(id: number): Keeps {
         return next;
       }),
   };
-}
-
-/**
- * Practice (the owner: practice has to move readiness, but "I don't need to
- * be 100%… I'm worried about having words in my deck that I'll never see
- * again after the show"): the server's plan for the next round, at most
- * PREP_MAX words ranked by what each does for the episode, split into worth
- * keeping (into the deck once learnt) and for the show only (learnt here,
- * never in the deck), with readiness now and after; then a short drill; and
- * listening through the trouble lines as before.
- */
-function Practice({
-  ep,
-  canWrite,
-  onAnswered,
-  onLearnt,
-}: {
-  ep: Episode;
-  canWrite: boolean;
-  onAnswered: (i: number, result: "got" | "again") => void;
-  onLearnt: () => void;
-}) {
-  const [mode, setMode] = useState<"chapters" | "home" | "drill" | "listen">("chapters");
-  const [last, setLast] = useState<{ kept: number; show: number; before: Episode["plan"]["now"] } | null>(null);
-  const keeps = useKeeps(ep.id);
-  // Back steps out: from the drill or listening to the whole episode, from there to chapter by chapter.
-  useBackLayer(mode !== "chapters", () => setMode("chapters"));
-  useBackLayer(mode === "drill" || mode === "listen", () => setMode("home"));
-  if (mode === "chapters")
-    return <ChapterRound ep={ep} canWrite={canWrite} keeps={keeps} onChanged={onLearnt} onWhole={() => setMode("home")} />;
-  if (mode === "listen") return <Listening ep={ep} onAnswered={onAnswered} onBack={() => setMode("home")} />;
-  const plan = ep.plan;
-  const words = [...plan.keep, ...plan.show];
-  if (mode === "drill")
-    return (
-      <PrepDrill
-        ep={ep}
-        words={words}
-        keeps={keeps}
-        onEnd={(kept, show) => {
-          setLast(kept + show ? { kept, show, before: plan.now } : null);
-          setMode("home");
-          if (kept + show) onLearnt();
-        }}
-      />
-    );
-  const listenLeft = ep.deck.filter((c) => c.result !== "got").length;
-  return (
-    <div className="cf-watch-pane cf-pp">
-      <button className="cf-link cf-pr-back-link" onClick={() => setMode("chapters")}>
-        ‹ Chapter by chapter
-      </button>
-      {last && (
-        <p className="cf-pp-done">
-          Learnt {fmt(last.kept + last.show)}
-          {last.kept ? ` · ${fmt(last.kept)} into your deck` : ""}
-          {last.show ? ` · ${fmt(last.show)} for the show` : ""}. Readiness {pct(last.before.known)} → <b>{pct(plan.now.known)}</b>
-        </p>
-      )}
-      {words.length ? (
-        <>
-          <p className="cf-pp-forecast">
-            <span className="cf-ep-big">
-              {pct(plan.now.known)} <small>→</small> {pct(plan.after.known)}
-            </span>
-            <small className="cf-muted">
-              words known with these {fmt(words.length)} · lines readable {pct(plan.now.lines)} → {pct(plan.after.lines)}
-            </small>
-          </p>
-          <button className="cf-btn cf-pp-start" onClick={() => setMode("drill")}>
-            Learn these {fmt(words.length)}
-          </button>
-          {plan.keep.length > 0 && (
-            <PlanList title="Worth keeping" sub="Ticked ones join your deck and come back in reviews." words={plan.keep} keeps={keeps} />
-          )}
-          {plan.show.length > 0 && (
-            <PlanList title="Just for this show" sub="Learnt here, never in your deck, unless you tick them." words={plan.show} keeps={keeps} />
-          )}
-        </>
-      ) : (
-        <p className="cf-muted">Nothing left worth learning for this one: you&apos;re ready to watch.</p>
-      )}
-      {plan.skip.length > 0 && (
-        <details className="cf-pp-skip">
-          <summary>
-            Skip these <span>{fmt(plan.skip.length)}</span>
-          </summary>
-          <p className="cf-muted">Said too rarely, or Muse marked them skip: not worth it to follow the show.</p>
-          <p className="cf-pp-chips">
-            {plan.skip.map((w) => (
-              <button key={w.word} className="cf-pp-chip cf-zh" onClick={() => wordpage.openWordPage(w.word)}>
-                {w.word} <small>×{w.count}</small>
-              </button>
-            ))}
-          </p>
-        </details>
-      )}
-      {plan.prepped.length > 0 && (
-        <section className="cf-pp-prepped">
-          <h3>
-            Prepped for this show <span>{fmt(plan.prepped.length)}</span>
-          </h3>
-          <p className="cf-pp-chips">
-            {plan.prepped.map((w) => (
-              <span key={w} className="cf-pp-chip is-prepped cf-zh">
-                {w}
-              </span>
-            ))}
-          </p>
-        </section>
-      )}
-      {ep.deck.length > 0 && (
-        <button className="cf-stuck cf-pp-listen" onClick={() => setMode("listen")}>
-          <span className="cf-stuck-text">
-            <b>Listen through the trouble lines</b>
-            <small>
-              {fmt(ep.deck.length)} lines · hear each, then read it{listenLeft < ep.deck.length ? ` · ${fmt(listenLeft)} left` : ""}
-            </small>
-          </span>
-          <i aria-hidden="true">›</i>
-        </button>
-      )}
-    </div>
-  );
-}
-
-function PlanList({ title, sub, words, keeps }: { title: string; sub: string; words: PlanWord[]; keeps?: Keeps }) {
-  return (
-    <section className="cf-pp-list">
-      <h3>
-        {title} <span>{fmt(words.length)}</span>
-      </h3>
-      <p className="cf-muted">{sub}</p>
-      <ul className="cf-stuck-list">
-        {words.map((w) => (
-          <li key={w.word} className={keeps ? "cf-pp-row" : undefined}>
-            <button onClick={() => wordpage.openWordPage(w.word)}>
-              <span className="cf-stuck-zh cf-zh">{w.word}</span>
-              <span className="cf-stuck-body">
-                {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
-                {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
-                <span className="cf-stuck-why cf-pp-why">
-                  said {fmt(w.count)}×{w.unlocks ? ` · opens ${fmt(w.unlocks)} ${w.unlocks === 1 ? "line" : "lines"}` : ""}
-                  {w.keepWhy ? ` · ${w.keepWhy}` : ""}
-                  {w.must ? " · Muse: must-know" : ""}
-                </span>
-              </span>
-            </button>
-            {/* Into the deck once learnt, or for this show only: the owner's choice, the plan's by default. */}
-            {keeps && (
-              <label className={`cf-pp-keep${keeps.of(w) ? " is-on" : ""}`}>
-                <input type="checkbox" checked={keeps.of(w)} onChange={(e) => keeps.set(w.word, e.target.checked)} aria-label={`Keep ${w.word} in your deck`} />
-                <i className="cf-tick" />
-                <small>Deck</small>
-              </label>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/** A word's three steps in the drill: meet it, read it in a line, recall it from the line's sense. */
-type PrepStep = { w: Episode["plan"]["keep"][number]; step: 0 | 1 | 2 };
-const PREP_BACK = 3;
-
-/**
- * The round's words, three steps each, from the episode's own lines: meet
- * it (reading, meaning, Muse's note, a line with it and the English), what
- * it means in another line, then the line with it blanked and its English,
- * to recall it. A miss comes back PREP_BACK cards later at the same step.
- * Each word done is sent at once: into the deck when worth keeping, else
- * prepped for the show.
- */
-function PrepDrill({
-  ep,
-  words,
-  keeps,
-  onEnd,
-  endLabel = "See how ready you are",
-}: {
-  ep: Episode;
-  words: Episode["plan"]["keep"];
-  /** Which go into the deck once learnt; without it, the plan's suggestion. */
-  keeps?: Keeps;
-  onEnd: (kept: number, show: number) => void;
-  endLabel?: string;
-}) {
-  const [queue, setQueue] = useState<PrepStep[]>(() => words.map((w) => ({ w, step: 0 as const })));
-  const [shown, setShown] = useState(false);
-  const [done, setDone] = useState({ kept: 0, show: 0 });
-  const [error, setError] = useState<string | null>(null);
-  const card = queue[0];
-  const lineIndex = (w: PrepStep["w"], k: number) => w.lines[Math.min(k, w.lines.length - 1)] ?? -1;
-  const lineOf = (w: PrepStep["w"], k: number) => ep.lines[lineIndex(w, k)] ?? null;
-  const finish = (w: PrepStep["w"]) => {
-    const keep = keeps ? keeps.of(w) : !!w.keepWhy;
-    setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
-    send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).catch((e) => setError(message(e)));
-  };
-  const next = (passed: boolean) => {
-    const [c, ...rest] = queue;
-    let q = rest;
-    if (passed && c.step === 2) finish(c.w);
-    else {
-      const again: PrepStep = passed ? { w: c.w, step: (c.step + 1) as 1 | 2 } : c;
-      const at = Math.min(PREP_BACK, q.length);
-      q = [...q.slice(0, at), again, ...q.slice(at)];
-    }
-    setQueue(q);
-    setShown(false);
-  };
-  if (!card)
-    return (
-      <div className="cf-watch-pane cf-pr-home">
-        <p className="cf-ep-big">
-          {fmt(done.kept + done.show)} <small>learnt</small>
-        </p>
-        <p className="cf-muted">
-          {done.kept ? `${fmt(done.kept)} went into your deck: their first review is tomorrow. ` : ""}
-          {done.show ? `${fmt(done.show)} are prepped for this show only.` : ""}
-        </p>
-        {error && <p className="cf-error">{error}</p>}
-        <div className="cf-pr-starts">
-          <button className="cf-btn" onClick={() => onEnd(done.kept, done.show)}>
-            {endLabel}
-          </button>
-        </div>
-      </div>
-    );
-  const w = card.w;
-  const line = lineOf(w, card.step === 0 ? 0 : card.step === 1 ? 1 : 2);
-  const lineI = lineIndex(w, card.step === 0 ? 0 : card.step === 1 ? 1 : 2);
-  const total = words.length * 3;
-  const left = queue.reduce((n, c) => n + (3 - c.step), 0);
-  return (
-    <div className="cf-pr cf-pp-drill">
-      <div className="cf-pp-progress" aria-hidden="true">
-        <span style={{ width: pct(1 - left / Math.max(1, total)) }} />
-      </div>
-      <p className="cf-pr-top">
-        <button className="cf-link" onClick={() => onEnd(done.kept, done.show)}>
-          Stop
-        </button>
-        <span>{["New word", "In a line", "Recall it"][card.step]}</span>
-        <span className={`cf-pp-kind${(keeps ? keeps.of(w) : w.keepWhy) ? " is-keep" : ""}`}>
-          {(keeps ? keeps.of(w) : w.keepWhy) ? "Into your deck" : "Just for this show"}
-        </span>
-      </p>
-      <div className="cf-pr-card">
-        {card.step === 0 && (
-          <div className="cf-pp-meet">
-            <p className="cf-pp-word cf-zh">{w.word}</p>
-            {w.pinyin && <p className="cf-pp-py">{displayPinyin(w.pinyin)}</p>}
-            {w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
-            {w.note && <p className="cf-pp-note">✦ {w.note}</p>}
-            {line && (
-              <div className="cf-pp-line">
-                <p>
-                  <LineLink i={lineI}>
-                    <MarkedLine zh={line.zh} word={w.word} />
-                  </LineLink>
-                  <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
-                    🔊
-                  </button>
-                </p>
-                {line.en && <p className="cf-lp-en">{line.en}</p>}
-              </div>
-            )}
-          </div>
-        )}
-        {card.step === 1 && line && (
-          <div className="cf-pp-meet">
-            <p className="cf-muted">What does it mean here?</p>
-            <p className="cf-pp-big-line">
-              {shown ? (
-                <LineLink i={lineI}>
-                  <MarkedLine zh={line.zh} word={w.word} />
-                </LineLink>
-              ) : (
-                <MarkedLine zh={line.zh} word={w.word} />
-              )}
-              <button className="cf-lp-say" onClick={() => say(line.zh)} aria-label="Hear the line">
-                🔊
-              </button>
-            </p>
-            {shown && (
-              <>
-                <p className="cf-pp-py">
-                  <span className="cf-zh">{w.word}</span> {w.pinyin && displayPinyin(w.pinyin)}
-                </p>
-                {w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
-                {line.en && <p className="cf-lp-en">{line.en}</p>}
-              </>
-            )}
-          </div>
-        )}
-        {card.step === 2 && line && (
-          <div className="cf-pp-meet">
-            <p className="cf-muted">Which word goes in the gap?</p>
-            <p className="cf-pp-big-line">
-              {shown ? (
-                <LineLink i={lineI}>
-                  <MarkedLine zh={line.zh} word={w.word} />
-                </LineLink>
-              ) : (
-                <MarkedLine zh={line.zh} word={w.word} blank />
-              )}
-            </p>
-            {line.en ? <p className="cf-lp-en">{line.en}</p> : w.gloss && <p className="cf-pp-gloss">{w.gloss}</p>}
-            {shown && (
-              <p className="cf-pp-py">
-                <span className="cf-zh">{w.word}</span> {w.pinyin && displayPinyin(w.pinyin)}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-      {error && <p className="cf-error">{error}</p>}
-      <div className="cf-pr-buttons">
-        {card.step === 0 ? (
-          <button className="cf-btn" onClick={() => next(true)}>
-            Next
-          </button>
-        ) : !shown ? (
-          <button
-            className="cf-btn"
-            onClick={() => {
-              setShown(true);
-              if (line && card.step === 2) say(line.zh);
-            }}
-          >
-            Show
-          </button>
-        ) : (
-          <>
-            <button className="cf-btn cf-btn-ghost" onClick={() => next(false)}>
-              Not yet
-            </button>
-            <button className="cf-btn" onClick={() => next(true)}>
-              Got it
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 /** A breath either side of a line's clip (ms), so its first word isn't cut and it doesn't stop mid-syllable. */
@@ -1848,6 +1073,100 @@ function BlankedLine({ zh, words }: { zh: string; words: string[] }) {
   );
 }
 
+/** The plan's words (worth keeping, for the show, each chapter's key words), by word. */
+function planWords(ep: Episode): Map<string, PlanWord> {
+  const all = new Map<string, PlanWord>();
+  for (const w of [...ep.plan.keep, ...ep.plan.show, ...ep.plan.chapters.flatMap((c) => c.words)]) if (!all.has(w.word)) all.set(w.word, w);
+  return all;
+}
+
+/**
+ * Every new word in a line, its key words first (the owner wanted the choice
+ * to add any of them): the others have no plan behind them, so they start
+ * unticked for the deck, their reading and meaning from the episode's looks.
+ */
+function lineWords(ep: Episode, i: number, keys: PlanWord[]): PlanWord[] {
+  const extra: PlanWord[] = [];
+  for (const tk of ep.lines[i].tokens) {
+    const w = tk.t;
+    if (tk.k !== "unknown" || ep.names.includes(w) || keys.some((k) => k.word === w) || extra.some((k) => k.word === w)) continue;
+    const look = ep.looks[w];
+    extra.push({ word: w, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, note: null, must: false, count: 0, unlocks: 0, keepWhy: null, lines: [i] });
+  }
+  return [...keys, ...extra];
+}
+
+/**
+ * A line laid open, like a Genius page for it: the line with its words marked
+ * (a tap opens a word's page), the English blurred until tapped, its new words
+ * with the Deck choice ("Add all to deck" ticks the lot), Muse's study note
+ * and line note. The walk shows it at each stop, and the Script for any line.
+ */
+function StopCard({ ep, i, words, keeps, canWrite }: { ep: Episode; i: number; words: PlanWord[]; keeps: Keeps; canWrite: boolean }) {
+  const line = ep.lines[i];
+  const note = ep.notes.find((n) => n.i === i);
+  const blurb = (ep.blurbs ?? []).find((b) => b.i === i);
+  const must = useMemo(() => new Set(ep.words.filter((w) => w.tier === "must").map((w) => w.word)), [ep.words]);
+  const untick = words.filter((w) => !keeps.of(w));
+  return (
+    <>
+      <p className="cf-walk-line">
+        <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
+      </p>
+      {line.en && <EnglishLine key={i} en={line.en} english={false} />}
+      {words.length > 0 && (
+        <div className="cf-walk-words-head">
+          <span>{words.length === 1 ? "New word" : `${fmt(words.length)} new words`}</span>
+          {canWrite && words.length > 1 && untick.length > 0 && (
+            <button className="cf-link" onClick={() => untick.forEach((w) => keeps.set(w.word, true))}>
+              Add all to deck
+            </button>
+          )}
+        </div>
+      )}
+      {words.length > 0 && (
+        <ul className="cf-stuck-list cf-walk-words">
+          {words.map((w) => (
+            <li key={w.word} className="cf-pp-row">
+              <button onClick={() => wordpage.openWordPage(w.word)}>
+                <span className="cf-stuck-zh cf-zh">{w.word}</span>
+                <span className="cf-stuck-body">
+                  {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
+                  {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
+                  {w.note && <span className="cf-stuck-why cf-pp-why">✦ {w.note}</span>}
+                </span>
+              </button>
+              {canWrite && (
+                <label className={`cf-pp-keep${keeps.of(w) ? " is-on" : ""}`}>
+                  <input type="checkbox" checked={keeps.of(w)} onChange={(e) => keeps.set(w.word, e.target.checked)} aria-label={`Keep ${w.word} in your deck`} />
+                  <i className="cf-tick" />
+                  <small>Deck</small>
+                </label>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {blurb && <BlurbCard b={blurb} />}
+      {note && <NoteCard note={note} />}
+    </>
+  );
+}
+
+/** Learn words met in an episode: into the deck when ticked, else (key words only) for the show. */
+function learnWords(ep: Episode, words: PlanWord[], keys: PlanWord[], keeps: Keeps, done: Set<string>): Array<Promise<{ word: string; keep: boolean }>> {
+  const sent: Array<Promise<{ word: string; keep: boolean }>> = [];
+  for (const w of words) {
+    if (done.has(w.word)) continue;
+    const keep = keeps.of(w);
+    // A word that isn't a key word goes nowhere unless ticked for the deck.
+    if (!keep && !keys.includes(w)) continue;
+    done.add(w.word);
+    sent.push(send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).then(() => ({ word: w.word, keep })));
+  }
+  return sent;
+}
+
 /** How many stops on a missed one comes back. */
 const WALK_BACK = 3;
 
@@ -1855,84 +1174,69 @@ const WALK_BACK = 3;
  * Walking through a chapter's hard lines one at a time, each heard from the
  * video (the owner wanted it "more immersive and conducive for learning the
  * specific items in context", and to go through every difficulty with
- * Muse's thoughts on it). A stop with key words first plays with them
- * blanked, to listen for; Show gives the line with its words marked (a tap
- * opens the line's panel), the English blurred until tapped, Muse's study
- * note and line note, and the key words with the Deck choice. Got it learns
- * its key words (into the deck or for the show, as chosen); Again later
- * brings the stop back WALK_BACK stops on.
+ * Muse's thoughts on it), started from the walk icon on the chapter's
+ * heading in the Script. A stop with key words first plays with them
+ * blanked, to listen for; Show lays the line open (`StopCard`). Got it
+ * learns its key words (into the deck or for the show, as chosen) and the
+ * others ticked for the deck; Again later brings the stop back WALK_BACK
+ * stops on.
  */
-function ChapterWalk({
-  ep,
-  c,
-  keeps,
-  canWrite,
-  onEnd,
-}: {
-  ep: Episode;
-  c: number;
-  keeps: Keeps;
-  canWrite: boolean;
-  onEnd: (learnt: number) => void;
-}) {
+function ChapterWalk({ ep, c, keeps, canWrite, onEnd }: { ep: Episode; c: number; keeps: Keeps; canWrite: boolean; onEnd: (learnt: number) => void }) {
   const [stops] = useState(() => walkStops(ep, c));
   const [queue, setQueue] = useState<number[]>(() => stops.map((_, k) => k));
   const [shown, setShown] = useState(false);
   const [done, setDone] = useState({ kept: 0, show: 0, lines: 0 });
   const [error, setError] = useState<string | null>(null);
   const learnt = useRef(new Set<string>());
-  const must = useMemo(() => new Set(ep.words.filter((w) => w.tier === "must").map((w) => w.word)), [ep.words]);
+  const sc = ep.scenes[c];
   const k = queue[0];
+  const top = (
+    <div className="cf-over-top">
+      <button className="cf-close" onClick={() => onEnd(done.kept + done.show)} aria-label="Back to the script">
+        <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+          <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      </button>
+      <p className="cf-over-title">
+        <small>Walk · chapter {c + 1}</small>
+        <b className="cf-zh">{sc.title}</b>
+      </p>
+    </div>
+  );
   if (k === undefined)
     return (
-      <div className="cf-cr-body cf-cr-done">
-        <p className="cf-ep-big">
-          ✓ <small>Walked through {fmt(done.lines)} lines</small>
-        </p>
-        {done.kept + done.show > 0 && (
-          <p className="cf-muted">
-            {done.kept ? `${fmt(done.kept)} into your deck, their first review tomorrow. ` : ""}
-            {done.show ? `${fmt(done.show)} learnt for this show.` : ""}
+      <div className="cf-over">
+        {top}
+        <div className="cf-walk cf-cr-done">
+          <p className="cf-ep-big">
+            ✓ <small>Walked through {fmt(done.lines)} lines</small>
           </p>
-        )}
-        {error && <p className="cf-error">{error}</p>}
-        <div className="cf-pr-starts">
-          <button className="cf-btn" onClick={() => onEnd(done.kept + done.show)}>
-            Watch the chapter ›
-          </button>
+          {done.kept + done.show > 0 && (
+            <p className="cf-muted">
+              {done.kept ? `${fmt(done.kept)} into your deck, their first review tomorrow. ` : ""}
+              {done.show ? `${fmt(done.show)} learnt for this show.` : ""}
+            </p>
+          )}
+          {error && <p className="cf-error">{error}</p>}
+          <div className="cf-pr-starts">
+            <button className="cf-btn" onClick={() => onEnd(done.kept + done.show)}>
+              Back to the script
+            </button>
+          </div>
         </div>
       </div>
     );
   const s = stops[k];
   const line = ep.lines[s.i];
-  const note = ep.notes.find((n) => n.i === s.i);
-  const blurb = (ep.blurbs ?? []).find((b) => b.i === s.i);
   const listening = s.words.length > 0 && !shown;
-  // Every new word in the line, the key words first (the owner wanted the
-  // choice to add any of them): the others have no plan behind them, so they
-  // start unticked and are only learnt when ticked for the deck.
-  const extra: PlanWord[] = [];
-  for (const tk of line.tokens) {
-    const w = tk.t;
-    if (tk.k !== "unknown" || ep.names.includes(w) || s.words.some((k) => k.word === w) || extra.some((k) => k.word === w)) continue;
-    const look = ep.looks[w];
-    extra.push({ word: w, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, note: null, must: false, count: 0, unlocks: 0, keepWhy: null, lines: [s.i] });
-  }
-  const words = [...s.words, ...extra];
-  const untick = words.filter((w) => !keeps.of(w));
+  const words = lineWords(ep, s.i, s.words);
   const next = (got: boolean) => {
     const rest = queue.slice(1);
     if (got) {
       setDone((d) => ({ ...d, lines: d.lines + 1 }));
-      for (const w of words) {
-        if (learnt.current.has(w.word) || !canWrite) continue;
-        const keep = keeps.of(w);
-        // A word that isn't a key word goes nowhere unless ticked for the deck.
-        if (!keep && !s.words.includes(w)) continue;
-        learnt.current.add(w.word);
-        setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
-        send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).catch((e) => setError(message(e)));
-      }
+      if (canWrite)
+        for (const p of learnWords(ep, words, s.words, keeps, learnt.current))
+          p.then((r) => setDone((d) => (r.keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }))).catch((e) => setError(message(e)));
       setQueue(rest);
     } else {
       const at = Math.min(WALK_BACK, rest.length);
@@ -1942,495 +1246,132 @@ function ChapterWalk({
   };
   const passed = stops.length - new Set(queue).size;
   return (
-    <div className="cf-walk">
-      <div className="cf-pp-progress cf-walk-progress" aria-hidden="true">
-        <span style={{ width: pct(passed / Math.max(1, stops.length)) }} />
-      </div>
-      <p className="cf-pr-top">
-        <button className="cf-link" onClick={() => onEnd(done.kept + done.show)}>
-          Stop
-        </button>
-        <span className="cf-walk-at">
-          {fmt(Math.min(passed + 1, stops.length))} of {fmt(stops.length)} · {clock(line.s)}
-        </span>
-      </p>
-      <LineClip ep={ep} i={s.i} />
-      <div className="cf-walk-card">
-        {listening ? (
-          <>
-            <p className="cf-muted cf-walk-ask">Listen for the missing {s.words.length === 1 ? "word" : "words"}</p>
-            <p className="cf-walk-line">
-              <BlankedLine zh={line.zh} words={s.words.map((w) => w.word)} />
-            </p>
-            {line.en && <EnglishLine en={line.en} english={false} />}
-          </>
-        ) : (
-          <>
-            <p className="cf-walk-line">
-              <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
-            </p>
-            {line.en && <EnglishLine en={line.en} english={false} />}
-            {words.length > 0 && (
-              <div className="cf-walk-words-head">
-                <span>{words.length === 1 ? "New word" : `${fmt(words.length)} new words`}</span>
-                {canWrite && words.length > 1 && untick.length > 0 && (
-                  <button className="cf-link" onClick={() => untick.forEach((w) => keeps.set(w.word, true))}>
-                    Add all to deck
-                  </button>
-                )}
-              </div>
-            )}
-            {words.length > 0 && (
-              <ul className="cf-stuck-list cf-walk-words">
-                {words.map((w) => (
-                  <li key={w.word} className="cf-pp-row">
-                    <button onClick={() => wordpage.openWordPage(w.word)}>
-                      <span className="cf-stuck-zh cf-zh">{w.word}</span>
-                      <span className="cf-stuck-body">
-                        {w.pinyin && <span className="cf-stuck-py">{displayPinyin(w.pinyin)}</span>}
-                        {w.gloss && <span className="cf-stuck-gloss">{w.gloss}</span>}
-                        {w.note && <span className="cf-stuck-why cf-pp-why">✦ {w.note}</span>}
-                      </span>
-                    </button>
-                    {canWrite && (
-                      <label className={`cf-pp-keep${keeps.of(w) ? " is-on" : ""}`}>
-                        <input type="checkbox" checked={keeps.of(w)} onChange={(e) => keeps.set(w.word, e.target.checked)} aria-label={`Keep ${w.word} in your deck`} />
-                        <i className="cf-tick" />
-                        <small>Deck</small>
-                      </label>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {blurb && <BlurbCard b={blurb} />}
-            {note && <NoteCard note={note} />}
-          </>
-        )}
-      </div>
-      {error && <p className="cf-error">{error}</p>}
-      <div className="cf-pr-buttons">
-        {listening ? (
-          <button className="cf-btn" onClick={() => setShown(true)}>
-            Show
-          </button>
-        ) : (
-          <>
-            <button className="cf-btn cf-btn-ghost" onClick={() => next(false)}>
-              Again later
+    <div className="cf-over">
+      {top}
+      <div className="cf-walk">
+        <div className="cf-pp-progress cf-walk-progress" aria-hidden="true">
+          <span style={{ width: pct(passed / Math.max(1, stops.length)) }} />
+        </div>
+        <p className="cf-pr-top">
+          <span className="cf-walk-at">
+            {fmt(Math.min(passed + 1, stops.length))} of {fmt(stops.length)} · {clock(line.s)}
+          </span>
+        </p>
+        <LineClip ep={ep} i={s.i} />
+        <div className="cf-walk-card">
+          {listening ? (
+            <>
+              <p className="cf-muted cf-walk-ask">Listen for the missing {s.words.length === 1 ? "word" : "words"}</p>
+              <p className="cf-walk-line">
+                <BlankedLine zh={line.zh} words={s.words.map((w) => w.word)} />
+              </p>
+              {line.en && <EnglishLine key={s.i} en={line.en} english={false} />}
+            </>
+          ) : (
+            <StopCard ep={ep} i={s.i} words={words} keeps={keeps} canWrite={canWrite} />
+          )}
+        </div>
+        {error && <p className="cf-error">{error}</p>}
+        <div className="cf-pr-buttons">
+          {listening ? (
+            <button className="cf-btn" onClick={() => setShown(true)}>
+              Show
             </button>
-            <button className="cf-btn" onClick={() => next(true)}>
-              {words.length ? "Got it" : "Next"}
-            </button>
-          </>
-        )}
+          ) : (
+            <>
+              <button className="cf-btn cf-btn-ghost" onClick={() => next(false)}>
+                Again later
+              </button>
+              <button className="cf-btn" onClick={() => next(true)}>
+                {words.length ? "Got it" : "Next"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-type ChapterStepName = "walk" | "walking" | "watch" | "check" | "done";
-const CHAPTER_STEPS: Array<[ChapterStepName, string]> = [
-  ["walk", "Walk"],
-  ["watch", "Watch"],
-  ["check", "Check"],
-  ["done", "Done"],
-];
-const CHAPTER_QUESTION = { zh: "这一段发生了什么？", en: "What happened in this part?" };
-
 /**
- * Practice chapter by chapter (the owner: "more bite size… watching this
- * episode chapter by chapter so it's more digestible"): a short loop per
- * chapter, from the first not done. Walk: what happens in it, then its
- * hard lines one at a time, each heard from the video, with Muse's notes
- * and its key words (`plan.chapters`, at most CHAPTER_WORDS, worth keeping
- * or for the show as in the whole plan) learnt in them. Watch: just that
- * chapter, the video stopping at its end, its lines lit as they are said,
- * subtitles on or off. Check: a few of its lines heard first, then retold in
- * Chinese by Muse's question for it, graded. Done: marked, and the next.
+ * Any line of the script, laid open the same way as a walk's stop (the
+ * owner: tapping a sentence should open "the same genius window"): its clip,
+ * the line, its new words with the Deck choice and Muse's notes; ‹ › to the
+ * line before or after, and the ticked words added to the deck.
  */
-function ChapterRound({
-  ep,
-  canWrite,
-  keeps,
-  onChanged,
-  onWhole,
-}: {
+function LineView({ ep, i, keeps, canWrite, onMove, onAdded, onClose }: {
   ep: Episode;
-  canWrite: boolean;
+  i: number;
   keeps: Keeps;
-  onChanged: () => void;
-  onWhole: () => void;
+  canWrite: boolean;
+  onMove: (i: number) => void;
+  onAdded: () => void;
+  onClose: () => void;
 }) {
-  const chapters = ep.plan.chapters;
-  const first = chapters.findIndex((c) => !c.done);
-  const [c, setC] = useState(first >= 0 ? first : 0);
-  const [step, setStep] = useState<ChapterStepName>("walk");
-  const [subs, setSubs] = useState(true);
+  const [added, setAdded] = useState<Set<string>>(() => new Set());
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Back from a later step (or the walk) comes to the chapter's start.
-  useBackLayer(step !== "walk", () => setStep("walk"));
-  const sc = ep.scenes[c];
-  const plan = chapters[c];
-  if (!sc || !plan) return <p className="cf-watch-pane cf-muted">No chapters yet.</p>;
-  const span = spans(ep)[c];
-  const minutes = Math.max(1, Math.round((span.to - span.from) / 60000));
-  const go = (to: number) => {
-    setC(to);
-    setStep("walk");
-    setSubs(true);
+  const plan = useMemo(() => planWords(ep), [ep]);
+  const line = ep.lines[i];
+  const keys = [...new Set(line.tokens.map((t) => t.t))].flatMap((w) => plan.get(w) ?? []);
+  const words = lineWords(ep, i, keys).filter((w) => !added.has(w.word));
+  const toAdd = canWrite ? words.filter((w) => keeps.of(w)) : [];
+  const add = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const done = await Promise.all(learnWords(ep, toAdd, [], keeps, new Set()));
+      setAdded((a) => new Set([...a, ...done.map((d) => d.word)]));
+      onAdded();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
   };
-  if (step === "walking")
-    return (
-      <ChapterWalk
-        key={c}
-        ep={ep}
-        c={c}
-        keeps={keeps}
-        canWrite={canWrite}
-        onEnd={(learnt) => {
-          setStep("watch");
-          if (learnt) onChanged();
-        }}
-      />
-    );
-  const at = CHAPTER_STEPS.findIndex(([k]) => k === step);
-  const stops = step === "walk" ? walkStops(ep, c) : [];
-  const marked = stops.filter((s) => ep.notes.some((n) => n.i === s.i) || (ep.blurbs ?? []).some((b) => b.i === s.i)).length;
   return (
-    <div className="cf-watch-pane cf-cr">
-      <div className="cf-cr-head">
-        <button className="cf-cr-nav" onClick={() => go(c - 1)} disabled={c === 0} aria-label="Chapter before">
+    <div className="cf-over" role="dialog" aria-label={`Line ${i + 1}`}>
+      <div className="cf-over-top">
+        <button className="cf-close" onClick={onClose} aria-label="Back to the script">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        <p className="cf-over-title">
+          <small>
+            {clock(line.s)} · line {fmt(i + 1)}
+          </small>
+        </p>
+        <button className="cf-lp-step" onClick={() => onMove(i - 1)} disabled={i === 0} aria-label="Line before">
           ‹
         </button>
-        <div className="cf-cr-title">
-          <small>
-            Chapter {c + 1} of {ep.scenes.length} · {minutes} min{plan.done ? " · ✓ done" : ""}
-          </small>
-          <b className="cf-zh">{sc.title}</b>
-        </div>
-        <button className="cf-cr-nav" onClick={() => go(c + 1)} disabled={c === ep.scenes.length - 1} aria-label="Chapter after">
+        <button className="cf-lp-step" onClick={() => onMove(i + 1)} disabled={i >= ep.lines.length - 1} aria-label="Line after">
           ›
         </button>
       </div>
-      <ol className="cf-cr-steps" aria-label="Steps">
-        {CHAPTER_STEPS.map(([k, label], n) => (
-          <li key={k} className={n < at ? "is-past" : n === at ? "is-on" : ""}>
-            <button onClick={() => setStep(k)}>{label}</button>
-          </li>
-        ))}
-      </ol>
-      {error && <p className="cf-error">{error}</p>}
-      {step === "walk" && (
-        <section className="cf-cr-body">
-          {sc.summary && <ChapterSummary sc={sc} />}
-          {stops.length ? (
-            <>
-              <p className="cf-walk-intro">
-                <b>{fmt(stops.length)}</b> {stops.length === 1 ? "line" : "lines"} to walk through
-                {plan.words.length > 0 && (
-                  <>
-                    {" · "}
-                    <b>{fmt(plan.words.length)}</b> key {plan.words.length === 1 ? "word" : "words"}
-                  </>
-                )}
-                {marked > 0 && (
-                  <>
-                    {" · "}
-                    <b>{fmt(marked)}</b> with Muse's notes
-                  </>
-                )}
-              </p>
-              <p className="cf-muted cf-walk-sub">Each heard from the video, the key words blanked to listen for first.</p>
-              <div className="cf-pr-starts">
-                <button className="cf-btn" onClick={() => setStep("walking")}>
-                  Walk through it
-                </button>
-                <button className="cf-link" onClick={() => setStep("watch")}>
-                  Skip to watching ›
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="cf-muted">Nothing hard in this one.</p>
-              <div className="cf-pr-starts">
-                <button className="cf-btn" onClick={() => setStep("watch")}>
-                  Watch it ›
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-      )}
-      {step === "watch" && (
-        <section className="cf-cr-body">
-          <ChapterWatch ep={ep} c={c} subs={subs} onSubs={setSubs} />
-          <div className="cf-pr-starts">
-            <button className="cf-btn" onClick={() => setStep("check")}>
-              {ep.video ? "Watched it ›" : "Read it ›"}
-            </button>
-          </div>
-        </section>
-      )}
-      {step === "check" && (
-        <ChapterCheck
-          key={c}
-          ep={ep}
-          c={c}
-          canWrite={canWrite}
-          onDone={() => {
-            setStep("done");
-            if (!canWrite) return;
-            send("episodes", { id: ep.id, chapter: c, done: true })
-              .then(onChanged)
-              .catch((e) => setError(message(e)));
-          }}
-        />
-      )}
-      {step === "done" && (
-        <section className="cf-cr-body cf-cr-done">
-          <p className="cf-ep-big">
-            ✓ <small>Chapter {c + 1} done · {pct(sc.known)} known</small>
-          </p>
-          <div className="cf-pr-starts">
-            {c + 1 < ep.scenes.length && (
-              <button className="cf-btn" onClick={() => go(c + 1)}>
-                Next chapter · <span className="cf-zh">{ep.scenes[c + 1].title}</span>
-              </button>
-            )}
-            <button
-              className="cf-link"
-              onClick={() => {
-                setSubs(false);
-                setStep("watch");
-              }}
-            >
-              Rewatch without subtitles
-            </button>
-          </div>
-        </section>
-      )}
-      <button className="cf-link cf-cr-whole" onClick={onWhole}>
-        Whole episode · {fmt(ep.plan.keep.length + ep.plan.show.length)} words, listening
-      </button>
-    </div>
-  );
-}
-
-function ChapterSummary({ sc }: { sc: Episode["scenes"][number] }) {
-  const [en, setEn] = useState(false);
-  return (
-    <div className="cf-cr-summary">
-      <p className="cf-zh">{sc.summary}</p>
-      {sc.summaryEn &&
-        (en ? (
-          <p className="cf-muted">{sc.summaryEn}</p>
-        ) : (
-          <button className="cf-link" onClick={() => setEn(true)}>
-            English
-          </button>
-        ))}
-    </div>
-  );
-}
-
-/**
- * One chapter to watch: its stretch of the video (YouTube's start and end,
- * so it stops at the chapter's end), its lines lit as they are said, the
- * English under each blurred until tapped, or all hidden to watch without
- * subtitles; with no video, its lines to read, each
- * said aloud on a tap.
- */
-/** How far below the top of the lines the line being said is kept (px): the one before it still in view. */
-const SAYING_ROOM = 56;
-
-function ChapterWatch({ ep, c, subs, onSubs }: { ep: Episode; c: number; subs: boolean; onSubs: (on: boolean) => void }) {
-  const sc = ep.scenes[c];
-  const span = spans(ep)[c];
-  const host = useRef<HTMLDivElement>(null);
-  const player = useRef<YTPlayer | null>(null);
-  const rate = useSpeed(player);
-  const ready = useRef(rate.apply);
-  ready.current = rate.apply;
-  const [saying, setSaying] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const list = useRef<HTMLOListElement>(null);
-  const from = Math.max(0, Math.floor((span.from + ep.offset) / 1000));
-  const to = Math.ceil((span.to + ep.offset) / 1000);
-  useEffect(() => {
-    if (!ep.video || !host.current) return;
-    let gone = false;
-    let tick: ReturnType<typeof setInterval> | undefined;
-    const el = document.createElement("div");
-    host.current.appendChild(el);
-    loadYouTube()
-      .then((YT) => {
-        if (gone) return;
-        player.current = new YT.Player(el, {
-          videoId: ep.video,
-          width: "100%",
-          height: "100%",
-          playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0, start: from, end: to },
-          events: { onReady: () => ready.current(), onError: () => setError("YouTube won't play this video here.") },
-        });
-        tick = setInterval(() => {
-          const p = player.current;
-          if (!p?.getCurrentTime || p.getPlayerState?.() !== 1) return;
-          const t = p.getCurrentTime() * 1000 - ep.offset;
-          const i = lineAt(ep, t);
-          if (i >= sc.start && i < sc.end) setSaying(i);
-        }, VIDEO_TICK);
-      })
-      .catch((e) => setError(message(e)));
-    return () => {
-      gone = true;
-      if (tick) clearInterval(tick);
-      player.current?.destroy?.();
-      player.current = null;
-      el.remove();
-    };
-  }, [ep, sc, from, to]);
-  // The line being said near the top of the lines (the owner's ask; "nearest" left it at the foot), the page itself not moved.
-  useEffect(() => {
-    const box = list.current;
-    const row = saying === null ? null : box?.querySelector<HTMLElement>(`[data-cl="${saying}"]`);
-    if (!box || !row) return;
-    box.scrollTo({ top: Math.max(0, topIn(box, row) - SAYING_ROOM), behavior: "smooth" });
-  }, [saying]);
-  const openLine = useContext(OpenLine);
-  return (
-    <div className="cf-cw">
-      {ep.video && <div className="cf-wv-frame cf-cw-frame" ref={host} />}
-      {error && <p className="cf-error">{error}</p>}
-      <div className="cf-cw-bar">
-        {ep.video && (
-          <button className="cf-link" onClick={() => player.current?.seekTo(from, true)}>
-            ↺ From the start
-          </button>
-        )}
-        <span className="cf-wv-gap" />
-        {ep.video && <SpeedButton speed={rate.speed} onNext={rate.next} />}
-        <button className={`cf-ep-entoggle${subs ? " is-on" : ""}`} onClick={() => onSubs(!subs)} aria-pressed={subs}>
-          Subtitles
-        </button>
-      </div>
-      <ol className={`cf-cw-lines${subs ? "" : " is-hidden"}`} ref={list}>
-        {ep.lines.slice(sc.start, sc.end).map((l, k) => {
-          const i = sc.start + k;
-          return (
-            <li key={i} data-cl={i} className={saying === i ? "is-saying" : ""}>
-              <div className="cf-cw-row">
-                <button
-                  className="cf-cw-line"
-                  onClick={() => (ep.video ? player.current?.seekTo(Math.max(0, (l.s + ep.offset) / 1000), true) : say(l.zh))}
-                >
-                  <span className="cf-zh">{l.zh}</span>
-                </button>
-                {openLine && (
-                  <button
-                    className="cf-cw-open"
-                    onClick={() => {
-                      player.current?.pauseVideo?.();
-                      openLine(i);
-                    }}
-                    aria-label="Open the line"
-                  >
-                    ›
-                  </button>
-                )}
-              </div>
-              {/* The English blurred, as in the script with English off: a tap shows it (the owner asked). */}
-              {l.en && <EnglishLine en={l.en} english={false} />}
-            </li>
-          );
-        })}
-      </ol>
-    </div>
-  );
-}
-
-/** After a chapter: a few of its lines heard first (Again brings one back at the end), then retold in Chinese, graded; Finish marks it done. */
-function ChapterCheck({ ep, c, canWrite, onDone }: { ep: Episode; c: number; canWrite: boolean; onDone: () => void }) {
-  const plan = ep.plan.chapters[c];
-  const sc = ep.scenes[c];
-  const [queue, setQueue] = useState<number[]>(plan.listen);
-  const [shown, setShown] = useState(false);
-  const i = queue[0];
-  return (
-    <section className="cf-cr-body">
-      {i !== undefined ? (
-        <div className="cf-cc-listen">
-          <p className="cf-muted">
-            Listen · {fmt(plan.listen.length - queue.length + 1)} of {fmt(plan.listen.length)}
-          </p>
-          {/* Heard from the video itself (the owner: no made-up voice when the show is right there). */}
-          <LineClip ep={ep} i={i} />
-          <div className="cf-pr-card cf-cc-card">
-            {!shown ? (
-              <div className="cf-pr-front">
-                <p className="cf-muted">What did they say?</p>
-              </div>
-            ) : (
-              <div className="cf-pr-back">
-                <p className="cf-pr-line cf-zh">
-                  <LineLink i={i}>{ep.lines[i].zh}</LineLink>
-                </p>
-                {ep.lines[i].en && <p className="cf-lp-en">{ep.lines[i].en}</p>}
-              </div>
-            )}
-          </div>
-          <div className="cf-pr-buttons">
-            {!shown ? (
-              <button className="cf-btn" onClick={() => setShown(true)}>
-                Show
-              </button>
-            ) : (
-              <>
-                <button
-                  className="cf-btn cf-btn-ghost"
-                  onClick={() => {
-                    setShown(false);
-                    setQueue(queue.length > 1 ? [...queue.slice(1), i] : queue.slice(1));
-                  }}
-                >
-                  Again
-                </button>
-                <button
-                  className="cf-btn"
-                  onClick={() => {
-                    setShown(false);
-                    setQueue(queue.slice(1));
-                  }}
-                >
-                  Got it
-                </button>
-              </>
-            )}
-          </div>
+      <div className="cf-walk">
+        <LineClip ep={ep} i={i} />
+        <div className="cf-walk-card">
+          <StopCard ep={ep} i={i} words={words} keeps={keeps} canWrite={canWrite} />
+          {added.size > 0 && <p className="cf-muted cf-walk-added">✓ Added {[...added].join("、")}: first review tomorrow.</p>}
         </div>
-      ) : (
-        <>
-          <h3 className="cf-cc-h">Retell it</h3>
-          <Question
-            question={sc.question ?? CHAPTER_QUESTION}
-            q={0}
-            initial={plan.retells}
-            canWrite={canWrite}
-            check={(answer) => send<{ retell: Retell }>("episodes", { id: ep.id, chapter: c, answer }).then((r) => r.retell)}
-          />
-          <div className="cf-pr-starts">
-            <button className="cf-btn" onClick={onDone}>
-              Finish chapter ✓
+        {error && <p className="cf-error">{error}</p>}
+        <div className="cf-pr-buttons">
+          {toAdd.length > 0 && (
+            <button className="cf-btn cf-btn-ghost" disabled={busy} onClick={() => void add()}>
+              {busy ? "Adding…" : `Add ${fmt(toAdd.length)} to deck`}
             </button>
-          </div>
-        </>
-      )}
-    </section>
+          )}
+          <button className="cf-btn" onClick={() => (i < ep.lines.length - 1 ? onMove(i + 1) : onClose())}>
+            {i < ep.lines.length - 1 ? "Next line ›" : "Done"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-type Tab = "script" | "practice" | "words";
+type Tab = "script" | "words";
 
 /**
  * An episode as one screen, like an app: a bar on top (close, the episode,
@@ -2447,10 +1388,12 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("script");
   const [scene, setScene] = useState(0);
-  const [line, setLine] = useState<{ i: number; word: string | null } | null>(null);
+  // A line laid open (LineView), or a chapter being walked (ChapterWalk), over the script.
+  const [line, setLine] = useState<number | null>(null);
+  const [walk, setWalk] = useState<number | null>(null);
   const [nice, setNice] = useState(false);
   const script = useRef<HTMLDivElement>(null);
-  const cache = useRef(new Map<number, LineWordInfo[]>());
+  const keeps = useKeeps(id);
   // The video, when the episode has one: the line being said, and whether the script follows it.
   const video = useRef<VideoControl | null>(null);
   const [saying, setSaying] = useState<number | null>(null);
@@ -2480,13 +1423,18 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       .then((r) => setEp(r.episode))
       .catch((e) => setError(message(e)));
   }, [id]);
-  // Back from Practice or Words comes to the Script; from an open line, closes it.
+  const reload = () =>
+    get<{ episode: Episode }>("episodes", { id })
+      .then((r) => setEp(r.episode))
+      .catch((e) => setError(message(e)));
+  // Back from Words comes to the Script; from an open line or a walk, closes it.
   useBackLayer(tab !== "script", () => setTab("script"));
   useBackLayer(line !== null, () => setLine(null));
-  // Opening a line to study it pauses the video.
+  useBackLayer(walk !== null, () => setWalk(null));
+  // Opening a line or a walk pauses the video.
   useEffect(() => {
-    if (line) video.current?.pause();
-  }, [line]);
+    if (line !== null || walk !== null) video.current?.pause();
+  }, [line, walk]);
 
   const must = useMemo(() => new Set((ep?.words ?? []).filter((w) => w.tier === "must" && !w.inDeck).map((w) => w.word)), [ep]);
   const grades = useMemo(() => (ep ? ep.lines.map((l) => gradeOf(l.tokens)) : []), [ep]);
@@ -2581,7 +1529,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   };
   const toLine = (i: number) => {
     if (!ep || i < 0 || i >= ep.lines.length) return;
-    setLine({ i, word: null });
+    setLine(i);
     const row = script.current?.querySelector<HTMLElement>(`[data-line="${i}"]`);
     if (row && script.current) script.current.scrollTo({ top: Math.max(0, topIn(script.current, row) - 80), behavior: "smooth" });
   };
@@ -2589,6 +1537,8 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const mustWords = ep?.words.filter((w) => w.tier === "must") ?? [];
   const niceWords = ep?.words.filter((w) => w.tier === "nice") ?? [];
   const times = ep ? spans(ep) : [];
+  // How many lines each chapter's walk stops at.
+  const stopCounts = useMemo(() => (ep ? ep.scenes.map((_, c) => walkStops(ep, c).length) : []), [ep]);
   return (
     <div className="cf-watch">
       <div className="cf-watch-top">
@@ -2617,7 +1567,6 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
           {(
             [
               ["script", "Script"],
-              ["practice", `Practice${ep.plan.keep.length + ep.plan.show.length ? ` · ${ep.plan.keep.length + ep.plan.show.length}` : ""}`],
               ["words", "Words"],
             ] as Array<[Tab, string]>
           ).map(([k, label]) => (
@@ -2671,7 +1620,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             </div>
             {ep.scenes.map((sc, c) => (
               <section key={c} className="cf-watch-ch" data-ch={c}>
-                <SceneHead sc={sc} n={c} from={times[c].from} english={english} />
+                <SceneHead sc={sc} n={c} from={times[c].from} english={english} stops={stopCounts[c] ?? 0} onWalk={() => setWalk(c)} />
                 <ol className="cf-watch-lines">
                   {ep.lines.slice(sc.start, sc.end).map((l, k) => {
                     const i = sc.start + k;
@@ -2681,8 +1630,8 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                       <li
                         key={i}
                         data-line={i}
-                        className={`cf-wl is-${grades[i]}${line?.i === i ? " is-on" : ""}${marked ? " has-note" : ""}${saying === i ? " is-saying" : ""}`}
-                        onClick={() => setLine({ i, word: null })}
+                        className={`cf-wl is-${grades[i]}${line === i ? " is-on" : ""}${marked ? " has-note" : ""}${saying === i ? " is-saying" : ""}`}
+                        onClick={() => setLine(i)}
                       >
                         {ep.video ? (
                           <button
@@ -2703,7 +1652,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
                           </span>
                         )}
                         <span className="cf-wl-text">
-                          <LineText line={l} note={note} trouble={ep.trouble} must={must} onWord={(w) => setLine({ i, word: w })} />
+                          <LineText line={l} note={note} trouble={ep.trouble} must={must} onWord={() => setLine(i)} />
                           {l.en && <EnglishLine en={l.en} english={english} />}
                         </span>
                       </li>
@@ -2714,22 +1663,6 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             ))}
           </div>
         </>
-      )}
-      {ep && tab === "practice" && (
-        <OpenLine.Provider value={(i) => setLine({ i, word: null })}>
-        <Practice
-          ep={ep}
-          canWrite={canWrite}
-          onAnswered={(i, result) =>
-            setEp((e) => (e ? { ...e, deck: e.deck.map((c) => (c.i === i ? { ...c, result, tries: c.tries + 1 } : c)) } : e))
-          }
-          onLearnt={() =>
-            get<{ episode: Episode }>("episodes", { id })
-              .then((r) => setEp(r.episode))
-              .catch((e) => setError(message(e)))
-          }
-        />
-        </OpenLine.Provider>
       )}
       {ep && tab === "words" && (
         <div className="cf-watch-pane">
@@ -2775,16 +1708,19 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
           )}
         </div>
       )}
-      {ep && (tab === "script" || tab === "practice") && line && (
-        <LinePanel
+      {ep && line !== null && (
+        <LineView ep={ep} i={line} keeps={keeps} canWrite={canWrite} onMove={toLine} onAdded={reload} onClose={() => setLine(null)} />
+      )}
+      {ep && walk !== null && (
+        <ChapterWalk
           ep={ep}
-          i={line.i}
-          focus={line.word}
-          must={must}
-          cache={cache.current}
-          onMove={tab === "script" ? toLine : (i) => i >= 0 && i < ep.lines.length && setLine({ i, word: null })}
-          onFocus={(w) => setLine({ i: line.i, word: w })}
-          onClose={() => setLine(null)}
+          c={walk}
+          keeps={keeps}
+          canWrite={canWrite}
+          onEnd={(learnt) => {
+            setWalk(null);
+            if (learnt) void reload();
+          }}
         />
       )}
     </div>
@@ -2792,13 +1728,40 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
 }
 
 /** A chapter's heading in the script: when, what, and what happens (folded to two lines until tapped). */
-function SceneHead({ sc, n, from, english }: { sc: Episode["scenes"][number]; n: number; from: number; english: boolean }) {
+function SceneHead({
+  sc,
+  n,
+  from,
+  english,
+  stops,
+  onWalk,
+}: {
+  sc: Episode["scenes"][number];
+  n: number;
+  from: number;
+  english: boolean;
+  stops: number;
+  onWalk: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <header className="cf-watch-head">
       <p className="cf-watch-head-at">
         Chapter {n + 1} · {clock(from)} · {pct(sc.known)} known
       </p>
+      {/* Walk this chapter: its hard lines one at a time, heard from the video (the owner wanted it an icon). */}
+      {stops > 0 && (
+        <button className="cf-walk-icon" onClick={onWalk} aria-label={`Walk this chapter: ${stops} lines`} title={`Walk this chapter · ${stops} lines`}>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            {/* Two footprints, a step apart. */}
+            <ellipse cx="8.5" cy="15" rx="2.4" ry="3.4" fill="currentColor" />
+            <circle cx="8.5" cy="9.6" r="1.2" fill="currentColor" />
+            <ellipse cx="15.5" cy="10.5" rx="2.4" ry="3.4" fill="currentColor" opacity="0.55" />
+            <circle cx="15.5" cy="5.1" r="1.2" fill="currentColor" opacity="0.55" />
+          </svg>
+          <small>{fmt(stops)}</small>
+        </button>
+      )}
       <h3 className="cf-zh">{sc.title}</h3>
       {english && sc.titleEn && sc.titleEn !== sc.title && <p className="cf-watch-head-en">{sc.titleEn}</p>}
       {(sc.summary || sc.notes.length > 0) && (
