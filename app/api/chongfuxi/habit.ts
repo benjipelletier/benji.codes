@@ -55,16 +55,30 @@ export async function setAddGoal(sql: Sql, owner: string, goal: number): Promise
 /**
  * Words added on each study day, counting back from today (0 today, 1
  * yesterday…): study days end at the day's cutoff, so the days follow the
- * owner's rollover wherever they are.
+ * owner's rollover wherever they are. A word from Pleco comes in when
+ * AnkiDroid syncs, which can be the next day: it counts on the day its Anki
+ * note was made (the note id is that moment, in ms), not the sync's (the
+ * owner saw yesterday's words counted today). Others count when added.
  */
 async function addedByDay(sql: Sql, owner: string, day: StudyDay, days: number): Promise<number[]> {
   const rows = (await sql`
-    select floor((${day.cutoff}::double precision - extract(epoch from a.at) * 1000) / ${DAY_MS})::int as back,
-           sum(jsonb_array_length(a.words))::int as n
-    from chongfuxi_addition a
-    where a.owner_email = ${owner} and a.undone_at is null
-      and a.at > to_timestamp((${day.cutoff}::double precision - ${days * DAY_MS}) / 1000)
-      and a.at <= to_timestamp(${day.cutoff}::double precision / 1000)
+    with added as (
+      select coalesce(
+               (select to_timestamp(min(n.note_id) / 1000.0) from chongfuxi_anki_note n
+                where n.owner_email = a.owner_email and n.addition_id = a.id and n.word = e.value->>'word'),
+               a.at
+             ) as at
+      from chongfuxi_addition a
+      cross join jsonb_array_elements(a.words) e
+      where a.owner_email = ${owner} and a.undone_at is null
+        -- An addition never comes before its words were made, so older ones count for nothing here.
+        and a.at > to_timestamp((${day.cutoff}::double precision - ${days * DAY_MS}) / 1000)
+    )
+    select floor((${day.cutoff}::double precision - extract(epoch from at) * 1000) / ${DAY_MS})::int as back,
+           count(*)::int as n
+    from added
+    where at > to_timestamp((${day.cutoff}::double precision - ${days * DAY_MS}) / 1000)
+      and at <= to_timestamp(${day.cutoff}::double precision / 1000)
     group by 1
   `) as unknown as Array<{ back: number; n: number }>;
   const out = Array.from({ length: days }, () => 0);

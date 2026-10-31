@@ -1401,7 +1401,10 @@ the design was silent and are still to be confirmed.
   `chongfuxi_add_goal`, made on first use; 5 to start, 1 to
   `ADD_GOAL_TOP`, set by POST `habit` `{ goal }`, owner only). Words count
   however they came in, from every addition (`chongfuxi_addition`, less
-  those undone), by study day (the day's cutoff). GET `habit` gives the
+  those undone), by study day (the day's cutoff). A word from Pleco counts
+  on the day its Anki note was made (`note_id` is that moment), not the
+  day AnkiDroid synced it: the owner saw 15 / 10 today with yesterday's
+  Pleco words in it, synced that morning. GET `habit` gives the
   goal, today's count, the streak (days that met the goal back from
   yesterday, today joining once met; over the last year) and the week,
   oldest first, plus `listBlockers`' learn-next words as suggestions. On
