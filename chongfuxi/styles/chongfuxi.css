@@ -1921,11 +1921,6 @@ label.cf-kind {
     min-height: 52px;
     padding: 6px 16px;
   }
-
-  .cfx .cf-kind.is-fold .cf-kind-main {
-    padding-top: 6px;
-    padding-bottom: 6px;
-  }
 }
 
 @media (max-height: 700px) {
@@ -13274,114 +13269,6 @@ button.cf-how-text {
   border-color: transparent;
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
-}
-
-/* A kind on Today that folds open: the tick on its own, the rest of the row
- * the button that opens it, onto its figures and its daily max. */
-.cfx .cf-kind.is-fold {
-  gap: 0;
-  padding: 0;
-}
-
-.cf-kind-tick {
-  position: relative;
-  flex: none;
-  align-self: stretch;
-  display: grid;
-  place-items: center;
-  padding: 0 12px 0 16px;
-  cursor: pointer;
-}
-
-.cfx .cf-kind-main {
-  flex: 1;
-  min-width: 0;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px 10px 2px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.cf-kind-main > span {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.cf-kind-main > b {
-  font-size: 16px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.cf-kind.is-off .cf-kind-main > span,
-.cf-kind.is-off .cf-kind-main > b {
-  color: var(--cf-ink-faint);
-}
-
-.cf-kind-chev {
-  flex: none;
-  color: var(--cf-ink-faint);
-  transition: transform 0.2s ease;
-}
-
-.is-open .cf-kind-chev {
-  transform: rotate(180deg);
-}
-
-.cf-kind-main:focus-visible {
-  outline: 2px solid var(--cf-accent);
-  outline-offset: -2px;
-}
-
-/* Opened: the max, and what waits. Kept clear of the Start button when
- * scrolled to. */
-.cf-kind-more {
-  padding: 4px 16px 14px 50px;
-  scroll-margin-bottom: 160px;
-  animation: cf-fade 0.15s ease both;
-}
-
-.cf-kind-more.is-read {
-  --cf-kind: var(--cf-read);
-}
-
-.cf-kind-more.is-produce {
-  --cf-kind: var(--cf-recall);
-}
-
-.cf-kind-more.is-sentence {
-  --cf-kind: var(--cf-sentence);
-}
-
-.cf-kind-max {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.cf-kind-max > span:first-child {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  display: flex;
-  flex-direction: column;
-}
-
-.cf-kind-max small {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--cf-ink-soft);
 }
 
 /* − 300 + : a number a step at a time, in place of a drop-down. */

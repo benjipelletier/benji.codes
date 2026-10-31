@@ -158,16 +158,15 @@ const ts = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString
 // ------------------------------------------------------------------ counts --
 
 /**
- * The owner's daily max of first-time cards per kind (the owner: a max a day
- * "instead of us choosing a limit for each of these sections behind the
- * scenes", set on Today): cards never answered here are let in at most this
- * many a study day, counting those first answered that day; the rest wait
- * for the days after. Cards already on a schedule are never held. Null is
- * no limit. Read and Recall count their cards, Sentences its new sentences.
+ * The most first-time cards per kind let in a study day: cards never
+ * answered here come in at most this many, counting those first answered
+ * that day; the rest wait for the days after. Cards already on a schedule
+ * are never held. Null is no limit. Recall's default spreads the backlog the
+ * Pleco seeding left (the owner: "300 a day"). The owner could set these on
+ * Today for a while, then had the control taken out as too much: the max
+ * they last set (`chongfuxi_daily_max`) still holds, else the default.
  */
 export const DAILY_MAX_DEFAULT: DailyMax = { read: null, recall: RECALL_BACKLOG_PER_DAY, sentence: null };
-/** The largest max that can be set. */
-export const DAILY_MAX_TOP = 2000;
 
 let dailyMaxReady = false;
 async function ensureDailyMax(sql: Sql) {
@@ -188,17 +187,6 @@ export async function dailyMax(sql: Sql, owner: string): Promise<DailyMax> {
   await ensureDailyMax(sql);
   const [r] = (await sql`select read, recall, sentence from chongfuxi_daily_max where owner_email = ${owner}`) as unknown as DailyMax[];
   return r ?? DAILY_MAX_DEFAULT;
-}
-
-/** Set one kind's max (null: no limit). Owner only, through route `daily-max`. */
-export async function setDailyMax(sql: Sql, owner: string, kind: DailyKind, max: number | null): Promise<DailyMax> {
-  const value = max === null ? null : Math.max(0, Math.min(DAILY_MAX_TOP, Math.round(max)));
-  const next = { ...(await dailyMax(sql, owner)), [kind]: value };
-  await sql`
-    insert into chongfuxi_daily_max (owner_email, read, recall, sentence) values (${owner}, ${next.read}, ${next.recall}, ${next.sentence})
-    on conflict (owner_email) do update set read = excluded.read, recall = excluded.recall, sentence = excluded.sentence, at = now()
-  `;
-  return next;
 }
 
 /** Cards of each kind first answered on this study day: what counts against the day's max. */

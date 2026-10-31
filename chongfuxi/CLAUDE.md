@@ -1381,36 +1381,29 @@ the design was silent and are still to be confirmed.
   counted (`getSummary`'s `dueRecall` and `dueWords` leave the held ones
   out, `recallWaiting` says how many wait, under Recall on Today), and the
   day strip's forecast puts them on the days after, 300 a day. A list's
-  own review isn't held to it. **Now the owner's own max, per kind** (the
-  owner: "instead of us choosing a limit for each of these sections behind
-  the scenes", with figures rather than sentences, and the max changed from
-  a drop-down, not on the main screen; they chose first-time cards only, on
-  all three rows): `dailyMax` (`chongfuxi_daily_max`, made on first use;
-  read, recall, sentence; null is no limit; Recall 300 by default, the
-  others none), set by POST `daily-max` `{ kind, max }` (owner,
-  `setDailyMax`, 0 to `DAILY_MAX_TOP`). Each kind's cards never answered
-  here (Read cards through Learn, their first answer still to come; Recall
-  cards; new sentences) come in at most that many a study day, less those
-  first answered that day (`firstToday`, `roomFor`; `firstTimeIds` for
-  Read and Recall, the least likely remembered first); cards already on a
-  schedule are never held. Applied in `nextCards`, in Fast review
-  (`fastCards`), in the summary (`dueRead`, `dueRecall`, `dueWords`,
-  `readWaiting`, `recallWaiting`, `newSentencesToday`, with `dailyMax`,
-  `firstToday` and `firstWaiting` for the screen) and in the day strip's
-  forecast (Read and Recall held cards on the days after, the max a day).
-  On Today each row's line is `FirstLine`: a slim meter in the row's colour
-  (first-time cards answered today against the max), "12 / 300 new" and
-  "+2.9k later" in grey for those still to come after today, on one line.
-  Each row folds open (`KindRow`; the owner wanted "the whole row
-  collapsible, with an option to change it once I open it"): the tick box
-  alone takes the kind in or leaves it out, and the rest of the row is a
-  button, a chevron at its end, opening it in place (one at a time,
-  scrolled clear of the Start button) onto "Max new a day" with a stepper (`Stepper` in `components/Habit.tsx`: − 300 +,
-  stepping through 10 to 1,000 then No max, sent half a second after the
-  last tap or on closing). The max was first a native drop-down on each
-  row, then a chip opening a sheet of choices, then one sheet for every
-  kind: the owner disliked the drop-downs and found the chips cluttered,
-  and wanted "+2.9k later" kept on Today. It replaced "2,604 more first
+  own review isn't held to it. **For a while the owner's own max, per
+  kind** (the owner: "instead of us choosing a limit for each of these
+  sections behind the scenes"; they chose first-time cards only, on all
+  three rows), set on Today, first from a native drop-down, then a chip
+  opening a sheet of choices, then rows that folded open onto a − / +
+  stepper; the owner then had the control taken out as too much. What
+  stays: `dailyMax`, the max last set (`chongfuxi_daily_max`; the owner's
+  Recall was 200 then), else `DAILY_MAX_DEFAULT` (Recall 300, Read and
+  Sentences no limit); the `daily-max` route that set it is gone, so it
+  changes only in the database. Each kind's cards never
+  answered here (Read cards through Learn, their first answer still to
+  come; Recall cards; new sentences) come in at most that many a study
+  day, less those first answered that day (`firstToday`, `roomFor`;
+  `firstTimeIds` for Read and Recall, the least likely remembered first);
+  cards already on a schedule are never held. Applied in `nextCards`, in
+  Fast review (`fastCards`), in the summary (`dueRead`, `dueRecall`,
+  `dueWords`, `readWaiting`, `recallWaiting`, `newSentencesToday`, with
+  `dailyMax`, `firstToday` and `firstWaiting` for the screen) and in the
+  day strip's forecast. On Today each row is a plain tick row (`KindRow`)
+  whose line is `FirstLine`: a slim meter in the row's colour (first-time
+  cards answered today against the max, where there is one), "12 / 300
+  new" and "+2.9k later" in grey for those still to come after today, on
+  one line (the owner wanted "+2.9k later" kept). It replaced "2,604 more first
   ones wait for the days after (300 a day)" and the rows' one-line
   descriptions. New Recall cards opened by a first Got it on
   Read count against it too. Fast review goes the other way: best known
@@ -1432,7 +1425,7 @@ the design was silent and are still to be confirmed.
   filling to green with a tick once met, "Added 2 / 5 ›"), so it costs the
   screen no height; it is the owner's only. It opens `HabitSheet`: today
   large with the streak, the week as bars against a dashed goal line
-  (green when met), the goal as a stepper (1 to 50), and "Worth adding next": words on the
+  (green when met), the goal as a stepper (`Stepper` in `components/Habit.tsx`, − 5 +, 1 to 50, sent half a second after the last tap), and "Worth adding next": words on the
   owner's lists that each keep sentences locked, with "+N" sentences, the
   word opening its page and "+ Add" adding it there (POST `word`
   `{ action: "add" }`), which refreshes the counts.

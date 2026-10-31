@@ -28,7 +28,7 @@ import type { Definition } from "@chongfuxi/lib/dict";
 import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
-import { HabitPill, Stepper } from "./Habit";
+import { HabitPill } from "./Habit";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
@@ -272,10 +272,6 @@ export function ReviewPanel({ shell, onImport }: { shell: Shell; onImport: () =>
   );
 }
 
-/** The steps a kind's daily max goes through, smallest first; null, no limit, is past the last. */
-const MAX_STEPS: Array<number | null> = [10, 20, 50, 100, 200, 300, 500, 1000, null];
-const maxLabel = (n: number | null) => (n === null ? "No max" : fmt(n));
-
 /**
  * Under a kind on Today, one quiet line (the owner wanted figures, not
  * sentences): a slim meter of its first-time cards answered today against the
@@ -304,12 +300,7 @@ function FirstLine({ kind, s }: { kind: DailyKind; s: Summary }) {
   );
 }
 
-/**
- * A kind on Today: the tick takes it in or leaves it out; the rest of the row
- * folds open (the owner wanted the row collapsible, with the max changed once
- * open, rather than any drop-down), onto the daily max as a stepper and how
- * many first-time cards wait.
- */
+/** A kind on Today: the row is the choice to take it in or leave it out, its first-time figures under its name. */
 function KindRow({
   kind,
   name,
@@ -318,9 +309,6 @@ function KindRow({
   onTick,
   due,
   s,
-  shell,
-  open,
-  onToggle,
 }: {
   kind: DailyKind;
   name: string;
@@ -329,58 +317,18 @@ function KindRow({
   onTick: (on: boolean) => void;
   due: number;
   s: Summary;
-  shell: Shell;
-  open: boolean;
-  onToggle: () => void;
 }) {
-  const max = s.dailyMax?.[kind] ?? null;
-  const done = s.firstToday?.[kind] ?? 0;
-  const all = s.firstWaiting?.[kind] ?? 0;
-  const later = Math.max(0, all - (max === null ? all : Math.max(0, max - done)));
-  // Opened, brought into view above the Start button.
-  const more = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (open) more.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [open]);
   return (
-    <li className={open ? "is-open" : undefined}>
-      <div className={`cf-kind is-fold ${className}${on ? "" : " is-off"}`}>
-        <label className="cf-kind-tick">
-          <input type="checkbox" checked={on} aria-label={`Include ${name.toLowerCase()}`} onChange={(e) => onTick(e.target.checked)} />
-          <i className="cf-tick" />
-        </label>
-        <button type="button" className="cf-kind-main" aria-expanded={open} onClick={onToggle}>
-          <span>
-            {name}
-            <FirstLine kind={kind} s={s} />
-          </span>
-          <b>{fmt(due)}</b>
-          <svg className="cf-kind-chev" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true">
-            <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </div>
-      {open && (
-        <div className={`cf-kind-more ${className}`} ref={more}>
-          <div className="cf-kind-max">
-            <span>
-              Max new a day
-              <small>First-time cards only</small>
-            </span>
-            {shell.canWrite ? (
-              <Stepper
-                name={`${name}: new a day, at most`}
-                steps={MAX_STEPS}
-                value={max}
-                label={maxLabel}
-                onChange={(value) => void send("daily-max", { kind, max: value }).then(shell.refresh)}
-              />
-            ) : (
-              <b>{maxLabel(max)}</b>
-            )}
-          </div>
-        </div>
-      )}
+    <li>
+      <label className={`cf-kind ${className}${on ? "" : " is-off"}`}>
+        <input type="checkbox" checked={on} onChange={(e) => onTick(e.target.checked)} />
+        <i className="cf-tick" />
+        <span>
+          {name}
+          <FirstLine kind={kind} s={s} />
+        </span>
+        <b>{fmt(due)}</b>
+      </label>
     </li>
   );
 }
@@ -402,8 +350,6 @@ function Today({
   onImport: () => void;
 }) {
   const { summary: s, canWrite } = shell;
-  // The kind folded open, to see its figures and change its max.
-  const [opened, setOpened] = useState<DailyKind | null>(null);
   if (!s) return null;
   // A Fast review left part way through today, to carry on.
   const keptFast = resume.load()?.marked ? resume.load() : null;
@@ -481,9 +427,6 @@ function Today({
             onTick={(on) => onChoose({ ...kinds, [choice]: on })}
             due={due}
             s={s}
-            shell={shell}
-            open={opened === kind}
-            onToggle={() => setOpened((o) => (o === kind ? null : kind))}
           />
         ))}
         {/* New words wait out of the review until they have been learned with sentences: in the session, a step every fifth card. */}
