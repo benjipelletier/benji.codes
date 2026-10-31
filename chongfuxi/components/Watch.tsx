@@ -1881,7 +1881,6 @@ function ChapterWalk({
   const [done, setDone] = useState({ kept: 0, show: 0, lines: 0 });
   const [error, setError] = useState<string | null>(null);
   const learnt = useRef(new Set<string>());
-  const openLine = useContext(OpenLine);
   const must = useMemo(() => new Set(ep.words.filter((w) => w.tier === "must").map((w) => w.word)), [ep.words]);
   const k = queue[0];
   if (k === undefined)
@@ -1909,14 +1908,28 @@ function ChapterWalk({
   const note = ep.notes.find((n) => n.i === s.i);
   const blurb = (ep.blurbs ?? []).find((b) => b.i === s.i);
   const listening = s.words.length > 0 && !shown;
+  // Every new word in the line, the key words first (the owner wanted the
+  // choice to add any of them): the others have no plan behind them, so they
+  // start unticked and are only learnt when ticked for the deck.
+  const extra: PlanWord[] = [];
+  for (const tk of line.tokens) {
+    const w = tk.t;
+    if (tk.k !== "unknown" || ep.names.includes(w) || s.words.some((k) => k.word === w) || extra.some((k) => k.word === w)) continue;
+    const look = ep.looks[w];
+    extra.push({ word: w, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, note: null, must: false, count: 0, unlocks: 0, keepWhy: null, lines: [s.i] });
+  }
+  const words = [...s.words, ...extra];
+  const untick = words.filter((w) => !keeps.of(w));
   const next = (got: boolean) => {
     const rest = queue.slice(1);
     if (got) {
       setDone((d) => ({ ...d, lines: d.lines + 1 }));
-      for (const w of s.words) {
+      for (const w of words) {
         if (learnt.current.has(w.word) || !canWrite) continue;
-        learnt.current.add(w.word);
         const keep = keeps.of(w);
+        // A word that isn't a key word goes nowhere unless ticked for the deck.
+        if (!keep && !s.words.includes(w)) continue;
+        learnt.current.add(w.word);
         setDone((d) => (keep ? { ...d, kept: d.kept + 1 } : { ...d, show: d.show + 1 }));
         send("episodes", { id: ep.id, learnt: w.word, keep, day: studyDay() }).catch((e) => setError(message(e)));
       }
@@ -1954,12 +1967,22 @@ function ChapterWalk({
         ) : (
           <>
             <p className="cf-walk-line">
-              <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={() => openLine?.(s.i)} />
+              <LineText line={line} note={note} trouble={ep.trouble} must={must} onWord={(w) => wordpage.openWordPage(w)} />
             </p>
             {line.en && <EnglishLine en={line.en} english={false} />}
-            {s.words.length > 0 && (
+            {words.length > 0 && (
+              <div className="cf-walk-words-head">
+                <span>{words.length === 1 ? "New word" : `${fmt(words.length)} new words`}</span>
+                {canWrite && words.length > 1 && untick.length > 0 && (
+                  <button className="cf-link" onClick={() => untick.forEach((w) => keeps.set(w.word, true))}>
+                    Add all to deck
+                  </button>
+                )}
+              </div>
+            )}
+            {words.length > 0 && (
               <ul className="cf-stuck-list cf-walk-words">
-                {s.words.map((w) => (
+                {words.map((w) => (
                   <li key={w.word} className="cf-pp-row">
                     <button onClick={() => wordpage.openWordPage(w.word)}>
                       <span className="cf-stuck-zh cf-zh">{w.word}</span>
@@ -1997,7 +2020,7 @@ function ChapterWalk({
               Again later
             </button>
             <button className="cf-btn" onClick={() => next(true)}>
-              {s.words.length ? "Got it" : "Next"}
+              {words.length ? "Got it" : "Next"}
             </button>
           </>
         )}

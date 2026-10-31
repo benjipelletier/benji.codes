@@ -13704,3 +13704,14 @@ button.cf-how-text {
 .cf-cc-card {
   margin-top: 6px;
 }
+/* Over a stop's words: how many are new, and Add all to deck. */
+.cf-walk-words-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 0 -4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cf-ink-soft);
+}

@@ -2196,11 +2196,16 @@ YouTube chapter feature".
     episode's speed; the phone's voice only with no video). A stop with
     key words (`plan.chapters[c].words`, at most `CHAPTER_WORDS` (5))
     first shows the line with them blanked, "Listen for the missing word";
-    Show gives the line with its words marked (a tap opens the line's
-    panel), the English blurred until tapped, the key words with their
-    Deck tick, Muse's study note (`BlurbCard`) and line note (`NoteCard`).
-    Got it learns its key words (into the deck or for the show, as
-    ticked, `learnEpisodeWord`), Again later brings the stop back
+    Show gives the line with its words marked (a tap opens that word's
+    page: it opened the line's panel, which the owner found repeated the
+    stop), the English blurred until tapped, every new word in the line
+    with its Deck tick (the key words first, ticked as the plan suggests;
+    the others, from the line's tokens with `looks` for their reading and
+    meaning, unticked; "N new words · Add all to deck" ticks the lot, the
+    owner's ask), Muse's study note (`BlurbCard`) and line note
+    (`NoteCard`). Got it learns its key words (into the deck or for the
+    show, as ticked) and the other words ticked for the deck
+    (`learnEpisodeWord`), Again later brings the stop back
     `WALK_BACK` (3) stops on; the end says how many went where, "Watch the
     chapter ›". **Watch**
     (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
