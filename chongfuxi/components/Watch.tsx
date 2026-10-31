@@ -1000,10 +1000,8 @@ function LineClip({ ep, i }: { ep: Episode; i: number }) {
     <div className="cf-clip">
       {ep.video && <div className="cf-wv-frame cf-clip-frame" ref={host} />}
       {error && <p className="cf-error">{error}</p>}
+      {/* Again at the right end, big, under the right thumb (the owner's ask). */}
       <div className="cf-clip-bar">
-        <button className="cf-link" onClick={again}>
-          {ep.video ? "↺ Again" : "🔊 Hear it"}
-        </button>
         {ep.video && before && (
           <button className="cf-link" onClick={() => playRef.current(before.s - CLIP_BEFORE, line.e + CLIP_AFTER)}>
             From the line before
@@ -1011,6 +1009,9 @@ function LineClip({ ep, i }: { ep: Episode; i: number }) {
         )}
         <span className="cf-wv-gap" />
         {ep.video && <SpeedButton speed={rate.speed} onNext={rate.next} />}
+        <button className="cf-clip-again" onClick={again}>
+          {ep.video ? "↺ Again" : "🔊 Hear it"}
+        </button>
       </div>
     </div>
   );
@@ -1192,6 +1193,12 @@ function learnWords(ep: Episode, words: PlanWord[], keys: PlanWord[], keeps: Kee
 /** How many stops on a missed one comes back. */
 const WALK_BACK = 3;
 
+/** The list without the first of a value, after the head (a stop put off with Again later). */
+const removeOnce = (list: number[], v: number) => {
+  const at = list.indexOf(v);
+  return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)];
+};
+
 /**
  * Walking through a chapter's hard lines one at a time, each heard from the
  * video (the owner wanted it "more immersive and conducive for learning the
@@ -1206,6 +1213,8 @@ const WALK_BACK = 3;
 function ChapterWalk({ ep, c, keeps, canWrite, onEnd }: { ep: Episode; c: number; keeps: Keeps; canWrite: boolean; onEnd: (learnt: number) => void }) {
   const [stops] = useState(() => walkStops(ep, c));
   const [queue, setQueue] = useState<number[]>(() => stops.map((_, k) => k));
+  // The stops left behind, latest last, to step back through (the owner's ask).
+  const [behind, setBehind] = useState<Array<{ k: number; got: boolean }>>([]);
   const [shown, setShown] = useState(false);
   const [done, setDone] = useState({ kept: 0, show: 0, lines: 0 });
   const [error, setError] = useState<string | null>(null);
@@ -1252,7 +1261,17 @@ function ChapterWalk({ ep, c, keeps, canWrite, onEnd }: { ep: Episode; c: number
   const line = ep.lines[s.i];
   const listening = s.words.length > 0 && !shown;
   const words = lineWords(ep, s.i, s.words);
+  const back = () => {
+    const last = behind[behind.length - 1];
+    if (!last) return;
+    setBehind(behind.slice(0, -1));
+    // It comes back to the front; one put off with Again later leaves its later place.
+    setQueue([last.k, ...(last.got ? queue : removeOnce(queue, last.k))]);
+    if (last.got) setDone((d) => ({ ...d, lines: d.lines - 1 }));
+    setShown(true);
+  };
   const next = (got: boolean) => {
+    setBehind((b) => [...b, { k, got }]);
     const rest = queue.slice(1);
     if (got) {
       setDone((d) => ({ ...d, lines: d.lines + 1 }));
@@ -1275,6 +1294,11 @@ function ChapterWalk({ ep, c, keeps, canWrite, onEnd }: { ep: Episode; c: number
           <span style={{ width: pct(passed / Math.max(1, stops.length)) }} />
         </div>
         <p className="cf-pr-top">
+          {behind.length > 0 && (
+            <button className="cf-link cf-walk-back" onClick={back} aria-label="Back a line">
+              ‹ Back
+            </button>
+          )}
           <span className="cf-walk-at">
             {fmt(Math.min(passed + 1, stops.length))} of {fmt(stops.length)} · {clock(line.s)}
           </span>

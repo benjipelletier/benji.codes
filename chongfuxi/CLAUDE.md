@@ -2185,8 +2185,12 @@ YouTube chapter feature".
     `CHAPTER_WORDS` (5)), a trouble word, or two or more new words). Each
     stop plays the line from the video (`LineClip`: from `CLIP_BEFORE`
     (400 ms) before it to `CLIP_AFTER` (300 ms) after, then paused,
-    however it was started; ↺ Again, "From the line before" for its
-    lead-in, the episode's speed; the phone's voice only with no video).
+    however it was started; "From the line before" for its lead-in, the
+    episode's speed, and ↺ Again last, a large filled pill at the right
+    end, under the right thumb (the owner's ask); the phone's voice only
+    with no video). "‹ Back" by the count steps back to the stop before
+    (the owner's ask), shown laid open; one put off with Again later
+    leaves its later place.
     A stop with key words first shows the line with them blanked, "Listen
     for the missing word"; Show lays it open as `StopCard` does for any
     line. Got it learns its key words (into the deck or for the show, as
