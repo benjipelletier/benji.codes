@@ -1099,15 +1099,19 @@ function planWords(ep: Episode): Map<string, PlanWord> {
 }
 
 /**
- * Every new word in a line, its key words first (the owner wanted the choice
- * to add any of them): the others have no plan behind them, so they start
+ * Every word in a line not in the deck, its key words first (the owner wanted
+ * the choice to add any of them): new ones, and longer words that read as
+ * known through their parts or were prepped for the show (摇号 from 摇 + 号,
+ * which the owner missed). The others have no plan behind them, so they start
  * unticked for the deck, their reading and meaning from the episode's looks.
  */
 function lineWords(ep: Episode, i: number, keys: PlanWord[]): PlanWord[] {
+  const outside = new Set(ep.outside ?? []);
   const extra: PlanWord[] = [];
   for (const tk of ep.lines[i].tokens) {
     const w = tk.t;
-    if (tk.k !== "unknown" || ep.names.includes(w) || keys.some((k) => k.word === w) || extra.some((k) => k.word === w)) continue;
+    if (!tk.k || (tk.k !== "unknown" && !outside.has(w))) continue;
+    if (ep.names.includes(w) || ep.cast?.some((c) => c.name === w) || keys.some((k) => k.word === w) || extra.some((k) => k.word === w)) continue;
     const look = ep.looks[w];
     extra.push({ word: w, pinyin: look?.p ?? null, gloss: look?.gloss ?? null, note: null, must: false, count: 0, unlocks: 0, keepWhy: null, lines: [i] });
   }

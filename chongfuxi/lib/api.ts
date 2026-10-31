@@ -1474,6 +1474,8 @@ export interface EpisodeView extends EpisodeListed {
   /** The same, a point per study day it was measured (opened, or the list read), oldest first. */
   progress: EpisodeProgress[];
   looks: Record<string, { p: string; gloss: string | null } | null>;
+  /** Its words of two or more characters that aren't deck words, though they may read as known (摇号 through 摇 + 号). */
+  outside?: string[];
   /** The Muse list its must-know words are filed under, for Learn and Review. */
   /** Its YouTube video id, to play it with the script following; and video time minus subtitle time (ms). */
   video: string | null;

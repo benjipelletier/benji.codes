@@ -731,6 +731,12 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     : new Set<string>();
   const saidAll = new Map<string, number>();
   for (const line of tokens) for (const t of line) if (t.k) saidAll.set(t.t, (saidAll.get(t.t) ?? 0) + 1);
+  // Words of two or more characters said in it that aren't deck words, known or not (摇号 reads through
+  // 摇 + 号, and a word prepped for the show isn't in the deck): offered to add on a line.
+  const names = new Set(namesOf(prep));
+  const longer = [...saidAll.keys()].filter((w) => [...w].length > 1 && !names.has(w) && a.looks[w]);
+  const owned = await inDeck(sql, owner, longer);
+  const outside = longer.filter((w) => !owned.has(w));
   for (const w of [...rest].reverse()) {
     const entry = dict.lookup(w.word)[0];
     const look = a.looks[w.word] ?? (entry ? { p: entry.p, gloss: entry.senses.slice(0, 2).join("; ") } : null);
@@ -779,6 +785,7 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
       return planOf(sql, owner, r, tokens, unknown, measured, prepped, scenes, progress.done, progress.retells);
     })(),
     looks: a.looks,
+    outside,
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
     video: r.video ?? videoId(r.source ?? ""),
     offset: r.offset_ms,

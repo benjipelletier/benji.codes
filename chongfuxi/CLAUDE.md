@@ -2161,9 +2161,13 @@ YouTube chapter feature".
     closing it, ‹ › a line before or after, the video paused): its clip
     from the video (`LineClip`), then `StopCard`: the line with its words
     marked (a tap on a word opens its page), the English blurred until
-    tapped, every new word in the line (the plan's words first, `planWords`,
-    ticked as the plan suggests; the others from the line's tokens with
-    `looks`, unticked; "N new words · Add all to deck"), Muse's study note
+    tapped, every word in the line not in the deck (the plan's words
+    first, `planWords`, ticked as the plan suggests; the others from the
+    line's tokens with `looks`, unticked: new ones, and words of two or more
+    characters the episode sends as `outside`, not deck words though they
+    read as known through their parts or were prepped for the show, since
+    the owner found 摇号 (摇 + 号) not offered; names left out; "N new words
+    · Add all to deck"), Muse's study note
     (`BlurbCard`) and line note (`NoteCard`). "Add N to deck" sends the
     ticked ones (`learnEpisodeWord`, `keep`) and the episode is fetched
     again; "Next line ›" moves on. It replaced the line panel at the foot
