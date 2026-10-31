@@ -2185,7 +2185,7 @@ YouTube chapter feature".
     video; the line itself still plays from there), a Check line once
     shown, a listening card once shown.
   - **Back steps through it** (the owner asked for better back support):
-    an open line, then a chapter's later step (to Prep), the drill or
+    an open line, then a chapter's later step or its walk (to Walk), the drill or
     listening (to the whole episode), the whole episode (to chapter by
     chapter), then Practice or Words (to the Script), then the episode.
     "Whole episode" did nothing: Practice declared state after an early
@@ -2193,12 +2193,30 @@ YouTube chapter feature".
   - **Practice opens chapter by chapter** (`ChapterRound`; the owner: "more
     bite size… watching this episode chapter by chapter so it's more
     digestible"; they chose all four steps): a short loop per chapter, from
-    the first not done, ‹ › to any other, steps Prep · Watch · Check · Done
-    across the top (each a tap away). **Prep**: what happens (Chinese,
-    English on a tap) and its key words (`plan.chapters[c].words`: ranked
-    as the whole plan is but within the chapter, at most `CHAPTER_WORDS`
-    (5), worth keeping or for the show as there) through the same drill
-    (`PrepDrill`, its end "Watch the chapter ›"). **Watch**
+    the first not done, ‹ › to any other, steps Walk · Watch · Check · Done
+    across the top (each a tap away). **Walk** (`ChapterWalk`; it was Prep,
+    the chapter's key words through the word drill, until the owner asked
+    for something "more immersive and conducive for learning the specific
+    items in context", heard from the video rather than a made-up voice,
+    and "a way to go through the chapter and all the difficulties and
+    Muse's thoughts"): what happens (Chinese, English on a tap), how many
+    lines, key words and Muse's notes, then "Walk through it": the
+    chapter's hard lines one at a time in story order (`walkStops`: a line
+    with Muse's study note or line note, a key word at its first line in
+    the chapter, a trouble word, or two or more new words). Each stop plays
+    the line from the video (`LineClip`: from `CLIP_BEFORE` (400 ms) before
+    it to `CLIP_AFTER` (300 ms) after, then paused, however it was
+    started; ↺ Again, "From the line before" for its lead-in, the
+    episode's speed; the phone's voice only with no video). A stop with
+    key words (`plan.chapters[c].words`, at most `CHAPTER_WORDS` (5))
+    first shows the line with them blanked, "Listen for the missing word";
+    Show gives the line with its words marked (a tap opens the line's
+    panel), the English blurred until tapped, the key words with their
+    Deck tick, Muse's study note (`BlurbCard`) and line note (`NoteCard`).
+    Got it learns its key words (into the deck or for the show, as
+    ticked, `learnEpisodeWord`), Again later brings the stop back
+    `WALK_BACK` (3) stops on; the end says how many went where, "Watch the
+    chapter ›". **Watch**
     (`ChapterWatch`): the chapter's stretch of the video (YouTube's `start`
     and `end`, so it stops at the chapter's end; "↺ From the start"), its
     lines below lit as they are said, the one being said kept near the
@@ -2207,7 +2225,7 @@ YouTube chapter feature".
     under each blurred until tapped (the owner asked; `EnglishLine`, as in
     the script with English off), a Subtitles switch blurring the Chinese too; with no video, its lines to read, each said
     aloud on a tap. **Check** (`ChapterCheck`): up to `CHAPTER_LISTEN` (3)
-    of its lines heard first (those with its key words, Muse's notes, then
+    of its lines heard first, each its clip from the video (`LineClip`) (those with its key words, Muse's notes, then
     the most new words; 5 to 30 characters; Again sends one to the end),
     then retold in Chinese by Muse's question for the chapter (a scene's
     `question` in the prep) or "这一段发生了什么？", graded at Look up's
