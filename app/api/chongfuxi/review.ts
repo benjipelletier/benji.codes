@@ -60,6 +60,7 @@ import {
   spreadEvery,
   takeTurns,
   UNANSWERED_EVERY,
+  NEW_PER_WORD,
 } from "@chongfuxi/lib/review";
 import { SCHEDULER, answer, intervals, newSchedule, recallOdds, seedSchedule, type CardKind, type Grade, type Schedule } from "@chongfuxi/lib/schedule";
 
@@ -467,13 +468,18 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
   // New sentences, from the whole readable pool: no daily limit. While cards
   // are due they come one in four among them (the mix); once nothing is due,
   // none, until the owner asks to keep going (`more`), and then only they.
-  // First the ones a word just unlocked, newest first. Then one for each
-  // word before any word gets a second, each sentence going by the deck word
-  // that most needs it: one due today or just forgotten (relearning) first,
-  // then the weakest (a Read card new here and unscored in Pleco, then the
-  // lowest stability, Pleco's score for a card not yet answered here), a
-  // word still waiting for Learn last. A word never yet read in a sentence
-  // breaks a tie; past that a fixed shuffle, so sources and lengths are mixed.
+  // Each sentence goes by a word: the one that just unlocked it, else the
+  // deck word in it that most needs it (one due today or just forgotten,
+  // relearning, first; then the weakest: a Read card new here and unscored
+  // in Pleco, then the lowest stability, Pleco's score for a card not yet
+  // answered here; a word still waiting for Learn last). One for each word
+  // before any word gets a second, a word's just-unlocked ones first among
+  // its own, and at most NEW_PER_WORD a study day for a word, counting the
+  // new sentences with it first read today: a word just learnt unlocked a
+  // dozen at once, and they all came in a row. Within a turn, sentences a
+  // word just unlocked come first (newest first), then by need and
+  // strength; a word never yet read in a sentence breaks a tie; past that a
+  // fixed shuffle, so sources and lengths are mixed.
   const due = wordCards.length + dueSentences.length;
   // Never more new sentences than the day's max has room for (with Keep going too).
   const sentenceRoom = !withSentences || inList ? 0 : await roomFor(sql, owner, day, "sentence");
@@ -500,18 +506,34 @@ export async function nextCards(sql: Sql, owner: string, day: StudyDay, o: Queue
            where t.owner_email = $1
            order by t.sentence_id, need, strength, w.exposures, w.word
          ),
+         -- Each word's new sentences already first read today.
+         read_today as (
+           select t.word, count(distinct f.card_id)::int as n
+           from (select card_id from chongfuxi_review
+                 where owner_email = $1 and cause = 'answer' and kind = 'sentence'
+                 group by card_id having min(day) = $5::date) f
+           join chongfuxi_card c on c.owner_email = $1 and c.id = f.card_id
+           join chongfuxi_token t on t.owner_email = $1 and t.sentence_id = c.sentence_id
+           group by t.word
+         ),
          ranked as (
            select cand.id, cand.key, cand.unlocked_by, cand.unlocked_at, k.word, k.need, k.strength, k.exposures,
-                  row_number() over (partition by coalesce(k.word, cand.key) order by k.need, md5(cand.key), cand.sid) as turn
+                  coalesce(cand.unlocked_by, k.word, cand.key) as for_word,
+                  row_number() over (
+                    partition by coalesce(cand.unlocked_by, k.word, cand.key)
+                    order by (cand.unlocked_by is not null) desc, cand.unlocked_at desc nulls last, k.need, md5(cand.key), cand.sid
+                  ) as turn
            from cand left join weakest k on k.sid = cand.sid
          )
          select ${CARD_COLUMNS}, x.unlocked_by as why_unlocked, x.word as why_word, x.need as why_need
          from ranked x join chongfuxi_card c on c.owner_email = $1 and c.id = x.id
-         order by (x.unlocked_by is not null) desc,
+         left join read_today rt on rt.word = x.for_word
+         where x.turn + coalesce(rt.n, 0) <= $6
+         order by x.turn, (x.unlocked_by is not null) desc,
                   case when x.unlocked_by is not null then x.unlocked_at end desc nulls last,
-                  x.turn, x.need nulls last, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
+                  x.need nulls last, x.strength nulls last, (x.exposures = 0) desc, md5(x.key), c.id
          limit $3`,
-        [owner, o.exclude, left, cutoff],
+        [owner, o.exclude, left, cutoff, day.day, NEW_PER_WORD],
       )) as unknown as Array<CardRow & { why_unlocked: string | null; why_word: string | null; why_need: number | null }>)
     : [];
 

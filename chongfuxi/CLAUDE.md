@@ -1197,8 +1197,14 @@ the design was silent and are still to be confirmed.
   and one other retired sentence that has it.
 - **Passing a sentence** counts an exposure for its words and moves no word's
   schedule.
-- **New sentences**: those a word just unlocked first, newest first. Then
-  the ones that test the words that need it, at the owner's request ("choose
+- **New sentences**: each goes by a word, the one that just unlocked it,
+  else the deck word in it that most needs it (below), and words take turns:
+  one each before any gets a second, a word's just-unlocked ones first
+  among its own (newest first), and at most `NEW_PER_WORD` (2) a study day
+  for a word, counting its new sentences first read today; the rest wait
+  for the days after. Those a word just unlocked used to all come first, a
+  dozen in a row for a word just learnt (the owner: "a lot of sentences
+  testing the same newish word"). Picking the word: the ones that test the words that need it, at the owner's request ("choose
   the ones that test the right words but have the whole pool available"):
   each sentence goes by the deck word that most needs it (one due today or
   just forgotten, relearning, first; a word still waiting for Learn last),

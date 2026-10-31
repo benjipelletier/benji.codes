@@ -104,6 +104,14 @@ export function blankOut(zh: string, word: string): string | null {
 export const CYCLE = ["word", "sentence", "word", "new"] as const;
 /** While cards are due, a batch takes one new sentence for every this many due. */
 export const DUE_PER_NEW = 3;
+
+/**
+ * New sentences a study day for any one word, counting those first read that
+ * day: a word just learnt unlocks a dozen or more at once, and they all came
+ * one after another (the owner: "a lot of sentences testing the same newish
+ * word"). The rest wait for the days after.
+ */
+export const NEW_PER_WORD = 2;
 /** Cards a session fetches at a time, and how few left in hand before it fetches more. */
 export const SESSION_BATCH = 10;
 export const REFILL_AT = 3;
