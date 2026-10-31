@@ -2048,9 +2048,12 @@ YouTube chapter feature".
   the script"): the prep takes `cast: [{ name, who }]` (at most
   `CAST_MAX`, 40; each name also counts as a name), and the episode sends
   `cast` (`castOf`: Muse's, then any other names with no who), each
-  name's reading from the subtitles' words, else each character's. At the
-  top of the Script, `CastList`: "Characters", four shown and "All N",
-  each name large (a tap says it), its pinyin and who they are.
+  name's reading from the subtitles' words, else each character's. A
+  "Characters · N" chip comes first in the Script's strip, before the
+  chapters (the owner asked for it there; it was a list at the top of the
+  script), with the first three names, opening the whole cast in a sheet
+  (`CastList`): each name large (a tap says it), its pinyin and who they
+  are. At the first chapter the strip sits at its left, the chip in view.
 - **Names are graded leniently** (the owner: "I likely won't know the
   characters"): a chapter retelling or an episode question is graded with
   the cast and names (`namesOf`) and `NAMES_LENIENT` in reading.ts's

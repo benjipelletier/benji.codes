@@ -27,7 +27,7 @@ import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { say } from "./Drill";
-import { Loading, fmt, message, useBackLayer } from "./shared";
+import { Loading, Sheet, fmt, message, useBackLayer } from "./shared";
 
 /** The episodes Muse has handed in. */
 export function useEpisodes(): EpisodeListed[] | null {
@@ -500,8 +500,8 @@ function BlurbCard({ b }: { b: Episode["blurbs"][number] }) {
 }
 
 /** Who's who at the top of the script: Muse's cast, a tap for who each is (the owner: "a place for all the characters"). */
-function CastList({ cast }: { cast: Episode["cast"] }) {
-  const [open, setOpen] = useState(false);
+function CastList({ cast, all = false }: { cast: Episode["cast"]; all?: boolean }) {
+  const [open, setOpen] = useState(all);
   if (!cast.length) return null;
   const shown = open ? cast : cast.slice(0, CAST_FOLDED);
   return (
@@ -522,7 +522,7 @@ function CastList({ cast }: { cast: Episode["cast"] }) {
           </li>
         ))}
       </ul>
-      {cast.length > CAST_FOLDED && (
+      {!all && cast.length > CAST_FOLDED && (
         <button className="cf-link cf-cast-more" onClick={() => setOpen(!open)}>
           {open ? "Fewer" : `All ${fmt(cast.length)}`}
         </button>
@@ -554,15 +554,28 @@ function ChapterStrip({
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const times = spans(ep);
+  const cast = ep.cast ?? [];
+  const [castOpen, setCastOpen] = useState(false);
   useEffect(() => {
-    const el = strip.current?.children[current] as HTMLElement | undefined;
+    // The characters' chip, when there is one, comes before the chapters.
+    const el = strip.current?.children[current + (cast.length ? 1 : 0)] as HTMLElement | undefined;
     if (!el || !strip.current) return;
-    strip.current.scrollTo({ left: el.offsetLeft - (strip.current.clientWidth - el.clientWidth) / 2, behavior: "smooth" });
+    // At the first chapter the strip starts at its left, the characters in view.
+    const left = current === 0 ? 0 : el.offsetLeft - (strip.current.clientWidth - el.clientWidth) / 2;
+    strip.current.scrollTo({ left, behavior: "smooth" });
   }, [current]);
   return (
     <div className="cf-watch-chapters">
       <ChapterBar ep={ep} current={current} at={at} onScrub={onScrub} onScrubEnd={onScrubEnd} onPick={onPick} compact />
       <div className="cf-wchips" ref={strip}>
+        {/* Who's who, before the chapters (the owner asked for it there): the full cast in a sheet. */}
+        {cast.length > 0 && (
+          <button className="cf-wchip cf-wchip-cast" onClick={() => setCastOpen(true)}>
+            <span className="cf-wchip-at">Characters · {fmt(cast.length)}</span>
+            <span className="cf-wchip-title cf-zh">{cast.slice(0, 3).map((c) => c.name).join("、")}</span>
+            {cast.length > 3 && <span className="cf-wchip-en">and {fmt(cast.length - 3)} more</span>}
+          </button>
+        )}
         {ep.scenes.map((sc, i) => {
           const part = grades.slice(sc.start, sc.end);
           return (
@@ -583,6 +596,11 @@ function ChapterStrip({
           );
         })}
       </div>
+      {castOpen && (
+        <Sheet label="Characters" onClose={() => setCastOpen(false)}>
+          <CastList cast={cast} all />
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -1601,7 +1619,6 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             onScrubEnd={(t) => seek(t)}
           />
           <div className="cf-watch-script" ref={script} onScroll={onScroll} onTouchMove={handScroll} onWheel={handScroll}>
-            <CastList cast={ep.cast ?? []} />
             <div className="cf-watch-key">
               {GRADES.map((g) => (
                 <span key={g.key}>

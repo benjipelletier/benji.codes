@@ -11162,6 +11162,12 @@ button.cf-how-text {
   scroll-snap-align: center;
 }
 
+/* The characters' chip, before the chapters: set apart by its tint. */
+.cfx .cf-wchip.cf-wchip-cast {
+  border-style: dashed;
+  background: var(--cf-sunken);
+}
+
 .cfx .cf-wchip.is-on {
   border-color: var(--cf-accent);
   box-shadow: inset 0 0 0 1px var(--cf-accent);
