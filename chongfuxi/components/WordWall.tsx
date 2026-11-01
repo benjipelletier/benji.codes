@@ -409,8 +409,13 @@ export function WordSheet({
     if (!rows[status]) void loadSentences(status, 0);
   };
 
+  // A new word clears the page; loading the same word again (after adding it, or sentences) keeps it on screen meanwhile.
+  const [shownWord, setShownWord] = useState(word);
   useEffect(() => {
-    setD(null);
+    if (shownWord !== word) {
+      setD(null);
+      setShownWord(word);
+    }
     setMissing(false);
     get<WordPage>("word/page", { w: word })
       .then((p) => {
@@ -422,6 +427,7 @@ export function WordSheet({
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word, onClose, loads]);
 
   const cutoff = today().cutoff;
@@ -730,6 +736,7 @@ export function WordSheet({
                   </>
                 );
               })()}
+              {canWrite && d.status === "deck" && !d.suspended && <WriteSentences word={word} onWritten={() => setLoads((n) => n + 1)} />}
               {d.sentencesAll.total > 0 && onFindSentences && (
                 <button className="cf-btn cf-btn-ghost" onClick={() => onFindSentences(word)}>
                   Open them under Sentences
@@ -1026,3 +1033,46 @@ export function WordPageHost({ canWrite }: { canWrite: boolean }) {
     </>
   );
 }
+
+/**
+ * Sentences written by the model for a deck word (the owner: "ai generate a
+ * sentence for this word, using words I already know at the time so it's
+ * unlocked"; writesentences.ts): kept only when every word in them is known
+ * now, then added to the corpus as source "AI", readable at once.
+ */
+function WriteSentences({ word, onWritten }: { word: string; onWritten: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ kept: Array<{ zh: string; en: string }>; dropped: Array<{ zh: string; unknown: string[] }> } | null>(null);
+  const write = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await send<{ kept: Array<{ zh: string; en: string }>; dropped: Array<{ zh: string; unknown: string[] }> }>("word/sentences", { word });
+      setResult(r);
+      if (r.kept.length) onWritten();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="cf-wp-write">
+      <button className="cf-link" disabled={busy} onClick={() => void write()}>
+        {busy ? "Writing…" : "✦ Write sentences with AI"}
+      </button>
+      {!result && !busy && <small className="cf-muted">Only from words you know now, so they're readable.</small>}
+      {error && <p className="cf-error">{error}</p>}
+      {result && (
+        <p className="cf-muted cf-wp-write-said">
+          {result.kept.length
+            ? `Added ${fmt(result.kept.length)} ${result.kept.length === 1 ? "sentence" : "sentences"}, readable now (source AI).`
+            : "None came out readable with the words you know: try again, or add a word or two first."}
+          {result.dropped.length > 0 && ` ${fmt(result.dropped.length)} left out for words you don't know yet.`}
+        </p>
+      )}
+    </div>
+  );
+}
+

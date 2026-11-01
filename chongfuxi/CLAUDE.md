@@ -1356,8 +1356,22 @@ the design was silent and are still to be confirmed.
   each with its count, the owner's request: tap one to see those), each
   sentence with what keeps it locked, its card's reads and its decks; five
   shown at first and ten more a tap (the owner found forty too many), loaded
-  forty at a time, a panel loaded when first opened; the sentences it
-  tripped, three at first;
+  forty at a time, a panel loaded when first opened; under them, for a
+  deck word not suspended, **✦ Write sentences with AI** (the owner, on
+  扬眉吐气 with none: "ai generate a sentence for this word, using words I
+  already know at the time so it's unlocked"; `WriteSentences`, POST
+  `word/sentences`, `writesentences.ts`, owner only, Look up's model and
+  effort): the model is given the word, its meaning and up to
+  `KNOWN_SHOWN` (1500) known deck words, strongest first, and asked for
+  `ASKED` (6) short everyday sentences built only from them; each is split
+  as an import splits it and kept (at most `KEPT`, 3) only if the word
+  stands as a word in it and every word is known now (`makeUnlock`, no
+  blockers), else dropped with the words it lacked; with none kept it asks
+  once more, naming those words. The kept ones join the corpus through
+  `ingestSentences` as source "AI" (a sentence card, readable at once), and
+  the page loads again, kept on screen meanwhile, saying how many were
+  added and left out. The model call is a parameter (`ask`), so the check
+  is tested without it; the sentences tripped, three at first;
   and how it lives in the corpus: how it came in (the additions that brought
   it, else the Pleco backup), its lists, its Learn, the sentences it
   unlocked and those it alone holds back, deck words with it inside and

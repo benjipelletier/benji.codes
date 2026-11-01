@@ -13831,3 +13831,19 @@ button.cf-how-text {
 .cfx .cf-walk-back {
   align-self: center;
 }
+/* A word page's "Write sentences with AI", under its sentences. */
+.cf-wp-write {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 12px 0;
+}
+.cf-wp-write small {
+  font-size: 12.5px;
+}
+.cf-wp-write-said {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+}
