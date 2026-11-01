@@ -195,8 +195,16 @@ rejected as too themed. Keep it that way:
   a sheet or list). Reduced motion holds the stack still and lets the words
   breathe. Buttons keep their own "Adding…" words.
 - Small actions (Undo, Bring back, Tick all, Open in Spotify) are soft
-  pills in the accent colour (`.cf-link`), never underlined text: the
+  buttons in the accent colour (`.cf-link`), never underlined text: the
   owner's call. A link inside a sentence is just the word, in the accent.
+- **One button shape** (the owner found the roundness "all over the
+  place", pills beside rounded rectangles beside circles, and chose soft
+  rectangles): every button is a rounded rectangle, corners by size,
+  `--cf-radius` (16px) for full-width ones (Forgot / Got it, `.cf-btn`)
+  and `--cf-radius-sm` (12px) for small ones (`.cf-link`, chips, Again,
+  the speed button, steppers, the habit pill, the account button). Only
+  icon-only buttons are round (▶, ×), and tags, badges and counts stay
+  pills, since they aren't buttons.
 - No iOS-style switches. A choice in a list is a row with a tick box that
   fills with the row's colour.
 - Light and dark are both designed; tokens are at the top of

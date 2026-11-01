@@ -19,6 +19,10 @@
   --cf-ink-faint: #8a92a0;
   --cf-rule: rgba(20, 24, 34, 0.09);
   --cf-rule-strong: rgba(20, 24, 34, 0.18);
+  /* Buttons share one shape (the owner found their roundness all over the place): soft rectangles,
+     corners by size; only icon-only buttons are round, and tags and badges stay pills. */
+  --cf-radius: 16px;
+  --cf-radius-sm: 12px;
   --cf-accent: #2f5bea;
   --cf-accent-soft: rgba(47, 91, 234, 0.1);
   --cf-on-accent: #ffffff;
@@ -536,7 +540,7 @@ body:has(.cfx) {
   justify-content: center;
   min-height: 46px;
   padding: 8px 16px;
-  border-radius: 14px;
+  border-radius: var(--cf-radius);
   border: 1px solid var(--cf-accent);
   background: var(--cf-accent);
   color: var(--cf-on-accent) !important;
@@ -566,7 +570,7 @@ body:has(.cfx) {
   gap: 4px;
   padding: 4px 11px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font-size: 13px;
@@ -719,7 +723,7 @@ body:has(.cfx) {
   gap: 4px;
   padding: 9px 2px;
   border: 1px solid var(--cf-rule);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-ink-soft);
   font: inherit;
@@ -763,7 +767,7 @@ body:has(.cfx) {
   gap: 6px;
   padding: 4px 6px 4px 12px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font-family: var(--cf-font-latin, system-ui), var(--cf-zh);
@@ -2810,7 +2814,7 @@ label.cf-kind {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: var(--cf-radius);
   border: 0;
   font-size: 17px;
   font-weight: 600;
@@ -5527,7 +5531,7 @@ button.cf-synclog-row {
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-ink);
   font-size: 13.5px;
@@ -5553,7 +5557,7 @@ button.cf-synclog-row {
 .cf-acct-me.is-owner {
   width: auto;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font-family: var(--cf-zh);
@@ -6561,7 +6565,7 @@ button.cf-synclog-row {
   gap: 0;
   padding: 4px 12px;
   border: 1.5px solid color-mix(in srgb, var(--cf-up) 45%, transparent);
-  border-radius: 14px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-ink);
   cursor: pointer;
@@ -6795,7 +6799,7 @@ button.cf-synclog-row {
   min-height: 32px;
   padding: 2px 12px;
   border: 1px solid var(--cf-accent);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-accent);
   font: inherit;
@@ -6811,7 +6815,7 @@ button.cf-synclog-row {
 .cfx .cf-lk-undo {
   padding: 2px 9px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font: inherit;
@@ -8098,7 +8102,7 @@ button.cf-synclog-row {
 .cfx .cf-wp-chip {
   padding: 4px 11px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-ink);
   font-size: 16px;
@@ -8222,7 +8226,7 @@ button.cf-synclog-row {
   margin-top: 6px;
   padding: 3px 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font-size: 12px;
@@ -8330,7 +8334,7 @@ button.cf-synclog-row {
 .cfx .cf-lk-wchip {
   padding: 2px 10px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-accent);
   font-size: 12.5px;
@@ -8357,7 +8361,7 @@ button.cf-synclog-row {
   margin-top: 18px;
   padding: 12px 14px;
   border: 1px solid var(--cf-rule);
-  border-radius: 14px;
+  border-radius: var(--cf-radius);
   background: var(--cf-surface);
 }
 
@@ -10020,7 +10024,7 @@ button.cf-how-text {
   min-height: 36px;
   padding: 4px 12px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-ink);
   font-size: 14px;
@@ -10816,7 +10820,7 @@ button.cf-how-text {
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-ink-soft);
   font: inherit;
@@ -11066,7 +11070,7 @@ button.cf-how-text {
   min-height: 36px;
   padding: 0 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font: inherit;
@@ -11498,7 +11502,7 @@ button.cf-how-text {
   min-height: 32px;
   padding: 0 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent-soft);
   color: var(--cf-accent);
   font: inherit;
@@ -12031,7 +12035,7 @@ button.cf-how-text {
 .cfx .cf-wk-word {
   min-height: 36px;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   border: 1px solid var(--cf-rule);
   background: var(--cf-surface);
   color: var(--cf-ink);
@@ -12319,7 +12323,7 @@ button.cf-how-text {
   min-height: 36px;
   padding: 2px 10px;
   border: 1px solid var(--cf-rule);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-ink);
   font-size: 16px;
@@ -13351,7 +13355,7 @@ button.cf-how-text {
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-ink-soft);
   font: inherit;
@@ -13372,7 +13376,7 @@ button.cf-how-text {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--cf-rule-strong);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
 }
 
@@ -13380,7 +13384,7 @@ button.cf-how-text {
   width: 38px;
   height: 38px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: none;
   color: var(--cf-accent);
   font: inherit;
@@ -13449,7 +13453,7 @@ button.cf-how-text {
   margin: -6px 0 -6px auto;
   padding: 0 11px 0 6px;
   border: 1px solid var(--cf-rule);
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-surface);
   color: var(--cf-ink-soft);
   font: inherit;
@@ -13801,7 +13805,7 @@ button.cf-how-text {
   min-height: 48px;
   padding: 0 20px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--cf-radius-sm);
   background: var(--cf-accent);
   color: var(--cf-on-accent);
   font: inherit;
