@@ -19,10 +19,10 @@ export interface HabitView {
   today: number;
   /** Days in a row that met the goal, today counted once met. */
   streak: number;
-  /** Words added each of the last seven study days, oldest first, today last. */
-  week: number[];
-  /** Words on the owner's lists that alone keep the most sentences locked. */
-  suggest: Blocker[];
+  /** Words added each study day of the last twelve weeks, oldest first, today last. */
+  days: number[];
+  /** The words added in those days, still in the deck, newest first: `back` is the day they count on (0 today). */
+  added: Array<{ word: string; back: number; source: string; pinyin: string | null; gloss: string | null }>;
 }
 
 /** The kinds a daily max applies to: first-time Read cards, first-time Recall cards, new sentences. */

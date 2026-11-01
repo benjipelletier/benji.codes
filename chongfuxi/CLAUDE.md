@@ -1424,18 +1424,28 @@ the design was silent and are still to be confirmed.
   those undone), by study day (the day's cutoff). A word from Pleco counts
   on the day its Anki note was made (`note_id` is that moment), not the
   day AnkiDroid synced it: the owner saw 15 / 10 today with yesterday's
-  Pleco words in it, synced that morning. GET `habit` gives the
+  Pleco words in it, synced that morning. A word no longer in the deck
+  (removed from here or anywhere) doesn't count. GET `habit` gives the
   goal, today's count, the streak (days that met the goal back from
-  yesterday, today joining once met; over the last year) and the week,
-  oldest first, plus `listBlockers`' learn-next words as suggestions. On
-  Today it is a pill beside the date (`HabitPill`: a small ring, orange
-  filling to green with a tick once met, "Added 2 / 5 ›"), so it costs the
-  screen no height; it is the owner's only. It opens `HabitSheet`: today
-  large with the streak, the week as bars against a dashed goal line
-  (green when met), the goal as a stepper (`Stepper` in `components/Habit.tsx`, − 5 +, 1 to 50, sent half a second after the last tap), and "Worth adding next": words on the
-  owner's lists that each keep sentences locked, with "+N" sentences, the
-  word opening its page and "+ Add" adding it there (POST `word`
-  `{ action: "add" }`), which refreshes the counts.
+  yesterday, today joining once met; over the last year), each day's count
+  for the last twelve weeks (`days`, oldest first) and the words added in
+  them (`added`: word, day, source, pinyin, gloss). On Today it is a pill
+  beside the date (`HabitPill`: a small ring, orange filling to green with
+  a tick once met, "Added 2 / 5 ›"), so it costs the screen no height; it
+  is the owner's only. It opens `HabitSheet`: today large with the streak,
+  a week of bars against a dashed goal line (green when met), ‹ › to the
+  weeks before, a tap on a bar picking its day (outlined); the goal as a
+  stepper (`Stepper` in `components/Habit.tsx`, − 5 +, 1 to 50, sent half
+  a second after the last tap); and the words added on the day picked
+  ("Today · 2 words"), each with pinyin, meaning and where it came from
+  (from Pleco, a list's name, its page, Look up, an episode), opening its
+  page, with Remove, then "Remove it" to be sure, taking it out of the
+  deck (`word` POST `{ action: "remove" }`, `removeWord`: its cards and
+  answers go, back on its list if it was on one). The owner asked for all
+  this ("let me see all the words that I've added… scroll through previous
+  days… an easy way to unadd words") in place of "Worth adding next", the
+  suggestions (`listBlockers`' learn-next words, with + Add) that were
+  there, which they didn't care for.
 - **Learn**: a new word (a Read card never answered, from Pleco
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in
