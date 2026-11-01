@@ -29,6 +29,7 @@ import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
 import { HabitPill } from "./Habit";
+import { HeardIn } from "./Watch";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
 import { LookupPanel } from "./LookupPanel";
@@ -1050,6 +1051,7 @@ export function Session({
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
                   {card.answered && card.word && <CardAnswers answers={card.answered} word={card.word.word} />}
+                  {canWrite && card.word && <HeardIn word={card.word.word} />}
                 </div>
               )}
             </>
@@ -1094,6 +1096,7 @@ export function Session({
                   {card.hook && <RescueHook hook={card.hook} />}
                   {card.contrast && <SynonymContrast contrast={card.contrast} />}
                   {card.answered && card.word && <CardAnswers answers={card.answered} word={card.word.word} />}
+                  {canWrite && card.word && <HeardIn word={card.word.word} />}
                   {card.sentence && (
                     <>
                       <p className="cf-card-zh">

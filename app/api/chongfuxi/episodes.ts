@@ -15,6 +15,7 @@
 
 import type {
   EpisodeCard,
+  EpisodeHeard,
   EpisodeChapterPlan,
   EpisodeLine,
   EpisodeLineNote,
@@ -950,6 +951,43 @@ export async function writeLineNotes(sql: Sql, owner: string, input: Record<stri
   const notes = [...byLine.values()].sort((a, b) => a.i - b.i).slice(0, LINE_NOTES_MAX);
   await sql`update chongfuxi_episode set notes = ${JSON.stringify(notes)}::jsonb, notes_at = now() where owner_email = ${owner} and id = ${id}`;
   return { written: given.length, notes: notes.length, failed };
+}
+
+/** Lines a word is heard in, at most, across the owner's episodes. */
+const HEARD_MAX = 3;
+
+/**
+ * Where a word is said in the owner's episodes (the owner: relate the cards
+ * being reviewed "to the episodes that I have"): up to HEARD_MAX lines with
+ * it, each from a different episode first, the shortest first, with the line
+ * before it for a lead-in and the episode's video. Words of two or more
+ * characters only: a lone character turns up inside every other word. Owner
+ * only, as the subtitles are.
+ */
+export async function heardIn(sql: Sql, owner: string, word: string): Promise<EpisodeHeard[]> {
+  if ([...word].length < 2 || !HAN.test(word)) return [];
+  const rows = (await sql`
+    select e.id::int as id, e.show, e.episode, e.video, e.source, e.offset_ms, (l.ord - 1)::int as i, l.value as line,
+           e.lines -> (l.ord - 2)::int as before
+    from chongfuxi_episode e, jsonb_array_elements(e.lines) with ordinality l(value, ord)
+    where e.owner_email = ${owner} and strpos(l.value->>'zh', ${word}) > 0
+    order by char_length(l.value->>'zh'), e.id, l.ord
+    limit 40
+  `) as unknown as Array<{ id: number; show: string; episode: string; video: string | null; source: string | null; offset_ms: number; i: number; line: EpisodeLine; before: EpisodeLine | null }>;
+  // One line an episode before a second from any.
+  const seen = new Set<number>();
+  const firsts = rows.filter((r) => !seen.has(r.id) && seen.add(r.id));
+  const picked = [...firsts, ...rows.filter((r) => !firsts.includes(r))].slice(0, HEARD_MAX);
+  return picked.map((r) => ({
+    id: r.id,
+    show: r.show,
+    episode: r.episode,
+    video: r.video ?? videoId(r.source ?? ""),
+    offset: r.offset_ms,
+    i: r.i,
+    line: r.line,
+    before: r.i > 0 ? r.before : null,
+  }));
 }
 
 /** A line's words as they live in the owner's corpus: cards, notes, lookups, sentences, a kit's hook. Owner only. */

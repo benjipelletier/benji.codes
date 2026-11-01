@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  EpisodeHeard,
   EpisodeLineNote,
   EpisodeListed,
   EpisodeProgress,
@@ -27,7 +28,7 @@ import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { say } from "./Drill";
-import { Loading, Sheet, fmt, message, useBackLayer } from "./shared";
+import { Highlighted, Loading, Sheet, fmt, message, useBackLayer } from "./shared";
 
 /** The episodes Muse has handed in. */
 export function useEpisodes(): EpisodeListed[] | null {
@@ -1840,5 +1841,64 @@ function EnglishLine({ en, english }: { en: string; english: boolean }) {
     >
       {en}
     </button>
+  );
+}
+
+/** What each word was heard in, fetched once per word while the app is open. */
+const heardCache = new Map<string, Promise<EpisodeHeard[]>>();
+
+/**
+ * Under a word card's back (the owner: relate the cards being reviewed to
+ * "the episodes that I have"): the lines of their episodes it is said in,
+ * each its show, episode and time, the line with the word marked and its
+ * English blurred until tapped; a tap plays it from the video (`LineClip`),
+ * one at a time. Nothing shows for a word no episode says. Owner only, as
+ * the subtitles are.
+ */
+export function HeardIn({ word }: { word: string }) {
+  const [heard, setHeard] = useState<EpisodeHeard[] | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    setHeard(null);
+    setOpen(null);
+    let p = heardCache.get(word);
+    if (!p) {
+      p = get<{ heard: EpisodeHeard[] }>("episodes", { heard: word }).then((r) => r.heard);
+      heardCache.set(word, p);
+      p.catch(() => heardCache.delete(word));
+    }
+    p.then((h) => live && setHeard(h)).catch(() => live && setHeard([]));
+    return () => {
+      live = false;
+    };
+  }, [word]);
+  if (!heard?.length) return null;
+  return (
+    <section className="cf-heard">
+      <p className="cf-heard-h">Heard in your episodes</p>
+      {heard.map((h, k) => {
+        // Just enough of an episode for the clip: the line and the one before it.
+        const ep = { video: h.video, offset: h.offset, lines: h.before ? [h.before, h.line] : [h.line] } as unknown as Episode;
+        const at = h.before ? 1 : 0;
+        return (
+          <div key={`${h.id}:${h.i}`} className={`cf-heard-line${open === k ? " is-open" : ""}`}>
+            <button className="cf-heard-row" onClick={() => setOpen(open === k ? null : k)} aria-expanded={open === k}>
+              <span className="cf-heard-at">
+                <b className="cf-zh">{h.show}</b> {h.episode} · {clock(h.line.s)}
+              </span>
+              <span className="cf-heard-zh cf-zh">
+                <Highlighted text={h.line.zh} word={word} />
+              </span>
+              <span className="cf-heard-play" aria-hidden="true">
+                {open === k ? "▾" : "▶"}
+              </span>
+            </button>
+            {h.line.en && <EnglishLine en={h.line.en} english={false} />}
+            {open === k && <LineClip ep={ep} i={at} />}
+          </div>
+        );
+      })}
+    </section>
   );
 }

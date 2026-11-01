@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
-import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, learnEpisodeWord, lineWords, listEpisodes, openEpisode, setEpisodeVideo } from "../episodes";
+import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, setEpisodeVideo } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body } from "../params";
 import { ReadingError } from "../reading";
@@ -13,6 +13,13 @@ export const maxDuration = 120;
 /** The episodes (names and figures: readable by anyone); with ?id=, one opened for study, and with &line=, that line's words in the corpus (owner only: the subtitles aren't ours to serve). */
 export async function GET(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
+  // ?heard=<word>: the lines it is said in across the episodes, for a card being reviewed (owner only).
+  const heard = req.nextUrl.searchParams.get("heard");
+  if (heard) {
+    const gate = await ownerOnly();
+    if ("refused" in gate) return gate.refused;
+    return NextResponse.json({ heard: await heardIn(gate.sql, gate.owner, heard.slice(0, 12)) });
+  }
   if (!id) {
     const gate = ownersLog();
     if ("refused" in gate) return gate.refused;

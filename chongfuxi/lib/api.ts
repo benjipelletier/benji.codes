@@ -1313,6 +1313,19 @@ export interface EpisodeLine {
   en: string | null;
 }
 
+/** A line a word is said in, in one of the owner's episodes (episodes.ts, `heardIn`): to hear it on the word's card. */
+export interface EpisodeHeard {
+  id: number;
+  show: string;
+  episode: string;
+  video: string | null;
+  offset: number;
+  /** The line's index in the episode, the line, and the one before it (for a lead-in). */
+  i: number;
+  line: EpisodeLine;
+  before: EpisodeLine | null;
+}
+
 /** A scene, as a chapter to scrub to: from line `start` to the next scene's. */
 export interface EpisodeScene {
   start: number;

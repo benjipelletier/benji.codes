@@ -13847,3 +13847,81 @@ button.cf-how-text {
   margin: 0;
   font-size: 13px;
 }
+/* On a word card's back: the lines of the owner's episodes it is said in, each a tap from its clip. */
+.cf-heard {
+  margin: 14px 0 0;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  background: var(--cf-sunken);
+  text-align: left;
+}
+.cf-heard-h {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--cf-ink-soft);
+}
+.cf-heard-line + .cf-heard-line {
+  border-top: 1px solid var(--cf-rule);
+}
+.cf-heard-line {
+  padding: 4px 0 6px;
+}
+.cfx .cf-heard-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cf-heard-at {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.cf-heard-at b {
+  color: var(--cf-ink-soft);
+  font-weight: 600;
+}
+.cf-heard-zh {
+  grid-column: 1;
+  font-size: 17px;
+  line-height: 1.5;
+}
+.cf-heard-play {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 13px;
+}
+.cf-heard .cf-clip {
+  margin-top: 8px;
+}
+/* In a card's narrow box the clip's controls wrap, Again a size down. */
+.cf-heard .cf-clip-bar {
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 48px;
+}
+.cfx .cf-heard .cf-clip-again {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+}

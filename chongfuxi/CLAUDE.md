@@ -2235,6 +2235,19 @@ YouTube chapter feature".
     reading's retelling) was a fourth tab until the owner had it taken
     out; the questions stay in the prep and Muse's material, and a
     chapter's Check still retells it.
+- **Heard in your episodes, on the cards** (the owner: relate the cards
+  "as I was learning and reviewing to the episodes that I have"): a Read
+  or Recall card's back, once revealed, ends with the lines of the
+  owner's episodes its word is said in (`HeardIn` in `Watch.tsx`, GET
+  `episodes?heard=<word>`, `heardIn` in episodes.ts, owner only as the
+  subtitles are): up to `HEARD_MAX` (3), one from each episode before a
+  second from any, the shortest first, words of two or more characters
+  only (a lone character turns up inside every other word); each its
+  show, episode and time, the line with the word marked, its English
+  blurred until tapped, and ▶ playing it from the video (`LineClip`, with
+  the line before for its lead-in; the phone's voice when the episode has
+  no video), one at a time. Fetched once per word while the app is open;
+  nothing shows for a word no episode says.
 - **Readiness over time** (the owner wanted to see it go up): each measure
   is kept, one row per study day, the latest that day winning
   (`chongfuxi_episode_progress`: words known, known with the must-knows,
