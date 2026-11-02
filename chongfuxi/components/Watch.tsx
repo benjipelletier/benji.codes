@@ -27,6 +27,7 @@ import { get, send } from "@chongfuxi/lib/client";
 import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import { ClipFeed } from "./ClipFeed";
 import { say } from "./Drill";
 import { Highlighted, Loading, Sheet, fmt, message, useBackLayer } from "./shared";
 
@@ -60,12 +61,28 @@ export function NewBadge() {
 }
 
 /** The episodes as rows on the Muse reviews screen. */
-export function EpisodeRows({ episodes, isNew, onOpen }: { episodes: EpisodeListed[]; isNew: (e: EpisodeListed) => boolean; onOpen: (id: number) => void }) {
+export function EpisodeRows({
+  episodes,
+  isNew,
+  onOpen,
+  onClips,
+}: {
+  episodes: EpisodeListed[];
+  isNew: (e: EpisodeListed) => boolean;
+  onOpen: (id: number) => void;
+  /** The clip feed, across every episode (owner only: the subtitles aren't ours to show). */
+  onClips?: () => void;
+}) {
   if (!episodes.length) return null;
   return (
     <section className="cf-revive-group cf-read-group">
-      <h3 className="cf-revive-h">
+      <h3 className="cf-revive-h cf-watch-h">
         Watch <span>{fmt(episodes.length)}</span>
+        {onClips && (
+          <button className="cf-link cf-clips-btn" onClick={onClips}>
+            <ClipsIcon /> Clips
+          </button>
+        )}
       </h3>
       <ul className="cf-stuck-list cf-read-list">
         {episodes.map((e) => (
@@ -87,6 +104,16 @@ export function EpisodeRows({ episodes, isNew, onOpen }: { episodes: EpisodeList
         ))}
       </ul>
     </section>
+  );
+}
+
+/** The clip feed's mark: a phone with a play triangle, for scrolling through clips. */
+export function ClipsIcon() {
+  return (
+    <svg className="cf-clips-icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+      <rect x="5" y="2" width="10" height="16" rx="2.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8.6 7.4v5.2l4.2-2.6z" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -628,12 +655,13 @@ function GradeBar({ grades }: { grades: Grade[] }) {
   );
 }
 
-type YTPlayer = {
+export type YTPlayer = {
   getCurrentTime(): number;
   getPlayerState(): number;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
   pauseVideo(): void;
+  loadVideoById(opts: { videoId: string; startSeconds?: number }): void;
   setPlaybackRate(rate: number): void;
   destroy(): void;
 };
@@ -641,7 +669,7 @@ type YTApi = { Player: new (el: HTMLElement, opts: Record<string, unknown>) => Y
 
 /** YouTube's IFrame player API, loaded once. */
 let ytLoading: Promise<YTApi> | null = null;
-function loadYouTube(): Promise<YTApi> {
+export function loadYouTube(): Promise<YTApi> {
   const w = window as unknown as { YT?: YTApi; onYouTubeIframeAPIReady?: () => void };
   if (w.YT?.Player) return Promise.resolve(w.YT);
   ytLoading ??= new Promise<YTApi>((resolve, reject) => {
@@ -662,7 +690,7 @@ function loadYouTube(): Promise<YTApi> {
 }
 
 /** How often the player's time is read (ms). */
-const VIDEO_TICK = 250;
+export const VIDEO_TICK = 250;
 /** One tap of the sync buttons (ms). */
 const NUDGE = 500;
 
@@ -671,7 +699,7 @@ const SPEEDS = [1, 0.75, 0.5, 1.25];
 const SPEED_KEY = "cfx-video-speed";
 
 /** The video speed, remembered on the device, applied to the player when it is ready and whenever it changes. */
-function useSpeed(player: React.MutableRefObject<YTPlayer | null>) {
+export function useSpeed(player: React.MutableRefObject<YTPlayer | null>) {
   const [speed, setSpeed] = useState(1);
   const ref = useRef(1);
   ref.current = speed;
@@ -700,7 +728,7 @@ function useSpeed(player: React.MutableRefObject<YTPlayer | null>) {
   return { speed, next, apply };
 }
 
-function SpeedButton({ speed, onNext }: { speed: number; onNext: () => void }) {
+export function SpeedButton({ speed, onNext }: { speed: number; onNext: () => void }) {
   return (
     <button className={`cf-link cf-wv-speed${speed !== 1 ? " is-on" : ""}`} onClick={onNext} aria-label={`Speed ${speed}×, tap to change`}>
       {speed}×
@@ -906,8 +934,8 @@ function useKeeps(id: number): Keeps {
 }
 
 /** A breath either side of a line's clip (ms), so its first word isn't cut and it doesn't stop mid-syllable. */
-const CLIP_BEFORE = 400;
-const CLIP_AFTER = 300;
+export const CLIP_BEFORE = 400;
+export const CLIP_AFTER = 300;
 
 /**
  * One line, heard from the episode's own video (the owner: "we don't need
@@ -1438,6 +1466,8 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   // A line laid open (LineView), or a chapter being walked (ChapterWalk), over the script.
   const [line, setLine] = useState<number | null>(null);
   const [walk, setWalk] = useState<number | null>(null);
+  // The clip feed, on this episode from the chapter in view.
+  const [clips, setClips] = useState(false);
   const [nice, setNice] = useState(false);
   const script = useRef<HTMLDivElement>(null);
   const keeps = useKeeps(id);
@@ -1478,6 +1508,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   useBackLayer(tab !== "script", () => setTab("script"));
   useBackLayer(line !== null, () => setLine(null));
   useBackLayer(walk !== null, () => setWalk(null));
+  useBackLayer(clips, () => setClips(false));
   // Opening a line or a walk pauses the video.
   useEffect(() => {
     if (line !== null || walk !== null) video.current?.pause();
@@ -1603,6 +1634,18 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             "Watch"
           )}
         </p>
+        {ep && canWrite && (
+          <button
+            className="cf-close cf-watch-clips"
+            onClick={() => {
+              video.current?.pause();
+              setClips(true);
+            }}
+            aria-label="Scroll through this episode's clips"
+          >
+            <ClipsIcon />
+          </button>
+        )}
         {ep && (
           <button className="cf-watch-ready" onClick={() => setTab("words")}>
             {pct(ep.coverage.known)} <small>known</small>
@@ -1757,6 +1800,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {ep && line !== null && (
         <LineView ep={ep} i={line} keeps={keeps} canWrite={canWrite} onMove={toLine} onAdded={reload} onClose={() => setLine(null)} />
       )}
+      {ep && clips && <ClipFeed id={ep.id} start={ep.scenes[scene]?.start ?? 0} onEnd={() => setClips(false)} />}
       {ep && walk !== null && (
         <ChapterWalk
           ep={ep}
@@ -1827,7 +1871,7 @@ function SceneHead({
 }
 
 /** A line's English: shown, or blurred until tapped when English is off. */
-function EnglishLine({ en, english }: { en: string; english: boolean }) {
+export function EnglishLine({ en, english }: { en: string; english: boolean }) {
   const [shown, setShown] = useState(false);
   if (english || shown) return <span className="cf-ep-en">{en}</span>;
   return (

@@ -24,6 +24,7 @@ import { markSeen, onSeen, seenAt } from "@chongfuxi/lib/museSeen";
 import { say } from "./Drill";
 import { MusePageList, MusePageView, useMusePages } from "./MusePage";
 import { NotesView, useNoteCounts } from "./Notes";
+import { ClipFeed } from "./ClipFeed";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -81,6 +82,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   const [pages, setPages] = useState(false);
   const [notes, setNotes] = useState(false);
   const [episode, setEpisode] = useState<number | null>(null);
+  const [clips, setClips] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
@@ -90,9 +92,10 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
     setPages(false);
     setNotes(false);
     setEpisode(null);
+    setClips(false);
     setLoads((n) => n + 1);
   }, []);
-  const over = open !== null || speed || page || pages || notes || episode !== null;
+  const over = open !== null || speed || page || pages || notes || clips || episode !== null;
   useBackLayer(over, close);
   // In the tab, what opens over the list has the whole screen.
   const { setFocus } = shell;
@@ -103,6 +106,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   useBackLayer(episode !== null && (page || pages), () => setEpisode(null));
   // An episode opened from a page lies over it; closing it comes back to the list.
   if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={page || pages ? () => setEpisode(null) : close} />;
+  if (clips) return <ClipFeed onEnd={close} />;
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   if (page) return <MusePageView canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
@@ -117,6 +121,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
       onPages={() => setPages(true)}
       onNotes={() => setNotes(true)}
       onWatch={setEpisode}
+      onClips={shell.canWrite ? () => setClips(true) : undefined}
       onEnd={onEnd}
     />
   );
@@ -129,6 +134,7 @@ function StuckRows({
   onPages,
   onNotes,
   onWatch,
+  onClips,
   onEnd,
 }: {
   onOpen: (word: string) => void;
@@ -137,6 +143,7 @@ function StuckRows({
   onPages: () => void;
   onNotes: () => void;
   onWatch: (id: number) => void;
+  onClips?: () => void;
   onEnd?: () => void;
 }) {
   const kits = useKits();
@@ -191,6 +198,7 @@ function StuckRows({
             markSeen(`episode:${id}`);
             onWatch(id);
           }}
+          onClips={onClips}
         />
         {(total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 1) && (
           <ul className="cf-muse-tools">

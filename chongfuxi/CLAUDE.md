@@ -2266,6 +2266,43 @@ YouTube chapter feature".
   the line before for its lead-in; the phone's voice when the episode has
   no video), one at a time. Fetched once per word while the app is open;
   nothing shows for a word no episode says.
+- **Clips, scrolled like TikTok** (the owner: "scroll through parts of
+  chapters or whole episodes as if it's tiktok, to help me test my
+  comprehension, maybe organized by what words are waiting for review or
+  recently reviewed or having trouble"; `components/ClipFeed.tsx`, GET
+  `episodes?feed=<mode>[&id=]` with the study day, `clipFeed` in
+  `app/api/chongfuxi/clipfeed.ts`, owner only as the subtitles are).
+  Opened from "Clips" beside Muse's Watch heading (every episode, on Due)
+  or the phone-and-play icon in an episode's top bar (that episode, on
+  This episode, at the chapter in view). Full screen: the video fixed on
+  top, one player for the whole feed that loads each clip's video in turn
+  (`loadVideoById`), and under it a clip a screen, snapping as it is
+  swiped up (`scroll-snap`); a clip plays as it comes to rest, stopping
+  at its end as `LineClip` does, the phone's voice for one with no video.
+  The text starts hidden ("Did you catch it?", how many lines and of the
+  set's words); Show it lays the lines open, the set's words marked and
+  listed with reading and meaning, each opening its page, the English
+  blurred until tapped; then Missed it / Got it, which moves to the next.
+  ↺ Again at the right end, under the thumb. The tally ("3 / 4 caught")
+  is on the screen only: nothing is written, nothing touches a schedule.
+  Sets (chips across the top): **Due** (deck words with a Read or Recall
+  card due today, not waiting for Learn, the most overdue first),
+  **Recent** (answered in the last `RECENT_DAYS`, 3), **Trouble**
+  (forgotten or tapped in a forgotten sentence in the last
+  `TROUBLE_DAYS`, 30, the most often first), **Just learnt** (through
+  Learn in the last `LEARNT_DAYS`, 14), each across every episode or,
+  from an episode, that one; and **This episode**: its lines in order,
+  cut into clips of up to `CLIP_LINES` (3) lines and about
+  `EPISODE_CLIP_MS` (10 s), at any gap of `CLIP_GAP` (1.5 s) or more,
+  marked with the words due, forgotten or just learnt. A word set's
+  clips: every line saying one of its words (two to six characters, as
+  written; a lone character is in every other word), with the line before
+  and after when they run on (a gap under `CLIP_GAP`); the words take
+  turns, most urgent first, each taking its best clip not yet taken
+  (another episode than its first, one with a video, the most of the
+  words, the shortest), up to `PER_WORD` (2) each and `FEED_MAX` (80) in
+  all. Not run against real episodes or YouTube: tested on a local
+  Postgres and with a stand-in player.
 - **Readiness over time** (the owner wanted to see it go up): each measure
   is kept, one row per study day, the latest that day winning
   (`chongfuxi_episode_progress`: words known, known with the must-knows,

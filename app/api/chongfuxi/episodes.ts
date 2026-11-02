@@ -66,7 +66,7 @@ const HAN = /[㐀-鿿]/;
 export class EpisodeError extends Error {}
 
 let ready = false;
-async function ensureTables(sql: Sql) {
+export async function ensureTables(sql: Sql) {
   if (ready) return;
   await sql`
     create table if not exists chongfuxi_episode (

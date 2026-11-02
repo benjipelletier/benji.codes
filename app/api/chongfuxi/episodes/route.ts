@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
 import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, setEpisodeVideo } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
-import { bad, body } from "../params";
+import { bad, body, dayFrom } from "../params";
+import { CLIP_MODES, clipFeed } from "../clipfeed";
+import type { ClipMode } from "@chongfuxi/lib/api";
 import { ReadingError } from "../reading";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,21 @@ export async function GET(req: NextRequest) {
     const gate = await ownerOnly();
     if ("refused" in gate) return gate.refused;
     return NextResponse.json({ heard: await heardIn(gate.sql, gate.owner, heard.slice(0, 12)) });
+  }
+  // ?feed=due|recent|trouble|learnt|episode[&id=]&day=&cutoff=: clips to scroll through (owner only).
+  const feed = req.nextUrl.searchParams.get("feed");
+  if (feed) {
+    if (!CLIP_MODES.includes(feed as ClipMode)) return bad(`feed is one of ${CLIP_MODES.join(", ")}`);
+    const day = dayFrom(req);
+    if (!day) return bad("day and cutoff are required");
+    const gate = await ownerOnly();
+    if ("refused" in gate) return gate.refused;
+    try {
+      return NextResponse.json(await clipFeed(gate.sql, gate.owner, feed as ClipMode, day, id || undefined));
+    } catch (e) {
+      if (e instanceof EpisodeError) return bad(e.message, 404);
+      throw e;
+    }
   }
   if (!id) {
     const gate = ownersLog();

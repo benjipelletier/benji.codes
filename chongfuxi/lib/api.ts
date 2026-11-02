@@ -1326,6 +1326,32 @@ export interface EpisodeHeard {
   before: EpisodeLine | null;
 }
 
+/** What a clip feed is made of (clipfeed.ts): words due, answered lately, forgotten lately, just learnt, or a whole episode in order. */
+export type ClipMode = "due" | "recent" | "trouble" | "learnt" | "episode";
+
+/** A clip to hear: a run of lines of one episode, and the feed's words said in it. */
+export interface FeedClip {
+  key: string;
+  id: number;
+  show: string;
+  episode: string;
+  video: string | null;
+  offset: number;
+  /** The first line's index in the episode. */
+  from: number;
+  lines: EpisodeLine[];
+  words: string[];
+}
+
+export interface ClipFeed {
+  mode: ClipMode;
+  clips: FeedClip[];
+  /** Each word marked: its reading and meaning. */
+  looks: Record<string, { pinyin: string | null; gloss: string | null }>;
+  /** How many of the mode's words are said somewhere. */
+  words: number;
+}
+
 /** A scene, as a chapter to scrub to: from line `start` to the next scene's. */
 export interface EpisodeScene {
   start: number;
