@@ -14179,3 +14179,192 @@ button.cf-how-text {
   gap: 6px;
   margin-bottom: 8px;
 }
+
+/* Write it in Chinese (Paragraph.tsx): the English, its trouble parts underlined, the box, each try. */
+.cf-para-first {
+  margin-top: 24px;
+  text-align: center;
+}
+.cf-para-first p {
+  margin: 0 0 14px;
+  color: var(--cf-ink-soft);
+  line-height: 1.5;
+}
+.cf-para-card {
+  margin-top: 8px;
+}
+.cf-para-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cf-ink-faint);
+}
+.cf-para-title {
+  margin: 2px 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.cf-para-en {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.65;
+}
+.cfx .cf-para-run {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px dashed var(--cf-recall);
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+.cf-para-run small {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--cf-sunken);
+  color: var(--cf-recall);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cf-para-tip {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.cf-para-answer {
+  margin-top: 14px;
+}
+.cf-para-used {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cfx .cf-para-used button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+}
+.cf-para-used i {
+  flex: none;
+  width: 1em;
+  font-style: normal;
+  font-weight: 700;
+}
+.cf-para-used .is-yes i {
+  color: var(--cf-up);
+}
+.cf-para-used .is-other i {
+  color: var(--cf-warn);
+}
+.cf-para-used .is-no i {
+  color: var(--cf-down);
+}
+.cf-para-used b {
+  flex: none;
+  font-size: 16px;
+}
+.cf-para-used small {
+  min-width: 0;
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+}
+.cf-para-points {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cf-para-points li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: 1px solid var(--cf-rule);
+}
+.cf-para-points s {
+  color: var(--cf-down);
+}
+.cf-para-points b {
+  color: var(--cf-up);
+}
+.cf-para-points small {
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cfx .cf-para-giveup {
+  margin-top: 14px;
+}
+.cf-para-ref {
+  margin-top: 18px;
+}
+.cf-para-zh {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.cf-para-words {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--cf-rule);
+}
+.cfx .cf-para-words button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--cf-rule);
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+}
+.cf-para-words b {
+  font-size: 17px;
+}
+.cf-para-words span {
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+}
+.cf-para-words i {
+  grid-row: 1;
+  grid-column: 3;
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+.cf-para-words small {
+  grid-column: 1 / -1;
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+}
+.cf-para-words em {
+  display: block;
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+.cfx .cf-para-new {
+  width: 100%;
+  margin-top: 22px;
+}
+.cf-para-earlier {
+  margin-top: 22px;
+}
+.cf-para-earlier .cf-muse-tools {
+  margin-top: 6px;
+}

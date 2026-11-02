@@ -1326,6 +1326,50 @@ export interface EpisodeHeard {
   before: EpisodeLine | null;
 }
 
+/** A trouble word a paragraph to write in Chinese is built around (paragraph.ts). */
+export interface ParagraphTarget {
+  word: string;
+  pinyin: string | null;
+  gloss: string | null;
+  /** Why it is trouble, in a few words ("Recall wrong 2 of its last 3", "forgotten 3 times this month"). */
+  why: string;
+  /** The words of the English paragraph that call for it. */
+  en: string;
+}
+
+/** A try at a paragraph, graded by the model. */
+export interface ParagraphTry {
+  at: number;
+  answer: string;
+  grade: "correct" | "almost" | "wrong";
+  /** Their Chinese with as little changed as makes it right and natural. */
+  fixed: string;
+  /** One or two sentences on how it went. */
+  why: string;
+  /** Each mistake: what they wrote, what to write, why. */
+  points: Array<{ wrong: string; right: string; why: string }>;
+  /** Each trouble word: used as it should be, something else said in its place, or left out. */
+  targets: Array<{ word: string; used: "yes" | "other" | "no"; said: string }>;
+}
+
+/** An English paragraph to write in Chinese, built around the owner's trouble words. */
+export interface Paragraph {
+  id: number;
+  at: number;
+  title: string;
+  en: string;
+  /** One way to say it, shown once tried. */
+  zh: string;
+  targets: ParagraphTarget[];
+  /** Newest first. */
+  tries: ParagraphTry[];
+}
+
+export interface ParagraphList {
+  /** Newest first, up to PARAGRAPHS_SHOWN. */
+  paragraphs: Paragraph[];
+}
+
 /** What a clip feed is made of (clipfeed.ts): words due, answered lately, forgotten lately, just learnt, or a whole episode in order. */
 export type ClipMode = "due" | "recent" | "trouble" | "learnt" | "episode";
 

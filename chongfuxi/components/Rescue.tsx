@@ -25,6 +25,7 @@ import { say } from "./Drill";
 import { MusePageList, MusePageView, useMusePages } from "./MusePage";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ClipFeed } from "./ClipFeed";
+import { ParagraphView } from "./Paragraph";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -83,6 +84,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   const [notes, setNotes] = useState(false);
   const [episode, setEpisode] = useState<number | null>(null);
   const [clips, setClips] = useState(false);
+  const [paragraph, setParagraph] = useState(false);
   // Loaded again each time a rescue closes, so states are fresh.
   const [loads, setLoads] = useState(0);
   const close = useCallback(() => {
@@ -93,9 +95,10 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
     setNotes(false);
     setEpisode(null);
     setClips(false);
+    setParagraph(false);
     setLoads((n) => n + 1);
   }, []);
-  const over = open !== null || speed || page || pages || notes || clips || episode !== null;
+  const over = open !== null || speed || page || pages || notes || clips || paragraph || episode !== null;
   useBackLayer(over, close);
   // In the tab, what opens over the list has the whole screen.
   const { setFocus } = shell;
@@ -107,6 +110,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   // An episode opened from a page lies over it; closing it comes back to the list.
   if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={page || pages ? () => setEpisode(null) : close} />;
   if (clips) return <ClipFeed onEnd={close} />;
+  if (paragraph) return <ParagraphView onEnd={close} />;
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
   if (page) return <MusePageView canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
@@ -122,6 +126,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
       onNotes={() => setNotes(true)}
       onWatch={setEpisode}
       onClips={shell.canWrite ? () => setClips(true) : undefined}
+      onParagraph={shell.canWrite ? () => setParagraph(true) : undefined}
       onEnd={onEnd}
     />
   );
@@ -135,6 +140,7 @@ function StuckRows({
   onNotes,
   onWatch,
   onClips,
+  onParagraph,
   onEnd,
 }: {
   onOpen: (word: string) => void;
@@ -144,6 +150,8 @@ function StuckRows({
   onNotes: () => void;
   onWatch: (id: number) => void;
   onClips?: () => void;
+  /** Write it in Chinese: the owner's only, as it costs money. */
+  onParagraph?: () => void;
   onEnd?: () => void;
 }) {
   const kits = useKits();
@@ -200,8 +208,17 @@ function StuckRows({
           }}
           onClips={onClips}
         />
-        {(total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 1) && (
+        {(onParagraph || total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 1) && (
           <ul className="cf-muse-tools">
+            {onParagraph && (
+              <li>
+                <button onClick={onParagraph}>
+                  <b>Write it in Chinese</b>
+                  <small>Trouble words</small>
+                  <i aria-hidden="true">›</i>
+                </button>
+              </li>
+            )}
             {pages && pages.length > 1 && (
               <li>
                 <button onClick={onPages}>

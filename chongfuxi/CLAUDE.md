@@ -949,6 +949,38 @@ trips both count.
   that day's 39 cards had none answered, the day before's went ungraded,
   and one reading had been read but never retold); they are now things
   Muse may put on its page.
+- **Write it in Chinese** (the owner: "an English paragraph using things
+  I'm having trouble with and made me write the Chinese for it. It should
+  make sense of course"; `components/Paragraph.tsx`, route `paragraph`,
+  `app/api/chongfuxi/paragraph.ts`, owner only as it costs money): the
+  first row of the Muse tab's list, opening full screen. "Write me one"
+  (then "New paragraph") has the app's model, at Look up's model and
+  effort, write one coherent English paragraph of 3 to 6 sentences, an
+  everyday situation, around up to `TARGETS` (5) trouble words
+  (`troubleWords`: the words to revive, worst first, then deck words
+  forgotten in the last 30 days, the most often first; those of the last
+  `REST_AFTER` (2) paragraphs wait while there are enough others), each
+  the natural Chinese for some words of it, the rest within the
+  `KNOWN_SHOWN` (800) strongest deck words. The model gives a Chinese
+  version and, for each trouble word it used, the English it translates;
+  `checkParagraph` keeps a word only when it is in the Chinese and its
+  English is copied exactly from the paragraph, and one using fewer than
+  three (or all offered) is asked for once more. On screen those English
+  parts are underlined, a tap giving the word's pinyin as a hint. The
+  owner writes (or says, `recogniser` from Reading.tsx) the Chinese, kept
+  as a draft on the device; Check grades it against the English (any
+  natural way is right, not only the model's), as ✓ Correct, ≈ Almost or
+  ✗ Not yet, with their text minimally fixed, up to 6 mistakes (struck →
+  right, why), and each trouble word used, said another way ("you wrote
+  发现") or left out (`checkTry`: a word not in the answer is never
+  "used"). Tries kept on the paragraph (`chongfuxi_paragraph`, made on
+  first use; newest first, 10). Once tried, or on "Stuck? Show one way
+  to say it", one way to say it with the trouble words marked, and each
+  word with its pinyin, meaning, the English it stood for and why it is
+  trouble, opening its page. Earlier lists the last 20 with their latest
+  grade. Nothing touches a schedule. Written by the app's model, not by
+  Muse the agent: it can be had on demand. Tested on a local Postgres
+  and in the browser with a stand-in model; not yet run with the real one.
 - **New from Muse** (the owner asked for a little badge): a "New" pill
   (`NewBadge`) after the title of whatever Muse added or changed since it
   was last opened on this device: the latest page (by its `at`, key

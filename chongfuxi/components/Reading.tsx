@@ -11,7 +11,7 @@ import { message } from "./shared";
 
 const GRADE: Record<Retell["grade"], string> = { correct: "✓ Correct", almost: "≈ Almost", wrong: "✗ Wrong" };
 
-type Recognition = {
+export type Recognition = {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
@@ -23,7 +23,7 @@ type Recognition = {
 };
 
 /** The phone's speech recognition, in Mandarin, if the browser has it. */
-function recogniser(): Recognition | null {
+export function recogniser(): Recognition | null {
   const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
   const R = w.SpeechRecognition ?? w.webkitSpeechRecognition;
   if (!R) return null;
