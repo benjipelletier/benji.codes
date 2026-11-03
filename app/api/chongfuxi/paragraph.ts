@@ -82,19 +82,61 @@ async function ask(system: string, schema: Record<string, unknown>, content: str
   }
 }
 
-type Trouble = Omit<ParagraphTarget, "en">;
+/** A trouble word as the writer is told about it: what is stored, plus what it needs. */
+export type Trouble = Omit<ParagraphTarget, "en"> & {
+  /** For a word mixed up: the word it is taken for, and that word's meaning. */
+  partner: { word: string; gloss: string | null } | null;
+  /** What the owner wrote after forgetting it (newest first), and what they wrote for it in earlier paragraphs. */
+  notes: string[];
+  said: string[];
+};
+
+/** Earlier paragraphs read for what went wrong; mistakes from them passed on; notes read per word. */
+const PAST_PARAGRAPHS = 5;
+const MISTAKES_SHOWN = 8;
+const NOTES_PER_WORD = 2;
+const NOTE_DAYS = 90;
+
+/** The latest try of each of the last PAST_PARAGRAPHS paragraphs tried: the words it missed and its mistakes. */
+async function pastTries(sql: Sql, owner: string) {
+  const rows = (await sql`
+    select targets, tries from chongfuxi_paragraph
+    where owner_email = ${owner} and jsonb_array_length(tries) > 0
+    order by at desc limit ${PAST_PARAGRAPHS}
+  `) as unknown as Array<{ targets: ParagraphTarget[]; tries: ParagraphTry[] }>;
+  const missed = new Map<string, { target: ParagraphTarget; said: string[]; other: boolean }>();
+  const mistakes: ParagraphTry["points"] = [];
+  for (const r of rows) {
+    const last = r.tries[0];
+    for (const t of last.targets) {
+      if (t.used === "yes") continue;
+      const target = r.targets.find((x) => x.word === t.word);
+      if (!target) continue;
+      const m = missed.get(t.word) ?? { target, said: [], other: false };
+      if (t.said) m.said.push(t.said);
+      if (t.used === "other") m.other = true;
+      missed.set(t.word, m);
+    }
+    for (const p of last.points) if (mistakes.length < MISTAKES_SHOWN && !mistakes.some((x) => x.right === p.right)) mistakes.push(p);
+  }
+  return { missed, mistakes };
+}
 
 /**
- * The owner's trouble words, worst first: the words to revive (Muse's
- * categories, in their order), then deck words forgotten in the last
- * FORGOT_DAYS (on a card or tapped in a forgotten sentence), the most often
- * first. Those the last REST_AFTER paragraphs were built around wait while
- * TARGETS others remain.
+ * The owner's trouble words, most needed first: those missed in their
+ * latest paragraphs (said another way or left out), then the words to
+ * revive (Muse's categories, in their order), then deck words forgotten in
+ * the last FORGOT_DAYS (on a card or tapped in a forgotten sentence), the
+ * most often first. Those the last REST_AFTER paragraphs were built around
+ * wait while TARGETS others remain, unless they were missed. Each comes
+ * with what it needs: its partner when mixed up, the owner's notes after
+ * forgetting it, what they wrote for it before.
  */
 export async function troubleWords(sql: Sql, owner: string): Promise<Trouble[]> {
   await ensureTable(sql);
   const label = new Map(CATEGORIES.map((c) => [c.key, c.label]));
   const stuck = await stuckWords(sql, owner);
+  const past = await pastTries(sql, owner);
   const forgot = (await sql.query(
     `select r.word, count(*)::int as n, w.pinyin, w.defs, w.glosses
      from chongfuxi_review r
@@ -107,27 +149,88 @@ export async function troubleWords(sql: Sql, owner: string): Promise<Trouble[]> 
   )) as unknown as Array<{ word: string; n: number; pinyin: string | null; defs: Definition[] | null; glosses: string[] | null }>;
   const all: Trouble[] = [];
   const seen = new Set<string>();
-  for (const s of stuck)
-    if (!seen.has(s.word) && seen.add(s.word))
-    {
-      const name = label.get(s.category) ?? s.category;
-      // "Mixed up with 发现" says its category already.
-      all.push({ word: s.word, pinyin: s.pinyin, gloss: s.gloss, why: s.why.startsWith(name) ? s.why : `${name}: ${s.why}` });
-    }
+  const add = (t: Trouble) => {
+    if (seen.has(t.word)) return;
+    seen.add(t.word);
+    all.push(t);
+  };
+  // A word to revive: its category and why ("Mixed up with 发现" says its category already).
+  const revive = new Map(
+    stuck.map((w) => {
+      const name = label.get(w.category) ?? w.category;
+      return [w.word, { why: w.why.startsWith(name) ? w.why : `${name}: ${w.why}`, partner: w.partner ? { word: w.partner, gloss: null } : null }];
+    }),
+  );
+  for (const [word, m] of past.missed) {
+    const missedWhy = m.other ? `Said another way in a paragraph${m.said.length ? ` (you wrote ${m.said[0]})` : ""}` : `Left out of a paragraph${m.said.length ? ` (you wrote ${m.said[0]})` : ""}`;
+    const r = revive.get(word);
+    add({ word, pinyin: m.target.pinyin, gloss: m.target.gloss, why: r ? `${missedWhy}; ${r.why}` : missedWhy, partner: r?.partner ?? null, notes: [], said: m.said });
+  }
+  for (const w of stuck) {
+    const r = revive.get(w.word)!;
+    add({ word: w.word, pinyin: w.pinyin, gloss: w.gloss, why: r.why, partner: r.partner, notes: [], said: [] });
+  }
   for (const f of forgot)
-    if (!seen.has(f.word) && seen.add(f.word))
-      all.push({ word: f.word, pinyin: shownPinyin(f.pinyin, f.defs) || null, gloss: f.glosses?.[0] ?? null, why: `Forgotten ${f.n === 1 ? "once" : `${f.n} times`} this month` });
+    add({ word: f.word, pinyin: shownPinyin(f.pinyin, f.defs) || null, gloss: f.glosses?.[0] ?? null, why: `Forgotten ${f.n === 1 ? "once" : `${f.n} times`} this month`, partner: null, notes: [], said: [] });
+
   const lately = (await sql`
     select targets from chongfuxi_paragraph where owner_email = ${owner} order by at desc limit ${REST_AFTER}
   `) as unknown as Array<{ targets: ParagraphTarget[] }>;
-  const resting = new Set(lately.flatMap((p) => p.targets.map((t) => t.word)));
+  const resting = new Set(lately.flatMap((p) => p.targets.map((t) => t.word)).filter((w) => !past.missed.has(w)));
   const fresh = all.filter((t) => !resting.has(t.word));
-  return fresh.length >= TARGETS ? [...fresh, ...all.filter((t) => resting.has(t.word))] : all;
+  const ordered = fresh.length >= TARGETS ? [...fresh, ...all.filter((t) => resting.has(t.word))] : all;
+
+  // What the first few need: the partner's meaning, the notes written after forgetting them, what they wrote before.
+  const head = ordered.slice(0, TARGETS * 2);
+  if (head.length) {
+    const words = head.map((t) => t.word);
+    const notes = (await sql`
+      select word, comment from chongfuxi_review
+      where owner_email = ${owner} and word = any(${words}) and comment is not null and comment <> ''
+        and at > now() - make_interval(days => ${NOTE_DAYS})
+      order by at desc
+    `) as unknown as Array<{ word: string; comment: string }>;
+    for (const n of notes) {
+      const t = head.find((x) => x.word === n.word)!;
+      if (t.notes.length < NOTES_PER_WORD) t.notes.push(n.comment.trim().slice(0, 200));
+    }
+    const partners = head.flatMap((t) => (t.partner ? [t.partner.word] : []));
+    if (partners.length) {
+      const glosses = (await sql`
+        select word, glosses from chongfuxi_word where owner_email = ${owner} and word = any(${partners})
+      `) as unknown as Array<{ word: string; glosses: string[] | null }>;
+      for (const t of head) if (t.partner) t.partner.gloss = glosses.find((g) => g.word === t.partner!.word)?.glosses?.[0] ?? null;
+    }
+  }
+  return ordered;
 }
 
-const WRITE_SYSTEM = `You write short English paragraphs for a learner of Mandarin to translate into Chinese, to practise words they keep getting wrong.
+/** The mistakes of the latest paragraphs tried, for the writer to give another go at. */
+export async function recentMistakes(sql: Sql, owner: string): Promise<ParagraphTry["points"]> {
+  await ensureTable(sql);
+  return (await pastTries(sql, owner)).mistakes;
+}
+
+/** What the writer is told about one trouble word. */
+export function briefOf(t: Trouble): string {
+  const lines = [`- ${t.word}${t.pinyin ? ` (${t.pinyin})` : ""}${t.gloss ? `: ${t.gloss}` : ""}`, `  Trouble: ${t.why}.`];
+  if (t.partner) lines.push(`  They take it for ${t.partner.word}${t.partner.gloss ? ` (${t.partner.gloss})` : ""}.`);
+  for (const n of t.notes) lines.push(`  Their note after forgetting it: "${n}"`);
+  if (t.said.length) lines.push(`  In an earlier paragraph they wrote ${t.said.map((x) => `"${x}"`).join(", ")} where it belonged.`);
+  return lines.join("\n");
+}
+
+const WRITE_SYSTEM = `You write short English paragraphs for a learner of Mandarin to translate into Chinese, to practise the words and points they keep getting wrong. You are told, for each target word, why it is trouble and what they did wrong with it; aim each word's part of the paragraph at exactly that.
 - Write ONE coherent paragraph of 3 to 6 sentences: a small everyday situation or story that makes sense from start to finish, with people, a place and something happening. Never a list of unrelated sentences, and nothing forced in to fit a word.
-- Use as many of the target words as can sit naturally in one situation (at least three; leave out any that would make it strained). Each one you use must be the natural, obvious Chinese for some words of the English, in a sense it really has, so that a good translation would use it; phrase the English so that a near-synonym would not fit as well (the learner is being tested on that exact word).
+- Use as many of the target words as can sit naturally in one situation (at least three, the first ones listed first: they are the most needed; leave out any that would make it strained). Each one you use must be the natural, obvious Chinese for some words of the English, in a sense it really has, so that a good translation would use it; phrase the English so that a near-synonym would not fit as well (the learner is being tested on that exact word).
+- Aim at the trouble:
+  - Taken for another word (mixed up): make the English clearly call for this word and not the other, ideally with the other word's meaning nearby too so both must be told apart.
+  - Can't produce it (recognises it, can't come up with it): make the English unmistakable, so the only thing between them and the word is recall.
+  - Breaks in context: use it in a full, natural sentence with real context around it, in its usual collocations.
+  - Slipping, won't stick, a leech, forgotten lately: a vivid, memorable use in its commonest sense.
+  - Missed in an earlier paragraph (they wrote something else, or left it out): set up the same kind of meaning again so they get a second chance at it.
+  - Use their notes: they say what the learner thought or confused; make the paragraph test exactly that.
+- If you are given mistakes from earlier paragraphs, also give them a natural chance to get one or two of those points right this time (the same structure, collocation or word, in new words), when it fits the story.
 - Keep everything else easy: words a learner who knows the given vocabulary can say. No names they'd have to transliterate beyond common ones (小王, 李老师).
 - Natural, idiomatic English, not translationese.
 - title: a few English words naming the situation.
@@ -166,7 +269,7 @@ export function checkParagraph(given: Record<string, unknown>, offered: Trouble[
     const run = clip((t as Record<string, unknown>)?.en, 200);
     const known = byWord.get(word);
     if (!known || !run || !en.includes(run) || !zh.includes(word) || targets.some((x) => x.word === word)) continue;
-    targets.push({ ...known, en: run });
+    targets.push({ word: known.word, pinyin: known.pinyin, gloss: known.gloss, why: known.why, en: run });
   }
   // In the order they come in the English.
   targets.sort((a, b) => en.indexOf(a.en) - en.indexOf(b.en));
@@ -213,12 +316,16 @@ export async function writeParagraph(sql: Sql, owner: string, model: Ask = ask):
   const offered = trouble.slice(0, TARGETS);
   const need = Math.min(3, offered.length);
   const known = await knownWords(sql, owner);
+  const mistakes = await recentMistakes(sql, owner);
   let made = checkParagraph({}, offered);
   let feedback = "";
   for (let round = 0; round < 2 && made.targets.length < need; round++) {
     const content = [
-      "Target words (the learner keeps getting these wrong):",
-      ...offered.map((t) => `- ${t.word}${t.pinyin ? ` (${t.pinyin})` : ""}${t.gloss ? `: ${t.gloss}` : ""}`),
+      "Target words, the most needed first, each with why it is trouble:",
+      ...offered.map(briefOf),
+      ...(mistakes.length
+        ? ["", "Mistakes from their earlier paragraphs (wrote → should be: why):", ...mistakes.map((m) => `- ${m.wrong || "(nothing)"} → ${m.right}: ${m.why}`)]
+        : []),
       ...(round ? [feedback] : []),
       "",
       `Words the learner knows well (${known.length}), to keep the rest within reach:`,

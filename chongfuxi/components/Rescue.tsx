@@ -22,10 +22,10 @@ import { CATEGORIES } from "@chongfuxi/lib/revive";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { markSeen, onSeen, seenAt } from "@chongfuxi/lib/museSeen";
 import { say } from "./Drill";
-import { MusePageList, MusePageView, useMusePages } from "./MusePage";
+import { MusePageList, useMusePages } from "./MusePage";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ClipFeed } from "./ClipFeed";
-import { ParagraphView } from "./Paragraph";
+import { ParagraphLead, ParagraphView } from "./Paragraph";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -79,7 +79,6 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   // A word's rescue, Muse's page or anything else on the list, over it.
   const [open, setOpen] = useState<string | null>(null);
   const [speed, setSpeed] = useState(false);
-  const [page, setPage] = useState(false);
   const [pages, setPages] = useState(false);
   const [notes, setNotes] = useState(false);
   const [episode, setEpisode] = useState<number | null>(null);
@@ -90,7 +89,6 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
   const close = useCallback(() => {
     setOpen(null);
     setSpeed(false);
-    setPage(false);
     setPages(false);
     setNotes(false);
     setEpisode(null);
@@ -98,7 +96,7 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
     setParagraph(false);
     setLoads((n) => n + 1);
   }, []);
-  const over = open !== null || speed || page || pages || notes || clips || paragraph || episode !== null;
+  const over = open !== null || speed || pages || notes || clips || paragraph || episode !== null;
   useBackLayer(over, close);
   // In the tab, what opens over the list has the whole screen.
   const { setFocus } = shell;
@@ -106,14 +104,13 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
     if (!onEnd) setFocus(over);
   }, [over, onEnd, setFocus]);
   useEffect(() => () => (onEnd ? undefined : setFocus(false)), [onEnd, setFocus]);
-  useBackLayer(episode !== null && (page || pages), () => setEpisode(null));
+  useBackLayer(episode !== null && pages, () => setEpisode(null));
   // An episode opened from a page lies over it; closing it comes back to the list.
-  if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={page || pages ? () => setEpisode(null) : close} />;
+  if (episode !== null) return <EpisodeView id={episode} canWrite={shell.canWrite} onEnd={pages ? () => setEpisode(null) : close} />;
   if (clips) return <ClipFeed onEnd={close} />;
   if (paragraph) return <ParagraphView onEnd={close} />;
   if (open) return <Rescue canWrite={shell.canWrite} word={open} onEnd={close} />;
   if (speed) return <SpeedRound onEnd={close} />;
-  if (page) return <MusePageView canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
   if (pages) return <MusePageList canWrite={shell.canWrite} onEnd={close} onEpisode={setEpisode} />;
   if (notes) return <NotesView onEnd={close} />;
   return (
@@ -121,7 +118,6 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
       key={loads}
       onOpen={setOpen}
       onSpeed={() => setSpeed(true)}
-      onPage={() => setPage(true)}
       onPages={() => setPages(true)}
       onNotes={() => setNotes(true)}
       onWatch={setEpisode}
@@ -135,7 +131,6 @@ export function StuckList({ shell, onEnd }: { shell: Shell; onEnd?: () => void }
 function StuckRows({
   onOpen,
   onSpeed,
-  onPage,
   onPages,
   onNotes,
   onWatch,
@@ -145,7 +140,6 @@ function StuckRows({
 }: {
   onOpen: (word: string) => void;
   onSpeed: () => void;
-  onPage: () => void;
   onPages: () => void;
   onNotes: () => void;
   onWatch: (id: number) => void;
@@ -182,23 +176,8 @@ function StuckRows({
       )}
       <div className="cf-rescue-in">
         {!kits && <Loading label="Finding them…" />}
-        {/* Muse's page for the day leads; watching next; the smaller things as one list. */}
-        {latest && (
-          <button className="cf-stuck cf-story-btn cf-drill-btn" onClick={open(`page:${latest.at}`, onPage)}>
-            <span className="cf-stuck-text">
-              <b>
-                {latest.today ? "Today's page" : "Latest page"}
-                {news.page && <NewBadge />}
-              </b>
-              <small>
-                {latest.title}
-                {latest.touched ? ` · ${fmt(latest.touched)}/${fmt(latest.blocks)} done` : ""}
-                {latest.today ? "" : " · today's isn't laid out yet"}
-              </small>
-            </span>
-            <i aria-hidden="true">›</i>
-          </button>
-        )}
+        {/* Writing it in Chinese leads (the owner's pick over Muse's daily page); watching next; the smaller things as one list. */}
+        {onParagraph && <ParagraphLead onOpen={onParagraph} />}
         <EpisodeRows
           episodes={episodes}
           isNew={news.episode}
@@ -208,22 +187,16 @@ function StuckRows({
           }}
           onClips={onClips}
         />
-        {(onParagraph || total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 1) && (
+        {(total > 0 || (noteCounts?.total ?? 0) > 0 || (pages?.length ?? 0) > 0) && (
           <ul className="cf-muse-tools">
-            {onParagraph && (
+            {latest && (
               <li>
-                <button onClick={onParagraph}>
-                  <b>Write it in Chinese</b>
-                  <small>Trouble words</small>
-                  <i aria-hidden="true">›</i>
-                </button>
-              </li>
-            )}
-            {pages && pages.length > 1 && (
-              <li>
-                <button onClick={onPages}>
-                  <b>Earlier pages</b>
-                  <small>{fmt(pages.length - 1)}</small>
+                <button onClick={open(`page:${latest.at}`, onPages)}>
+                  <b>
+                    Muse&apos;s pages
+                    {news.page && <NewBadge />}
+                  </b>
+                  <small>{fmt(pages!.length)}</small>
                   <i aria-hidden="true">›</i>
                 </button>
               </li>

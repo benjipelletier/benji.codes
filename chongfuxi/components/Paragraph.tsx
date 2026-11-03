@@ -226,6 +226,34 @@ function AnswerBox({ p, onTried }: { p: Paragraph; onTried: (p: Paragraph) => vo
 }
 
 /**
+ * What leads the Muse tab (the owner chose it over Muse's daily page):
+ * Write it in Chinese, with the latest paragraph and how it went, or what it
+ * is when there is none yet. Owner only.
+ */
+export function ParagraphLead({ onOpen }: { onOpen: () => void }) {
+  const [latest, setLatest] = useState<Paragraph | null | undefined>(undefined);
+  useEffect(() => {
+    get<ParagraphList>("paragraph")
+      .then((r) => setLatest(r.paragraphs[0] ?? null))
+      .catch(() => setLatest(null));
+  }, []);
+  const tried = latest?.tries[0];
+  return (
+    <button className="cf-stuck cf-story-btn cf-drill-btn cf-para-lead" onClick={onOpen}>
+      <span className="cf-stuck-text">
+        <b>Write it in Chinese</b>
+        <small>
+          {latest
+            ? `${latest.title} · ${tried ? GRADE[tried.grade] : "not tried yet"}`
+            : "An English paragraph around the words you keep getting wrong"}
+        </small>
+      </span>
+      <i aria-hidden="true">›</i>
+    </button>
+  );
+}
+
+/**
  * The screen: the paragraph open (the latest, or one picked from Earlier),
  * New paragraph at the foot. One way to say it and the words behind it show
  * once tried, or on "Show it" for one given up on.

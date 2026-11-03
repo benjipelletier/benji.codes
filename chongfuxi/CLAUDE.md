@@ -937,12 +937,14 @@ trips both count.
   the app under the header, and whatever opens from it (a page, an episode,
   a kit, the speed round, notes) takes the whole screen (`shell.setFocus`),
   back returning to the tab. Before that, **Muse reviews** (the owner
-  reframed the screen around Muse; it was Memory kits). **Muse's
-  page** comes first ("Today's page", or "Latest page" until today's is laid
-  out; its title and how many of its blocks were done; see Muse's daily
-  page), then **Watch** (see Getting ready to watch a drama), then one
-  grouped list (`cf-muse-tools`): Earlier pages, the speed round and Your
-  notes; then New words and the stuck words' categories with no "Stuck
+  reframed the screen around Muse; it was Memory kits). **Write it in
+  Chinese** comes first (`ParagraphLead`: the latest paragraph's title and
+  how its last try went; below), in the place Muse's daily page had
+  ("Today's page", until the owner preferred the paragraphs: "replace
+  today's page… make that the main one"), then **Watch** (see Getting
+  ready to watch a drama), then one grouped list (`cf-muse-tools`):
+  Muse's pages (all of them, today's too, with the New badge when one is
+  new; it was Earlier pages), the speed round and Your notes; then New words and the stuck words' categories with no "Stuck
   words" heading over them (the owner had it taken out). Today's review,
   the story, Read and the weekly debrief had their own rows until the
   owner found too many Muse things made and too few used (on Oct 27, 2026
@@ -952,16 +954,33 @@ trips both count.
 - **Write it in Chinese** (the owner: "an English paragraph using things
   I'm having trouble with and made me write the Chinese for it. It should
   make sense of course"; `components/Paragraph.tsx`, route `paragraph`,
-  `app/api/chongfuxi/paragraph.ts`, owner only as it costs money): the
-  first row of the Muse tab's list, opening full screen. "Write me one"
+  `app/api/chongfuxi/paragraph.ts`, owner only as it costs money): what
+  leads the Muse tab, opening full screen. "Write me one"
   (then "New paragraph") has the app's model, at Look up's model and
   effort, write one coherent English paragraph of 3 to 6 sentences, an
-  everyday situation, around up to `TARGETS` (5) trouble words
-  (`troubleWords`: the words to revive, worst first, then deck words
-  forgotten in the last 30 days, the most often first; those of the last
-  `REST_AFTER` (2) paragraphs wait while there are enough others), each
-  the natural Chinese for some words of it, the rest within the
-  `KNOWN_SHOWN` (800) strongest deck words. The model gives a Chinese
+  everyday situation, around up to `TARGETS` (5) trouble words, the most
+  needed first (`troubleWords`): words missed in the latest
+  `PAST_PARAGRAPHS` (5) paragraphs tried (said another way or left out,
+  from each one's latest try), then the words to revive, worst first,
+  then deck words forgotten in the last 30 days, the most often first;
+  those of the last `REST_AFTER` (2) paragraphs wait while there are
+  enough others, unless they were missed. Each is the natural Chinese for
+  some words of it, the rest within the `KNOWN_SHOWN` (800) strongest
+  deck words. **Tailored to what each word needs** (the owner asked for
+  the paragraph to be aimed at what they need to work on): the writer is
+  told, per word (`briefOf`), why it is trouble (its category and why,
+  and/or how it was missed in a paragraph), the word it is taken for when
+  mixed up (with that word's meaning), up to `NOTES_PER_WORD` (2) of the
+  owner's notes written after forgetting it (90 days), and what they wrote
+  in its place before; and up to `MISTAKES_SHOWN` (8) mistakes from those
+  earlier paragraphs (wrote → should be: why, `recentMistakes`). The
+  instructions aim each word's part at its trouble (mixed up: the English
+  calls for this word and not the other, ideally with the other's meaning
+  nearby; can't produce: unmistakable English; breaks in context: a full
+  sentence in its usual collocations; slipping, won't stick, leech,
+  forgotten: a vivid use in its commonest sense; missed before: the same
+  kind of meaning again; notes: test exactly what was confused), and give
+  one or two earlier mistakes another chance when it fits the story. The model gives a Chinese
   version and, for each trouble word it used, the English it translates;
   `checkParagraph` keeps a word only when it is in the Chinese and its
   English is copied exactly from the paragraph, and one using fewer than
