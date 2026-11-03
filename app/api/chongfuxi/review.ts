@@ -110,10 +110,15 @@ export const CARD_COLUMNS = `
 export const ACTIVE = `c.retired is null and c.flagged is null and not c.suspended`;
 
 /**
- * A new word's Read card that hasn't been through Learn yet (learn.ts): it
- * waits there, out of the review and its counts, until it has.
+ * A new word's Read card held back for Learn (learn.ts). None is now: the
+ * owner wanted new words "to just go into read cards right away", so a new
+ * word's Read card is dealt like any other from the moment it is added.
+ * It held back `kind = 'read' and state = 0 and learned_at is null and
+ * meaning_id is null` until the last Learn step; everything that reads it
+ * (Today's New words, the session's Learn steps, a list's Learn, Memory
+ * kits' New words) is empty while it is false.
  */
-export const WAITING_TO_LEARN = `(c.kind = 'read' and c.state = 0 and c.learned_at is null and c.meaning_id is null)`;
+export const WAITING_TO_LEARN = `(false)`;
 
 /**
  * Word cards, least likely to be remembered first. FSRS's recall odds fall as

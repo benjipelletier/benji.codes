@@ -73,7 +73,7 @@ check every screen at 360px wide first.
   `app/api/chongfuxi/algorithm.ts`): the scheduling and queue algorithm as a
   compact table of its parameters. The owner asked to see "how the cookie is
   made", then for the algorithm only, read-only, then compact with no prose.
-  By stage (FSRS, Seeding, Learn, Queue, Sentences): name, value, and name
+  By stage (FSRS, Seeding, Queue, Sentences; Learn until it went): name, value, and name
   in the code; the FSRS weights fold out. Values are the code's constants,
   imported from `lib/` (`RETENTION`, `FUZZ`, `SAME_DAY_STEPS`,
   `FSRS_WEIGHTS`, `SEED_CAP_DAYS`, `SEED_DIFFICULTY`, `RECALL_SEED_FACTOR`,
@@ -1486,7 +1486,21 @@ the design was silent and are still to be confirmed.
   days… an easy way to unadd words") in place of "Worth adding next", the
   suggestions (`listBlockers`' learn-next words, with + Add) that were
   there, which they didn't care for.
-- **Learn**: a new word (a Read card never answered, from Pleco
+- **New words go straight into Read cards** (November 2026; the owner:
+  "I'm not a fan of the new words thing. I want new words to just go into
+  read cards right away"): a new word's Read card (from Pleco unscored, an
+  Anki sync, a list, 龙库, a page or Look up) is due from the moment it is
+  added and dealt like any other Read card, never answered ones at most
+  one in two (`UNANSWERED_EVERY`); its Recall card opens on the first Got
+  it as for any word. `WAITING_TO_LEARN` is now `(false)`, so everything
+  the Learn ladder below fed is empty and hidden: Today's New words row and
+  its time in the estimate, the session's Learn steps and its New count, a
+  list's Learn button, Memory kits' New words, the Algorithm page's Learn
+  group (taken off, with the Learn slots in its next-up list). Words part
+  way up the ladder when it went became ordinary Read cards, still due.
+  The ladder's code, `chongfuxi_learn` and `learned_at` stay, unused. As
+  it was:
+- **Learn** (no longer used; see above): a new word (a Read card never answered, from Pleco
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in
   `app/api/chongfuxi/review.ts`). Its steps are folded into the review

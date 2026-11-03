@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
 import type { QueueNow, QueueWhy, SessionCard } from "@chongfuxi/lib/api";
 import { get, today } from "@chongfuxi/lib/client";
 import { ROLLOVER_HOUR } from "@chongfuxi/lib/day";
-import { AFTER_MISS, GAP, IN_PLAY, LADDER, LEARN_EVERY } from "@chongfuxi/lib/learn";
 import { CLEAN_READS_TO_RETIRE, CYCLE, DUE_PER_NEW, MISS_EVERY, NEW_PER_WORD, RESCUE_CLEAR, UNANSWERED_EVERY, REVIVED_CLEAN_READS } from "@chongfuxi/lib/review";
 import { REVIVE } from "@chongfuxi/lib/revive";
 import {
@@ -57,30 +56,12 @@ function kindOf(c: SessionCard): { label: string; cls: string } {
   return c.why?.line === "new" ? { label: "New", cls: "is-new" } : { label: "Sentence", cls: "is-sentence" };
 }
 
-/** The cards a session would start with, with the place of a Learn step every LEARN_EVERY-th card (taken only while words wait). */
+/** The cards a session would start with. */
 function NextUp({ cards }: { cards: SessionCard[] }) {
-  const rows: Array<{ card: SessionCard } | { step: number }> = [];
-  cards.forEach((card, i) => {
-    rows.push({ card });
-    if ((i + 1) % (LEARN_EVERY - 1) === 0) rows.push({ step: rows.length });
-  });
-  let n = 0;
   return (
     <ol className="cf-how-next">
-      {rows.map((r) => {
-        n++;
-        if ("step" in r) {
-          return (
-            <li key={`step${r.step}`} className="cf-how-row is-learn">
-              <span className="cf-how-n">{n}</span>
-              <span className="cf-how-body">
-                <span className="cf-how-kind is-learn">Learn</span>
-                <span className="cf-how-why">if words wait</span>
-              </span>
-            </li>
-          );
-        }
-        const c = r.card;
+      {cards.map((c, i) => {
+        const n = i + 1;
         const k = kindOf(c);
         const text = c.kind === "sentence" ? c.sentence?.zh : c.meaning ? `${c.word?.word} (${c.meaning.gloss})` : c.word?.word;
         return (
@@ -158,22 +139,6 @@ const GROUPS: Array<{ title: string; params: Param[] }> = [
       ["Initial difficulty", `${SEED_DIFFICULTY.base} + ${SEED_DIFFICULTY.perMissRate}·miss rate`, "SEED_DIFFICULTY"],
       ["Recall stability", `× ${RECALL_SEED_FACTOR}`, "RECALL_SEED_FACTOR"],
       ["Recall opens", "1st Good on Read", "submitReview()"],
-    ],
-  },
-  {
-    title: "Learn",
-    params: [
-      ["Ladder", LADDER.join(" → "), "LADDER"],
-      ["In play", String(IN_PLAY), "IN_PLAY"],
-      [
-        "Return gap",
-        LADDER.filter((l) => GAP[l] > 0)
-          .map((l) => GAP[l])
-          .join(" · "),
-        "GAP",
-      ],
-      ["Miss", `−1 step, ${AFTER_MISS} turns`, "AFTER_MISS"],
-      ["Interleave", `1 / ${LEARN_EVERY} cards`, "LEARN_EVERY"],
     ],
   },
   {

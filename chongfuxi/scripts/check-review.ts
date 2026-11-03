@@ -13,7 +13,7 @@ import { ingest, setName } from "../../app/api/chongfuxi/corpus";
 import type { Sql } from "../../app/api/chongfuxi/db";
 import { addWords } from "../../app/api/chongfuxi/additions";
 import { loadDict } from "../../app/api/chongfuxi/dictfile";
-import { recordSteps, wordsToLearn } from "../../app/api/chongfuxi/learn";
+import { wordsToLearn } from "../../app/api/chongfuxi/learn";
 import { getStats } from "../../app/api/chongfuxi/stats";
 import {
   getSummary,
@@ -141,65 +141,18 @@ async function main() {
   const ni = (await wordCard("read", "你"))!;
   check("Pleco's top score is capped, and due at once like the rest", ni.stability === SEED_CAP_DAYS && ni.due === noon(1), `stability ${ni.stability}`);
 
-  // ----------------------------------------------------------------- learn
-  // The five words Pleco never tested wait for Learn before they are reviewed.
+  // ----------------------------------------------------------------- new words
+  // The five words Pleco never tested are Read cards from the start, dealt like any other: no Learn first (the owner's call).
   const newWords = ["他", "茶", "水", "很", "好"];
-  check("a word never tested waits for Learn, out of the queue", !(await queue(1)).some((c) => c.word && newWords.includes(c.word.word)));
-  check("and out of Today's counts, which count it to learn", (await getSummary(sql, owner, dayN(1))).toLearn === newWords.length);
-  const toLearn = await wordsToLearn(sql, owner, null);
-  const chaToLearn = toLearn.find((w) => w.word === "茶");
+  const opening = await queue(1);
   check(
-    "Learn offers them, each with sentences that have it, every word known first",
-    toLearn.length === newWords.length &&
-      Boolean(chaToLearn?.sentences.length) &&
-      chaToLearn!.sentences.every((x) => x.words.includes("茶")) &&
-      chaToLearn!.sentences[0].unknown === null,
-    chaToLearn?.sentences.map((x) => x.zh).join(" "),
+    "a word never tested comes up as a Read card at once",
+    newWords.every((w) => opening.some((c) => c.kind === "read" && c.word?.word === w)),
+    opening.filter((c) => c.word).map((c) => `${c.kind}:${c.word!.word}`).join(" "),
   );
-  check(
-    "a sentence with one word not known yet names it, and blanks the word for the cloze",
-    chaToLearn!.sentences.some((x) => x.unknown === "约翰" && x.blanked === "约翰喝＿＿。"),
-    JSON.stringify(chaToLearn!.sentences.map((x) => [x.unknown, x.blanked])),
-  );
-  // Learned the evening before, so they are due on day 1 as before.
-  const eve: StudyDay = { day: "2029-12-31", cutoff: Date.UTC(2030, 0, 1, 4) };
-  // Part way up the ladder: the place is saved, and the word comes first next time.
-  const chaWord = chaToLearn!;
-  await recordSteps(sql, owner, eve, "check-learn", [
-    { id: "s-cha-meet", card: chaWord.card, word: "茶", step: "meet", sentence: null, grade: "seen", next: "context" },
-  ]);
-  const resumed = await wordsToLearn(sql, owner, null);
-  check(
-    "a step is saved as it is taken: the word keeps its place and comes first",
-    resumed[0]?.word === "茶" && resumed[0]?.step === "context" && resumed.filter((w) => w.step === null).length === newWords.length - 1,
-    resumed.map((w) => `${w.word}:${w.step}`).join(" "),
-  );
-  check("and is still waiting for Learn, out of the queue", !(await queue(1)).some((c) => c.word?.word === "茶"));
-  const learnedResults = toLearn.map((w) => ({
-    id: `s-${w.card}-word`,
-    card: w.card,
-    word: w.word,
-    step: "word" as const,
-    sentence: null,
-    grade: "good" as const,
-    next: null,
-  }));
-  const learnRows = async () =>
-    Number(((await sql`select count(*) as n from chongfuxi_learn where owner_email = ${owner}`) as unknown as Array<{ n: string }>)[0].n);
-  const learnedNow = await recordSteps(sql, owner, eve, "check-learn", learnedResults);
-  const chaLog = (await sql`select steps from chongfuxi_learn where owner_email = ${owner} and card_id = ${chaWord.card}`) as unknown as Array<{ steps: unknown[] }>;
-  check(
-    "the last step marks them learned and logs each step, answering nothing",
-    learnedNow.length === newWords.length && (await reviews()) === 0 && (await learnRows()) === newWords.length && chaLog[0]?.steps.length === 2,
-  );
-  check(
-    "sending it again changes nothing",
-    (await recordSteps(sql, owner, eve, "check-learn", learnedResults)).length === 0 &&
-      (await learnRows()) === newWords.length &&
-      ((await sql`select steps from chongfuxi_learn where owner_email = ${owner} and card_id = ${chaWord.card}`) as unknown as Array<{ steps: unknown[] }>)[0].steps.length === 2,
-  );
-  const chaLearned = (await wordCard("read", "茶"))!;
-  check("a learned card is still new and due no sooner than it was", chaLearned.state === 0 && chaLearned.answered === 0 && chaLearned.due === cha.due);
+  const summary1 = await getSummary(sql, owner, dayN(1));
+  check("and counts among Today's Read cards, with nothing waiting to learn", summary1.toLearn === 0 && summary1.dueRead >= newWords.length, JSON.stringify({ toLearn: summary1.toLearn, dueRead: summary1.dueRead }));
+  check("Learn offers nothing", (await wordsToLearn(sql, owner, null)).length === 0);
 
   // ----------------------------------------------------------------- day 1
   let q = await queue(1);
@@ -211,7 +164,11 @@ async function main() {
   const nothingDue = await nextCards(sql, owner, dayN(1), { limit: 30, position: 0, exclude: allDue, skipWords: [], at: noon(1) });
   check("with nothing due, no new sentence comes unasked", nothingDue.length === 0, nothingDue.map((c) => c.kind).join());
   const keepGoing = await nextCards(sql, owner, dayN(1), { limit: 30, position: 0, exclude: allDue, skipWords: [], at: noon(1), more: true });
-  check("kept going, new sentences come from the whole pool, all twelve", keepGoing.length === 12 && keepGoing.every((c) => c.kind === "sentence" && c.isNew), keepGoing.length);
+  check(
+    "kept going, new sentences come from the whole pool, a word taking turns, at most NEW_PER_WORD a day",
+    keepGoing.length > 0 && keepGoing.length <= 12 && keepGoing.every((c) => c.kind === "sentence" && c.isNew),
+    keepGoing.length,
+  );
   check("one card per word in a batch", new Set(q.filter((c) => c.word).map((c) => c.word!.word)).size === q.filter((c) => c.word).length);
   const chaCard = q.find((c) => c.word?.word === "茶")!;
   check("a Read card comes with a readable sentence that has the word", Boolean(chaCard?.sentence?.words.includes("茶")), chaCard?.sentence?.zh);
@@ -403,20 +360,12 @@ async function main() {
   check(`replaying the ${log.length} reviews reproduces every answer`, agree);
   check("and leaves every reviewed card where the database has it", matches, `${state.size} cards`);
 
-  // ---------------------------------------------------- learned on the day
+  // ---------------------------------------------------- added on a day
   await addWords(sql, owner, "check", ["咖啡"], loadDict(), noon(4));
-  const later = await wordsToLearn(sql, owner, null);
-  check("a word added later waits for Learn too", later.map((w) => w.word).join() === "咖啡", later.map((w) => w.word).join());
-  await recordSteps(sql, owner, dayN(4), "check-learn-4", [
-    { id: "s-kafei", card: later[0].card, word: "咖啡", step: "word", sentence: null, grade: "good", next: null },
-  ]);
   const kafei = (await wordCard("read", "咖啡"))!;
   check(
-    "learned on a day, it is due the next, still new",
-    kafei.state === 0 &&
-      kafei.due > dayN(4).cutoff &&
-      !(await queue(4)).some((c) => c.word?.word === "咖啡") &&
-      (await queue(5)).some((c) => c.word?.word === "咖啡"),
+    "a word added later is a new Read card, in that day's queue at once",
+    kafei.state === 0 && kafei.due <= noon(4) && (await queue(4)).some((c) => c.kind === "read" && c.word?.word === "咖啡"),
   );
 }
 
