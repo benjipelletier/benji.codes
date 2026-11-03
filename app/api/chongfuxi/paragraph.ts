@@ -14,6 +14,7 @@ import type { Paragraph, ParagraphTarget, ParagraphTry } from "@chongfuxi/lib/ap
 import type { Definition } from "@chongfuxi/lib/dict";
 import { CATEGORIES } from "@chongfuxi/lib/revive";
 import type { Sql } from "./db";
+import { ownersDay } from "./daily";
 import { EFFORT, MODEL } from "./lookup";
 import { stuckWords } from "./rescue";
 import { shownPinyin } from "./review";
@@ -53,6 +54,10 @@ async function ensureTable(sql: Sql) {
     )
   `;
   await sql`create index if not exists chongfuxi_paragraph_owner on chongfuxi_paragraph (owner_email, at desc)`;
+  // Muse writes them too (agent/paragraph): who wrote it, its sentences side by side with a note on each, and a note on the whole.
+  await sql`alter table chongfuxi_paragraph add column if not exists by text not null default 'app'`;
+  await sql`alter table chongfuxi_paragraph add column if not exists sentences jsonb`;
+  await sql`alter table chongfuxi_paragraph add column if not exists note text`;
   ready = true;
 }
 
@@ -289,17 +294,40 @@ async function knownWords(sql: Sql, owner: string): Promise<string[]> {
   return rows.map((r) => r.word);
 }
 
-type Row = { id: number; at: number; title: string; en: string; zh: string; targets: ParagraphTarget[]; tries: ParagraphTry[] };
+type Row = {
+  id: number;
+  at: number;
+  title: string;
+  en: string;
+  zh: string;
+  targets: ParagraphTarget[];
+  tries: ParagraphTry[];
+  by: Paragraph["by"];
+  sentences: Paragraph["sentences"];
+  note: string | null;
+};
+const COLUMNS = `id::int as id, (extract(epoch from at) * 1000)::double precision as at, title, en, zh, targets, tries, by, sentences, note`;
 
-const fromRow = (r: Row): Paragraph => ({ id: r.id, at: Math.round(r.at), title: r.title, en: r.en, zh: r.zh, targets: r.targets, tries: r.tries });
+const fromRow = (r: Row): Paragraph => ({
+  id: r.id,
+  at: Math.round(r.at),
+  title: r.title,
+  en: r.en,
+  zh: r.zh,
+  targets: r.targets,
+  tries: r.tries,
+  by: r.by === "muse" ? "muse" : "app",
+  sentences: r.sentences ?? null,
+  note: r.note ?? null,
+});
 
 /** The paragraphs, newest first. Owner only. */
 export async function listParagraphs(sql: Sql, owner: string): Promise<Paragraph[]> {
   await ensureTable(sql);
-  const rows = (await sql`
-    select id::int as id, (extract(epoch from at) * 1000)::double precision as at, title, en, zh, targets, tries
-    from chongfuxi_paragraph where owner_email = ${owner} order by at desc limit ${PARAGRAPHS_SHOWN}
-  `) as unknown as Row[];
+  const rows = (await sql.query(
+    `select ${COLUMNS} from chongfuxi_paragraph where owner_email = $1 order by at desc limit $2`,
+    [owner, PARAGRAPHS_SHOWN],
+  )) as unknown as Row[];
   return rows.map(fromRow);
 }
 
@@ -340,8 +368,14 @@ export async function writeParagraph(sql: Sql, owner: string, model: Ask = ask):
   const [row] = (await sql`
     insert into chongfuxi_paragraph (owner_email, model, title, en, zh, targets)
     values (${owner}, ${MODEL}, ${made.title}, ${made.en}, ${made.zh}, ${JSON.stringify(made.targets)}::jsonb)
-    returning id::int as id, (extract(epoch from at) * 1000)::double precision as at, title, en, zh, targets, tries
-  `) as unknown as Row[];
+    returning id
+  `) as unknown as Array<{ id: number }>;
+  return paragraphById(sql, owner, Number(row.id));
+}
+
+async function paragraphById(sql: Sql, owner: string, id: number): Promise<Paragraph> {
+  const [row] = (await sql.query(`select ${COLUMNS} from chongfuxi_paragraph where owner_email = $1 and id = $2`, [owner, id])) as unknown as Row[];
+  if (!row) throw new ParagraphError("No such paragraph.");
   return fromRow(row);
 }
 
@@ -414,14 +448,11 @@ export async function tryParagraph(sql: Sql, owner: string, id: number, text: st
   await ensureTable(sql);
   const answer = text.trim().slice(0, ANSWER_MAX);
   if (!/[㐀-鿿]/.test(answer)) throw new ParagraphError("Write it in Chinese.");
-  const [row] = (await sql`
-    select id::int as id, (extract(epoch from at) * 1000)::double precision as at, title, en, zh, targets, tries
-    from chongfuxi_paragraph where owner_email = ${owner} and id = ${id}
-  `) as unknown as Row[];
-  if (!row) throw new ParagraphError("No such paragraph.");
+  const row = await paragraphById(sql, owner, id);
   const content = [
     `The English:\n${row.en}`,
     `A reference translation (one good way, not the only one):\n${row.zh}`,
+    ...(row.sentences?.some((x) => x.note) ? [`Notes on the reference's choices:\n${row.sentences.filter((x) => x.note).map((x) => `- ${x.zh}: ${x.note}`).join("\n")}`] : []),
     `Target words, with the English each translates:\n${row.targets.map((t) => `- ${t.word}${t.gloss ? ` (${t.gloss})` : ""}: "${t.en}"`).join("\n")}`,
     `Their Chinese:\n${answer}`,
   ].join("\n\n");
@@ -429,5 +460,118 @@ export async function tryParagraph(sql: Sql, owner: string, id: number, text: st
   const tries = [done, ...row.tries].slice(0, TRIES_KEPT);
   await sql`update chongfuxi_paragraph set tries = ${JSON.stringify(tries)}::jsonb where owner_email = ${owner} and id = ${id}`;
   console.log("paragraph try", JSON.stringify({ id, grade: done.grade, used: done.targets.filter((t) => t.used === "yes").length, of: done.targets.length }));
-  return fromRow({ ...row, tries });
+  return { ...row, tries };
+}
+
+// ------------------------------------------------------------------ Muse
+
+/** Paragraphs Muse may write in 24 hours; sentences in one. */
+export const MUSE_A_DAY = 5;
+const SENTENCES_MIN = 2;
+const SENTENCES_MAX = 8;
+/** Trouble words handed to Muse, with what each needs. */
+const TROUBLE_SHOWN = 15;
+
+const MUSE_BRIEF = `Write the learner's "Write it in Chinese" paragraphs: the main thing on their Muse tab. They read an English paragraph, write it in Chinese (typed or said), and the app's model grades each try against the English at once, with fixes and whether each target word was used. Afterwards they compare their try with your ideal translation, sentence by sentence, with your notes.
+
+What to write (POST /api/chongfuxi/agent/paragraph):
+{ "title": "a few English words naming the situation",
+  "note"?: "one line on what this paragraph is aimed at (shown with your translation once they have tried, so it may name the words)",
+  "sentences": [{ "en": "one English sentence", "zh": "your ideal Chinese for it, simplified", "note"?: "why you said it this way: the word choice, the structure, what a learner would get wrong" }],
+  "targets": [{ "word": "a deck word it tests", "en": "the exact words of the English it translates", "why"?: "why it is trouble, if you know better than the material" }],
+  "model"? }
+${SENTENCES_MIN}–${SENTENCES_MAX} sentences forming ONE coherent everyday situation or little story that makes sense from start to finish (never unrelated sentences, nothing forced in to fit a word). 3–5 targets, each the natural, obvious Chinese for its English (phrase the English so a near-synonym fits worse), each "word" appearing in your Chinese exactly as written and each "en" copied exactly from one sentence's English. Everything else within words they know ("known"). Natural English, not translationese; the ideal Chinese natural too, the way a native would write it, not word for word. Up to ${MUSE_A_DAY} in 24 hours; one a day is usually right.
+
+Aim at what they need ("trouble", most needed first, each with why, the word it's taken for, their notes after forgetting it, what they wrote in its place before; "mistakes" from their recent tries):
+- Taken for another word: make the English call for this word and not the other, ideally with the other's meaning nearby too.
+- Can't produce it: unmistakable English, so recall is all that stands between them and the word.
+- Breaks in context: a full sentence in its usual collocations.
+- Slipping, won't stick, leech, forgotten: a vivid use in its commonest sense.
+- Missed in an earlier paragraph: the same kind of meaning again, a second chance.
+- Their notes say what they confused: test exactly that.
+- Give one or two earlier mistakes another chance (the same structure or collocation in new words) when it fits.
+Use "recent" (their last paragraphs and every graded try): don't repeat a paragraph's words that went well; come back to what didn't.`;
+
+/** What Muse needs to write a paragraph. Same token as agent/lists. */
+export async function paragraphMaterial(sql: Sql, owner: string) {
+  await ensureTable(sql);
+  const day = await ownersDay(sql, owner);
+  const [trouble, mistakes, known, recent, today] = await Promise.all([
+    troubleWords(sql, owner),
+    recentMistakes(sql, owner),
+    knownWords(sql, owner),
+    sql.query(`select ${COLUMNS} from chongfuxi_paragraph where owner_email = $1 order by at desc limit 8`, [owner]) as unknown as Promise<Row[]>,
+    sql`select count(*)::int as n from chongfuxi_paragraph where owner_email = ${owner} and by = 'muse' and at > now() - interval '24 hours'` as unknown as Promise<Array<{ n: number }>>,
+  ]);
+  return {
+    brief: MUSE_BRIEF,
+    day,
+    /** Written by you in the last 24 hours, and how many more may be. */
+    written: today[0]?.n ?? 0,
+    left: Math.max(0, MUSE_A_DAY - (today[0]?.n ?? 0)),
+    trouble: trouble.slice(0, TROUBLE_SHOWN),
+    mistakes,
+    known,
+    recent: recent.map(fromRow),
+  };
+}
+
+/**
+ * A paragraph Muse wrote, kept to what holds: 2 to 8 sentences with
+ * English and Chinese; each target a deck word in the Chinese, its English
+ * copied from the English. Each target's reading and meaning come from the
+ * deck, and why it is trouble from the trouble words unless Muse says.
+ */
+export async function writeMuseParagraph(sql: Sql, owner: string, input: Record<string, unknown>): Promise<Paragraph> {
+  await ensureTable(sql);
+  const sentences = (Array.isArray(input.sentences) ? input.sentences : [])
+    .map((x) => {
+      const r = (x ?? {}) as Record<string, unknown>;
+      const note = clip(r.note, 400);
+      return { en: clip(r.en, 400), zh: clip(r.zh, 300), ...(note ? { note } : {}) };
+    })
+    .filter((x) => x.en && /[㐀-鿿]/.test(x.zh));
+  if (sentences.length < SENTENCES_MIN) throw new ParagraphError(`Give ${SENTENCES_MIN} to ${SENTENCES_MAX} sentences, each with "en" and Chinese "zh".`);
+  if (sentences.length > SENTENCES_MAX) throw new ParagraphError(`At most ${SENTENCES_MAX} sentences.`);
+  const en = sentences.map((x) => x.en).join(" ");
+  const zh = sentences.map((x) => x.zh).join("");
+  const given = (Array.isArray(input.targets) ? input.targets : []).map((x) => (x ?? {}) as Record<string, unknown>);
+  const words = [...new Set(given.map((t) => clip(t.word, 20)).filter(Boolean))];
+  const deck = (await sql`
+    select word, pinyin, defs, glosses from chongfuxi_word where owner_email = ${owner} and status = 'deck' and word = any(${words})
+  `) as unknown as Array<{ word: string; pinyin: string | null; defs: Definition[] | null; glosses: string[] | null }>;
+  const trouble = new Map((await troubleWords(sql, owner)).map((t) => [t.word, t]));
+  const targets: ParagraphTarget[] = [];
+  const dropped: string[] = [];
+  for (const t of given) {
+    const word = clip(t.word, 20);
+    const run = clip(t.en, 200);
+    const row = deck.find((d) => d.word === word);
+    if (!row) dropped.push(`${word || "?"}: not a deck word`);
+    else if (!zh.includes(word)) dropped.push(`${word}: not in the Chinese`);
+    else if (!run || !en.includes(run)) dropped.push(`${word}: its "en" isn't copied from the English`);
+    else if (!targets.some((x) => x.word === word))
+      targets.push({
+        word,
+        pinyin: shownPinyin(row.pinyin, row.defs) || null,
+        gloss: row.glosses?.[0] ?? null,
+        why: clip(t.why, 200) || trouble.get(word)?.why || "Picked by Muse",
+        en: run,
+      });
+  }
+  if (!targets.length) throw new ParagraphError(`No target held${dropped.length ? `: ${dropped.join("; ")}` : ""}. Each needs a deck "word" in the Chinese and its "en" copied from the English.`);
+  targets.sort((a, b) => en.indexOf(a.en) - en.indexOf(b.en));
+  const [{ n }] = (await sql`
+    select count(*)::int as n from chongfuxi_paragraph
+    where owner_email = ${owner} and by = 'muse' and at > now() - interval '24 hours'
+  `) as unknown as Array<{ n: number }>;
+  if (n >= MUSE_A_DAY) throw new ParagraphError(`Already ${MUSE_A_DAY} paragraphs in the last 24 hours.`);
+  const [row] = (await sql`
+    insert into chongfuxi_paragraph (owner_email, model, title, en, zh, targets, by, sentences, note)
+    values (${owner}, ${clip(input.model, 80) || "Muse"}, ${clip(input.title, 80) || "A paragraph"}, ${en}, ${zh}, ${JSON.stringify(targets)}::jsonb,
+            'muse', ${JSON.stringify(sentences)}::jsonb, ${clip(input.note, 300) || null})
+    returning id
+  `) as unknown as Array<{ id: number }>;
+  const made = await paragraphById(sql, owner, Number(row.id));
+  return Object.assign(made, dropped.length ? { dropped } : {});
 }

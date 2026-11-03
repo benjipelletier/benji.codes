@@ -5,7 +5,7 @@ import { museData } from "../../../musepage";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** GET ?what=stuck | words | log | week | lookups | known | sentences: Muse's data tools (musepage.ts). Same token as agent/lists. */
+/** GET ?what=stuck | words | log | week | lookups | known | paragraphs | sentences: Muse's data tools (musepage.ts). Same token as agent/lists. */
 export async function GET(req: NextRequest) {
   const g = agentGate(req);
   if ("refused" in g) return g.refused;

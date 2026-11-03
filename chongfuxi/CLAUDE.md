@@ -997,9 +997,34 @@ trips both count.
   to say it", one way to say it with the trouble words marked, and each
   word with its pinyin, meaning, the English it stood for and why it is
   trouble, opening its page. Earlier lists the last 20 with their latest
-  grade. Nothing touches a schedule. Written by the app's model, not by
-  Muse the agent: it can be had on demand. Tested on a local Postgres
-  and in the browser with a stand-in model; not yet run with the real one.
+  grade. Nothing touches a schedule.
+  **Muse writes them** (the owner: "I want muse to make the paragraph…
+  and the ideal translation that I can view to compare", the on-the-spot
+  checking kept): GET `/api/chongfuxi/agent/paragraph` (same token as the
+  lists) gives `brief` (`MUSE_BRIEF`: what to write and how to aim it, as
+  above), `trouble` (the first `TROUBLE_SHOWN` (15) trouble words with
+  why, partner, notes and what was written before), `mistakes`, `known`,
+  `recent` (the last 8 paragraphs with every graded try), `written` and
+  `left`; POST `{ title, note?, sentences: [{ en, zh, note? }], targets:
+  [{ word, en, why? }], model? }` (`writeMuseParagraph`) keeps one as
+  Muse's (`by = 'muse'`; columns `by`, `sentences`, `note` added to
+  `chongfuxi_paragraph`): 2 to 8 sentences, each its English and Muse's
+  ideal Chinese with an optional note on why it is said so; each target
+  a deck word in the Chinese with its English copied from the paragraph
+  (its reading and meaning from the deck, why from the trouble words
+  unless Muse gives one), the rest named back in `dropped`; refused with
+  no target, and past `MUSE_A_DAY` (5) in 24 hours. On screen: "by
+  Muse", a New badge on the lead and in Earlier until opened on the
+  device (`paragraph:<id>` in `lib/museSeen.ts`; it lights the Muse
+  tab's dot too), and once tried (or on "Stuck? Show Muse's
+  translation") **Muse's translation** a sentence at a time, the English
+  small above each ideal Chinese with the trouble words marked and Muse's
+  note under it, with Muse's line on what the paragraph aims at above
+  them (only then, since it names the words). The grader is given Muse's
+  notes with the reference. "Write one now" (the app's model, as before)
+  stays for a day Muse hasn't written one. Tested on a local Postgres and
+  in the browser with a stand-in model; not yet run with Muse or the real
+  model.
 - **New from Muse** (the owner asked for a little badge): a "New" pill
   (`NewBadge`) after the title of whatever Muse added or changed since it
   was last opened on this device: the latest page (by its `at`, key
@@ -1878,7 +1903,11 @@ it needs through small data tools; everything the owner does on a page
 comes back to it, so it can make less of what goes unused.
 
 - **Write** (same token): GET `/api/chongfuxi/agent/muse` gives `day`,
-  `brief` (every block and tool, and to use what was done), `written`, and
+  `brief` (every block and tool, and to use what was done; it opens by
+  telling Muse that Write it in Chinese is now the main thing on the tab,
+  to write those first through agent/paragraph, and to make the page
+  complement them, following up on what the tries show, not repeating
+  the same translation practice or words), `written`, and
   the last 7 pages with their blocks and every event on them. POST `{
   title, note?, style: scroll | steps, blocks, day?, model? }` keeps that
   day's page (`chongfuxi_muse_page`, made on first use; posting again
@@ -1908,7 +1937,10 @@ comes back to it, so it can make less of what goes unused.
   missed, what was given), words tapped in a passage, answers (with the
   grade when checked), a fold opened, a link or episode followed, steps done.
 - **Data tools** (same token): GET `/api/chongfuxi/agent/muse/data?what=`
-  `stuck` (words to revive and the new words on the ladder), `words` (up to
+  `stuck` (words to revive; its `fresh`, the new words on the Learn
+  ladder, is empty since Learn went, and the brief says so),
+  `paragraphs` (the latest Write it in Chinese paragraphs, Muse's and the
+  app's, with every graded try), `words` (up to
   12 words' whole word pages), `log` (the review log between two days, at
   most 3000 answers), `week` (the weekly figures, `weekFigures`), `lookups`,
   `known` (strong words and the day's targets) and `sentences` (the

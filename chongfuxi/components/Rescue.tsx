@@ -25,7 +25,7 @@ import { say } from "./Drill";
 import { MusePageList, useMusePages } from "./MusePage";
 import { NotesView, useNoteCounts } from "./Notes";
 import { ClipFeed } from "./ClipFeed";
-import { ParagraphLead, ParagraphView } from "./Paragraph";
+import { ParagraphLead, ParagraphView, isNewParagraph, useLatestParagraph } from "./Paragraph";
 import { EpisodeRows, EpisodeView, NewBadge, useEpisodes } from "./Watch";
 import { Highlighted, Loading, fmt, message, useBackLayer, type Shell } from "./shared";
 
@@ -64,7 +64,10 @@ export function useMuseNew(): boolean {
   const pages = useMusePages();
   const episodes = useEpisodes();
   const noteCounts = useNoteCounts();
-  return useMuseNews(pages?.[0] ?? null, noteCounts?.lastAnswer, episodes).any;
+  const paragraph = useLatestParagraph();
+  const news = useMuseNews(pages?.[0] ?? null, noteCounts?.lastAnswer, episodes);
+  // A paragraph Muse wrote and not opened yet counts too.
+  return news.any || (!!paragraph && isNewParagraph(paragraph));
 }
 
 /**

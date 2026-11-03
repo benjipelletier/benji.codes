@@ -1363,6 +1363,12 @@ export interface Paragraph {
   targets: ParagraphTarget[];
   /** Newest first. */
   tries: ParagraphTry[];
+  /** Muse wrote it (agent/paragraph), or the app's model on the spot. */
+  by: "muse" | "app";
+  /** Muse's: the English and its ideal Chinese a sentence at a time, with why it is said so. */
+  sentences: Array<{ en: string; zh: string; note?: string }> | null;
+  /** Muse's line on what it is aimed at. */
+  note: string | null;
 }
 
 export interface ParagraphList {

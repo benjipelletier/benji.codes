@@ -16,6 +16,7 @@
 import type { DrillCard, MuseBlock, MuseEvent, MuseFilled, MusePage, MusePageListed, Retell } from "@chongfuxi/lib/api";
 import type { Definition, Dict } from "@chongfuxi/lib/dict";
 import type { Sql } from "./db";
+import { listParagraphs } from "./paragraph";
 import { AgentError } from "./agent";
 import { analyse } from "./analyse";
 import { ownersDay, storyMaterial } from "./daily";
@@ -379,7 +380,9 @@ export async function answerAsk(sql: Sql, owner: string, input: Record<string, u
   return { retell };
 }
 
-const BRIEF = `You lay out the learner's extra Chinese review for today: one page, anything you like on it, built from blocks. It is separate from their spaced-repetition reviews (never touches them). You decide what to surface and how: cards, a passage you write or pull from the web, questions to answer aloud or typed, notes on their mistakes, a debrief of their week, an episode to prep. Aim at what will help them most now, using the data tools below, and keep it doable in 10–20 minutes. Fewer, better things beat many.
+const BRIEF = `First, the main thing on their Muse tab is now "Write it in Chinese": an English paragraph they write in Chinese, each try graded at once by the app's model. You write those paragraphs, with your ideal translation: GET /api/chongfuxi/agent/paragraph for its brief and material, POST there to hand one in. Do that first each day. This page comes after it, under "Muse's pages" lower on the tab: make it complement the paragraphs (follow up on what their tries show they get wrong: ?what=paragraphs), not repeat the same translation practice or the same words.
+
+You lay out the learner's extra Chinese review for today: one page, anything you like on it, built from blocks. It is separate from their spaced-repetition reviews (never touches them). You decide what to surface and how: cards, a passage you write or pull from the web, questions to answer aloud or typed, notes on their mistakes, a debrief of their week, an episode to prep. Aim at what will help them most now, using the data tools below, and keep it doable in 10–20 minutes. Fewer, better things beat many.
 
 Use what they did. "pages" has your recent pages with every event on them: opened, each card answered (got/missed), answers given (with the grade when checked), words tapped in passages, steps done. If they skipped something, don't make more of it; if a page went untouched, keep today's short and carry over what mattered. Follow up on misses and answers marked for you ("check": "muse") on the next page.
 
@@ -398,7 +401,8 @@ POST /api/chongfuxi/agent/muse { "title", "note"?, "style": "scroll" | "steps", 
 Anything that can't be drawn is dropped and named back in "dropped".
 
 Data tools (same token), take what you need:
-- GET /api/chongfuxi/agent/muse/data?what=stuck  words to revive by category, and new words on their Learn ladder
+- GET /api/chongfuxi/agent/muse/data?what=stuck  words to revive by category (there is no Learn ladder any more: a new word is a Read card at once, so "fresh" is empty)
+- ?what=paragraphs  their recent "Write it in Chinese" paragraphs (yours and the app's), each with every graded try: what they wrote, the fix, the mistakes, and each target word used, said another way or left out
 - ?what=words&words=发觉,发现  everything about up to ${WORDS_TOOL_MAX} words: meanings, cards and strength, every answer, notes after a Forgot, lookups, sentences
 - ?what=log&from=YYYY-MM-DD&to=YYYY-MM-DD  their review log: each answer's day, kind, word, grade, note, words tapped
 - ?what=week&to=YYYY-MM-DD  the week's figures beside the week before
@@ -471,6 +475,8 @@ export async function museData(sql: Sql, owner: string, q: URLSearchParams) {
       const m = await storyMaterial(sql, owner);
       return { known: m.known, targets: m.targets };
     }
+    case "paragraphs":
+      return { paragraphs: await listParagraphs(sql, owner) };
     case "sentences": {
       const words = list("words");
       if (!words.length) throw new AgentError("give words=");

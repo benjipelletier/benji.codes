@@ -14,7 +14,9 @@ import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { recogniser, type Recognition } from "./Reading";
+import { markSeen, onSeen, seenAt } from "@chongfuxi/lib/museSeen";
 import { Loading, fmt, message } from "./shared";
+import { NewBadge } from "./Watch";
 
 const GRADE: Record<ParagraphTry["grade"], string> = { correct: "✓ Correct", almost: "≈ Almost", wrong: "✗ Not yet" };
 const USED: Record<ParagraphTry["targets"][number]["used"], string> = { yes: "✓", other: "≈", no: "✗" };
@@ -225,26 +227,58 @@ function AnswerBox({ p, onTried }: { p: Paragraph; onTried: (p: Paragraph) => vo
   );
 }
 
+/** The key a paragraph is marked seen by (lib/museSeen.ts). */
+const paragraphKey = (p: Paragraph) => `paragraph:${p.id}`;
+/** One of Muse's, not opened on this device yet. */
+export const isNewParagraph = (p: Paragraph) => p.by === "muse" && !seenAt(paragraphKey(p));
+
+/** The latest paragraph, fetched once while the app is open (for the Muse tab's lead and its dot); null with none, or for anyone but the owner. */
+let latestFetch: Promise<Paragraph | null> | null = null;
+export function useLatestParagraph(): Paragraph | null | undefined {
+  const [latest, setLatest] = useState<Paragraph | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    latestFetch ??= get<ParagraphList>("paragraph")
+      .then((r) => r.paragraphs[0] ?? null)
+      .catch(() => null);
+    latestFetch.then((p) => live && setLatest(p));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return latest;
+}
+/** Fetched again next time (after a paragraph is written or tried). */
+const forgetLatest = () => {
+  latestFetch = null;
+};
+
 /**
  * What leads the Muse tab (the owner chose it over Muse's daily page):
  * Write it in Chinese, with the latest paragraph and how it went, or what it
  * is when there is none yet. Owner only.
  */
 export function ParagraphLead({ onOpen }: { onOpen: () => void }) {
-  const [latest, setLatest] = useState<Paragraph | null | undefined>(undefined);
-  useEffect(() => {
-    get<ParagraphList>("paragraph")
-      .then((r) => setLatest(r.paragraphs[0] ?? null))
-      .catch(() => setLatest(null));
-  }, []);
+  const latest = useLatestParagraph();
+  const [, redraw] = useState(0);
+  useEffect(() => onSeen(() => redraw((n) => n + 1)), []);
   const tried = latest?.tries[0];
   return (
-    <button className="cf-stuck cf-story-btn cf-drill-btn cf-para-lead" onClick={onOpen}>
+    <button
+      className="cf-stuck cf-story-btn cf-drill-btn cf-para-lead"
+      onClick={() => {
+        if (latest) markSeen(paragraphKey(latest));
+        onOpen();
+      }}
+    >
       <span className="cf-stuck-text">
-        <b>Write it in Chinese</b>
+        <b>
+          Write it in Chinese
+          {latest && isNewParagraph(latest) && <NewBadge />}
+        </b>
         <small>
           {latest
-            ? `${latest.title} · ${tried ? GRADE[tried.grade] : "not tried yet"}`
+            ? `${latest.title}${latest.by === "muse" ? " · by Muse" : ""} · ${tried ? GRADE[tried.grade] : "not tried yet"}`
             : "An English paragraph around the words you keep getting wrong"}
         </small>
       </span>
@@ -290,6 +324,10 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
     setOpenId(id);
     top.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
+  useEffect(() => forgetLatest, []);
+  useEffect(() => {
+    if (p) markSeen(paragraphKey(p));
+  }, [p]);
   const shown = p && (p.tries.length > 0 || givenUp.has(p.id));
   const others = (list ?? []).filter((x) => x.id !== p?.id);
 
@@ -308,9 +346,9 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
         {!list && !error && <Loading label="Finding your paragraphs…" />}
         {list && !p && !writing && (
           <div className="cf-para-first">
-            <p>An English paragraph built around the words you keep getting wrong. Write it in Chinese; each try is checked.</p>
+            <p>An English paragraph built around the words you keep getting wrong. Muse writes one each day with its own translation to compare with; write it in Chinese and each try is checked.</p>
             <button className="cf-btn" onClick={() => void write()}>
-              Write me one
+              Write one now
             </button>
           </div>
         )}
@@ -318,7 +356,8 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
         {p && !writing && (
           <article className="cf-para-card">
             <p className="cf-para-meta">
-              {dateOf(p.at)} · {fmt(p.targets.length)} trouble {p.targets.length === 1 ? "word" : "words"}
+              {dateOf(p.at)}
+              {p.by === "muse" ? " · by Muse" : ""} · {fmt(p.targets.length)} trouble {p.targets.length === 1 ? "word" : "words"}
             </p>
             <h2 className="cf-para-title">{p.title}</h2>
             <EnglishWithHints p={p} />
@@ -329,10 +368,26 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
             ))}
             {shown ? (
               <section className="cf-para-ref">
-                <h3 className="cf-h3">One way to say it</h3>
-                <p className="cf-zh cf-para-zh">
-                  <MarkedZh zh={p.zh} words={p.targets.map((t) => t.word)} />
-                </p>
+                <h3 className="cf-h3">{p.by === "muse" ? "Muse's translation" : "One way to say it"}</h3>
+                {/* What it was aimed at: after a try only, since it names the words. */}
+                {p.note && <p className="cf-para-note">{p.note}</p>}
+                {p.sentences ? (
+                  <ol className="cf-para-compare">
+                    {p.sentences.map((x, k) => (
+                      <li key={k}>
+                        <small className="cf-para-cen">{x.en}</small>
+                        <span className="cf-zh cf-para-czh">
+                          <MarkedZh zh={x.zh} words={p.targets.map((t) => t.word)} />
+                        </span>
+                        {x.note && <small className="cf-para-cnote">{x.note}</small>}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="cf-zh cf-para-zh">
+                    <MarkedZh zh={p.zh} words={p.targets.map((t) => t.word)} />
+                  </p>
+                )}
                 <ul className="cf-para-words">
                   {p.targets.map((t) => (
                     <li key={t.word}>
@@ -351,14 +406,14 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
               </section>
             ) : (
               <button className="cf-link cf-para-giveup" onClick={() => setGivenUp((g) => new Set(g).add(p.id))}>
-                Stuck? Show one way to say it
+                {p.by === "muse" ? "Stuck? Show Muse's translation" : "Stuck? Show one way to say it"}
               </button>
             )}
           </article>
         )}
         {list && (p || writing) && (
           <button className="cf-btn cf-btn-ghost cf-para-new" onClick={() => void write()} disabled={writing}>
-            {writing ? "Writing…" : "New paragraph"}
+            {writing ? "Writing…" : "Write one now"}
           </button>
         )}
         {others.length > 0 && (
@@ -368,9 +423,13 @@ export function ParagraphView({ onEnd }: { onEnd: () => void }) {
               {others.map((x) => (
                 <li key={x.id}>
                   <button onClick={() => open(x.id)}>
-                    <b>{x.title}</b>
+                    <b>
+                      {x.title}
+                      {isNewParagraph(x) && <NewBadge />}
+                    </b>
                     <small>
-                      {dateOf(x.at)} · {x.tries.length ? GRADE[x.tries[0].grade] : "not tried"}
+                      {dateOf(x.at)}
+                      {x.by === "muse" ? " · Muse" : ""} · {x.tries.length ? GRADE[x.tries[0].grade] : "not tried"}
                     </small>
                     <i aria-hidden="true">›</i>
                   </button>

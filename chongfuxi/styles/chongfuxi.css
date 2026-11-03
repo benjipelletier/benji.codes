@@ -14368,3 +14368,40 @@ button.cf-how-text {
 .cf-para-earlier .cf-muse-tools {
   margin-top: 6px;
 }
+
+/* Muse's paragraphs: its line on what it aims at, and its translation a sentence at a time to compare with. */
+.cf-para-note {
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-accent-soft);
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.cf-para-compare {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.cf-para-compare li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 0;
+  border-top: 1px solid var(--cf-rule);
+}
+.cf-para-cen {
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.cf-para-czh {
+  font-size: 18px;
+  line-height: 1.6;
+}
+.cf-para-cnote {
+  color: var(--cf-ink-faint);
+  font-size: 13px;
+  line-height: 1.45;
+}
