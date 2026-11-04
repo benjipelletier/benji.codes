@@ -2289,8 +2289,18 @@ YouTube chapter feature".
     over the chapters (`VideoBar`, YouTube's IFrame player API loaded once,
     `loadYouTube`), played inline, and its clock (every `VIDEO_TICK`, 250
     ms, less the offset) lights the line being said (`is-saying`) and,
-    while following, keeps it a third of the way down the script. Scrolling
-    the script by hand stops following; "↓ Follow" brings it back. A line's
+    while following, keeps it in the middle of the script. **Scrolling the
+    script scrubs the video** (the owner: "scrolling through the script to
+    make the subtitle in the middle the active one and have the video play
+    from there"): while a finger or wheel moves it (and its momentum, each
+    scroll event keeping it the hand's for `HAND_KEEP`, 400 ms), the line
+    at the focus is lit as the one said (`focusLine`: the middle, or the
+    first line's middle at the very start, sliding down to the middle over
+    the first half screen, so the opening lines can be picked) and the
+    video's clock leaves the script alone; `SCRUB_SETTLE` (220 ms) after
+    it comes to rest, the video seeks to that line and plays
+    (`VideoControl.play`), and following carries on from there. It used to
+    stop following instead, with "↓ Follow" to bring it back. A line's
     time plays from there, a chip from its chapter, the scrub bar from where
     it is let go (the video's clock doesn't move the script while
     scrubbing). Opening a line pauses it. Sync nudges the offset half a

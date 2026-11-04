@@ -702,6 +702,11 @@ export function loadYouTube(): Promise<YTApi> {
   return ytLoading;
 }
 
+/** A hand scroll's events keep it the hand's for this long after each (ms), momentum included. */
+const HAND_KEEP = 400;
+/** The script at rest this long after a hand scroll (ms), the video plays from the line in the middle. */
+const SCRUB_SETTLE = 220;
+
 /** How often the player's time is read (ms). */
 export const VIDEO_TICK = 250;
 /** One tap of the sync buttons (ms). */
@@ -750,7 +755,7 @@ export function SpeedButton({ speed, onNext }: { speed: number; onNext: () => vo
 }
 
 /** What the script asks of the player. */
-type VideoControl = { seek: (subtitleMs: number) => void; pause: () => void };
+type VideoControl = { seek: (subtitleMs: number) => void; pause: () => void; play: () => void };
 
 /**
  * The episode's YouTube video over the chapters (the owner: "line up the
@@ -814,6 +819,7 @@ function VideoBar({
         control.current = {
           seek: (ms) => player.current?.seekTo(Math.max(0, (ms + offsetRef.current) / 1000), true),
           pause: () => player.current?.pauseVideo?.(),
+          play: () => player.current?.playVideo?.(),
         };
         tick = setInterval(() => {
           const p = player.current;
@@ -1544,10 +1550,57 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const [topAt, setTopAt] = useState(0);
   // While a chip's smooth scroll runs, the chapters it passes aren't lit one by one.
   const gliding = useRef(0);
+  // Scrolling the script by hand scrubs the video (the owner: "scrolling through the script to make the
+  // subtitle in the middle the active one and have the video play from there"): while the finger or
+  // wheel moves it, the line at the focus is lit; when it comes to rest, the video plays from that line.
+  const hand = useRef(0);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(settle.current), []);
+  /** The line at the script's focus: the middle, or nearer the top while the script is near its start, so the first lines can be picked. */
+  const focusLine = (box: HTMLElement): number | null => {
+    const rows = box.querySelectorAll<HTMLElement>("[data-line]");
+    if (!rows.length) return null;
+    const first = rows[0];
+    const firstAt = topIn(box, first) + first.offsetHeight / 2;
+    // The first line's middle at the start, sliding down to the script's middle over the first half screen or so.
+    const focus = box.getBoundingClientRect().top + Math.min(box.clientHeight / 2, firstAt + box.scrollTop / 2);
+    let lo = 0;
+    let hi = rows.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (rows[mid].getBoundingClientRect().bottom < focus) lo = mid + 1;
+      else hi = mid;
+    }
+    return Number(rows[lo].dataset.line);
+  };
+  const scrubbedByHand = (box: HTMLElement) => {
+    if (!ep?.video || Date.now() >= hand.current) return;
+    // Momentum after the finger lifts is still the hand's; the video's clock leaves the script alone meanwhile.
+    hand.current = Date.now() + HAND_KEEP;
+    scrubbing.current = Date.now() + HAND_KEEP * 2;
+    const i = focusLine(box);
+    if (i !== null && i !== sayingRef.current) {
+      sayingRef.current = i;
+      setSaying(i);
+    }
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      hand.current = 0;
+      const at = sayingRef.current;
+      if (at === null || !video.current) return;
+      video.current.seek(ep.lines[at].s);
+      video.current.play();
+      followRef.current = true;
+      setFollow(true);
+      // A moment for the clock to reach the line before it moves the script again.
+      scrubbing.current = Date.now() + 500;
+    }, SCRUB_SETTLE);
+  };
   // The chapter in view: the last whose heading is above the top of the script.
   const onScroll = () => {
     const box = script.current;
     if (!box || !ep) return;
+    scrubbedByHand(box);
     const rows = box.querySelectorAll<HTMLElement>("[data-line]");
     const edge = box.getBoundingClientRect().top + 12;
     let lo = 0;
@@ -1604,7 +1657,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
     const row = box?.querySelector<HTMLElement>(`[data-line="${i}"]`);
     if (!box || !row) return;
     gliding.current = 0;
-    box.scrollTo({ top: Math.max(0, topIn(box, row) - box.clientHeight / 3), behavior: "smooth" });
+    box.scrollTo({ top: Math.max(0, topIn(box, row) - (box.clientHeight - row.offsetHeight) / 2), behavior: "smooth" });
   };
   const followAgain = () => {
     followRef.current = true;
@@ -1613,9 +1666,11 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
     sayingRef.current = null;
     if (i !== null && ep) onVideoTime(ep.lines[i].s);
   };
-  // Scrolling by hand stops following, until Follow is tapped.
+  // A touch or wheel on the script: what scrolls next is the hand's (scrubbedByHand).
   const handScroll = () => {
-    if (ep?.video && followRef.current) setFollow(false);
+    if (!ep?.video) return;
+    hand.current = Date.now() + HAND_KEEP;
+    scrubbing.current = Date.now() + HAND_KEEP * 2;
   };
   const seek = (ms: number) => {
     if (!video.current) return;
