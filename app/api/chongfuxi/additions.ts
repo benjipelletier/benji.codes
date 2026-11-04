@@ -14,6 +14,8 @@ import { definitionsFor, glossesOf, type Definition, type Dict } from "@chongfux
 import { cleanHeadword, isHan, zhShown } from "@chongfuxi/lib/hanzi";
 import { newSchedule, type Schedule } from "@chongfuxi/lib/schedule";
 import { insertCards, recomputeUnlocks } from "./corpus";
+import { dropMilestones, listMilestones } from "./milestones";
+import type { Milestone } from "@chongfuxi/lib/api";
 import { voteOrder } from "./defs";
 import { mainEntry } from "@chongfuxi/lib/senses";
 import { longkuWords, reconcileLongku } from "./longku";
@@ -71,7 +73,7 @@ export async function addWords(
   at = Date.now(),
   /** Where a word's Read card starts, when something already knows it (龙库's record); new otherwise. */
   seeds: Map<string, Schedule> = new Map(),
-): Promise<{ id: number; added: string[]; unlocked: number } | null> {
+): Promise<{ id: number; added: string[]; unlocked: number; milestones: Milestone[] } | null> {
   const unique = [...new Set(words)];
   if (!unique.length) return null;
   const existing = (await sql`
@@ -119,7 +121,15 @@ export async function addWords(
   `) as unknown as Array<{ id: number }>;
   // A chengyu among them joins 龙库.
   await reconcileLongku(sql, owner);
-  return { id: made[0].id, added: fresh, unlocked: result.unlocked };
+  // What the words unlocked: lists finished, episodes made ready. Never at the addition's expense.
+  let milestones: Milestone[] = [];
+  try {
+    const { episodeMilestones } = await import("./episodes");
+    milestones = [...(await listMilestones(sql, owner, fresh, made[0].id)), ...(await episodeMilestones(sql, owner, dict, fresh, made[0].id))];
+  } catch (e) {
+    console.error("milestones failed", e);
+  }
+  return { id: made[0].id, added: fresh, unlocked: result.unlocked, milestones };
 }
 
 /**
@@ -355,7 +365,7 @@ export async function addList(
   dict: Dict,
   at = Date.now(),
   only: string[] | null = null,
-): Promise<{ id: number; added: string[]; unlocked: number } | null> {
+): Promise<{ id: number; added: string[]; unlocked: number; milestones: Milestone[] } | null> {
   const left = new Set(skip);
   const picked = only && new Set(only);
   const words = (await listMissingAll(sql, owner, list)).filter((w) => (picked ? picked.has(w) : !left.has(w)));
@@ -449,6 +459,7 @@ export async function undoAddition(sql: Sql, owner: string, id: number, at = Dat
   if (answered.length) {
     throw new AdditionError(`Already answered: ${answered.map((w) => w.word).join(" ")}. Undoing would lose those answers.`);
   }
+  await dropMilestones(sql, owner, id);
   const gone = a.words.filter((w) => w.was === null).map((w) => w.word);
   const back = a.words.filter((w) => w.was !== null).map((w) => ({ w: w.word, s: w.was }));
   await sql.transaction([

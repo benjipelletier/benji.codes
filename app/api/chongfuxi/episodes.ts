@@ -50,6 +50,8 @@ import { hskOf } from "./review";
 import { simplified } from "./spotify";
 import { videoId } from "./youtube";
 import { readNames } from "@chongfuxi/lib/names";
+import { episodeMilestone } from "./milestones";
+import type { Milestone } from "@chongfuxi/lib/api";
 
 /** Lines an episode may have, and characters a line. */
 const LINES_MAX = 3000;
@@ -776,6 +778,10 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
   });
   const knownShare = measured.coverage.known;
   await record(sql, owner, id, measured);
+  // Ready to watch now, by words learnt for the show or anything else since it was last measured.
+  await episodeMilestone(sql, owner, { id, show: r.show, episode: r.episode, before: r.known, after: knownShare, words: [] }, null).catch((e) =>
+    console.error("episode milestone failed", e),
+  );
   // The words worth a practice line: must-knows not learnt, then the owner's trouble words.
   const trouble = await troubleIn(sql, owner, [...wordLines(tokens).keys()]);
   const targets = new Map<string, "must" | "trouble">();
@@ -1396,9 +1402,9 @@ export async function learnEpisodeWord(sql: Sql, owner: string, dict: Dict, inpu
   if (!isStudyDay(day)) throw new EpisodeError("Which study day?");
   if (input.keep === true) {
     // A new Read card, due at once like any new word (there is no Learn to go through first).
-    await addWords(sql, owner, `episode:${r.show} ${r.episode}`, [word], dict);
+    const added = await addWords(sql, owner, `episode:${r.show} ${r.episode}`, [word], dict);
     await sql`delete from chongfuxi_episode_prepped where owner_email = ${owner} and episode_id = ${id} and word = ${word}`;
-    return { word, kept: true };
+    return { word, kept: true, milestones: added?.milestones ?? [] };
   }
   await sql`
     insert into chongfuxi_episode_prepped (owner_email, episode_id, word) values (${owner}, ${id}, ${word})
@@ -1488,4 +1494,35 @@ export async function addEpisodeLine(sql: Sql, owner: string, dict: Dict, input:
     select id::int as id, blockers, sources from chongfuxi_sentence where owner_email = ${owner} and key = ${lineKey(line.zh)}
   `) as unknown as Array<{ id: number; blockers: string[] | null; sources: string[] }>;
   return { i, sentence: row?.id ?? null, added: result.total.added > 0, readable: !(row?.blockers ?? []).length, blockers: row?.blockers ?? [], sources: row?.sources ?? sources };
+}
+
+/** Episodes measured again after an addition, at most: those saying the most of its words. */
+const REMEASURE_MAX = 6;
+
+/**
+ * After words join the deck: each episode that says one of them is measured
+ * again (recorded as the day's measure), and one that has just come to
+ * READY_SHARE known is a milestone of the addition (milestones.ts).
+ */
+export async function episodeMilestones(sql: Sql, owner: string, dict: Dict, words: string[], additionId: number | null): Promise<Milestone[]> {
+  if (!words.length) return [];
+  await ensureTables(sql);
+  const hits = (await sql`
+    select e.id::int as id, (select count(*) from unnest(${words}::text[]) w where strpos(e.lines::text, w) > 0)::int as n
+    from chongfuxi_episode e
+    where e.owner_email = ${owner} and exists (select 1 from unnest(${words}::text[]) w where strpos(e.lines::text, w) > 0)
+    order by n desc, e.at desc
+    limit ${REMEASURE_MAX}
+  `) as unknown as Array<{ id: number; n: number }>;
+  const reached: Milestone[] = [];
+  for (const { id } of hits) {
+    const r = await rowOf(sql, owner, id);
+    const { tokens, prepped } = await measure(sql, owner, dict, r);
+    const measured = readiness(tokens, mustOf(r.prep), prepped);
+    await record(sql, owner, id, measured);
+    const said = words.filter((w) => r.lines.some((l) => l.zh.includes(w)));
+    const m = await episodeMilestone(sql, owner, { id, show: r.show, episode: r.episode, before: r.known, after: measured.coverage.known, words: said }, additionId);
+    if (m) reached.push(m);
+  }
+  return reached;
 }

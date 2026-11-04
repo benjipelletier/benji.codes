@@ -1551,6 +1551,39 @@ the design was silent and are still to be confirmed.
   way up the ladder when it went became ordinary Read cards, still due.
   The ladder's code, `chongfuxi_learn` and `learned_at` stay, unused. As
   it was:
+- **Milestones: what new words unlocked** (the owner: "whenever new words
+  are added to my deck and they hit some sort of milestone… completing a
+  list to 100% or improving an episode's comprehension up to 98%. I want
+  that to be surfaced… we probably need to build some infrastructure
+  around milestones… but we can start small";
+  `app/api/chongfuxi/milestones.ts`, `components/Milestones.tsx`, route
+  `milestones`, owner only). Each milestone is kept once, the first time
+  it is reached (`chongfuxi_milestone`, made on first use, one per kind
+  and key), with the addition that reached it, a title, what it took and
+  the words of the addition that did it. Two kinds so far:
+  - **list**: a word list all in the deck (an HSK level, a lesson, a
+    song, a Muse list; and the lists above it as they fill, the deepest
+    first). Found after every addition (`addWords`, the one way words
+    join the deck: syncs, lists, pages, Look up, episodes, texts, 龙库),
+    for each list a new word is filed under and those above it
+    (`listMilestones`); a list under `LIST_MIN` (5) words, or NPCR and
+    成语, doesn't count.
+  - **episode**: an episode's words at `READY_SHARE` (98%, `lib/review.ts`,
+    the line Before you watch colours by) known, from below it or never
+    measured. After an addition each episode saying its words (up to 6,
+    those saying the most) is measured again and recorded
+    (`episodeMilestones`); opening an episode checks it too, since words
+    learnt for the show raise it without the deck.
+  An addition undone takes its milestones with it (an episode it made
+  ready reads as unmeasured), so adding the words back reaches them
+  again. Finding them never fails an addition. **Shown**: on Today, a
+  sheet with those not yet seen ("Your new words reached 2 milestones",
+  each with what it is, what it took and the words that reached it, each
+  opening its page), once, Nice marking them seen; at once in Before you
+  watch when + Add to deck makes the episode ready (marked seen there);
+  and every milestone, newest first, at the foot of the New words sheet
+  ("What your words unlocked"). Next ideas: sentences unlocked by a word
+  past a count, an HSK level's share crossing 50% or 90%, a streak.
 - **Learn** (no longer used; see above): a new word (a Read card never answered, from Pleco
   unscored, an Anki sync, a list or 龙库) stays out of the review and its
   counts until it has been through Learn (`WAITING_TO_LEARN` in

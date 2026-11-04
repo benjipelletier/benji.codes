@@ -14,10 +14,12 @@
 // in-depth way through a chapter is still the walk.
 
 import { useEffect, useMemo, useState } from "react";
-import type { EpisodeView as Episode } from "@chongfuxi/lib/api";
+import type { EpisodeView as Episode, Milestone } from "@chongfuxi/lib/api";
 import { send, today } from "@chongfuxi/lib/client";
+import { READY_SHARE } from "@chongfuxi/lib/review";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import { MilestoneRow } from "./Milestones";
 import { Word, fmt, message } from "./shared";
 import { BlurbCard, EnglishLine, LineClip, clock } from "./Watch";
 
@@ -62,8 +64,6 @@ export function previewCards(ep: Episode): { words: WordCard[]; lines: LineCard[
   return { words, lines };
 }
 
-/** The share of the episode's words known (names, and words learnt for the show, counting) at which it is ready to watch. */
-export const READY_SHARE = 0.98;
 
 /** The episode's known share, orange under READY_SHARE and green at it or above (the owner's ask). */
 export function KnownShare({ ep, share = ep.coverage.known }: { ep: Episode; share?: number }) {
@@ -163,6 +163,8 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
   const [inDeck, setInDeck] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Map<number, Saved>>(() => new Map((ep.saved ?? []).map((i) => [i, true as const])));
   const [busy, setBusy] = useState<string | null>(null);
+  // What a word added here unlocked (the episode ready to watch, a list finished), shown at once.
+  const [reached, setReached] = useState<Milestone[]>([]);
   const byKey = useMemo(() => new Map(round.map((c) => [c.key, c])), [round]);
   const gotWords = useMemo(() => new Set([...got].filter((k) => k.startsWith("w:")).map((k) => k.slice(2))), [got]);
   // A line is still hard while two of its words aren't known or got here.
@@ -208,8 +210,13 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
     setBusy(`w:${word}`);
     setError(null);
     try {
-      await send("episodes", { id: ep.id, learnt: word, keep: true, day: today() });
+      const r = await send<{ milestones?: Milestone[] }>("episodes", { id: ep.id, learnt: word, keep: true, day: today() });
       setInDeck((d) => new Set(d).add(word));
+      if (r.milestones?.length) {
+        setReached((m) => [...m, ...r.milestones!]);
+        // Seen here, so Today doesn't show them again.
+        void send("milestones", { seen: r.milestones.map((m) => m.id) }).catch(() => undefined);
+      }
       setGot((g) => new Set(g).add(`w:${word}`));
     } catch (e) {
       setError(message(e));
@@ -279,6 +286,19 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
         </span>
       </div>
       <div className="cf-walk">
+        {reached.length > 0 && (
+          <div className="cf-ms-toast" role="status">
+            <p className="cf-ms-kicker">Unlocked</p>
+            <ul className="cf-ms-list">
+              {reached.map((m) => (
+                <MilestoneRow key={m.id} m={m} />
+              ))}
+            </ul>
+            <button className="cf-link" onClick={() => setReached([])}>
+              Nice
+            </button>
+          </div>
+        )}
         <div className="cf-pp-progress cf-walk-progress" aria-hidden="true">
           <span style={{ width: `${Math.round((100 * passed) / Math.max(1, round.length))}%` }} />
         </div>

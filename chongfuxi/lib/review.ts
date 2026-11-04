@@ -186,3 +186,6 @@ export function interleave<T>(lists: { word: T[]; sentence: T[]; new: T[] }, pos
   }
   return out;
 }
+
+/** An episode is ready to watch with this share of its words known (Before you watch's colour, the milestone). */
+export const READY_SHARE = 0.98;

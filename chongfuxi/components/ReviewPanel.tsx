@@ -29,6 +29,7 @@ import type { Grade } from "@chongfuxi/lib/schedule";
 import { newId } from "@chongfuxi/lib/upload";
 import { DayStrip } from "./DayStrip";
 import { HabitPill } from "./Habit";
+import { MilestoneSheet } from "./Milestones";
 import { HeardIn } from "./Watch";
 import { FastReview } from "./FastReview";
 import { LearnAnswers, LearnCard, useLadder } from "./Learn";
@@ -360,6 +361,7 @@ function Today({
         <p className="cf-today-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
         {/* Adding words as a habit: today's against the goal, a tap from words worth adding. */}
         <HabitPill shell={shell} />
+        <MilestoneSheet shell={shell} />
       </div>
       <h2 className="cf-today-title">Today</h2>
 

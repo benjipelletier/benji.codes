@@ -11,6 +11,7 @@ import type { HabitView } from "@chongfuxi/lib/api";
 import { get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
+import { MilestoneList } from "./Milestones";
 import { Sheet, fmt, message, type Shell } from "./shared";
 
 /**
@@ -270,6 +271,7 @@ function HabitSheet({ habit, onChanged, onClose }: { habit: HabitView; onChanged
         <p className="cf-muted">No words added {back === 0 ? "yet today" : "that day"}.</p>
       )}
       {asking && <p className="cf-muted cf-choice-note">Removing takes its cards and answers with it; it goes back on its list if it was on one.</p>}
+      <MilestoneList />
     </Sheet>
   );
 }

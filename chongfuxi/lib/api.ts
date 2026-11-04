@@ -1376,6 +1376,50 @@ export interface ParagraphList {
   paragraphs: Paragraph[];
 }
 
+/** Something new words unlocked (milestones.ts): a list all in the deck, or an episode ready to watch. */
+export interface Milestone {
+  id: number;
+  kind: "list" | "episode";
+  /** The list's path, or the episode's id. */
+  key: string;
+  at: number;
+  title: string;
+  detail: {
+    /** The words of the addition that reached it. */
+    words?: string[];
+    list?: string;
+    total?: number;
+    episode?: number;
+    show?: string;
+    name?: string;
+    before?: number | null;
+    after?: number;
+  };
+  seen: boolean;
+}
+
+/** Something new words unlocked (milestones.ts): a list all in the deck, or an episode ready to watch. */
+export interface Milestone {
+  id: number;
+  kind: "list" | "episode";
+  /** The list's path, or the episode's id. */
+  key: string;
+  at: number;
+  title: string;
+  detail: {
+    /** The words of the addition that reached it. */
+    words?: string[];
+    list?: string;
+    total?: number;
+    episode?: number;
+    show?: string;
+    name?: string;
+    before?: number | null;
+    after?: number;
+  };
+  seen: boolean;
+}
+
 /** What a clip feed is made of (clipfeed.ts): words due, answered lately, forgotten lately, just learnt, or a whole episode in order. */
 export type ClipMode = "due" | "recent" | "trouble" | "learnt" | "episode";
 

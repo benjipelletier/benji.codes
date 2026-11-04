@@ -14584,3 +14584,92 @@ button.cf-how-text {
   font-style: normal;
   color: var(--cf-ink-faint);
 }
+
+/* Milestones (Milestones.tsx): what new words unlocked, on Today's sheet, in Before you watch, and in the New words sheet. */
+.cf-ms-kicker {
+  margin: 0 0 2px;
+  color: var(--cf-up);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cf-ms-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cf-ms {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--cf-rule);
+}
+.cf-ms-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--cf-up-soft);
+  color: var(--cf-up);
+  font-size: 15px;
+  font-weight: 700;
+}
+.cf-ms.is-episode .cf-ms-icon {
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+  font-size: 12px;
+}
+.cf-ms-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cf-ms-body b {
+  font-size: 16px;
+  line-height: 1.35;
+}
+.cf-ms-body small {
+  color: var(--cf-ink-soft);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.cf-ms-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--cf-ink-faint);
+}
+.cfx .cf-ms-word {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-size: 15px;
+}
+.cfx .cf-ms-ok {
+  width: 100%;
+  margin-top: 14px;
+}
+.cf-ms-toast {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--cf-up);
+  border-radius: var(--cf-radius);
+  background: var(--cf-up-soft);
+}
+.cf-ms-toast .cf-ms:first-child {
+  border-top: 0;
+}
+.cf-ms-history {
+  margin-top: 22px;
+}
