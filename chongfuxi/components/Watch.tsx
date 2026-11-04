@@ -28,7 +28,7 @@ import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { ClipFeed } from "./ClipFeed";
-import { Preview, previewLeft } from "./Preview";
+import { KnownShare, Preview, previewLeft } from "./Preview";
 import { say } from "./Drill";
 import { Highlighted, Loading, Sheet, fmt, message, useBackLayer } from "./shared";
 
@@ -606,7 +606,7 @@ function ChapterStrip({
           <button className={`cf-wchip cf-wchip-preview${left ? "" : " is-done"}`} onClick={onPreview}>
             <span className="cf-wchip-at">Before you watch</span>
             <span className="cf-wchip-title">{left ? `${fmt(left)} ${left === 1 ? "card" : "cards"}` : "✓ All seen"}</span>
-            <span className="cf-wchip-en">New words and hard lines</span>
+            <KnownShare ep={ep} />
           </button>
         )}
         {/* Who's who, before the chapters (the owner asked for it there): the full cast in a sheet. */}

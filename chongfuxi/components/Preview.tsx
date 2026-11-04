@@ -62,6 +62,21 @@ export function previewCards(ep: Episode): { words: WordCard[]; lines: LineCard[
   return { words, lines };
 }
 
+/** The share of the episode's words known (names, and words learnt for the show, counting) at which it is ready to watch. */
+export const READY_SHARE = 0.98;
+
+/** The episode's known share, orange under READY_SHARE and green at it or above (the owner's ask). */
+export function KnownShare({ ep, share = ep.coverage.known }: { ep: Episode; share?: number }) {
+  const ready = share >= READY_SHARE;
+  // Floored to a tenth, so 97.96% doesn't show as a green-looking 98% in orange.
+  const shown = Math.floor(share * 1000) / 10;
+  return (
+    <span className={`cf-pv-share ${ready ? "is-ready" : "is-short"}`} aria-label={`${shown}% of the words known${ready ? ", ready" : ""}`}>
+      {shown % 1 ? shown.toFixed(1) : shown}% known
+    </span>
+  );
+}
+
 /** How many cards are left: what the strip shows. */
 export const previewLeft = (ep: Episode) => {
   const c = previewCards(ep);
@@ -153,6 +168,11 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
   const stillHard = (c: LineCard) => c.words.filter((w) => !gotWords.has(w)).length >= HARD_NEW;
   const left =
     start.words.filter((w) => !got.has(w.key)).length + start.lines.filter((l) => !got.has(l.key) && stillHard(l)).length;
+  // The known share as words are got or added here: the server's measure (words not unknown over all
+  // words said), less the times the words got were said.
+  const total = useMemo(() => ep.lines.reduce((n, l) => n + l.tokens.filter((t) => t.k).length, 0), [ep]);
+  const unsaid = start.words.filter((w) => !got.has(w.key)).reduce((n, w) => n + w.count, 0);
+  const share = total ? Math.max(ep.coverage.known, 1 - unsaid / total) : 1;
   // The card up: the first in the queue, lines no longer hard passed by.
   const upKey = queue.find((k) => {
     const c = byKey.get(k)!;
@@ -216,7 +236,8 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
     setRound(next);
     setQueue(next.map((c) => c.key));
   };
-  const passed = round.length - new Set(queue.filter((k) => byKey.get(k))).size;
+  // Lines no longer hard are passed by, so they count as done.
+  const passed = round.length - new Set(queue.filter((k) => byKey.get(k)?.kind === "word" || stillHard(byKey.get(k) as LineCard))).size;
   /** + Add sentence for a line, or where it stands once added. */
   const LineSave = ({ i }: { i: number }) => {
     const s = saved.get(i);
@@ -250,7 +271,10 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
           <b>Before you watch</b>
         </p>
         <span className="cf-pv-left" aria-label={`${left} cards left`}>
-          <b>{fmt(left)}</b> left
+          <span>
+            <b>{fmt(left)}</b> left
+          </span>
+          <KnownShare ep={ep} share={share} />
         </span>
       </div>
       <div className="cf-walk">

@@ -2183,6 +2183,23 @@ YouTube chapter feature".
   script), with the first three names, opening the whole cast in a sheet
   (`CastList`): each name large (a tap says it), its pinyin and who they
   are. At the first chapter the strip sits at its left, the chip in view.
+- **Names count as known, whole** (the owner, from Before you watch: "a
+  lot of the characters I got were part of character names, which I feel
+  like shouldn't be weighted heavily, or not included"; `lib/names.ts`,
+  `readNames`, in `measure` and `lineWords`): the splitter often cut a
+  name (张东升 as 张 + 东升), and the pieces counted as words not known, so
+  they were cards, unknown words and a lower known share. Now a run of two
+  to four words that spells one of Muse's names or cast is joined back
+  into the name, a known token; and a name nobody listed is found by its
+  shape: a common surname (or 小 / 老 / 阿) then a given name of one or
+  two characters (not 的 了 说 你 and such), the whole not a dictionary
+  word (老师, 小心), something in it not known, said in at least
+  `NAME_SEEN` (2) lines; between a two- and a three-character run the one
+  said more wins (严良 over 严良你), the longer on a tie. Names found so
+  join the Characters list with no who. `measure` also took only Muse's
+  `names` as names, not its cast (now `namesOf`, both). Muse's brief asks
+  for every name, minor ones and nicknames too, since a listed name is
+  sure.
 - **Names are graded leniently** (the owner: "I likely won't know the
   characters"): a chapter retelling or an episode question is graded with
   the cast and names (`namesOf`) and `NAMES_LENIENT` in reading.ts's
@@ -2372,7 +2389,11 @@ YouTube chapter feature".
   down to 0 once my comprehension is 100%. I don't want these new cards
   added to my deck"; `components/Preview.tsx`, owner only): the first
   chip on the Script's strip, before Characters, with how many cards are
-  left ("15 cards", "✓ All seen" at none). The cards (`previewCards`,
+  left ("15 cards", "✓ All seen" at none) and the episode's known share
+  under it (`KnownShare`: `coverage.known`, floored to a tenth), in amber
+  under `READY_SHARE` (98%) and green at it or above, the owner's ask;
+  the pass's header shows it too, rising as words are got or added there
+  (the known share less the times the words still left are said). The cards (`previewCards`,
   worked out from the episode as sent): every word of it not known yet
   (a token still `unknown`: names read as known, words learnt for the
   show as learning), Muse's must-knows first, then the most said; and

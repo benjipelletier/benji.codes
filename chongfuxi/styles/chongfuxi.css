@@ -14428,6 +14428,10 @@ button.cf-how-text {
 }
 .cf-pv-left {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   font-size: 13px;
   color: var(--cf-ink-soft);
   font-variant-numeric: tabular-nums;
@@ -14540,4 +14544,20 @@ button.cf-how-text {
 }
 .cf-pv-done .cf-pr-buttons {
   margin-top: 16px;
+}
+
+/* The known share: orange under 98%, green at it (ready to watch). */
+.cf-pv-share {
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.cf-pv-share.is-short {
+  color: var(--cf-new);
+}
+.cf-pv-share.is-ready {
+  color: var(--cf-up);
+}
+.cf-wchip .cf-pv-share {
+  margin-top: auto;
 }

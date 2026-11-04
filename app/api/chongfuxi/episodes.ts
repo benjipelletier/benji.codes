@@ -49,6 +49,7 @@ import { dictEntry } from "./headwords";
 import { hskOf } from "./review";
 import { simplified } from "./spotify";
 import { videoId } from "./youtube";
+import { readNames } from "@chongfuxi/lib/names";
 
 /** Lines an episode may have, and characters a line. */
 const LINES_MAX = 3000;
@@ -427,9 +428,16 @@ async function preppedIn(sql: Sql, owner: string, id: number): Promise<Set<strin
 async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
   const a = await analyse(sql, owner, dict, { text: r.lines.map((l) => l.zh).join("\n"), kind: "paste", title: r.title, url: null });
   // analyse makes a paragraph of each line (none is empty), so they pair up in order.
-  const names = new Set(r.prep?.names ?? []);
+  // Names read as names: Muse's names and cast joined back where the splitter cut them, and names
+  // nobody listed found by their shape (lib/names.ts), all known.
+  const read = readNames(
+    a.paragraphs.map((p) => p.flat()),
+    namesOf(r.prep),
+    (w) => dict.lookup(w).length > 0,
+  );
+  const names = new Set([...namesOf(r.prep), ...read.found]);
   const [fresh, prepped] = await Promise.all([mustNew(sql, owner, r.prep), preppedIn(sql, owner, r.id)]);
-  const tokens: TextToken[][] = a.paragraphs.map((p) => p.flat().map((t) => standingIn(t, names, fresh, prepped)));
+  const tokens: TextToken[][] = read.lines.map((line) => line.map((t) => standingIn(t, names, fresh, prepped)));
   const where = new Map<string, number[]>();
   tokens.forEach((line, i) => {
     for (const t of line) {
@@ -451,14 +459,14 @@ async function measure(sql: Sql, owner: string, dict: Dict, r: Row) {
       pinyin: info.get(word)?.pinyin ?? a.looks[word]?.p ?? null,
       gloss: info.get(word)?.gloss ?? a.looks[word]?.gloss ?? null,
     }));
-  return { a, tokens, where, unknown, prepped };
+  return { a, tokens, where, unknown, prepped, found: read.found };
 }
 
 const BRIEF = `Prepare the learner to watch this episode of a Chinese drama. You get its subtitle lines (index, time, Chinese, and English when there is one) and the words in it they don't know yet, each with how often it is said and in which lines. POST to /api/chongfuxi/agent/episodes/prep:
 { "id": …, "words": [{ "word", "tier": "must" | "nice" | "skip", "keep"?: true | false, "note" }], "names": [...], "cast": [{ "name", "who" }], "scenes": [{ "start", "title", "titleEn", "summary", "summaryEn", "notes": [...], "question": { "zh", "en" } }], "questions": [{ "zh", "en" }] }
 Any of words, names, cast, scenes and questions left out keeps what was sent before, so a part can be sent again alone.
 - words: rank the unknown words. "must": words they need to follow the plot or that recur (said often, or key to a scene); about 15 to 40. "nice": worth knowing but not needed. "skip": one-offs, filler, or too rare to be worth it now. "note": a few words on how it is used here, when it isn't obvious (slang, a meaning other than the dictionary's first). "keep": whether the word is worth keeping in their deck after the show (common, useful beyond it) or only for this show (plot words, rare, slang, a one-off): words they learn for the show alone never enter their deck. Leave it out to let the app decide (an HSK word, or one in several of their sentences, is kept).
-- names: every person and place name as written in the subtitles (they will stop counting as unknown).
+- names: every person and place name as written in the subtitles, minor ones and nicknames too (小王, 老陈), each as it is written (they will stop counting as unknown; the app also guesses unlisted ones by surname, but a listed name is sure).
 - cast: who's who, shown at the top of the script so the learner can keep the characters straight: every character who speaks or is talked about, main ones first, "name" exactly as the subtitles write it (the name they're mostly called by: 许红豆, 谢之遥, 红豆 if that is what people say), "who" in English, a few words: their role and how they relate to the others ("hotel front desk manager; Hongdou's boss"). No spoilers beyond this episode.
 - scenes: cut the episode into 8 to 25 scenes like YouTube chapters, by where the story moves on. "start" is the index of the scene's first line; the first starts at 0. "title" a short chapter title in simple Chinese (4 to 12 characters, like 陈警官在面馆), "titleEn" the same in English. "summary" what happens, in 1 to 3 simple Chinese sentences; "summaryEn" the same in English. Spoilers are fine. "notes": slang, dialect, culture or references in the scene a learner would miss. "question": one simple question in Chinese (with English) about what happens in the scene, for them to answer after watching it chapter by chapter, needing the scene's key words.
 - questions: 3 to 5 questions in simple Chinese (with English) to answer after watching, about what happened and why, needing the episode's key words.
@@ -716,7 +724,7 @@ async function measureStale(sql: Sql, owner: string, dict: Dict) {
 /** The episode opened for study, measured against the deck now. Owner only. */
 export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: number): Promise<EpisodeView> {
   const r = await rowOf(sql, owner, id);
-  const { a, tokens, unknown, prepped } = await measure(sql, owner, dict, r);
+  const { a, tokens, unknown, prepped, found } = await measure(sql, owner, dict, r);
   const prep = r.prep;
   const tier = new Map((prep?.words ?? []).map((w) => [w.word, w]));
   const order = { must: 0, nice: 1, skip: 2 } as const;
@@ -785,7 +793,7 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     autoScenes: !prep?.scenes.length,
     words,
     names: prep?.names ?? [],
-    cast: castOf(prep, a.looks),
+    cast: castOf(prep, a.looks, found),
     questions: prep?.questions ?? [],
     retells: retells.map((t) => ({ ...t.result, q: t.q, answer: t.answer, at: Math.round(t.at) })),
     coverage: measured.coverage,
@@ -881,15 +889,15 @@ function wordLines(tokens: TextToken[][]): Map<string, number[]> {
 }
 
 /** Who's who: Muse's cast with each name's reading, or the names alone until it writes one. */
-function castOf(prep: Prep | null, looks: Record<string, { p: string; gloss: string | null } | null>): EpisodeCastMember[] {
-  if (!prep) return [];
+function castOf(prep: Prep | null, looks: Record<string, { p: string; gloss: string | null } | null>, found: string[] = []): EpisodeCastMember[] {
   // A name's reading as the subtitles' words read it, else each character's commonest (a surname's may be off: 单 shàn).
   const reading = (name: string) =>
     looks[name]?.p ??
     ([...name].every((c) => dictEntry(c)) ? [...name].map((c) => dictEntry(c)!.p).join(" ") : null);
-  const cast = (prep.cast ?? []).map((c) => ({ name: c.name, pinyin: reading(c.name), who: c.who }));
+  const cast = (prep?.cast ?? []).map((c) => ({ name: c.name, pinyin: reading(c.name), who: c.who }));
   const named = new Set(cast.map((c) => c.name));
-  return [...cast, ...prep.names.filter((n) => !named.has(n)).map((name) => ({ name, pinyin: reading(name), who: "" }))];
+  const rest = [...(prep?.names ?? []), ...found].filter((n) => !named.has(n) && named.add(n));
+  return [...cast, ...rest.map((name) => ({ name, pinyin: reading(name), who: "" }))];
 }
 
 /**
@@ -1013,9 +1021,10 @@ export async function lineWords(sql: Sql, owner: string, dict: Dict, id: number,
   const line = r.lines[i];
   if (!line) throw new EpisodeError("No such line.");
   const a = await analyse(sql, owner, dict, { text: line.zh, kind: "paste", title: null, url: null });
-  const names = new Set(r.prep?.names ?? []);
+  const names = new Set(namesOf(r.prep));
   const [fresh, prepped] = await Promise.all([mustNew(sql, owner, r.prep), preppedIn(sql, owner, r.id)]);
-  const toks = a.paragraphs.flat(2).filter((t) => t.k).map((t) => standingIn(t, names, fresh, prepped));
+  const joined = readNames([a.paragraphs.flat(2)], [...names], (w) => dict.lookup(w).length > 0).lines[0];
+  const toks = joined.filter((t) => t.k).map((t) => standingIn(t, names, fresh, prepped));
   const words = [...new Set(toks.map((t) => t.t))];
   if (!words.length) return [];
   const standing = new Map(toks.map((t) => [t.t, t.k!]));
