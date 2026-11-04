@@ -101,20 +101,29 @@ function MarkedLine({ zh, words }: { zh: string; words: string[] }) {
   return <>{parts.map((x, k) => (typeof x === "string" ? <span key={k}>{x}</span> : <u key={k} className="cf-pv-new">{x.w}</u>))}</>;
 }
 
-/** A word with its reading and meaning, opening its page. */
-function WordRow({ ep, word }: { ep: Episode; word: string }) {
+/** A word with its reading and meaning, opening its page, and + Deck to add it. */
+function WordRow({ ep, word, added, busy, onAdd }: { ep: Episode; word: string; added: boolean; busy: boolean; onAdd: () => void }) {
   const look = ep.looks[word];
   return (
     <li>
-      <button onClick={() => wordpage.openWordPage(word)}>
+      <button className="cf-pv-wordpage" onClick={() => wordpage.openWordPage(word)}>
         <b className="cf-zh">{word}</b>
         {look?.p && <span>{displayPinyin(look.p)}</span>}
         {look?.gloss && <small>{look.gloss}</small>}
-        <i aria-hidden="true">›</i>
       </button>
+      {added ? (
+        <span className="cf-pv-added">✓ In deck</span>
+      ) : (
+        <button className="cf-link cf-pv-add" disabled={busy} onClick={onAdd} aria-label={`Add ${word} to your deck`}>
+          {busy ? "…" : "+ Deck"}
+        </button>
+      )}
     </li>
   );
 }
+
+/** What adding a line said: its tags, and whether it reads now or what keeps it locked. */
+type Saved = { readable: boolean; blockers: string[]; sources: string[] } | true;
 
 /**
  * The quick pass, full screen over the episode: a round of cards, each
@@ -122,7 +131,10 @@ function WordRow({ ep, word }: { ep: Episode; word: string }) {
  * then its reading, meaning and the first line it is said in, heard from
  * the video; a hard line plays first, then shows its English, Muse's note
  * and its new words. Got it on a word learns it for the show; a line still
- * hard when it comes up is shown, one that isn't any more is passed.
+ * hard when it comes up is shown, one that isn't any more is passed. Any
+ * word can go into the deck instead (+ Add to deck, + Deck), which also
+ * makes it known here, and any line into the sentences (+ Add sentence),
+ * tagged with the show and the episode.
  */
 export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
   const start = useMemo(() => previewCards(ep), [ep]);
@@ -131,6 +143,10 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
   const [got, setGot] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Added from here: words into the deck, lines into the sentences (those already there come with the episode).
+  const [inDeck, setInDeck] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Map<number, Saved>>(() => new Map((ep.saved ?? []).map((i) => [i, true as const])));
+  const [busy, setBusy] = useState<string | null>(null);
   const byKey = useMemo(() => new Map(round.map((c) => [c.key, c])), [round]);
   const gotWords = useMemo(() => new Set([...got].filter((k) => k.startsWith("w:")).map((k) => k.slice(2))), [got]);
   // A line is still hard while two of its words aren't known or got here.
@@ -148,6 +164,11 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
   const answer = (ok: boolean) => {
     if (!card) return;
     const rest = queue.filter((k) => k !== card.key);
+    // Added to the deck already: it is known, done here, nothing more to send.
+    if (got.has(card.key)) {
+      setQueue(rest);
+      return;
+    }
     if (!ok) {
       const at = Math.min(AGAIN_BACK, rest.length);
       setQueue([...rest.slice(0, at), card.key, ...rest.slice(at)]);
@@ -161,6 +182,33 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
         : send("episodes", { id: ep.id, previewed: card.i });
     sent.catch((e) => setError(message(e)));
   };
+  /** A word into the deck (a new Read card, due at once): known now, so it is done here too. */
+  const addWord = async (word: string) => {
+    setBusy(`w:${word}`);
+    setError(null);
+    try {
+      await send("episodes", { id: ep.id, learnt: word, keep: true, day: today() });
+      setInDeck((d) => new Set(d).add(word));
+      setGot((g) => new Set(g).add(`w:${word}`));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  /** A line into the sentences, tagged with the show and the episode. */
+  const addLine = async (i: number) => {
+    setBusy(`l:${i}`);
+    setError(null);
+    try {
+      const r = await send<{ readable: boolean; blockers: string[]; sources: string[] }>("episodes", { id: ep.id, addLine: i });
+      setSaved((m) => new Map(m).set(i, r));
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(null);
+    }
+  };
   const more = () => {
     const words = start.words.filter((w) => !got.has(w.key));
     const lines = start.lines.filter((l) => !got.has(l.key) && stillHard(l));
@@ -169,6 +217,23 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
     setQueue(next.map((c) => c.key));
   };
   const passed = round.length - new Set(queue.filter((k) => byKey.get(k))).size;
+  /** + Add sentence for a line, or where it stands once added. */
+  const LineSave = ({ i }: { i: number }) => {
+    const s = saved.get(i);
+    if (!s)
+      return (
+        <button className="cf-link" disabled={busy !== null} onClick={() => void addLine(i)}>
+          {busy === `l:${i}` ? "Adding…" : "+ Add sentence"}
+        </button>
+      );
+    if (s === true) return <span className="cf-pv-added">✓ In your sentences</span>;
+    return (
+      <span className="cf-pv-added">
+        ✓ Added, tagged {s.sources.map((x) => `“${x}”`).join(", ")}
+        {s.readable ? " · readable now" : s.blockers.length ? ` · locked until you know ${s.blockers.join(", ")}` : ""}
+      </span>
+    );
+  };
 
   return (
     <div className="cf-over cf-pv">
@@ -238,9 +303,19 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
                         <MarkedLine zh={ep.lines[card.i].zh} words={[card.word]} />
                       </p>
                       {ep.lines[card.i].en && <EnglishLine key={card.key} en={ep.lines[card.i].en!} english={false} />}
-                      <button className="cf-link cf-pv-page" onClick={() => wordpage.openWordPage(card.word)}>
-                        Word page ›
-                      </button>
+                      <div className="cf-pv-actions">
+                        {inDeck.has(card.word) ? (
+                          <span className="cf-pv-added">✓ Added to your deck</span>
+                        ) : (
+                          <button className="cf-link" disabled={busy !== null} onClick={() => void addWord(card.word)}>
+                            {busy === `w:${card.word}` ? "Adding…" : "+ Add to deck"}
+                          </button>
+                        )}
+                        <LineSave i={card.i} />
+                        <button className="cf-link cf-pv-page" onClick={() => wordpage.openWordPage(card.word)}>
+                          Word page ›
+                        </button>
+                      </div>
                     </>
                   )}
                 </>
@@ -253,9 +328,12 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
                     <>
                       {ep.lines[card.i].en && <EnglishLine key={card.key} en={ep.lines[card.i].en!} english />}
                       {ep.blurbs.find((b) => b.i === card.i) && <BlurbCard b={ep.blurbs.find((b) => b.i === card.i)!} />}
+                      <div className="cf-pv-actions">
+                        <LineSave i={card.i} />
+                      </div>
                       <ul className="cf-pv-words">
                         {card.words.map((w) => (
-                          <WordRow key={w} ep={ep} word={w} />
+                          <WordRow key={w} ep={ep} word={w} added={inDeck.has(w)} busy={busy === `w:${w}`} onAdd={() => void addWord(w)} />
                         ))}
                       </ul>
                     </>
@@ -270,14 +348,20 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
                   Show
                 </button>
               ) : (
-                <>
-                  <button className="cf-btn cf-btn-ghost" onClick={() => answer(false)}>
-                    Not yet
-                  </button>
+                got.has(card.key) ? (
                   <button className="cf-btn" onClick={() => answer(true)}>
-                    Got it
+                    Next
                   </button>
-                </>
+                ) : (
+                  <>
+                    <button className="cf-btn cf-btn-ghost" onClick={() => answer(false)}>
+                      Not yet
+                    </button>
+                    <button className="cf-btn" onClick={() => answer(true)}>
+                      Got it
+                    </button>
+                  </>
+                )
               )}
             </div>
           </>

@@ -1567,6 +1567,8 @@ export interface EpisodeView extends EpisodeListed {
   outside?: string[];
   /** Hard lines looked over in the quick pass before watching (Preview), by index. */
   previewed?: number[];
+  /** Lines already among the owner's sentences, by index. */
+  saved?: number[];
   /** The Muse list its must-know words are filed under, for Learn and Review. */
   /** Its YouTube video id, to play it with the script following; and video time minus subtitle time (ms). */
   video: string | null;

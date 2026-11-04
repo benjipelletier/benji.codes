@@ -39,6 +39,7 @@ import { isStudyDay } from "@chongfuxi/lib/day";
 import type { Sql } from "./db";
 import { AgentError, MUSE_LIST, writeList } from "./agent";
 import { addWords } from "./additions";
+import { ingestSentences } from "./corpus";
 import { analyse } from "./analyse";
 import { ownersDay } from "./daily";
 import { notesForWord } from "./notes";
@@ -799,6 +800,7 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     })(),
     looks: a.looks,
     outside,
+    saved: await savedLines(sql, owner, r.lines),
     previewed: (
       (await sql`select i from chongfuxi_episode_preview where owner_email = ${owner} and episode_id = ${id} order by i`) as unknown as Array<{ i: number }>
     ).map((x) => x.i),
@@ -1384,13 +1386,8 @@ export async function learnEpisodeWord(sql: Sql, owner: string, dict: Dict, inpu
   const day = input.day;
   if (!isStudyDay(day)) throw new EpisodeError("Which study day?");
   if (input.keep === true) {
+    // A new Read card, due at once like any new word (there is no Learn to go through first).
     await addWords(sql, owner, `episode:${r.show} ${r.episode}`, [word], dict);
-    await sql`
-      update chongfuxi_card c
-      set learned_at = now(), learn_step = null,
-          due = greatest(c.due, to_timestamp(${day.cutoff}::double precision / 1000) + interval '1 second')
-      where c.owner_email = ${owner} and c.word = ${word} and c.kind = 'read' and c.state = 0 and c.learned_at is null
-    `;
     await sql`delete from chongfuxi_episode_prepped where owner_email = ${owner} and episode_id = ${id} and word = ${word}`;
     return { word, kept: true };
   }
@@ -1438,4 +1435,48 @@ export async function previewLine(sql: Sql, owner: string, input: Record<string,
     on conflict do nothing
   `;
   return { previewed: i };
+}
+
+/** A line as a sentence's key: its Han characters (as corpus.ts keys them). */
+const lineKey = (zh: string) => [...zh].filter((c) => HAN.test(c)).join("");
+
+/** The episode's lines already among the owner's sentences (from here or any other source), by index. */
+async function savedLines(sql: Sql, owner: string, lines: EpisodeLine[]): Promise<number[]> {
+  const keys = [...new Set(lines.map((l) => lineKey(l.zh)).filter(Boolean))];
+  if (!keys.length) return [];
+  const have = new Set(
+    ((await sql`select key from chongfuxi_sentence where owner_email = ${owner} and key = any(${keys}::text[])`) as unknown as Array<{ key: string }>).map(
+      (x) => x.key,
+    ),
+  );
+  return lines.flatMap((l, i) => (have.has(lineKey(l.zh)) ? [i] : []));
+}
+
+/**
+ * A line of the episode added to the owner's sentences (the owner, from
+ * Before you watch: "including sentences which should get added with the
+ * appropriate tags"), tagged with the show and with the show and episode
+ * as its sources, so Cards › Sentences can filter by either. It is split and
+ * checked as any imported sentence is (ingestSentences): readable now, or
+ * locked until its words are known, and a sentence card as it unlocks. One
+ * already there just gains the tags. Owner only.
+ */
+export async function addEpisodeLine(sql: Sql, owner: string, dict: Dict, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const i = input.addLine;
+  if (typeof i !== "number" || !Number.isInteger(i) || i < 0 || i >= r.lines.length) throw new EpisodeError("Which line?");
+  const line = r.lines[i];
+  const sources = [r.show, `${r.show} ${r.episode}`];
+  const result = await ingestSentences(
+    sql,
+    owner,
+    sources.map((source) => ({ zh: line.zh, pinyin: "", en: line.en, source })),
+    dict,
+  );
+  if (result.total.tooShort) throw new EpisodeError("That line is too short to keep as a sentence.");
+  const [row] = (await sql`
+    select id::int as id, blockers, sources from chongfuxi_sentence where owner_email = ${owner} and key = ${lineKey(line.zh)}
+  `) as unknown as Array<{ id: number; blockers: string[] | null; sources: string[] }>;
+  return { i, sentence: row?.id ?? null, added: result.total.added > 0, readable: !(row?.blockers ?? []).length, blockers: row?.blockers ?? [], sources: row?.sources ?? sources };
 }

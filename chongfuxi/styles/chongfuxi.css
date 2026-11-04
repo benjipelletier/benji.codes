@@ -14473,19 +14473,28 @@ button.cf-how-text {
   list-style: none;
   border-top: 1px solid var(--cf-rule);
 }
-.cfx .cf-pv-words button {
+.cf-pv-words li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--cf-rule);
+}
+.cfx .cf-pv-words .cf-pv-wordpage {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 8px;
-  width: 100%;
   min-height: 44px;
   padding: 8px 0;
   border: 0;
-  border-bottom: 1px solid var(--cf-rule);
   background: none;
   color: var(--cf-ink);
   font: inherit;
   text-align: left;
+}
+.cfx .cf-pv-words .cf-pv-add {
+  flex: none;
 }
 .cf-pv-words b {
   flex: none;
@@ -14505,10 +14514,26 @@ button.cf-how-text {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.cf-pv-words i {
+.cf-pv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cfx .cf-pv-actions .cf-pv-page {
+  margin-top: 0;
+}
+.cf-pv-added {
   flex: none;
-  font-style: normal;
-  color: var(--cf-ink-faint);
+  max-width: 100%;
+  color: var(--cf-up);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.cf-pv-actions .cf-pv-added {
+  flex: 0 1 auto;
 }
 .cf-pv-done {
   text-align: center;

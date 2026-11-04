@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
-import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, previewLine, setEpisodeVideo } from "../episodes";
+import { EpisodeError, addEpisodeLine, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, previewLine, setEpisodeVideo } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body, dayFrom } from "../params";
 import { CLIP_MODES, clipFeed } from "../clipfeed";
@@ -70,6 +70,15 @@ export async function POST(req: NextRequest) {
   if (typeof input.id === "number" && (typeof input.video === "string" || typeof input.offset === "number")) {
     try {
       return NextResponse.json(await setEpisodeVideo(gate.sql, gate.owner, input));
+    } catch (e) {
+      if (e instanceof EpisodeError) return bad(e.message, 422);
+      throw e;
+    }
+  }
+  // A line added to the owner's sentences, tagged with the show and episode (Before you watch).
+  if (typeof input.id === "number" && typeof input.addLine === "number") {
+    try {
+      return NextResponse.json(await addEpisodeLine(gate.sql, gate.owner, loadDict(), input));
     } catch (e) {
       if (e instanceof EpisodeError) return bad(e.message, 422);
       throw e;

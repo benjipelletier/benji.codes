@@ -2331,8 +2331,9 @@ YouTube chapter feature".
     suggests until changed, remembered per episode on the device
     (`cfx-ep-keep:<id>`). A word learnt is sent at once (POST `episodes`
     `{ id, learnt, keep, day }`, `learnEpisodeWord`): kept, into the deck
-    (one addition, source `episode:<show> <episode>`) and marked through
-    Learn, due the next study day; for the show, kept in
+    (one addition, source `episode:<show> <episode>`), a new Read card due
+    at once like any new word (it was marked through Learn and due the
+    next study day until Learn went); for the show, kept in
     `chongfuxi_episode_prepped`, never in the deck, counted in the episode
     as still being learnt (`standingIn`), so readiness rises
     (`coverage.prepped`).
@@ -2383,7 +2384,7 @@ YouTube chapter feature".
   with its English blurred until tapped, Word page ›, and that line heard
   from the video (`LineClip`). A line plays first, its new words dotted
   under in amber, then shows its English, Muse's study note and its new
-  words. **Nothing joins the deck**: Got it on a word learns it for the
+  words. **Nothing joins the deck unless asked**: Got it on a word learns it for the
   show only (POST `episodes` `{ id, learnt, keep: false, day }`, as the
   walk does unticked: `chongfuxi_episode_prepped`), so it reads as
   learning in the episode, the known share rises and its lines get
@@ -2392,8 +2393,23 @@ YouTube chapter feature".
   `chongfuxi_episode_preview`, made on first use, sent back as
   `previewed`; cleared when new subtitles are sent, since they number
   their lines afresh). "Not yet" rather than Again, which the clip's
-  replay button already says. Leaving it (× or back) reads the episode
-  again, so the count follows. The walk stays the in-depth way through a
+  replay button already says. **Adding from it** (the owner: "I want the
+  ability to add them to my deck from the page, including sentences
+  which should get added with the appropriate tags"): once shown, a word
+  card has + Add to deck (POST `{ id, learnt, keep: true, day }`: one
+  addition, a new Read card due at once), and each new word under a
+  line card + Deck; an added word is known, so it is done here (its
+  buttons become Next) and its lines get easier. Both cards have + Add
+  sentence for their line (POST `{ id, addLine: i }`, `addEpisodeLine`):
+  the line joins the owner's sentences through `ingestSentences`, with
+  its English, tagged with two sources, the show ("隐秘的角落") and the
+  show and episode ("隐秘的角落 E01"), so Cards › Sentences filters by
+  either; it is readable now or locked until its words are known, and a
+  sentence card as it unlocks; one already there only gains the tags, and
+  one under three characters is refused. The card then says the tags and
+  what keeps it locked; lines already among the sentences say "In your
+  sentences" (`saved` on the episode, matched by their characters).
+  Leaving it (× or back) reads the episode again, so the count follows. The walk stays the in-depth way through a
   chapter. Tested on a local Postgres and in the browser with a stand-in
   player.
 - **Clips, scrolled like TikTok** (the owner: "scroll through parts of
