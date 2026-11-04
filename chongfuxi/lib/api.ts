@@ -1565,6 +1565,8 @@ export interface EpisodeView extends EpisodeListed {
   looks: Record<string, { p: string; gloss: string | null } | null>;
   /** Its words of two or more characters that aren't deck words, though they may read as known (摇号 through 摇 + 号). */
   outside?: string[];
+  /** Hard lines looked over in the quick pass before watching (Preview), by index. */
+  previewed?: number[];
   /** The Muse list its must-know words are filed under, for Learn and Review. */
   /** Its YouTube video id, to play it with the script following; and video time minus subtitle time (ms). */
   video: string | null;

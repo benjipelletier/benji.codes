@@ -2363,6 +2363,39 @@ YouTube chapter feature".
   the line before for its lead-in; the phone's voice when the episode has
   no video), one at a time. Fetched once per word while the app is open;
   nothing shows for a word no episode says.
+- **Before you watch** (the owner: "a way to review unknown words, hard
+  sentences before watching the whole thing… different than the per
+  chapter review. That one is in depth. This is just a quick overview…
+  even if I'm not ready for it, I have seen some of the new words
+  before… the number of cards to be studied, which will eventually go
+  down to 0 once my comprehension is 100%. I don't want these new cards
+  added to my deck"; `components/Preview.tsx`, owner only): the first
+  chip on the Script's strip, before Characters, with how many cards are
+  left ("15 cards", "✓ All seen" at none). The cards (`previewCards`,
+  worked out from the episode as sent): every word of it not known yet
+  (a token still `unknown`: names read as known, words learnt for the
+  show as learning), Muse's must-knows first, then the most said; and
+  every hard line, two or more of those words (`HARD_NEW`), not looked
+  over yet, in story order. A round takes `PREVIEW_ROUND` (20), a hard
+  line after every three words; Keep going takes the next. Each card:
+  Show, then Not yet (back three cards on, `AGAIN_BACK`) or Got it. A word
+  shows alone, then its reading and meaning, the first line it is said in
+  with its English blurred until tapped, Word page ›, and that line heard
+  from the video (`LineClip`). A line plays first, its new words dotted
+  under in amber, then shows its English, Muse's study note and its new
+  words. **Nothing joins the deck**: Got it on a word learns it for the
+  show only (POST `episodes` `{ id, learnt, keep: false, day }`, as the
+  walk does unticked: `chongfuxi_episode_prepped`), so it reads as
+  learning in the episode, the known share rises and its lines get
+  easier (a line no longer hard when it comes up is passed); Got it on a
+  line is kept (POST `{ id, previewed: i }`, `previewLine`,
+  `chongfuxi_episode_preview`, made on first use, sent back as
+  `previewed`; cleared when new subtitles are sent, since they number
+  their lines afresh). "Not yet" rather than Again, which the clip's
+  replay button already says. Leaving it (× or back) reads the episode
+  again, so the count follows. The walk stays the in-depth way through a
+  chapter. Tested on a local Postgres and in the browser with a stand-in
+  player.
 - **Clips, scrolled like TikTok** (the owner: "scroll through parts of
   chapters or whole episodes as if it's tiktok, to help me test my
   comprehension, maybe organized by what words are waiting for review or

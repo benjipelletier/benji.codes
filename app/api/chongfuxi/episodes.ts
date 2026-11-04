@@ -161,6 +161,16 @@ export async function ensureTables(sql: Sql) {
       primary key (owner_email, episode_id, word)
     )
   `;
+  // Hard lines looked over in the quick pass before watching (Preview), by line: they leave its count. Never in the deck.
+  await sql`
+    create table if not exists chongfuxi_episode_preview (
+      owner_email text not null,
+      episode_id bigint not null,
+      i int not null,
+      at timestamptz not null default now(),
+      primary key (owner_email, episode_id, i)
+    )
+  `;
   ready = true;
 }
 
@@ -553,6 +563,8 @@ export async function writeEpisode(
       at = now(), prep = null, prepped_at = null, model = null, known = null
     returning id::int as id
   `) as unknown as Array<{ id: number }>;
+  // New subtitles number their lines afresh: lines looked over before no longer say which.
+  await sql`delete from chongfuxi_episode_preview where owner_email = ${owner} and episode_id = ${row.id}`;
   return episodeMaterial(sql, owner, dict, row.id);
 }
 
@@ -787,6 +799,9 @@ export async function openEpisode(sql: Sql, owner: string, dict: Dict, id: numbe
     })(),
     looks: a.looks,
     outside,
+    previewed: (
+      (await sql`select i from chongfuxi_episode_preview where owner_email = ${owner} and episode_id = ${id} order by i`) as unknown as Array<{ i: number }>
+    ).map((x) => x.i),
     list: must.length ? `${MUSE_LIST}/${r.show}/${r.episode}` : null,
     video: r.video ?? videoId(r.source ?? ""),
     offset: r.offset_ms,
@@ -1410,4 +1425,17 @@ export async function setEpisodeVideo(sql: Sql, owner: string, input: Record<str
     return { id, offset };
   }
   throw new EpisodeError("Give { id, video } or { id, offset }.");
+}
+
+/** A hard line looked over in the quick pass before watching (Preview): it leaves the count. Nothing joins the deck. Owner only. */
+export async function previewLine(sql: Sql, owner: string, input: Record<string, unknown>) {
+  const id = typeof input.id === "number" ? input.id : 0;
+  const r = await rowOf(sql, owner, id);
+  const i = input.previewed;
+  if (typeof i !== "number" || !Number.isInteger(i) || i < 0 || i >= r.lines.length) throw new EpisodeError("Which line?");
+  await sql`
+    insert into chongfuxi_episode_preview (owner_email, episode_id, i) values (${owner}, ${id}, ${i})
+    on conflict do nothing
+  `;
+  return { previewed: i };
 }

@@ -28,6 +28,7 @@ import { studyDay } from "@chongfuxi/lib/day";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
 import { ClipFeed } from "./ClipFeed";
+import { Preview, previewLeft } from "./Preview";
 import { say } from "./Drill";
 import { Highlighted, Loading, Sheet, fmt, message, useBackLayer } from "./shared";
 
@@ -494,7 +495,7 @@ function LineText({
  * wanted everything to learn the sentence in one place): what it means,
  * how it is built, its parts, one thing to take away.
  */
-function BlurbCard({ b }: { b: Episode["blurbs"][number] }) {
+export function BlurbCard({ b }: { b: Episode["blurbs"][number] }) {
   return (
     <section className="cf-lb">
       <p className="cf-lb-head">✦ Muse on this line</p>
@@ -570,6 +571,7 @@ function ChapterStrip({
   onPick,
   onScrub,
   onScrubEnd,
+  onPreview,
 }: {
   ep: Episode;
   current: number;
@@ -579,14 +581,17 @@ function ChapterStrip({
   onPick: (i: number) => void;
   onScrub: (t: number) => void;
   onScrubEnd?: (t: number) => void;
+  /** Before you watch (the owner's only): the quick pass over its new words and hard lines. */
+  onPreview?: () => void;
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const times = spans(ep);
   const cast = ep.cast ?? [];
   const [castOpen, setCastOpen] = useState(false);
+  const left = useMemo(() => (onPreview ? previewLeft(ep) : 0), [ep, onPreview]);
   useEffect(() => {
-    // The characters' chip, when there is one, comes before the chapters.
-    const el = strip.current?.children[current + (cast.length ? 1 : 0)] as HTMLElement | undefined;
+    // Before you watch and the characters' chip, when there are, come before the chapters.
+    const el = strip.current?.children[current + (onPreview ? 1 : 0) + (cast.length ? 1 : 0)] as HTMLElement | undefined;
     if (!el || !strip.current) return;
     // At the first chapter the strip starts at its left, the characters in view.
     const left = current === 0 ? 0 : el.offsetLeft - (strip.current.clientWidth - el.clientWidth) / 2;
@@ -596,6 +601,14 @@ function ChapterStrip({
     <div className="cf-watch-chapters">
       <ChapterBar ep={ep} current={current} at={at} onScrub={onScrub} onScrubEnd={onScrubEnd} onPick={onPick} compact />
       <div className="cf-wchips" ref={strip}>
+        {/* The quick pass before watching, first: how many cards are left, down to none once it is all known. */}
+        {onPreview && (
+          <button className={`cf-wchip cf-wchip-preview${left ? "" : " is-done"}`} onClick={onPreview}>
+            <span className="cf-wchip-at">Before you watch</span>
+            <span className="cf-wchip-title">{left ? `${fmt(left)} ${left === 1 ? "card" : "cards"}` : "✓ All seen"}</span>
+            <span className="cf-wchip-en">New words and hard lines</span>
+          </button>
+        )}
         {/* Who's who, before the chapters (the owner asked for it there): the full cast in a sheet. */}
         {cast.length > 0 && (
           <button className="cf-wchip cf-wchip-cast" onClick={() => setCastOpen(true)}>
@@ -944,7 +957,7 @@ export const CLIP_AFTER = 300;
  * Again plays it again; "From the line before" gives it its lead-in; the
  * speed is the episode's. With no video, the phone's voice says it.
  */
-function LineClip({ ep, i }: { ep: Episode; i: number }) {
+export function LineClip({ ep, i }: { ep: Episode; i: number }) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const rate = useSpeed(player);
@@ -1468,6 +1481,8 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   const [walk, setWalk] = useState<number | null>(null);
   // The clip feed, on this episode from the chapter in view.
   const [clips, setClips] = useState(false);
+  // Before you watch: the quick pass over its new words and hard lines.
+  const [preview, setPreview] = useState(false);
   const [nice, setNice] = useState(false);
   const script = useRef<HTMLDivElement>(null);
   const keeps = useKeeps(id);
@@ -1509,6 +1524,12 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
   useBackLayer(line !== null, () => setLine(null));
   useBackLayer(walk !== null, () => setWalk(null));
   useBackLayer(clips, () => setClips(false));
+  // Leaving it, by × or back, the episode is read again: the words got are learnt for the show now, and the count follows.
+  const endPreview = () => {
+    setPreview(false);
+    void reload();
+  };
+  useBackLayer(preview, endPreview);
   // Opening a line or a walk pauses the video.
   useEffect(() => {
     if (line !== null || walk !== null) video.current?.pause();
@@ -1689,6 +1710,14 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
             onPick={toChapter}
             onScrub={scrubTo}
             onScrubEnd={(t) => seek(t)}
+            onPreview={
+              canWrite
+                ? () => {
+                    video.current?.pause();
+                    setPreview(true);
+                  }
+                : undefined
+            }
           />
           <div className="cf-watch-script" ref={script} onScroll={onScroll} onTouchMove={handScroll} onWheel={handScroll}>
             <div className="cf-watch-key">
@@ -1800,6 +1829,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
       {ep && line !== null && (
         <LineView ep={ep} i={line} keeps={keeps} canWrite={canWrite} onMove={toLine} onAdded={reload} onClose={() => setLine(null)} />
       )}
+      {ep && preview && <Preview ep={ep} onEnd={endPreview} />}
       {ep && clips && <ClipFeed id={ep.id} start={ep.scenes[scene]?.start ?? 0} onEnd={() => setClips(false)} />}
       {ep && walk !== null && (
         <ChapterWalk

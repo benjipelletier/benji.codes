@@ -14405,3 +14405,114 @@ button.cf-how-text {
   font-size: 13px;
   line-height: 1.45;
 }
+
+/* Before you watch (Preview.tsx): its chip first on the strip, and the quick pass. */
+.cfx .cf-wchip-preview {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+}
+.cf-wchip-preview .cf-wchip-at {
+  color: var(--cf-accent);
+  font-weight: 650;
+}
+.cf-wchip-preview .cf-wchip-title {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cfx .cf-wchip-preview.is-done {
+  border-color: var(--cf-rule);
+  background: none;
+}
+.cf-wchip-preview.is-done .cf-wchip-title {
+  color: var(--cf-up);
+}
+.cf-pv-left {
+  flex: none;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.cf-pv-left b {
+  color: var(--cf-ink);
+  font-size: 15px;
+}
+.cf-pv-word {
+  margin: 18px 0 6px;
+  font-size: 44px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}
+.cf-pv-look {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 14px;
+  text-align: center;
+}
+.cf-pv-look b {
+  font-size: 18px;
+  font-weight: 600;
+}
+.cf-pv-look span {
+  color: var(--cf-ink-soft);
+  font-size: 15px;
+}
+.cf-pv-new {
+  text-decoration: underline dotted var(--cf-new);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.cfx .cf-pv-page {
+  margin-top: 10px;
+}
+.cf-pv-words {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--cf-rule);
+}
+.cfx .cf-pv-words button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--cf-rule);
+  background: none;
+  color: var(--cf-ink);
+  font: inherit;
+  text-align: left;
+}
+.cf-pv-words b {
+  flex: none;
+  font-size: 17px;
+}
+.cf-pv-words span {
+  flex: none;
+  color: var(--cf-ink-soft);
+  font-size: 14px;
+}
+.cf-pv-words small {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cf-ink-faint);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cf-pv-words i {
+  flex: none;
+  font-style: normal;
+  color: var(--cf-ink-faint);
+}
+.cf-pv-done {
+  text-align: center;
+}
+.cf-pv-done .cf-pr-buttons {
+  margin-top: 16px;
+}

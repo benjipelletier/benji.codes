@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { loadDict } from "../dictfile";
-import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, setEpisodeVideo } from "../episodes";
+import { EpisodeError, answerEpisodeCard, chapterStep, gradeEpisodeAnswer, heardIn, learnEpisodeWord, lineWords, listEpisodes, openEpisode, previewLine, setEpisodeVideo } from "../episodes";
 import { ownerOnly, ownersLog } from "../guard";
 import { bad, body, dayFrom } from "../params";
 import { CLIP_MODES, clipFeed } from "../clipfeed";
@@ -70,6 +70,15 @@ export async function POST(req: NextRequest) {
   if (typeof input.id === "number" && (typeof input.video === "string" || typeof input.offset === "number")) {
     try {
       return NextResponse.json(await setEpisodeVideo(gate.sql, gate.owner, input));
+    } catch (e) {
+      if (e instanceof EpisodeError) return bad(e.message, 422);
+      throw e;
+    }
+  }
+  // A hard line looked over before watching (Preview).
+  if (typeof input.id === "number" && typeof input.previewed === "number") {
+    try {
+      return NextResponse.json(await previewLine(gate.sql, gate.owner, input));
     } catch (e) {
       if (e instanceof EpisodeError) return bad(e.message, 422);
       throw e;
