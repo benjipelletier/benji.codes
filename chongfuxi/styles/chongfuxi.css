@@ -14440,13 +14440,6 @@ button.cf-how-text {
   color: var(--cf-ink);
   font-size: 15px;
 }
-.cf-pv-word {
-  margin: 18px 0 6px;
-  font-size: 44px;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.2;
-}
 .cf-pv-look {
   display: flex;
   flex-direction: column;
@@ -14560,4 +14553,34 @@ button.cf-how-text {
 }
 .cf-wchip .cf-pv-share {
   margin-top: auto;
+}
+
+/* A word page's headword, a character at a time: each opens its own page. */
+.cf-wp-chars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.cfx .cf-wp-char {
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px dotted var(--cf-rule-strong);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+.cfx .cf-wp-char:active {
+  color: var(--cf-accent);
+  border-bottom-color: var(--cf-accent);
+}
+.cfx .cf-wp-from {
+  margin-bottom: 8px;
+}
+.cf-pv-words i {
+  flex: none;
+  font-style: normal;
+  color: var(--cf-ink-faint);
 }

@@ -15,7 +15,7 @@ import * as bugs from "@chongfuxi/lib/bugs";
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { mainFirst } from "@chongfuxi/lib/senses";
-import { Loading, AiPill, AiTag, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
+import { Loading, AiPill, AiTag, BackStep, DefineButton, Highlighted, History, LongkuTag, PlecoTile, aiDefined, fmt, message, span, useBackLayer } from "./shared";
 import { SameEnglish } from "./Synonyms";
 import { Rescue } from "./Rescue";
 
@@ -303,6 +303,8 @@ export function WordSheet({
   onAdded,
   onFindSentences,
   onOpenWord,
+  from = null,
+  onBackTo,
 }: {
   word: string;
   canWrite: boolean;
@@ -316,6 +318,9 @@ export function WordSheet({
   onFindSentences?: (word: string) => void;
   /** Another word's page, from the words around this one. */
   onOpenWord?: (word: string) => void;
+  /** The page this one was opened from, and back to it. */
+  from?: string | null;
+  onBackTo?: () => void;
 }) {
   const [d, setD] = useState<WordPage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -443,7 +448,23 @@ export function WordSheet({
         </button>
 
         <header className="cf-sheet-head">
-          <h2>{word}</h2>
+          {from && onBackTo && (
+            <button className="cf-link cf-wp-from" onClick={onBackTo}>
+              ‹ <span className="cf-zh">{from}</span>
+            </button>
+          )}
+          {/* A word of two or more characters: each opens its own page (the owner's ask). */}
+          {onOpenWord && [...word].length > 1 ? (
+            <h2 className="cf-wp-chars">
+              {[...word].map((c, k) => (
+                <button key={k} className="cf-wp-char" onClick={() => onOpenWord(c)} aria-label={`${c}: its word page`}>
+                  {c}
+                </button>
+              ))}
+            </h2>
+          ) : (
+            <h2>{word}</h2>
+          )}
           {d?.pinyin && <p className="cf-sheet-py">{displayPinyin(d.pinyin)}</p>}
           {d && (
             <p className="cf-sheet-tags">
@@ -995,8 +1016,11 @@ function BackFromPage({ word, onBack }: { word: string | null; onBack: () => voi
  * The word page, over everything, wherever it was opened from (lib/wordpage.ts):
  * the shell draws this once. Its word is in the address, so a reload comes back to it.
  */
+const NO_TRAIL: string[] = [];
+
 export function WordPageHost({ canWrite }: { canWrite: boolean }) {
   const word = useSyncExternalStore(wordpage.subscribe, wordpage.openWord, () => null);
+  const trail = useSyncExternalStore(wordpage.subscribe, wordpage.wordTrail, () => NO_TRAIL);
   // Opened by the address on a reload; kept there while open.
   useEffect(() => {
     const w = routeParam("word");
@@ -1007,6 +1031,10 @@ export function WordPageHost({ canWrite }: { canWrite: boolean }) {
   return (
     <>
       <BackFromPage word={word} onBack={wordpage.closeWordPage} />
+      {/* A step of back for each page under this one, so back returns to the page it was opened from. */}
+      {trail.map((w, k) => (
+        <BackStep key={`${k}:${w}`} onBack={wordpage.backWordPage} />
+      ))}
       {word && (
         <WordSheet
           key={word}
@@ -1028,6 +1056,8 @@ export function WordPageHost({ canWrite }: { canWrite: boolean }) {
               : undefined
           }
           onOpenWord={wordpage.openWordPage}
+          from={trail[trail.length - 1] ?? null}
+          onBackTo={wordpage.backWordPage}
         />
       )}
     </>

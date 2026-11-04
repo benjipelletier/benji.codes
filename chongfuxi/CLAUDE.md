@@ -1408,7 +1408,14 @@ the design was silent and are still to be confirmed.
   tapped in any sentence (review backs, Learn, a sentence's page), on Look
   up's word lines for corpus words, on the text analyser's picked word, on
   Unlock next's sheet for a listed word, on a word card in the session's
-  look-back list; a list's word row (Pleco is a tile on the page). A word in
+  look-back list; a list's word row (Pleco is a tile on the page).
+  **Each character of a longer word opens its own page** (the owner's
+  ask): the headword is then a button a character, dotted under. And
+  pages opened from a page stack (`lib/wordpage.ts`: a word opened while
+  a page is open puts that page on a trail): back, a `BackStep` per page
+  under it, or "‹ 爬山" above the headword returns to the page it was
+  opened from; × closes them all. It used to replace the page, back
+  closing everything. A word in
   no deck, list or sentence says so. **A word not in the deck** (on a list,
   a name, or only in the dictionary) has "Add to deck" at the top of its
   page (the owner's request; `word` POST `{action: "add"}`, `addFromPage`:
@@ -2412,7 +2419,7 @@ YouTube chapter feature".
   line after every three words; Keep going takes the next. Each card:
   Show, then Not yet (back three cards on, `AGAIN_BACK`) or Got it. A word
   shows alone, then its reading and meaning, the first line it is said in
-  with its English blurred until tapped, Word page ›, and that line heard
+  with its English blurred until tapped, and that line heard
   from the video (`LineClip`). A line plays first, its new words dotted
   under in amber, then shows its English, Muse's study note and its new
   words. **Nothing joins the deck unless asked**: Got it on a word learns it for the
@@ -2427,7 +2434,9 @@ YouTube chapter feature".
   replay button already says. **Adding from it** (the owner: "I want the
   ability to add them to my deck from the page, including sentences
   which should get added with the appropriate tags"): once shown, a word
-  card has + Add to deck (POST `{ id, learnt, keep: true, day }`: one
+  card's headword opens its word page as a review card's does (`Word`
+  with `onOpen`, a faint › after it; it was a "Word page ›" button, and
+  the owner asked for the cards' way), and it has + Add to deck (POST `{ id, learnt, keep: true, day }`: one
   addition, a new Read card due at once), and each new word under a
   line card + Deck; an added word is known, so it is done here (its
   buttons become Next) and its lines get easier. Both cards have + Add

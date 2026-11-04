@@ -18,7 +18,7 @@ import type { EpisodeView as Episode } from "@chongfuxi/lib/api";
 import { send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as wordpage from "@chongfuxi/lib/wordpage";
-import { fmt, message } from "./shared";
+import { Word, fmt, message } from "./shared";
 import { BlurbCard, EnglishLine, LineClip, clock } from "./Watch";
 
 /** Unknown words a line needs to count as hard (the server's HARD_NEW). */
@@ -125,6 +125,7 @@ function WordRow({ ep, word, added, busy, onAdd }: { ep: Episode; word: string; 
         <b className="cf-zh">{word}</b>
         {look?.p && <span>{displayPinyin(look.p)}</span>}
         {look?.gloss && <small>{look.gloss}</small>}
+        <i aria-hidden="true">›</i>
       </button>
       {added ? (
         <span className="cf-pv-added">✓ In deck</span>
@@ -316,7 +317,8 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
             <div className="cf-walk-card">
               {card.kind === "word" ? (
                 <>
-                  <p className="cf-pv-word cf-zh">{card.word}</p>
+                  {/* As on a card: once shown, the headword opens its page, a faint › after it. */}
+                  <Word word={card.word} onOpen={shown ? () => wordpage.openWordPage(card.word) : undefined} />
                   {shown && (
                     <>
                       <p className="cf-pv-look">
@@ -336,9 +338,6 @@ export function Preview({ ep, onEnd }: { ep: Episode; onEnd: () => void }) {
                           </button>
                         )}
                         <LineSave i={card.i} />
-                        <button className="cf-link cf-pv-page" onClick={() => wordpage.openWordPage(card.word)}>
-                          Word page ›
-                        </button>
                       </div>
                     </>
                   )}
