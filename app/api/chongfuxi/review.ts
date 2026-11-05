@@ -1570,17 +1570,21 @@ export async function sentenceDetail(sql: Sql, owner: string, id: number): Promi
 
 /** Every source the sentences came from (a deck, a book's lessons), with how many are readable, one word away and further off. */
 export async function listSources(sql: Sql, owner: string): Promise<SourceCounts[]> {
+  await ensureSuspendedSentences(sql);
   const rows = (await sql`
     select src as source,
            count(*) filter (where cardinality(blockers) = 0)::int as readable,
            count(*) filter (where cardinality(blockers) = 1)::int as one_away,
-           count(*) filter (where cardinality(blockers) > 1)::int as locked
-    from chongfuxi_sentence, unnest(sources) src
-    where owner_email = ${owner}
+           count(*) filter (where cardinality(blockers) > 1)::int as locked,
+           count(x.sentence_id)::int as suspended
+    from chongfuxi_sentence s
+    cross join unnest(s.sources) src
+    left join chongfuxi_sentence_suspended x on x.owner_email = s.owner_email and x.sentence_id = s.id
+    where s.owner_email = ${owner}
     group by src
     order by count(*) desc, src
-  `) as unknown as Array<{ source: string; readable: number; one_away: number; locked: number }>;
-  return rows.map((r) => ({ source: r.source, readable: r.readable, oneAway: r.one_away, locked: r.locked }));
+  `) as unknown as Array<{ source: string; readable: number; one_away: number; locked: number; suspended: number }>;
+  return rows.map((r) => ({ source: r.source, readable: r.readable, oneAway: r.one_away, locked: r.locked, suspended: r.suspended }));
 }
 
 /**

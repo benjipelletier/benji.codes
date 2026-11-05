@@ -14673,3 +14673,58 @@ button.cf-how-text {
 .cf-ms-history {
   margin-top: 22px;
 }
+
+/* Sources (SentencesPanel.tsx): found by name; a source's sentences suspended or brought back at once. */
+.cf-src-find {
+  display: block;
+  margin: 10px 0 6px;
+}
+.cfx .cf-src-find input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-bg);
+  color: var(--cf-ink);
+  font: inherit;
+  font-size: 16px;
+}
+.cf-src-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cf-src-row .cf-opt {
+  flex: 1;
+  min-width: 0;
+}
+.cf-src-row .cf-opt-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cf-src-susp {
+  color: var(--cf-down);
+  font-size: 12px;
+}
+.cfx .cf-src-act {
+  flex: none;
+}
+.cfx .cf-src-act.is-sure.is-off {
+  background: var(--cf-down-soft);
+  color: var(--cf-down);
+}
+.cf-src-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-sunken);
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}

@@ -182,30 +182,23 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
         />
       )}
       {picking && sources && (
-        <Sheet label="Sources" onClose={() => setPicking(false)}>
-          <h2 className="cf-sheet-title">Sources</h2>
-          <p className="cf-muted">Show the sentences from one of them.</p>
-          <ul className="cf-opts">
-            {[{ source: "", n: (shell.summary?.sentences ?? 0) }, ...sources.map((x) => ({ source: x.source, n: x.readable + x.oneAway + x.locked }))].map(
-              (x) => (
-                <li key={x.source}>
-                  <button
-                    className={`cf-opt${source === x.source ? " is-on" : ""}`}
-                    aria-pressed={source === x.source}
-                    onClick={() => {
-                      setSource(x.source);
-                      setPicking(false);
-                    }}
-                  >
-                    <i className="cf-opt-tick" aria-hidden="true" />
-                    <span className="cf-opt-name">{x.source || "Every source"}</span>
-                    <span className="cf-opt-n">{fmt(x.n)}</span>
-                  </button>
-                </li>
-              ),
-            )}
-          </ul>
-        </Sheet>
+        <SourcesSheet
+          sources={sources}
+          source={source}
+          total={shell.summary?.sentences ?? 0}
+          canWrite={shell.canWrite}
+          onPick={(x) => {
+            setSource(x);
+            setPicking(false);
+          }}
+          onChanged={() => {
+            get<{ sources: SourceCounts[] }>("sources")
+              .then((r) => setSources(r.sources))
+              .catch(() => undefined);
+            afterChange();
+          }}
+          onClose={() => setPicking(false)}
+        />
       )}
     </>
   );
@@ -545,5 +538,109 @@ function SentenceSheet({
       </Sheet>
 
     </>
+  );
+}
+
+/**
+ * The sources (decks, texts, shows), found by name, each showing its
+ * sentences when picked; and for the owner, every sentence of a source
+ * suspended or brought back at once, a second tap to be sure, or of every
+ * source the search matches (the owner: "allow me to search through all
+ * sentence categories and suspend them all if I want").
+ */
+function SourcesSheet({
+  sources,
+  source,
+  total,
+  canWrite,
+  onPick,
+  onChanged,
+  onClose,
+}: {
+  sources: SourceCounts[];
+  source: string;
+  total: number;
+  canWrite: boolean;
+  onPick: (source: string) => void;
+  onChanged: () => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  // The source (or "*" for every one matching) asked about, and what is being done.
+  const [asking, setAsking] = useState<{ key: string; suspend: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const size = (x: SourceCounts) => x.readable + x.oneAway + x.locked;
+  const needle = q.trim().toLowerCase();
+  const shown = needle ? sources.filter((x) => x.source.toLowerCase().includes(needle)) : sources;
+  const act = async (names: string[], suspend: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await send("sources", { sources: names, suspend });
+      setAsking(null);
+      onChanged();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** Suspend, then "Suspend 1,234?" to be sure; Bring back when all are suspended. */
+  const Action = ({ k, names, n, suspended }: { k: string; names: string[]; n: number; suspended: number }) => {
+    const suspend = suspended < n;
+    if (asking?.key === k)
+      return (
+        <button className={`cf-link cf-src-act is-sure${asking.suspend ? " is-off" : ""}`} disabled={busy} onClick={() => void act(names, asking.suspend)}>
+          {busy ? "…" : `${asking.suspend ? "Suspend" : "Bring back"} ${fmt(asking.suspend ? n - suspended : suspended)}?`}
+        </button>
+      );
+    return (
+      <button className="cf-link cf-src-act" disabled={busy} onClick={() => setAsking({ key: k, suspend })}>
+        {suspend ? "Suspend" : "Bring back"}
+      </button>
+    );
+  };
+  const matchN = shown.reduce((n, x) => n + size(x), 0);
+  const matchSuspended = shown.reduce((n, x) => n + x.suspended, 0);
+  return (
+    <Sheet label="Sources" onClose={onClose}>
+      <h2 className="cf-sheet-title">Sources</h2>
+      <p className="cf-muted">
+        Show the sentences from one of them{canWrite ? ", or suspend a whole source: its sentence cards stop coming up until brought back" : ""}.
+      </p>
+      <label className="cf-src-find">
+        <input type="search" placeholder={`Search ${fmt(sources.length)} sources`} value={q} onChange={(e) => (setQ(e.target.value), setAsking(null))} aria-label="Search the sources" />
+      </label>
+      {error && <p className="cf-error">{error}</p>}
+      {canWrite && needle && shown.length > 1 && (
+        <p className="cf-src-all">
+          <span>
+            {fmt(shown.length)} sources match · {fmt(matchN)} sentences
+          </span>
+          <Action k="*" names={shown.map((x) => x.source)} n={matchN} suspended={matchSuspended} />
+        </p>
+      )}
+      <ul className="cf-opts">
+        {[...(needle ? [] : [{ source: "", readable: total, oneAway: 0, locked: 0, suspended: 0 }]), ...shown].map((x) => (
+          <li key={x.source} className="cf-src-row">
+            <button
+              className={`cf-opt${source === x.source ? " is-on" : ""}`}
+              aria-pressed={source === x.source}
+              onClick={() => onPick(x.source)}
+            >
+              <i className="cf-opt-tick" aria-hidden="true" />
+              <span className="cf-opt-name">
+                {x.source || "Every source"}
+                {x.suspended > 0 && <small className="cf-src-susp">{x.suspended >= size(x) ? "all suspended" : `${fmt(x.suspended)} suspended`}</small>}
+              </span>
+              <span className="cf-opt-n">{fmt(size(x))}</span>
+            </button>
+            {canWrite && x.source && <Action k={x.source} names={[x.source]} n={size(x)} suspended={x.suspended} />}
+          </li>
+        ))}
+      </ul>
+      {needle && !shown.length && <p className="cf-muted">No source has “{q.trim()}” in its name.</p>}
+    </Sheet>
   );
 }

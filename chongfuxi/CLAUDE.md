@@ -1769,6 +1769,21 @@ then Add. No translations: those cards have no English. The owner's
 HSK标准教程5 课文 (37 lessons, about 700 sentences) came in this way, after
 earlier leaving Pleco's HSK课文 out for having no translations.
 
+**Suspending a whole source** (the owner: "allow me to search through all
+sentence categories and suspend them all if I want"; `SourcesSheet` in
+`SentencesPanel.tsx`, POST `sources` `{ sources: [names], suspend }`,
+`suspendSource` in `suspended.ts`, owner only): the Sources sheet has a
+search box over the source names; each source a Suspend (then "Suspend
+2,100?" to be sure) or, once all its sentences are, Bring back; and with
+a search typed, one bar for every source it matches ("2 sources match ·
+3,300 sentences · Suspend"). It is the same mark as 停 on one sentence's
+card (`chongfuxi_sentence_suspended`, its sentence card asleep), set on
+every sentence carrying the source, so one can still be brought back
+alone, and bringing a source back wakes those readable; a sentence also
+in another source goes with it, and that source then shows "N
+suspended" (`suspended` in `listSources`). Only the sentence cards stop:
+a suspended sentence can still be a word card's example.
+
 Every sentence keeps the sources it came from (`chongfuxi_sentence.sources`:
 the Pleco and Anki deck names, or the name typed for a text upload). Cards ›
 Sentences filters by one (the source button beside the search), the

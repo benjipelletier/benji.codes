@@ -66,3 +66,40 @@ export async function suspendSentence(sql: Sql, owner: string, id: number, on: b
   }
   return { suspended: on };
 }
+
+/**
+ * Every sentence from one source (a deck, a text's name, a show) suspended
+ * or brought back at once (the owner: "allow me to search through all
+ * sentence categories and suspend them all if I want"). The same mark as
+ * suspending one sentence from its card, so each can still be brought back
+ * alone, and a sentence card asleep while marked; bringing a source back
+ * wakes those of its sentences that are readable. A sentence that is also
+ * in another source goes with it: the mark is the sentence's.
+ */
+export async function suspendSource(sql: Sql, owner: string, source: string, on: boolean): Promise<{ sentences: number }> {
+  await ensureSuspendedSentences(sql);
+  const ids = (
+    (await sql`select id::int as id from chongfuxi_sentence where owner_email = ${owner} and ${source} = any(sources)`) as unknown as Array<{ id: number }>
+  ).map((r) => r.id);
+  if (!ids.length) return { sentences: 0 };
+  if (on) {
+    await sql.transaction([
+      sql`
+        insert into chongfuxi_sentence_suspended (owner_email, sentence_id)
+        select ${owner}, unnest(${ids}::bigint[]) on conflict do nothing
+      `,
+      sql`update chongfuxi_card set suspended = true where owner_email = ${owner} and kind = 'sentence' and sentence_id = any(${ids}::bigint[])`,
+    ]);
+  } else {
+    await sql.transaction([
+      sql`delete from chongfuxi_sentence_suspended where owner_email = ${owner} and sentence_id = any(${ids}::bigint[])`,
+      sql`
+        update chongfuxi_card c set suspended = false
+        from chongfuxi_sentence s
+        where c.owner_email = ${owner} and c.kind = 'sentence' and c.sentence_id = any(${ids}::bigint[])
+          and s.owner_email = c.owner_email and s.id = c.sentence_id and cardinality(coalesce(s.blockers, '{}')) = 0
+      `,
+    ]);
+  }
+  return { sentences: ids.length };
+}

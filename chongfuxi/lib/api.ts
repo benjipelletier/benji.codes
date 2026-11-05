@@ -824,6 +824,8 @@ export interface SourceCounts {
   readable: number;
   oneAway: number;
   locked: number;
+  /** Of its sentences, how many are suspended. */
+  suspended: number;
 }
 
 /** A word on a list that isn't in the deck yet. */
