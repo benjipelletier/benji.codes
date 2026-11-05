@@ -1,6 +1,7 @@
 // Suspended words: a deck word too hard for now, out of review until brought
 // back, its cards and their history kept (words.ts, suspendWord).
 
+import type { SourceAction } from "@chongfuxi/lib/api";
 import type { Sql } from "./db";
 
 /**
@@ -42,6 +43,17 @@ export async function ensureSuspendedSentences(sql: Sql) {
       primary key (owner_email, sentence_id)
     )
   `;
+  // A source (or several) suspended at once: the sentences it newly suspended, so it can be undone exactly.
+  await sql`
+    create table if not exists chongfuxi_source_action (
+      id bigserial primary key,
+      owner_email text not null,
+      at timestamptz not null default now(),
+      sources text[] not null,
+      sentence_ids bigint[] not null,
+      undone_at timestamptz
+    )
+  `;
   sentenceTable = true;
 }
 
@@ -67,41 +79,92 @@ export async function suspendSentence(sql: Sql, owner: string, id: number, on: b
   return { suspended: on };
 }
 
+/** Suspend-alls kept to undo, newest first, and for how long. */
+const ACTIONS_SHOWN = 5;
+const ACTION_DAYS = 30;
+
+/** The sentence cards of these sentences woken, those readable (a locked one sleeps until it unlocks). */
+async function wake(sql: Sql, owner: string, ids: number[]) {
+  await sql.transaction([
+    sql`delete from chongfuxi_sentence_suspended where owner_email = ${owner} and sentence_id = any(${ids}::bigint[])`,
+    sql`
+      update chongfuxi_card c set suspended = false
+      from chongfuxi_sentence s
+      where c.owner_email = ${owner} and c.kind = 'sentence' and c.sentence_id = any(${ids}::bigint[])
+        and s.owner_email = c.owner_email and s.id = c.sentence_id and cardinality(coalesce(s.blockers, '{}')) = 0
+    `,
+  ]);
+}
+
 /**
- * Every sentence from one source (a deck, a text's name, a show) suspended
- * or brought back at once (the owner: "allow me to search through all
+ * Every sentence from some sources (decks, texts' names, shows) suspended
+ * at once, or brought back (the owner: "allow me to search through all
  * sentence categories and suspend them all if I want"). The same mark as
  * suspending one sentence from its card, so each can still be brought back
- * alone, and a sentence card asleep while marked; bringing a source back
- * wakes those of its sentences that are readable. A sentence that is also
- * in another source goes with it: the mark is the sentence's.
+ * alone, and a sentence card asleep while marked. A sentence that is also in
+ * another source goes with it: the mark is the sentence's. Suspending is
+ * kept as one action with the sentences it newly suspended (not those
+ * already suspended), so Undo (`undoSourceAction`) brings back exactly
+ * those; Bring back wakes every sentence of the source, those readable.
  */
-export async function suspendSource(sql: Sql, owner: string, source: string, on: boolean): Promise<{ sentences: number }> {
+export async function suspendSources(sql: Sql, owner: string, sources: string[], on: boolean): Promise<{ sentences: number; action: number | null }> {
   await ensureSuspendedSentences(sql);
   const ids = (
-    (await sql`select id::int as id from chongfuxi_sentence where owner_email = ${owner} and ${source} = any(sources)`) as unknown as Array<{ id: number }>
+    (await sql`
+      select id::int as id from chongfuxi_sentence where owner_email = ${owner} and sources && ${sources}::text[]
+    `) as unknown as Array<{ id: number }>
   ).map((r) => r.id);
-  if (!ids.length) return { sentences: 0 };
-  if (on) {
-    await sql.transaction([
-      sql`
-        insert into chongfuxi_sentence_suspended (owner_email, sentence_id)
-        select ${owner}, unnest(${ids}::bigint[]) on conflict do nothing
-      `,
-      sql`update chongfuxi_card set suspended = true where owner_email = ${owner} and kind = 'sentence' and sentence_id = any(${ids}::bigint[])`,
-    ]);
-  } else {
-    await sql.transaction([
-      sql`delete from chongfuxi_sentence_suspended where owner_email = ${owner} and sentence_id = any(${ids}::bigint[])`,
-      sql`
-        update chongfuxi_card c set suspended = false
-        from chongfuxi_sentence s
-        where c.owner_email = ${owner} and c.kind = 'sentence' and c.sentence_id = any(${ids}::bigint[])
-          and s.owner_email = c.owner_email and s.id = c.sentence_id and cardinality(coalesce(s.blockers, '{}')) = 0
-      `,
-    ]);
+  if (!ids.length) return { sentences: 0, action: null };
+  if (!on) {
+    await wake(sql, owner, ids);
+    return { sentences: ids.length, action: null };
   }
-  return { sentences: ids.length };
+  const already = new Set(
+    (
+      (await sql`
+        select sentence_id::int as id from chongfuxi_sentence_suspended where owner_email = ${owner} and sentence_id = any(${ids}::bigint[])
+      `) as unknown as Array<{ id: number }>
+    ).map((r) => r.id),
+  );
+  const fresh = ids.filter((id) => !already.has(id));
+  if (!fresh.length) return { sentences: 0, action: null };
+  const [, , made] = (await sql.transaction([
+    sql`
+      insert into chongfuxi_sentence_suspended (owner_email, sentence_id)
+      select ${owner}, unnest(${fresh}::bigint[]) on conflict do nothing
+    `,
+    sql`update chongfuxi_card set suspended = true where owner_email = ${owner} and kind = 'sentence' and sentence_id = any(${fresh}::bigint[])`,
+    sql`
+      insert into chongfuxi_source_action (owner_email, sources, sentence_ids)
+      values (${owner}, ${sources}::text[], ${fresh}::bigint[]) returning id::int as id
+    `,
+  ])) as unknown as [unknown, unknown, Array<{ id: number }>];
+  return { sentences: fresh.length, action: made[0]?.id ?? null };
+}
+
+/** A suspend-all undone: only the sentences it suspended are brought back (those readable woken). */
+export async function undoSourceAction(sql: Sql, owner: string, id: number): Promise<{ sentences: number }> {
+  await ensureSuspendedSentences(sql);
+  const [a] = (await sql`
+    select sentence_ids::int[] as ids, undone_at is not null as undone from chongfuxi_source_action where owner_email = ${owner} and id = ${id}
+  `) as unknown as Array<{ ids: number[]; undone: boolean }>;
+  if (!a) throw new SourceError("Nothing to undo there.");
+  if (a.undone) throw new SourceError("Already undone.");
+  await wake(sql, owner, a.ids);
+  await sql`update chongfuxi_source_action set undone_at = now() where owner_email = ${owner} and id = ${id}`;
+  return { sentences: a.ids.length };
+}
+
+/** The latest suspend-alls not undone, to undo from the Sources sheet. */
+export async function recentSourceActions(sql: Sql, owner: string): Promise<SourceAction[]> {
+  await ensureSuspendedSentences(sql);
+  const rows = (await sql`
+    select id::int as id, (extract(epoch from at) * 1000)::double precision as at, sources, cardinality(sentence_ids)::int as n
+    from chongfuxi_source_action
+    where owner_email = ${owner} and undone_at is null and at > now() - make_interval(days => ${ACTION_DAYS})
+    order by at desc limit ${ACTIONS_SHOWN}
+  `) as unknown as Array<{ id: number; at: number; sources: string[]; n: number }>;
+  return rows.map((r) => ({ id: r.id, at: Math.round(r.at), sources: r.sources, sentences: r.n }));
 }
 
 export class SourceError extends Error {}

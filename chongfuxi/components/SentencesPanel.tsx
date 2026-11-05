@@ -10,7 +10,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { routeParam, useRouteParam } from "@chongfuxi/lib/route";
 import { SplitEditor } from "./SplitEditor";
-import type { Blocker, SentenceDetail, SentenceRow, SourceCounts } from "@chongfuxi/lib/api";
+import type { Blocker, SentenceDetail, SentenceRow, SourceAction, SourceCounts } from "@chongfuxi/lib/api";
 import { get, send } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import { BlockerSheet, UnlockPage, type Blockers } from "./UnlockPanel";
@@ -72,6 +72,8 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
   const [within, setWithin] = useState(false);
   // Every source, with its counts; the one picked, if any; and the sheet to pick one.
   const [sources, setSources] = useState<SourceCounts[] | null>(null);
+  // The latest suspend-alls, to undo.
+  const [actions, setActions] = useState<SourceAction[]>([]);
   const [source, setSource] = useState("");
   const [picking, setPicking] = useState(false);
   // What stands in the way: the strip on One away, and the Unlock next page.
@@ -93,8 +95,11 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
   }, [find]);
 
   useEffect(() => {
-    get<{ sources: SourceCounts[] }>("sources")
-      .then((r) => setSources(r.sources))
+    get<{ sources: SourceCounts[]; actions?: SourceAction[] }>("sources")
+      .then((r) => {
+        setSources(r.sources);
+        setActions(r.actions ?? []);
+      })
       .catch(() => setSources([]));
   }, []);
 
@@ -184,6 +189,7 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
       {picking && sources && (
         <SourcesSheet
           sources={sources}
+          actions={actions}
           source={source}
           total={shell.summary?.sentences ?? 0}
           canWrite={shell.canWrite}
@@ -192,8 +198,11 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
             setPicking(false);
           }}
           onChanged={() => {
-            get<{ sources: SourceCounts[] }>("sources")
-              .then((r) => setSources(r.sources))
+            get<{ sources: SourceCounts[]; actions?: SourceAction[] }>("sources")
+              .then((r) => {
+                setSources(r.sources);
+                setActions(r.actions ?? []);
+              })
               .catch(() => undefined);
             afterChange();
           }}
@@ -542,6 +551,16 @@ function SentenceSheet({
   );
 }
 
+/** How long ago, in a few words. */
+function ago(at: number): string {
+  const min = Math.round((Date.now() - at) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h} h ago`;
+  return new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 /**
  * The sources (decks, texts, shows), found by name, each showing its
  * sentences when picked; and for the owner, ✎ to rename one (into another
@@ -552,6 +571,7 @@ function SentenceSheet({
  */
 function SourcesSheet({
   sources,
+  actions,
   source,
   total,
   canWrite,
@@ -561,6 +581,7 @@ function SourcesSheet({
   onClose,
 }: {
   sources: SourceCounts[];
+  actions: SourceAction[];
   source: string;
   total: number;
   canWrite: boolean;
@@ -586,6 +607,19 @@ function SourcesSheet({
     try {
       await send("sources", { sources: names, suspend });
       setAsking(null);
+      onChanged();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** Undo a suspend-all: only the sentences it suspended come back. */
+  const undo = async (id: number) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await send("sources", { undo: id });
       onChanged();
     } catch (e) {
       setError(message(e));
@@ -637,6 +671,25 @@ function SourcesSheet({
         <input type="search" placeholder={`Search ${fmt(sources.length)} sources`} value={q} onChange={(e) => (setQ(e.target.value), setAsking(null))} aria-label="Search the sources" />
       </label>
       {error && <p className="cf-error">{error}</p>}
+      {/* The latest suspend-alls: Undo brings back only what each suspended, not sentences suspended before it. */}
+      {canWrite && actions.length > 0 && (
+        <section className="cf-src-undo">
+          <p className="cf-src-undo-h">Recent suspends</p>
+          <ul>
+            {actions.map((a) => (
+              <li key={a.id}>
+                <span>
+                  <b>{fmt(a.sentences)}</b> from {a.sources.length === 1 ? a.sources[0] : `${fmt(a.sources.length)} sources`}
+                  <small>{ago(a.at)}</small>
+                </span>
+                <button className="cf-link" disabled={busy} onClick={() => void undo(a.id)}>
+                  Undo
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {canWrite && needle && shown.length > 1 && (
         <p className="cf-src-all">
           <span>

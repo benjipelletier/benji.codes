@@ -828,6 +828,14 @@ export interface SourceCounts {
   suspended: number;
 }
 
+/** A suspend-all, kept to undo: the sources it named and how many sentences it newly suspended. */
+export interface SourceAction {
+  id: number;
+  at: number;
+  sources: string[];
+  sentences: number;
+}
+
 /** A word on a list that isn't in the deck yet. */
 export interface MissingWord {
   word: string;

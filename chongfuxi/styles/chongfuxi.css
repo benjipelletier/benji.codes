@@ -14768,3 +14768,37 @@ button.cf-how-text {
   margin-top: 4px;
   font-size: 12px;
 }
+/* The latest suspend-alls, each to undo. */
+.cf-src-undo {
+  margin: 6px 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-down-soft);
+}
+.cf-src-undo-h {
+  margin: 0 0 4px;
+  color: var(--cf-down);
+  font-size: 12px;
+  font-weight: 700;
+}
+.cf-src-undo ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cf-src-undo li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+}
+.cf-src-undo li > span {
+  min-width: 0;
+}
+.cf-src-undo small {
+  margin-left: 6px;
+  color: var(--cf-ink-faint);
+  font-size: 12px;
+}

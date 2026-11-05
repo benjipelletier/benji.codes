@@ -1782,7 +1782,16 @@ every sentence carrying the source, so one can still be brought back
 alone, and bringing a source back wakes those readable; a sentence also
 in another source goes with it, and that source then shows "N
 suspended" (`suspended` in `listSources`). Only the sentence cards stop:
-a suspended sentence can still be a word card's example. **Renaming a
+a suspended sentence can still be a word card's example. **Undo** (the owner,
+after asking whether an accidental suspend-all could be undone without
+also waking sentences suspended before it): each suspend-all is kept as
+one action (`chongfuxi_source_action`, made on first use: the sources
+named and only the sentences it newly suspended, `suspendSources`), and
+the sheet lists the latest `ACTIONS_SHOWN` (5) of the last 30 days under
+"Recent suspends" ("2,060 from Domino Sentences · just now · Undo");
+Undo (POST `{ undo: id }`, `undoSourceAction`) brings back exactly
+those, so a sentence suspended alone beforehand stays suspended. Bring
+back on a source still wakes every sentence of it. **Renaming a
 source** (the owner's ask, the same day): ✎ on a row turns its name into a
 field (Cancel, Save); POST `sources` `{ rename, to }` (`renameSource`)
 renames it on every sentence carrying it, 1 to 80 characters; a name
