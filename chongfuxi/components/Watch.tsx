@@ -55,6 +55,15 @@ export function clock(ms: number): string {
 const ENGLISH_KEY = "cfx-episode-english";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+/**
+ * A known share as a figure: one decimal, rounded down, so 100% only when
+ * every word is (99.6% rounded showed as 100%, the owner asked for one
+ * decimal); a whole number shows without its ".0".
+ */
+const share = (x: number) => {
+  const tenths = Math.floor(x * 1000 + 1e-9) / 10;
+  return `${Number.isInteger(tenths) ? tenths : tenths.toFixed(1)}%`;
+};
 
 /** Something Muse added or changed since it was last opened here. */
 export function NewBadge() {
@@ -95,7 +104,7 @@ export function EpisodeRows({
                   {isNew(e) && <NewBadge />}
                 </span>
                 <span className="cf-stuck-gloss">
-                  {clock(e.duration)} · {fmt(e.lineCount)} lines{e.known !== null && <> · {pct(e.known)} known</>}
+                  {clock(e.duration)} · {fmt(e.lineCount)} lines{e.known !== null && <> · {share(e.known)} known</>}
                 </span>
                 {e.title && <span className="cf-stuck-why cf-read-why cf-zh">{e.title}</span>}
               </span>
@@ -302,12 +311,12 @@ function ProgressChart({ points }: { points: EpisodeProgress[] }) {
         {SERIES.map((s) => (
           <span key={s.key} className={s.cls}>
             <i aria-hidden="true" />
-            {s.label} <b>{pct(shown[s.key])}</b>
+            {s.label} <b>{share(shown[s.key])}</b>
           </span>
         ))}
         {(shown.prepped ?? 0) > 0 && (
           <span className="is-prepped">
-            of which prepped for the show <b>{pct(shown.prepped ?? 0)}</b>
+            of which prepped for the show <b>{share(shown.prepped ?? 0)}</b>
           </span>
         )}
       </figcaption>
@@ -315,7 +324,7 @@ function ProgressChart({ points }: { points: EpisodeProgress[] }) {
         ref={svg}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Readiness over ${points.length} ${points.length === 1 ? "day" : "days"}: words known from ${pct(points[0].known)} to ${pct(points[points.length - 1].known)}`}
+        aria-label={`Readiness over ${points.length} ${points.length === 1 ? "day" : "days"}: words known from ${share(points[0].known)} to ${share(points[points.length - 1].known)}`}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);
           pick(e.clientX);
@@ -367,7 +376,7 @@ function Readiness({ ep }: { ep: Episode }) {
   return (
     <div className="cf-ep-ready">
       <p className="cf-ep-big">
-        {pct(ep.coverage.known)}
+        {share(ep.coverage.known)}
         <small> of the words you&apos;ll hear are known</small>
       </p>
       <div className="cf-ep-meter" aria-hidden="true">
@@ -377,10 +386,10 @@ function Readiness({ ep }: { ep: Episode }) {
       <p className="cf-muted cf-ep-figs">
         {must > 0 && (
           <>
-            <b className="cf-ep-ready-key">{pct(ep.coverage.ready)}</b> once you learn the {fmt(must)} must-know {must === 1 ? "word" : "words"} ·{" "}
+            <b className="cf-ep-ready-key">{share(ep.coverage.ready)}</b> once you learn the {fmt(must)} must-know {must === 1 ? "word" : "words"} ·{" "}
           </>
         )}
-        {pct(ep.coverage.lines)} of lines readable now
+        {share(ep.coverage.lines)} of lines readable now
       </p>
       <ProgressChart points={ep.progress} />
     </div>
@@ -627,7 +636,7 @@ function ChapterStrip({
               </span>
               <span className="cf-wchip-title cf-zh">{sc.title}</span>
               {english && sc.titleEn && sc.titleEn !== sc.title && <span className="cf-wchip-en">{sc.titleEn}</span>}
-              <span className="cf-wchip-grades" aria-label={`${pct(sc.known)} known`}>
+              <span className="cf-wchip-grades" aria-label={`${share(sc.known)} known`}>
                 {GRADES.map((g) => {
                   const n = part.filter((x) => x === g.key).length;
                   return n ? <i key={g.key} className={`is-${g.key}`} style={{ flexGrow: n }} /> : null;
@@ -1724,7 +1733,7 @@ export function EpisodeView({ id, canWrite, onEnd }: { id: number; canWrite: boo
         )}
         {ep && (
           <button className="cf-watch-ready" onClick={() => setTab("words")}>
-            {pct(ep.coverage.known)} <small>known</small>
+            {share(ep.coverage.known)} <small>known</small>
           </button>
         )}
       </div>
@@ -1922,7 +1931,7 @@ function SceneHead({
   return (
     <header className="cf-watch-head">
       <p className="cf-watch-head-at">
-        Chapter {n + 1} · {clock(from)} · {pct(sc.known)} known
+        Chapter {n + 1} · {clock(from)} · {share(sc.known)} known
       </p>
       {/* Walk this chapter: its hard lines one at a time, heard from the video (the owner wanted it an icon). */}
       {stops > 0 && (

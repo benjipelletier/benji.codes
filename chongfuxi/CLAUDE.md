@@ -2440,7 +2440,10 @@ YouTube chapter feature".
   added to my deck"; `components/Preview.tsx`, owner only): the first
   chip on the Script's strip, before Characters, with how many cards are
   left ("15 cards", "✓ All seen" at none) and the episode's known share
-  under it (`KnownShare`: `coverage.known`, floored to a tenth), in amber
+  under it (`KnownShare`: `coverage.known`, floored to a tenth, as every
+  known share in an episode now is: the top bar, the Words tab, chapter
+  headings and the Watch rows, `share` in Watch.tsx; whole percents
+  rounded showed 99.6% as 100%), in amber
   under `READY_SHARE` (98%) and green at it or above, the owner's ask;
   the pass's header shows it too, rising as words are got or added there
   (the known share less the times the words still left are said). The cards (`previewCards`,
