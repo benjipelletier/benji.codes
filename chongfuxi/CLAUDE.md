@@ -136,7 +136,28 @@ check every screen at 360px wide first.
   session keeps nothing, at the owner's request: each answer is sent (or put
   in the outbox) as it is given, so starting again simply deals what is still
   due. (It used to keep its cards in hand, with "Carry on · 12 done".)
-- Not yet: opening the app with no connection (there is no service worker).
+- **Offline, all of it** (the owner, before a flight: "a way to review my
+  cards offline ... all of them"): Today's "✈ Save cards for offline" (the
+  owner's only; then "✈ 3,621 cards saved for offline · Update") downloads
+  every card a session would deal now (`lib/offline.ts`, POST
+  `session/pack`, `nextCards` 120 at a time, each page leaving out those
+  already fetched, up to 8,000), kept in Cache Storage
+  (`cfx-offline-pack`; localStorage is too small). A session that can't
+  reach the server deals from it (`dealFromPack`): not in hand, not
+  answered on this device (in the outbox, or marked as answered since the
+  pack was made, `cfx-offline-done`), the kinds chosen, one card a word,
+  in the pack's order; a line says "✈ Offline: dealing from your
+  download". Answers go to the outbox as always and are sent when the
+  connection is back. Not for a list's review or Keep going. The app
+  opens with no connection through a service worker
+  (`public/chongfuxi-sw.js`, registered in production only, scope
+  `/chongfuxi`): the page network first, the last copy offline; the
+  app's code and fonts (`/_next/static`) cache first; Today's reads
+  (summary, days, habit) network first, the last answer offline. Saving
+  also fetches the page's code and Today's reads through the worker
+  (`warmAppCache`), so it works from the first visit. Tested on a
+  production build: saved, cut off, reopened, reviewed, back online, sent.
+  Word pages, Look up, Muse and episodes still need the connection.
 
 ## Look
 

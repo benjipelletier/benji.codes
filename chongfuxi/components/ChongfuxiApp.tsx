@@ -57,6 +57,11 @@ export function ChongfuxiApp() {
   // The tab is in the address (lib/route.ts), so a reload comes back to it: read once on
   // the client, before the tab's own default can clear it, then kept up to date.
   const [routed, setRouted] = useState(false);
+  // The app opens with no connection (public/chongfuxi-sw.js); in production only, so it never caches a dev build.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/chongfuxi-sw.js", { scope: "/chongfuxi" }).catch(() => undefined);
+  }, []);
   useEffect(() => {
     // An address from when Settings was Import still opens it.
     const t = routeChoice("tab", [...TAB_KEYS, "import"] as const);

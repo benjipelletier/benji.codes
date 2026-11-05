@@ -14802,3 +14802,24 @@ button.cf-how-text {
   color: var(--cf-ink-faint);
   font-size: 12px;
 }
+
+/* Offline (lib/offline.ts): the line on Today, and the note in a session dealing from the download. */
+.cf-offline-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--cf-ink-soft);
+}
+.cf-offline-line small {
+  color: var(--cf-ink-faint);
+}
+.cf-offline-note {
+  margin: 4px 16px 0;
+  font-size: 12px;
+  color: var(--cf-ink-soft);
+  text-align: center;
+}

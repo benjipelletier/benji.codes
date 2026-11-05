@@ -17,6 +17,7 @@ import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, 
 import { ApiError, get, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
+import * as offline from "@chongfuxi/lib/offline";
 import * as outbox from "@chongfuxi/lib/outbox";
 import * as resume from "@chongfuxi/lib/resume";
 import * as wordpage from "@chongfuxi/lib/wordpage";
@@ -415,6 +416,7 @@ function Today({
         )}
       </ul>
 
+      {canWrite && <OfflinePack />}
       <div className="cf-answer">
         {/* Every Read card due, as a grid to sweep through: for a pile of easy ones. */}
         {((kinds.read && s.dueRead > 0) || keptFast) && (
@@ -450,6 +452,59 @@ function Today({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Download every due card for reviewing offline (lib/offline.ts; the owner,
+ * before a flight): one quiet line on Today. With none on the phone, "✈ Save
+ * cards for offline"; while downloading, how many so far; then how many are
+ * on the phone and still to answer, with Update.
+ */
+function OfflinePack() {
+  const [meta, setMeta] = useState<offline.PackMeta | null>(null);
+  const [left, setLeft] = useState<number | null>(null);
+  const [got, setGot] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const m = offline.packMeta();
+    setMeta(m);
+    if (m) void offline.packLeft().then(setLeft);
+  }, []);
+  const download = async () => {
+    setError(null);
+    setGot(0);
+    try {
+      const m = await offline.downloadPack(setGot);
+      setMeta(m);
+      setLeft(m.cards);
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setGot(null);
+    }
+  };
+  return (
+    <p className="cf-offline-line">
+      {got !== null ? (
+        <span>✈ Saving cards for offline… {fmt(got)}</span>
+      ) : meta ? (
+        <>
+          <span>
+            ✈ {fmt(left ?? meta.cards)} cards saved for offline
+            <small> · {new Date(meta.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</small>
+          </span>
+          <button className="cf-link" onClick={() => void download()}>
+            Update
+          </button>
+        </>
+      ) : (
+        <button className="cf-link" onClick={() => void download()}>
+          ✈ Save cards for offline
+        </button>
+      )}
+      {error && <span className="cf-error">{error}</span>}
+    </p>
   );
 }
 
@@ -547,6 +602,8 @@ export function Session({
 
   const session = useRef(newId());
   const dealt = useRef(0);
+  // Dealing from the offline pack, the connection gone.
+  const [fromPack, setFromPack] = useState(false);
   const recentIds = useRef<number[]>([]);
   const recentWords = useRef<string[]>([]);
   const loading = useRef(false);
@@ -587,12 +644,32 @@ export function Session({
       setQueue((q) => [...q, ...added]);
       setStatus(queueRef.current.length + added.length ? "ready" : "empty");
       setError(null);
+      setFromPack(false);
     } catch (e) {
-      setError(
-        e instanceof TypeError
-          ? "No connection. Answer the cards in hand; more come when it is back, and your answers are kept until then."
-          : message(e),
-      );
+      // No connection: deal from the cards downloaded for it (lib/offline.ts), if there are any.
+      const pack =
+        e instanceof TypeError && !list && !more
+          ? await offline
+              .dealFromPack({
+                held: [...queueRef.current.map((c) => c.id), ...recentIds.current],
+                words: [...queueRef.current.flatMap((c) => (c.word ? [c.word.word] : [])), ...recentWords.current],
+                n: BATCH,
+                kinds,
+              })
+              .catch(() => null)
+          : null;
+      if (pack) {
+        setQueue((q) => [...q, ...pack]);
+        setStatus(queueRef.current.length + pack.length ? "ready" : "empty");
+        setFromPack(true);
+        setError(null);
+      } else {
+        setError(
+          e instanceof TypeError
+            ? "No connection. Answer the cards in hand; more come when it is back, and your answers are kept until then."
+            : message(e),
+        );
+      }
     } finally {
       loading.current = false;
     }
@@ -707,6 +784,7 @@ export function Session({
     latest.current = { id: input.id, card, streak: streak.current };
     setLog((l) => [...l, { id: input.id, card, grade, days: undefined }]);
     streak.current = grade === "good" ? streak.current + 1 : 0;
+    offline.markAnswered(card.id);
     void post(input, card, streak.current);
     setAnswered((n) => n + 1);
     next(grade);
@@ -958,6 +1036,7 @@ export function Session({
       )}
 
       {error && <p className="cf-error">{error}</p>}
+      {fromPack && <p className="cf-offline-note">✈ Offline: dealing from your download. Answers are kept and sent once you&apos;re back online.</p>}
       <Waiting />
 
       {status === "loading" && !card && !step && <Loading label="Getting your cards…" />}
