@@ -1782,7 +1782,13 @@ every sentence carrying the source, so one can still be brought back
 alone, and bringing a source back wakes those readable; a sentence also
 in another source goes with it, and that source then shows "N
 suspended" (`suspended` in `listSources`). Only the sentence cards stop:
-a suspended sentence can still be a word card's example.
+a suspended sentence can still be a word card's example. **Renaming a
+source** (the owner's ask, the same day): ✎ on a row turns its name into a
+field (Cancel, Save); POST `sources` `{ rename, to }` (`renameSource`)
+renames it on every sentence carrying it, 1 to 80 characters; a name
+already in use merges the two (the field says so first), a sentence in
+both keeping one; the source picked follows the new name. A deck imported
+again under its old name brings that name back onto its sentences.
 
 Every sentence keeps the sources it came from (`chongfuxi_sentence.sources`:
 the Pleco and Anki deck names, or the name typed for a text upload). Cards ›

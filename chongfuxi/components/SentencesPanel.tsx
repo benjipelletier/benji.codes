@@ -197,6 +197,7 @@ export function SentencesPanel({ shell, find }: { shell: Shell; find?: { word: s
               .catch(() => undefined);
             afterChange();
           }}
+          onRenamed={(from, to) => setSource((x) => (x === from ? to : x))}
           onClose={() => setPicking(false)}
         />
       )}
@@ -543,7 +544,8 @@ function SentenceSheet({
 
 /**
  * The sources (decks, texts, shows), found by name, each showing its
- * sentences when picked; and for the owner, every sentence of a source
+ * sentences when picked; and for the owner, ✎ to rename one (into another
+ * merges them), and every sentence of a source
  * suspended or brought back at once, a second tap to be sure, or of every
  * source the search matches (the owner: "allow me to search through all
  * sentence categories and suspend them all if I want").
@@ -555,6 +557,7 @@ function SourcesSheet({
   canWrite,
   onPick,
   onChanged,
+  onRenamed,
   onClose,
 }: {
   sources: SourceCounts[];
@@ -563,9 +566,13 @@ function SourcesSheet({
   canWrite: boolean;
   onPick: (source: string) => void;
   onChanged: () => void;
+  /** A source renamed: the one picked follows it. */
+  onRenamed: (from: string, to: string) => void;
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  // The source being renamed, and its new name as typed.
+  const [naming, setNaming] = useState<{ from: string; to: string } | null>(null);
   // The source (or "*" for every one matching) asked about, and what is being done.
   const [asking, setAsking] = useState<{ key: string; suspend: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -579,6 +586,23 @@ function SourcesSheet({
     try {
       await send("sources", { sources: names, suspend });
       setAsking(null);
+      onChanged();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const rename = async () => {
+    if (!naming) return;
+    const to = naming.to.replace(/\s+/g, " ").trim();
+    if (!to || to === naming.from) return setNaming(null);
+    setBusy(true);
+    setError(null);
+    try {
+      await send("sources", { rename: naming.from, to });
+      onRenamed(naming.from, to);
+      setNaming(null);
       onChanged();
     } catch (e) {
       setError(message(e));
@@ -622,7 +646,34 @@ function SourcesSheet({
         </p>
       )}
       <ul className="cf-opts">
-        {[...(needle ? [] : [{ source: "", readable: total, oneAway: 0, locked: 0, suspended: 0 }]), ...shown].map((x) => (
+        {[...(needle ? [] : [{ source: "", readable: total, oneAway: 0, locked: 0, suspended: 0 }]), ...shown].map((x) =>
+          naming?.from === x.source ? (
+            <li key={x.source} className="cf-src-row cf-src-naming">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void rename();
+                }}
+              >
+                <input
+                  autoFocus
+                  value={naming.to}
+                  maxLength={80}
+                  onChange={(e) => setNaming({ ...naming, to: e.target.value })}
+                  aria-label={`New name for ${x.source}`}
+                />
+                <button type="button" className="cf-link" onClick={() => setNaming(null)} disabled={busy}>
+                  Cancel
+                </button>
+                <button type="submit" className="cf-link cf-src-save" disabled={busy || !naming.to.trim()}>
+                  {busy ? "…" : "Save"}
+                </button>
+              </form>
+              {sources.some((o) => o.source === naming.to.trim() && o.source !== x.source) && (
+                <small className="cf-muted cf-src-merge">There is a {naming.to.trim()} already: the two become one.</small>
+              )}
+            </li>
+          ) : (
           <li key={x.source} className="cf-src-row">
             <button
               className={`cf-opt${source === x.source ? " is-on" : ""}`}
@@ -636,9 +687,17 @@ function SourcesSheet({
               </span>
               <span className="cf-opt-n">{fmt(size(x))}</span>
             </button>
+            {canWrite && x.source && (
+              <button className="cf-src-edit" onClick={() => (setNaming({ from: x.source, to: x.source }), setAsking(null))} aria-label={`Rename ${x.source}`}>
+                <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                  <path d="M4 14.5V16h1.5l8.6-8.6-1.5-1.5L4 14.5zM15.3 6.2a1 1 0 0 0 0-1.4l-.1-.1a1 1 0 0 0-1.4 0l-.9.9 1.5 1.5.9-.9z" fill="currentColor" />
+                </svg>
+              </button>
+            )}
             {canWrite && x.source && <Action k={x.source} names={[x.source]} n={size(x)} suspended={x.suspended} />}
           </li>
-        ))}
+          ),
+        )}
       </ul>
       {needle && !shown.length && <p className="cf-muted">No source has “{q.trim()}” in its name.</p>}
     </Sheet>

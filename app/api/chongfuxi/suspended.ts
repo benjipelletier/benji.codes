@@ -103,3 +103,28 @@ export async function suspendSource(sql: Sql, owner: string, source: string, on:
   }
   return { sentences: ids.length };
 }
+
+export class SourceError extends Error {}
+
+/**
+ * A source renamed on every sentence carrying it (the owner asked to rename
+ * them from the Sources sheet). A name already in use merges the two: a
+ * sentence in both keeps one. A deck imported again under its old name
+ * brings the old name back onto its sentences, as any import tags them.
+ */
+export async function renameSource(sql: Sql, owner: string, from: string, to: string): Promise<{ sentences: number; merged: boolean }> {
+  const name = to.replace(/\s+/g, " ").trim();
+  if (!name || name.length > 80) throw new SourceError("A source's name is 1 to 80 characters.");
+  if (name === from) return { sentences: 0, merged: false };
+  const [{ n }] = (await sql`
+    select count(*)::int as n from chongfuxi_sentence where owner_email = ${owner} and ${name} = any(sources)
+  `) as unknown as Array<{ n: number }>;
+  const rows = (await sql`
+    update chongfuxi_sentence
+    set sources = array(select distinct x from unnest(array_replace(sources, ${from}, ${name})) x order by x)
+    where owner_email = ${owner} and ${from} = any(sources)
+    returning id
+  `) as unknown as Array<{ id: number }>;
+  if (!rows.length) throw new SourceError(`No sentences come from ${from}.`);
+  return { sentences: rows.length, merged: n > 0 };
+}
