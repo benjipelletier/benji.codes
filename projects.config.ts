@@ -77,4 +77,15 @@ export const projects: ProjectConfig[] = [
     tags: ['charts', 'band', 'ireal'],
     enabled: true,
   },
+  {
+    name: 'voicebox',
+    displayName: 'Voicebox',
+    icon: '♭',
+    accent: '#c98a2b',
+    accentRgb: '201, 138, 43',
+    tagline: 'voicebox',
+    description: 'Jazz piano voicings, faster. Play, spell and name rootless and drop-2 voicings against the clock, through ii–V–Is and the tunes you play — offline too.',
+    tags: ['voicings', 'piano', 'srs'],
+    enabled: true,
+  },
 ]
