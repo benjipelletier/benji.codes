@@ -11,7 +11,7 @@ import { newId, useTrainer } from './TrainerProvider';
 import { Keyboard, rangeAround } from './Keyboard';
 import { buildQueue, newState, outcomeOf, schedule, shuffle, targetFor } from '@voiceshed/lib/srs';
 import { midisOf } from '@voiceshed/lib/practice';
-import { pretty } from '@voiceshed/lib/theory';
+import { pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings } from '@voiceshed/lib/types';
 
 /** Most cards a session deals; what's left stays due for the next. */
@@ -228,7 +228,7 @@ export function Summary({ results, onAgain, extra }: { results: RunnerResult[]; 
               {slowest.map((r, i) => (
                 <li key={i} className={`sm-row ${r.correct ? (r.slow ? 'slow' : 'good') : 'fail'}`}>
                   <span className="sm-mark">{r.correct ? '✓' : '✗'}</span>
-                  <span className="sm-chord">{pretty(r.step.voicing.chord_label)}</span>
+                  <span className="sm-chord">{prettyLabel(r.step.voicing.chord_label)}</span>
                   <span className="sm-meta">
                     {MODE_LABEL[r.step.mode]} · {r.step.voicing.family}
                   </span>

@@ -53,11 +53,19 @@ wide screen; a run hides both.
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
   Right-but-slow and missed cards become due now.
-- `/voiceshed/voicings` — browse/search/filter by chord, key, family, tag,
-  grouped by chord. A voicing's sheet: tags, muddy, lowest register, notes,
-  per-card target, per-mode stats (accuracy, average, isolated vs in-context).
-  Add and delete voicings. Shape tags (`3-7-9-5`, `1-5-7-11`…) stay on the
-  voicings but aren't offered as filters, here or in Practice.
+- `/voiceshed/voicings` — every voicing, narrowed with a stackable filter
+  (`components/VoicingFilter.tsx`): rows you scroll sideways and tap — Key
+  (cycle of fourths), Chord, Voicing (each type drawn as a mini keyboard of one
+  that fits the other rows), Only (muddy, context gap, not learned yet) — plus
+  a text search. OR within a row, AND across rows; each chip shows how many it
+  would leave given the other rows and fades at zero. What's picked sits in a
+  sticky bar (tap a token to drop it, Clear for all) and in the address
+  (`?key=F,Bb&chord=m7&type=drop-2+two-hand&only=new&q=`). Results grouped by
+  chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
+  register, notes, per-card target, per-mode stats (accuracy, average,
+  isolated vs in-context). Add and delete voicings. Shape tags (`3-7-9-5`,
+  `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
+  Practice.
 
 **Answer modes**: Play (tap keys; whole octaves away is fine, never with the
 bottom below `lowest_register`), Spell (A–G pad, ♭/♯ armed before the letter;

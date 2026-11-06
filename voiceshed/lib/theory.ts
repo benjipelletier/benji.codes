@@ -165,6 +165,12 @@ export function qualityFallbacks(q: Quality): Quality[] {
   return [q, ...(more[q] ?? [])];
 }
 
+/** A chord label as shown: "Bbm7b5" → "B♭m7♭5". */
+export function prettyLabel(label: string): string {
+  const p = parseChordLabel(label);
+  return p ? `${pretty(p.rootName)}${QUALITY[p.quality].display}` : pretty(label);
+}
+
 /** "Fm7" — the label a voicing card carries. */
 export function chordLabel(rootName: string, q: Quality): string {
   return `${rootName}${QUALITY[q].suffix}`;

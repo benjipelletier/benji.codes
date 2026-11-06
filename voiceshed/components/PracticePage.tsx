@@ -13,7 +13,7 @@ import { fmtPct, fmtSecs, relTime } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, filterTags, type SetSource, type SetSpec } from '@voiceshed/lib/practice';
 import { dueNow, newState, targetFor } from '@voiceshed/lib/srs';
-import { PC_FLAT, pretty } from '@voiceshed/lib/theory';
+import { PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
 
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
@@ -315,12 +315,12 @@ function RunResults({ results, label, prev }: { results: RunnerResult[]; label: 
           <div className="pr-slow">
             {slow.map((r, i) => (
               <span key={`s${i}`} className="pr-card slow" title="right but slow">
-                {pretty(r.step.voicing.chord_label)} <em>{fmtSecs(r.ms)}</em>
+                {prettyLabel(r.step.voicing.chord_label)} <em>{fmtSecs(r.ms)}</em>
               </span>
             ))}
             {missed.map((r, i) => (
               <span key={`m${i}`} className="pr-card fail" title="missed">
-                {pretty(r.step.voicing.chord_label)} <em>✗</em>
+                {prettyLabel(r.step.voicing.chord_label)} <em>✗</em>
               </span>
             ))}
           </div>

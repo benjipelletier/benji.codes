@@ -82,9 +82,7 @@
   gap: 12px;
   height: calc(var(--bar-h) + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--paper);
   border-bottom: 1px solid var(--rule);
 }
 .vt-brand { font-family: var(--serif); font-size: 27px; line-height: 1; text-decoration: none; letter-spacing: -0.01em; }
@@ -458,4 +456,94 @@
   .cr-next kbd { display: inline; font-family: var(--mono); font-size: 11px; opacity: 0.6; margin-left: 6px; }
   .cr-kb .vk { max-height: 220px; }
   .vt-keys { grid-template-columns: repeat(13, 1fr); }
+}
+
+/* ── the stackable filter (Voicings) ────────────────────────────── */
+/* What's picked: stays at the top while the voicings scroll under it. */
+.vf-bar {
+  position: sticky;
+  top: calc(var(--bar-h) + env(safe-area-inset-top));
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -16px calc(-1 * max(16px, env(safe-area-inset-left))) 0;
+  padding: 10px max(16px, env(safe-area-inset-left));
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+}
+.vf-tokens { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-right: 14px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); }
+.vf-tokens::-webkit-scrollbar { display: none; }
+.vf-token {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 10px 0 12px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: vf-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+.vf-token span { opacity: 0.6; margin-left: 4px; font-weight: 400; }
+.vf-all { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--ink-2); }
+.vf-count { font-family: var(--mono); font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.vf-count b { font-size: 18px; color: var(--ink); font-weight: 600; }
+.vf-clear { min-height: 34px; padding: 0 10px; font-size: 13px; color: var(--accent-ink); font-weight: 600; }
+@keyframes vf-in { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.vf { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.vf-row { display: flex; flex-direction: column; gap: 6px; }
+.vf-row-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+/* A row runs to the screen's edges and scrolls sideways, settling on a chip. */
+.vf-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding: 0 16px;
+  scrollbar-width: none;
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-left)));
+  padding: 2px max(16px, env(safe-area-inset-left)) 4px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 22px), transparent);
+}
+.vf-scroll::-webkit-scrollbar { display: none; }
+.vf-scroll > button {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  border: 1px solid var(--rule);
+  background: var(--card);
+  border-radius: 14px;
+  touch-action: manipulation;
+  transition: transform 0.12s, background 0.15s, color 0.15s, opacity 0.2s, border-color 0.15s;
+}
+.vf-scroll > button:active { transform: scale(0.93); }
+.vf-scroll > button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); animation: vf-pop 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.5); }
+.vf-scroll > button.none { opacity: 0.32; }
+@keyframes vf-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.vf-n { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.vf-scroll > button.on .vf-n { color: color-mix(in srgb, var(--paper) 70%, transparent); }
+
+.vf-key { width: 58px; height: 66px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.vf-key-name { font-family: var(--serif); font-size: 28px; line-height: 1; }
+.vf-qual { min-width: 86px; height: 58px; padding: 0 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.vf-qual-name { font-family: var(--serif); font-style: italic; font-size: 24px; line-height: 1.1; }
+.vf-fam { width: 158px; padding: 8px 10px 9px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: left; }
+.vf-fam-kb { width: 100%; pointer-events: none; }
+.vf-fam-kb .vk { height: 38px; }
+.vf-scroll > button.on .vk-w { stroke: var(--paper); }
+.vf-fam-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+.vf-fam .vf-n em { font-style: normal; margin-left: 4px; opacity: 0.8; }
+.vf-flag { min-height: 40px; padding: 0 14px; font-size: 14px; font-weight: 500; border-radius: 99px !important; display: flex; align-items: center; gap: 6px; }
+.vf-search { margin-top: 2px; }
+.vf-inline { color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; font-style: normal; }
+.lb-new { align-self: flex-end; }
+
+@media (min-width: 720px) {
+  .vf-bar { margin-top: -24px; }
+  /* Room for every chip: the rows wrap instead of scrolling. */
+  .vf-scroll { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; -webkit-mask-image: none; mask-image: none; }
 }

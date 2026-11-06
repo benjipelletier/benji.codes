@@ -1,7 +1,7 @@
 'use client';
 
-// Voicings: browse, search and filter every voicing by chord, key,
-// family and tag, grouped by chord. Open one to see it on the keyboard, edit
+// Voicings: every voicing, narrowed with the stackable filter (key, chord
+// type, voicing type — VoicingFilter) and grouped by chord. Open one to see it on the keyboard, edit
 // its tags, mark it muddy, set its lowest playable register, set a card's
 // target time, and see its stats per mode — accuracy, average time, and
 // isolated against in-context speed.
@@ -10,9 +10,10 @@ import { useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
-import { filterTags, midisOf } from '@voiceshed/lib/practice';
+import { midisOf } from '@voiceshed/lib/practice';
+import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { newState, targetFor } from '@voiceshed/lib/srs';
-import { chordLabel, midiName, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality } from '@voiceshed/lib/theory';
+import { chordLabel, CYCLE_OF_FOURTHS, midiName, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
 const PAGE = 120;
@@ -21,40 +22,32 @@ export function VoicingsPage() {
   const t = useTrainer();
   const { voicings, srs, canEdit } = t;
   const { gapKeys } = useCardStats();
-  const [q, setQ] = useState('');
-  const [root, setRoot] = useState<number | null>(null);
-  const [quality, setQuality] = useState<Quality | ''>('');
-  const [family, setFamily] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [gapOnly, setGapOnly] = useState(false);
+  const [filter, setFilter] = useFilterState();
   const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const families = useMemo(() => [...new Set(voicings.map(v => v.family))].sort(), [voicings]);
-  const allTags = useMemo(() => filterTags(voicings), [voicings]);
-  const qualities = useMemo(() => QUALITIES.filter(x => voicings.some(v => v.quality === x.id)), [voicings]);
+  const tests = useMemo<FilterTests>(
+    () => ({
+      gap: v => MODES.some(m => gapKeys.has(srsKey(v.id, m))),
+      learned: v => MODES.every(m => !!srs.get(srsKey(v.id, m))?.learned),
+    }),
+    [gapKeys, srs],
+  );
+  const filtered = useMemo(() => applyFilter(voicings, filter, tests), [voicings, filter, tests]);
+  const changeFilter = (f: FilterState) => {
+    setFilter(f);
+    setShown(PAGE);
+  };
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase().replace(/♭/g, 'b').replace(/♯/g, '#');
-    return voicings.filter(v => {
-      if (root != null && v.root !== root) return false;
-      if (quality && v.quality !== quality) return false;
-      if (family && v.family !== family) return false;
-      if (!tags.every(tag => v.tags.includes(tag))) return false;
-      if (gapOnly && !MODES.some(m => gapKeys.has(srsKey(v.id, m)))) return false;
-      if (s) {
-        const hay = `${v.chord_label} ${v.family} ${v.tags.join(' ')} ${v.notes.map(pitchName).join(' ')} ${v.notes_text ?? ''}`.toLowerCase();
-        if (!s.split(/\s+/).every(w => hay.includes(w))) return false;
-      }
-      return true;
-    });
-  }, [voicings, q, root, quality, family, tags, gapOnly, gapKeys]);
-
-  // Voicings of the same chord together, in library order.
+  // Voicings of the same chord together, chords round the cycle of fourths.
   const groups = useMemo(() => {
+    const qOrder = QUALITIES.map(x => x.id);
+    const sorted = [...filtered].sort(
+      (a, b) => CYCLE_OF_FOURTHS.indexOf(a.root) - CYCLE_OF_FOURTHS.indexOf(b.root) || qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || a.sort_order - b.sort_order,
+    );
     const out = new Map<string, Voicing[]>();
-    for (const v of filtered.slice(0, shown)) {
+    for (const v of sorted.slice(0, shown)) {
       let g = out.get(v.chord_label);
       if (!g) out.set(v.chord_label, (g = []));
       g.push(v);
@@ -66,62 +59,18 @@ export function VoicingsPage() {
 
   return (
     <div className="vt-page">
-      <section className="lb-filters">
-        <input className="vt-input lb-search" placeholder="Search: Fm7, drop-2, Eb, muddy…" value={q} onChange={e => { setQ(e.target.value); setShown(PAGE); }} />
-        <div className="lb-selects">
-          <select value={root ?? ''} onChange={e => setRoot(e.target.value === '' ? null : Number(e.target.value))} aria-label="key">
-            <option value="">any key</option>
-            {PC_FLAT.map((n, pc) => (
-              <option key={pc} value={pc}>
-                {pretty(n)}
-              </option>
-            ))}
-          </select>
-          <select value={quality} onChange={e => setQuality(e.target.value as Quality | '')} aria-label="chord">
-            <option value="">any chord</option>
-            {qualities.map(x => (
-              <option key={x.id} value={x.id}>
-                {x.display}
-              </option>
-            ))}
-          </select>
-          <select value={family} onChange={e => setFamily(e.target.value)} aria-label="family">
-            <option value="">any family</option>
-            {families.map(f => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-          <label className="vt-check">
-            <input type="checkbox" checked={gapOnly} onChange={e => setGapOnly(e.target.checked)} />
-            context gap only
-          </label>
-        </div>
-        <div className="vt-chips">
-          {allTags.map(([tag, n]) => (
-            <button type="button" key={tag} className={tags.includes(tag) ? 'vt-chip on' : 'vt-chip'} onClick={() => setTags(tags.includes(tag) ? tags.filter(x => x !== tag) : [...tags, tag])}>
-              {tag} <span>{n}</span>
-            </button>
-          ))}
-        </div>
-        <div className="lb-count">
-          <span>
-            {filtered.length} of {voicings.length} voicings
-          </span>
-          {canEdit && (
-            <button type="button" className="vt-secondary" onClick={() => setAdding(true)}>
-              + New voicing
-            </button>
-          )}
-        </div>
-      </section>
+      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} />
+      {canEdit && (
+        <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
+          + New voicing
+        </button>
+      )}
 
       <div className="lb-groups">
         {groups.map(([label, vs]) => (
           <section key={label} className="lb-group">
             <h3 className="lb-group-h">
-              {pretty(label)} <span>{vs.length}</span>
+              {prettyLabel(label)} <span>{vs.length}</span>
             </h3>
             <div className="lb-cards">
               {vs.map(v => (
@@ -135,7 +84,14 @@ export function VoicingsPage() {
             Show more ({filtered.length - shown} left)
           </button>
         )}
-        {!filtered.length && <p className="vt-empty">No voicings match.</p>}
+        {!filtered.length && (
+          <p className="vt-empty">
+            Nothing fits all of that.{' '}
+            <button type="button" className="vf-inline" onClick={() => changeFilter(EMPTY_FILTER)}>
+              Clear the filter
+            </button>
+          </p>
+        )}
       </div>
 
       {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} />}
@@ -189,7 +145,7 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
     <div className="vt-modal" role="dialog" aria-modal="true" aria-label={`${v.chord_label} voicing`} onClick={onClose}>
       <div className="vt-sheet" onClick={e => e.stopPropagation()}>
         <div className="vt-sheet-head">
-          <h2>{pretty(v.chord_label)}</h2>
+          <h2>{prettyLabel(v.chord_label)}</h2>
           <span className="vt-hint">
             {v.family} · top {pretty(pitchName(v.top_note))}
           </span>
@@ -410,7 +366,7 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
           <button type="button" onClick={() => setLo(l => Math.max(24, l - 12))}>
             ◀ 8va
           </button>
-          <span>{spelled ? `${pretty(label)}: ${spelled.notes.map(pretty).join(' ')}` : 'no notes yet'}</span>
+          <span>{spelled ? `${prettyLabel(label)}: ${spelled.notes.map(pretty).join(' ')}` : 'no notes yet'}</span>
           <button type="button" onClick={() => setLo(l => Math.min(84, l + 12))}>
             8va ▶
           </button>
