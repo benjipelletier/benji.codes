@@ -11,7 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
 import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, type NameAnswer } from '@voiceshed/lib/practice';
-import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, type Quality } from '@voiceshed/lib/theory';
+import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
 
@@ -221,11 +221,12 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     setOctaves(0);
   }, [index, queue.length, finish]);
 
+  /** `at`: when the answer was in (the note pad's last tap), if not now. */
   const submit = useCallback(
-    (g: Given) => {
+    (g: Given, at?: number) => {
       if (phase !== 'ask' || !step || answered.current === index) return;
       answered.current = index;
-      const ms = Math.max(0, Math.round(performance.now() - t0.current));
+      const ms = Math.max(0, Math.round((at ?? performance.now()) - t0.current));
       let correct = false;
       if (g.kind === 'play') correct = gradePlay(step.voicing, g.midis);
       else if (g.kind === 'spell') correct = gradeSpell(step.voicing, g.names, strictSpelling).correct;
@@ -326,7 +327,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       </div>
 
       <div className="cr-card">
-        {step.mode !== 'name' && <Prompt step={step} />}
+        {/* Name mode hides the chord until it's answered; then it's shown like any prompt. */}
+        {(step.mode !== 'name' || phase === 'feedback') && <Prompt step={step} />}
         {step.mode === 'name' && (
           <div className="cr-name-kb">
             <Keyboard low={fbRange[0]} high={fbRange[1]} marks={phase === 'ask' ? Object.fromEntries(midis.map(m => [m, 'on'])) : fbMarks} labels={phase === 'feedback' ? labels : undefined} />
@@ -353,7 +355,11 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                 you: {nameText(given.answer)} · answer: {nameText(nameOf(v), parseChordLabel(v.chord_label)?.rootName)}
               </span>
             )}
-            {!result.correct && given?.kind === 'play' && <span className="cr-verdict-note">{v.notes.map(n => pretty(n)).join(' ')}</span>}
+            {!result.correct && (given?.kind === 'play' || given?.kind === 'skip') && (
+              <span className="cr-verdict-note">
+                answer: {prettyLabel(v.chord_label)} · {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -389,7 +395,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                 <Keyboard low={fbRange[0]} high={fbRange[1]} marks={fbMarks} labels={labels} />
               </div>
             )}
-            {phase === 'ask' && <NotePad key={index} count={v.notes.length} onSubmit={names => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic })} />}
+            {phase === 'ask' && <NotePad key={index} count={v.notes.length} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
           </>
         )}
         {step.mode === 'name' && phase === 'ask' && <NamePicker key={index} qualities={qualities} onAnswer={answer => submit({ kind: 'name', answer })} disabled={false} />}

@@ -561,3 +561,18 @@
 .pr-skipped-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .pr-skip { font-family: var(--serif); font-size: 17px; color: var(--ink-2); padding: 2px 9px; border: 1px dashed var(--ink-4); border-radius: 8px; background: var(--paper); }
 .pr-skip em { font-family: var(--mono); font-style: normal; font-size: 10.5px; color: var(--ink-3); margin-left: 4px; }
+
+/* Spell: the last note waiting a moment for a ♭ or ♯ */
+.np-slot-wait { border-color: var(--accent); animation: np-wait 0.65s linear; }
+@keyframes np-wait { from { box-shadow: inset 0 -2px 0 var(--accent); } to { box-shadow: inset 0 -2px 0 transparent; } }
+
+/* The answer on the keyboard reads in either theme: the voicing in the
+   accent, its note names dark on it; green and red keys take light names. */
+.vk-w-missed { fill: var(--accent); stroke: var(--key-black); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.vk-b-missed { fill: var(--accent); stroke: var(--key-black); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.vk-w-missed + .vk-lbl-w, .vk-b-missed + .vk-lbl-b, .vk-b-on + .vk-lbl-b, .vk-w-on + .vk-lbl-w { fill: #1d1712; }
+.vk-w-right + .vk-lbl-w, .vk-w-wrong + .vk-lbl-w, .vk-b-right + .vk-lbl-b, .vk-b-wrong + .vk-lbl-b { fill: #fffdf8; }
+@media (prefers-color-scheme: dark) {
+  /* Dark mode's green and red are lighter: dark names read better on them. */
+  .vk-w-right + .vk-lbl-w, .vk-w-wrong + .vk-lbl-w, .vk-b-right + .vk-lbl-b, .vk-b-wrong + .vk-lbl-b { fill: #0b0907; }
+}

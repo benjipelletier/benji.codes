@@ -1,48 +1,85 @@
 'use client';
 
-// Spell mode's input: A–G plus sharp and flat, no typing. ♭ or ♯ is armed
-// first and applies to the next letter, so the last note can still take an
-// accidental before the pad submits itself — which it does the moment as
-// many notes are in as the voicing has. On a computer: the letters a–g,
-// "-" for flat, "=" or "#" for sharp, Backspace to take one back.
+// Spell mode's input: A–G plus sharp and flat, no typing. A letter adds a
+// note; ♭ or ♯ then changes the note before it (tap A, then ♭: A♭), as it's
+// said. Once as many notes are in as the voicing has, the pad waits a moment
+// for an accidental on the last one, then submits itself — timed from the
+// last tap, so the wait never counts against you. On a computer: the letters
+// a–g, then "-" for flat, "=" or "#" for sharp; Backspace takes back an
+// accidental, then the note.
 
 import { useEffect, useRef, useState } from 'react';
 import { pretty } from '@voiceshed/lib/theory';
 
 const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+/** How long a full pad waits for ♭ or ♯ on its last note. */
+const GRACE_MS = 650;
 
 interface Props {
   count: number;
-  onSubmit: (names: string[]) => void;
+  /** The names, and when the last of them was tapped (performance.now()). */
+  onSubmit: (names: string[], at: number) => void;
   disabled?: boolean;
 }
 
 export function NotePad({ count, onSubmit, disabled = false }: Props) {
   const [names, setNames] = useState<string[]>([]);
-  const [acc, setAcc] = useState<'' | 'b' | '#'>('');
+  const namesRef = useRef(names);
+  namesRef.current = names;
   const sent = useRef(false);
-  const stateRef = useRef({ names, acc });
-  stateRef.current = { names, acc };
+  const lastAt = useRef(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const send = (list: string[]) => {
+    if (sent.current) return;
+    sent.current = true;
+    if (timer.current) clearTimeout(timer.current);
+    onSubmit(list, lastAt.current);
+  };
+  /** A full pad submits after the grace wait; a change in the meantime restarts it. */
+  const arm = (list: string[]) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    if (list.length >= count) timer.current = setTimeout(() => send(namesRef.current), GRACE_MS);
+  };
+  const set = (list: string[]) => {
+    namesRef.current = list;
+    setNames(list);
+  };
 
   const add = (letter: string) => {
-    if (disabled || sent.current) return;
-    const next = [...stateRef.current.names, letter + stateRef.current.acc];
-    setNames(next);
-    setAcc('');
-    if (next.length >= count) {
-      sent.current = true;
-      onSubmit(next);
-    }
+    if (disabled || sent.current || namesRef.current.length >= count) return;
+    lastAt.current = performance.now();
+    const next = [...namesRef.current, letter];
+    set(next);
+    arm(next);
+  };
+  /** ♭ or ♯ on the note before; the same one again takes it off, the other swaps it. */
+  const accidental = (acc: 'b' | '#') => {
+    const cur = namesRef.current;
+    if (disabled || sent.current || !cur.length) return;
+    lastAt.current = performance.now();
+    const last = cur[cur.length - 1];
+    const letter = last[0];
+    const changed = last.slice(1) === acc ? letter : letter + acc;
+    const next = [...cur.slice(0, -1), changed];
+    set(next);
+    // An accidental on the last note finishes the pad at once.
+    if (next.length >= count && changed !== letter) send(next);
+    else arm(next);
   };
   const back = () => {
-    if (disabled || sent.current) return;
-    if (stateRef.current.acc) setAcc('');
-    else setNames(n => n.slice(0, -1));
+    const cur = namesRef.current;
+    if (disabled || sent.current || !cur.length) return;
+    const last = cur[cur.length - 1];
+    const next = last.length > 1 ? [...cur.slice(0, -1), last[0]] : cur.slice(0, -1);
+    set(next);
+    arm(next);
   };
-  const arm = (a: 'b' | '#') => {
-    if (disabled || sent.current) return;
-    setAcc(cur => (cur === a ? '' : a));
-  };
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,10 +92,10 @@ export function NotePad({ count, onSubmit, disabled = false }: Props) {
         add(k.toUpperCase());
       } else if (k === '-' || k === '_') {
         e.preventDefault();
-        arm('b');
+        accidental('b');
       } else if (k === '=' || k === '#' || k === '+') {
         e.preventDefault();
-        arm('#');
+        accidental('#');
       } else if (k === 'Backspace') {
         e.preventDefault();
         back();
@@ -73,31 +110,32 @@ export function NotePad({ count, onSubmit, disabled = false }: Props) {
     e.preventDefault();
     fn();
   };
+  const full = names.length >= count;
 
   return (
     <div className="np">
       <div className="np-slots" aria-live="polite">
         {Array.from({ length: count }, (_, i) => (
-          <span key={i} className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''}`}>
-            {names[i] ? pretty(names[i]) : i === names.length && acc ? (acc === 'b' ? '♭' : '♯') : ''}
+          <span key={i} className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''} ${full && i === count - 1 ? 'np-slot-wait' : ''}`}>
+            {names[i] ? pretty(names[i]) : ''}
           </span>
         ))}
       </div>
       <div className="np-keys">
         {LETTERS.map(l => (
-          <button type="button" key={l} className="np-letter" onPointerDown={down(() => add(l))} disabled={disabled}>
+          <button type="button" key={l} className="np-letter" onPointerDown={down(() => add(l))} disabled={disabled || full}>
             {l}
           </button>
         ))}
       </div>
       <div className="np-mods">
-        <button type="button" className={`np-acc ${acc === 'b' ? 'np-acc-on' : ''}`} onPointerDown={down(() => arm('b'))} disabled={disabled} aria-label="flat" aria-pressed={acc === 'b'}>
+        <button type="button" className="np-acc" onPointerDown={down(() => accidental('b'))} disabled={disabled || !names.length} aria-label="flat the note before">
           ♭
         </button>
-        <button type="button" className={`np-acc ${acc === '#' ? 'np-acc-on' : ''}`} onPointerDown={down(() => arm('#'))} disabled={disabled} aria-label="sharp" aria-pressed={acc === '#'}>
+        <button type="button" className="np-acc" onPointerDown={down(() => accidental('#'))} disabled={disabled || !names.length} aria-label="sharpen the note before">
           ♯
         </button>
-        <button type="button" className="np-back" onPointerDown={down(back)} disabled={disabled || (!names.length && !acc)} aria-label="undo">
+        <button type="button" className="np-back" onPointerDown={down(back)} disabled={disabled || !names.length} aria-label="undo">
           ⌫
         </button>
       </div>

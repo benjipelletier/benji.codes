@@ -93,10 +93,14 @@ wide screen; a run hides both.
   Practice.
 
 **Answer modes**: Play (tap keys; whole octaves away is fine, never with the
-bottom below `lowest_register`), Spell (A–G pad, ♭/♯ armed before the letter;
-enharmonics accepted unless strict spelling is on), Name (root + quality +
+bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
+the note before it, as it's said — A then ♭ is A♭; a full pad waits 650 ms for
+an accidental on its last note, timed from the last tap; enharmonics accepted
+unless strict spelling is on), Name (root + quality +
 chord tone on top; any library voicing with the same keys counts). Play and
 Spell submit themselves at the note count. Timed from the card being painted.
+After a miss or "Don't know" the answer is shown: chord, top note, voicing
+type and notes (Name mode reveals its chord then).
 
 **Context gap**: a card whose isolated median (last 10 right answers) is over
 target and ≥ 25% slower than its in-context median (≥ 3 of each) is flagged:
