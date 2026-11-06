@@ -19,14 +19,14 @@ benji.codes/
 │   ├── longku/             # /longku route
 │   ├── chongfuxi/          # /chongfuxi route
 │   ├── ifakepro/           # /ifakepro route
-│   ├── voicebox/           # /voicebox route
+│   ├── voiceshed/           # /voiceshed route
 │   └── api/                # API routes namespaced per project
 │       ├── riddleyu/
 │       ├── gecijielong/
 │       ├── longku/
 │       ├── chongfuxi/
 │       ├── ifakepro/
-│       └── voicebox/
+│       └── voiceshed/
 ├── projects.config.ts      # Enable/disable projects, metadata
 ├── riddleyu/               # Source code (components, lib, styles)
 ├── gecijielong/            # Source code
@@ -34,7 +34,7 @@ benji.codes/
 ├── longku/                 # Source code
 ├── chongfuxi/              # Source code
 ├── ifakepro/               # Source code
-└── voicebox/               # Source code
+└── voiceshed/               # Source code
 ```
 
 ## Running locally
@@ -55,7 +55,7 @@ on the landing page. All seven current projects are enabled.
 - Env vars namespaced: `<PROJECT>_DATABASE_URL` (e.g., `GECIJIELONG_DATABASE_URL`)
 - Vite projects use `dynamic(() => import(...), { ssr: false })` page wrappers
 - Lazy DB initialization pattern with `getDb()` to avoid build-time env var evaluation
-- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*`, `@chongfuxi/*`, `@ifakepro/*`, `@voicebox/*` defined in tsconfig paths
+- Path aliases: `@riddleyu/*`, `@gecijielong/*`, `@jazz/*`, `@longku/*`, `@chongfuxi/*`, `@ifakepro/*`, `@voiceshed/*` defined in tsconfig paths
 
 ## Third-party data
 
@@ -93,9 +93,9 @@ on the landing page. All seven current projects are enabled.
   (`app/api/chongfuxi/episodes.ts`) for the owner's study; they are served
   only to the owner, never publicly.
 
-- **voicebox** reads the jazz project's `standards` (from `JAZZ_DATABASE_URL`)
+- **voiceshed** reads the jazz project's `standards` (from `JAZZ_DATABASE_URL`)
   for its tune drills, and keeps its own tables there too unless
-  `VOICEBOX_DATABASE_URL` is set.
+  `VOICESHED_DATABASE_URL` is set.
 
 ## 龙库 and 重复习 share a database
 

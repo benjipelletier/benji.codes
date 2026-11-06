@@ -45,8 +45,8 @@
       "@ifakepro/*": [
         "ifakepro/*"
       ],
-      "@voicebox/*": [
-        "voicebox/*"
+      "@voiceshed/*": [
+        "voiceshed/*"
       ]
     }
   },
@@ -69,8 +69,8 @@
     "ifakepro/db/**/*.ts",
     "ifakepro/components/**/*.ts",
     "ifakepro/components/**/*.tsx",
-    "voicebox/lib/**/*.ts",
-    "voicebox/components/**/*.tsx",
+    "voiceshed/lib/**/*.ts",
+    "voiceshed/components/**/*.tsx",
     "projects.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",
