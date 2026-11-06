@@ -234,6 +234,48 @@ export function parseChartChord(symbol: string): ChartChord | null {
   return null;
 }
 
+/**
+ * The chart symbols the library plays exactly, by iReal suffix. The library's
+ * voicings carry the 9 (and the dominants the 13), so a 9th or 13th chord is
+ * the same chord; anything else — 6, a bare triad, sus, ♭9, alterations, ♯11,
+ * 11, °7, m(maj7), m6 — has no voicing yet and is skipped, never stood in for.
+ * In iReal "^" alone is maj7 and "h" alone is ø7. A slash chord counts as the
+ * chord above the slash (the voicings are rootless; the bass is elsewhere).
+ */
+const EXACT_SUFFIX: [RegExp, Quality][] = [
+  [/^\^7?$|^\^9$/, 'maj7'],
+  [/^-7$|^-9$/, 'm7'],
+  [/^7$|^9$|^13$/, '7'],
+  [/^h7?$/, 'm7b5'],
+];
+
+/** A chart symbol the library plays exactly: root + quality; null when it has no voicing for it. */
+export function exactChartChord(symbol: string): { root: number; rootName: string; quality: Quality } | null {
+  const m = symbol.split('/')[0].trim().match(/^([A-G][b#]?)(.*)$/);
+  if (!m) return null;
+  const root = namePc(m[1]);
+  if (root == null) return null;
+  const hit = EXACT_SUFFIX.find(([re]) => re.test(m[2]));
+  return hit ? { root, rootName: m[1], quality: hit[1] } : null;
+}
+
+/** An iReal chart symbol as a player reads it: "Bb-7b5" → "B♭m7♭5", "C^7" → "Cmaj7", "Eh7" → "Eø7". */
+export function chartDisplay(symbol: string): string {
+  const [main, bass] = symbol.split('/');
+  const m = main.match(/^([A-G][b#]?)(.*)$/);
+  if (!m) return symbol;
+  const suffix = m[2]
+    .replace(/^-\^7?/, 'm(maj7)')
+    .replace(/^-/, 'm')
+    .replace(/^\^/, 'maj')
+    .replace(/^maj$/, 'maj7')
+    .replace(/^h/, 'ø')
+    .replace(/^o/, '°')
+    .replace(/b(?=\d)/g, '♭')
+    .replace(/#/g, '♯');
+  return `${pretty(m[1])}${suffix}${bass ? `/${pretty(bass)}` : ''}`;
+}
+
 /** A chord label ("Bbm7b5", "Gm(maj7)") back to root + quality. */
 export function parseChordLabel(label: string): { root: number; rootName: string; quality: Quality } | null {
   const m = label.trim().match(/^([A-G][b#]?)(.*)$/);

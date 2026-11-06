@@ -67,6 +67,17 @@ wide screen; a run hides both.
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
   Right-but-slow and missed cards become due now.
+  **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
+  is played only when the library has its chord type — maj7 (`^`, `^7`,
+  `^9`), m7 (`-7`, `-9`), 7 (`7`, `9`, `13`; the voicings carry the 9 and 13),
+  m7♭5 (`h`, `h7`); a slash chord as the chord above the slash. Everything
+  else is skipped, never stood in for, and the preview lists what's skipped
+  with counts ("no voicing yet", or "none with these tags"). The same holds
+  for progressions: a ii–V–i's 7alt and m6 are skipped until they exist.
+  Across the 1,460 standards that plays 74% of chords; the biggest gaps, by
+  chords: 6/6/9 5.3%, 7♭9 4.3%, altered 3.7%, bare major triad 2.9%, °7 2.2%,
+  bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%,
+  m(maj7) 0.4%, m11 0.3%.
 - `/voiceshed/voicings` — every voicing, narrowed with a stackable filter
   (`components/VoicingFilter.tsx`): rows you scroll sideways and tap — Key
   (cycle of fourths), Chord, Voicing (each type drawn as a mini keyboard of one
@@ -111,8 +122,8 @@ pulled into Review up to 2 days early, interval steps halved.
 Tunes are always read from the jazz app's `standards` (via its `getDb`).
 Tables (made on first use by `ensureTrainer`, also in `db/schema.sql`):
 `voicings` (global; `notes` spelled bottom to top with octave), `contexts`
-(ii–V–I and ii–V–i, black keys under both names; minor steps fall back 7alt→7♭9→7, m6→m(maj7)→m7
-until those exist), `attempts`, `srs_state` (owner × voicing × mode;
+(ii–V–I and ii–V–i, black keys under both names; the minor one's 7alt and m6
+are skipped until those exist), `attempts`, `srs_state` (owner × voicing × mode;
 `interval_days`), `voicing_runs`, `voiceshed_meta` (seed version). `user_id` is the owner's email.
 
 API: `GET bundle` (library, progressions, the owner's schedules, last 20k

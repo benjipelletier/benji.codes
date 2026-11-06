@@ -1,7 +1,7 @@
 // Grading answers, and building the practice sets: timed runs through
 // ii–V–Is, a key's chords, a tune's changes or a tag filter.
 
-import { diatonicChords, mod12, namePc, noteMidi, parseChartChord, parseChordLabel, pitchName, PC_FLAT, qualityFallbacks, type Quality } from './theory';
+import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
 import type { Context, ContextType, Mode, Tune, Voicing } from './types';
 import { shuffle } from './srs';
 
@@ -101,13 +101,34 @@ export interface Step {
   group: string | null;
 }
 
+export interface Skipped {
+  symbol: string;
+  count: number;
+  /** No voicing of this chord type at all, or just none with the chosen tags. */
+  why: 'no-voicing' | 'tags';
+}
+
+/** Skipped chords tallied, most frequent first, first-seen order among equals. */
+function tally(list: { symbol: string; why: Skipped['why'] }[]): Skipped[] {
+  const m = new Map<string, Skipped>();
+  for (const { symbol, why } of list) {
+    const k = `${symbol}|${why}`;
+    const cur = m.get(k);
+    if (cur) cur.count++;
+    else m.set(k, { symbol, count: 1, why });
+  }
+  return [...m.values()].sort((a, b) => b.count - a.count);
+}
+
 export interface BuiltSet {
   steps: Step[];
   label: string;
   setKey: string;
   context_type: ContextType;
-  /** Chords no voicing in the filter could cover. */
-  skipped: string[];
+  /** Chords left out — no exact voicing in the library (or the tag filter) — as shown, with how often. */
+  skipped: Skipped[];
+  /** Chords in the progression or tune, played or not. */
+  chords: number;
 }
 
 /** A shape's own tag ("3-7-9-5", "1-5-7-11"): kept on the voicing, not offered as a filter. */
@@ -161,14 +182,22 @@ function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], 
 }
 
 const symbolRoot = (symbol: string) => symbol.match(/^[A-G][b#]?/)?.[0];
+/** A library chord label as shown ("Bbm7b5" → "B♭m7♭5"). */
+const prettyChord = (label: string) => {
+  const p = parseChordLabel(label);
+  return p ? prettyLabel(label) : label;
+};
 
-const keyName = (k: number) => PC_FLAT[k];
+const keyName = (k: number) => prettyLabel(PC_FLAT[k]);
 const tagLabel = (tags: string[]) => (tags.length ? ` · ${tags.join(' + ')}` : '');
 
 export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: Context[]; tunes: Tune[] }): BuiltSet {
   const { voicings, contexts, tunes } = data;
   const tagKey = [...spec.tags].sort().join('+');
-  const skipped: string[] = [];
+  const skipped: { symbol: string; why: Skipped['why'] }[] = [];
+  let chords = 0;
+  /** Why a chord has no candidate: none of its type at all, or only outside the tags. */
+  const why = (root: number, q: Quality): Skipped['why'] => (voicings.some(v => v.root === root && v.quality === q) ? 'tags' : 'no-voicing');
 
   if (spec.source === 'ii-v-i') {
     const progs = shuffle(contexts.filter(c => c.type === 'progression' && (spec.key == null || c.key === spec.key)));
@@ -177,9 +206,11 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       let prev: Voicing | null = null;
       for (const s of c.steps) {
         const pinned = s.voicing_id ? voicings.find(v => v.id === s.voicing_id && matchesTags(v, spec.tags)) : undefined;
-        const cands = pinned ? [pinned] : candidatesFor(voicings, s.root, qualityFallbacks(s.quality), spec.tags, symbolRoot(s.symbol));
+        chords++;
+        // Exact chords only: a ii–V–i's 7alt and m6 wait until the library has them.
+        const cands = pinned ? [pinned] : candidatesFor(voicings, s.root, [s.quality], spec.tags, symbolRoot(s.symbol));
         if (!cands.length) {
-          skipped.push(s.symbol);
+          skipped.push({ symbol: prettyChord(s.symbol), why: why(s.root, s.quality) });
           continue;
         }
         const v = voiceLead(cands, prev);
@@ -192,24 +223,31 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       label: `ii–V–Is${spec.key == null ? ', all keys' : ` in ${keyName(spec.key)}`}${tagLabel(spec.tags)}`,
       setKey: `ii-v-i:${spec.key ?? 'all'}:${tagKey}:${spec.mode}`,
       context_type: 'progression',
-      skipped: [...new Set(skipped)],
+      skipped: tally(skipped),
+      chords,
     };
   }
 
   if (spec.source === 'tune') {
     const tune = tunes.find(t => t.id === spec.tuneId);
-    if (!tune) return { steps: [], label: 'Tune', setKey: 'tune:none', context_type: 'tune', skipped: [] };
+    if (!tune) return { steps: [], label: 'Tune', setKey: 'tune:none', context_type: 'tune', skipped: [], chords: 0 };
     const key = spec.key ?? tune.home_key;
     const shift = mod12(key - tune.home_key);
     const steps: Step[] = [];
     let prev: Voicing | null = null;
     for (const sym of tune.chords) {
       const moved = transposeSymbol(sym, shift);
-      const chord = parseChartChord(moved);
-      if (!chord) continue;
-      const cands = candidatesFor(voicings, chord.root, chord.qualities, spec.tags, chord.rootName);
+      if (!/^[A-G]/.test(moved)) continue; // not a chord (a repeat sign, N.C.)
+      chords++;
+      // Exact chords only: one the library has no voicing for is skipped, never stood in for.
+      const chord = exactChartChord(moved);
+      if (!chord) {
+        skipped.push({ symbol: chartDisplay(moved), why: 'no-voicing' });
+        continue;
+      }
+      const cands = candidatesFor(voicings, chord.root, [chord.quality], spec.tags, chord.rootName);
       if (!cands.length) {
-        skipped.push(moved);
+        skipped.push({ symbol: chartDisplay(moved), why: why(chord.root, chord.quality) });
         continue;
       }
       const v = voiceLead(cands, prev);
@@ -221,7 +259,8 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       label: `${tune.title} in ${keyName(key)}${tune.is_minor ? ' minor' : ''}${tagLabel(spec.tags)}`,
       setKey: `tune:${tune.id}:${key}:${tagKey}:${spec.mode}`,
       context_type: 'tune',
-      skipped: [...new Set(skipped)],
+      skipped: tally(skipped),
+      chords,
     };
   }
 
@@ -243,6 +282,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     label,
     setKey: `${spec.source}:${spec.key ?? 'all'}:${tagKey}:${spec.mode}:${spec.limit}`,
     context_type: 'isolated',
-    skipped,
+    skipped: [],
+    chords: 0,
   };
 }

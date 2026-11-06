@@ -11,7 +11,7 @@ import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { Summary } from './ReviewPage';
 import { fmtPct, fmtSecs, relTime } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
-import { buildSet, filterTags, type SetSource, type SetSpec } from '@voiceshed/lib/practice';
+import { buildSet, filterTags, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, newState, targetFor } from '@voiceshed/lib/srs';
 import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
@@ -64,6 +64,7 @@ export function PracticePage() {
     });
 
   const built = useMemo(() => buildSet(spec, { voicings, contexts, tunes }), [spec, voicings, contexts, tunes]);
+  const skippedN = built.skipped.reduce((n, x) => n + x.count, 0);
   const history = useMemo(() => runs.filter(r => r.set_key === built.setKey).slice(-12), [runs, built.setKey]);
 
   const tagCounts = useMemo(() => filterTags(voicings), [voicings]);
@@ -236,8 +237,10 @@ export function PracticePage() {
           <div className="pr-preview">
             <b>{built.label}</b>
             <span>
-              {built.steps.length} cards{built.skipped.length ? ` · no voicing for ${built.skipped.slice(0, 6).map(pretty).join(', ')}${built.skipped.length > 6 ? '…' : ''}` : ''}
+              {built.steps.length} cards
+              {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
+            <SkippedList skipped={built.skipped} />
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -246,6 +249,36 @@ export function PracticePage() {
       </section>
 
       <RunHistory runs={history} />
+    </div>
+  );
+}
+
+/** The chords a run leaves out, each with how often: none of that chord type yet, or none in the tags picked. */
+function SkippedList({ skipped }: { skipped: Skipped[] }) {
+  if (!skipped.length) return null;
+  const groups: [Skipped['why'], string][] = [
+    ['no-voicing', 'Skipped — no voicing yet'],
+    ['tags', 'Skipped — none with these tags'],
+  ];
+  return (
+    <div className="pr-skipped">
+      {groups.map(([why, title]) => {
+        const list = skipped.filter(x => x.why === why);
+        if (!list.length) return null;
+        return (
+          <div key={why} className="pr-skipped-group">
+            <span className="vt-field-lbl">{title}</span>
+            <div className="pr-skipped-chips">
+              {list.map(x => (
+                <span key={x.symbol} className="pr-skip">
+                  {x.symbol}
+                  {x.count > 1 && <em>×{x.count}</em>}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

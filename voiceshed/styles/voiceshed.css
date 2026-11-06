@@ -554,3 +554,10 @@
 .vf-key-name { display: flex; flex-direction: column; align-items: center; }
 .vf-key-name span:first-child:not(:last-child), .vf-key-name span + span { font-size: 20px; line-height: 0.95; }
 .vt-keys button { font-size: 13px; padding: 0 2px; white-space: nowrap; }
+
+/* Practice: the chords a run leaves out */
+.pr-skipped { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.pr-skipped-group { display: flex; flex-direction: column; gap: 6px; }
+.pr-skipped-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.pr-skip { font-family: var(--serif); font-size: 17px; color: var(--ink-2); padding: 2px 9px; border: 1px dashed var(--ink-4); border-radius: 8px; background: var(--paper); }
+.pr-skip em { font-family: var(--mono); font-style: normal; font-size: 10.5px; color: var(--ink-3); margin-left: 4px; }
