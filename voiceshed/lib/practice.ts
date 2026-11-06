@@ -268,8 +268,8 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
   let label: string;
   if (spec.source === 'key') {
     const key = spec.key ?? 0;
-    const chords = diatonicChords(key);
-    pool = voicings.filter(v => chords.some(c => c.root === v.root && c.quality === v.quality) && matchesTags(v, spec.tags));
+    // Each chord in the key's spelling; a name the library doesn't use (G♭ major's C♭maj7) takes the other.
+    pool = diatonicChords(key).flatMap(c => candidatesFor(voicings, c.root, [c.quality], spec.tags, c.rootName));
     label = `The chords of ${keyName(key)} major${tagLabel(spec.tags)}`;
   } else {
     pool = voicings.filter(v => matchesTags(v, spec.tags) && (spec.key == null || v.root === spec.key));

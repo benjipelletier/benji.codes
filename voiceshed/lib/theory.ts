@@ -532,15 +532,20 @@ export function starterProgressions(): ProgressionSeed[] {
 }
 
 /** The diatonic seventh chords of a major key: Imaj7 ii-7 iii-7 IVmaj7 V7 vi-7 viiø7. */
-export function diatonicChords(key: number): { root: number; quality: Quality }[] {
-  const steps: [number, Quality][] = [
-    [0, 'maj7'],
-    [2, 'm7'],
-    [4, 'm7'],
-    [5, 'maj7'],
-    [7, '7'],
-    [9, 'm7'],
-    [11, 'm7b5'],
+export function diatonicChords(key: number): { root: number; quality: Quality; rootName: string }[] {
+  // Spelled from the key's name, flats for a black key (D♭ major: E♭m7, never D♯m7).
+  const keyName = ROOTS_MAJOR[key];
+  const steps: [string, Quality][] = [
+    ['R', 'maj7'],
+    ['9', 'm7'],
+    ['3', 'm7'],
+    ['11', 'maj7'],
+    ['5', '7'],
+    ['13', 'm7'],
+    ['7', 'm7b5'],
   ];
-  return steps.map(([s, q]) => ({ root: mod12(key + s), quality: q }));
+  return steps.map(([iv, q]) => {
+    const root = mod12(key + INTERVALS[iv][0]);
+    return { root, quality: q, rootName: pitchName(spellInterval(keyName, iv, 60 + root)) };
+  });
 }
