@@ -31,6 +31,7 @@ export function Masthead() {
   const onLibrary = pathname?.startsWith('/jazz/standards') || pathname === '/jazz';
   const onSessions = pathname?.startsWith('/jazz/sessions');
   const onImport = pathname?.startsWith('/jazz/import');
+  const onVoicings = pathname?.startsWith('/jazz/voicings');
 
   const displayName = viewer?.isOwner ? 'Benji' : viewer?.sessionUser?.name ?? viewer?.sessionUser?.email ?? null;
 
@@ -50,6 +51,10 @@ export function Masthead() {
           <Link href="/jazz/sessions" className={onSessions ? 'nav-item on' : 'nav-item'}>
             Woodshed
           </Link>
+          {/* A full load, so the trainer's service worker can open it offline. */}
+          <a href="/jazz/voicings" className={onVoicings ? 'nav-item on' : 'nav-item'}>
+            Voicings
+          </a>
           {viewer?.signedIn && (
             <Link href="/jazz/import" className={onImport ? 'nav-item on' : 'nav-item'}>
               Import

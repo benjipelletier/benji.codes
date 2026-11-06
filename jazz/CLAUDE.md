@@ -80,6 +80,7 @@ Neon's HTTP driver doesn't support transactions; `POST /api/jazz/sessions` inser
 
 - `/jazz/standards` — searchable, paginated list (1,460 entries). Each card shows target BPM, sessions count, skills-logged count, last-practiced relative time.
 - `/jazz/standards/[id]` — chart in selected key, editable target BPM (auth-gated), skill panel with last/best BPM + days-since + sparkline, "+ Log practice session" button → `PracticeSessionForm` modal.
+- `/jazz/voicings` (+ `/practice`, `/library`) — the voicing trainer; see below.
 - Header (`app/jazz/layout.tsx`): Google sign-in / sign-out + spectator indicator.
 
 `ChartDisplay` is reused from the old design with `progressions={[]}` — the bar-highlighting machinery is unused now but easy to wire back in.
@@ -113,6 +114,76 @@ To import additional charts later, append more songs to `charts_raw/jazz.ireal` 
 
 ---
 
+## Voicing trainer (`/jazz/voicings`)
+
+Flashcards and timed drills for piano voicings, built from the "Voicing Trainer
+v1" spec. The goal is speed: a card counts as **learned** only when it is
+answered right *and* under its target time (default 2 s, set per mode in
+Review → Settings and per card in the Library). Right but slow is a weak pass
+and comes back sooner. Works fully offline.
+
+**Pages** (links between them are plain `<a>`, so the service worker can serve
+each one with no connection):
+- `/jazz/voicings` — SRS Review: cards due across all three modes, then new
+  cards (15 a day by default, each voicing starting on a different mode, one
+  new mode per voicing per day). A miss comes round again 4 cards later, once.
+  Summary: accuracy, average time, slowest cards. Also the ✈ Offline panel.
+- `/jazz/voicings/practice` — Practice in Context: a set (ii–V–Is in one key or
+  all, the diatonic chords of a key, a tune's changes in any key, or a tag
+  filter; tags also choose which voicings a progression uses), a mode, a timed
+  run. Progressions and tunes step in order and pick, for each chord, the
+  voicing that moves least from the last. Every run is saved (`voicing_runs`)
+  and compared with the last run of the same set. Right-but-slow and missed
+  cards become due now.
+- `/jazz/voicings/library` — browse/search/filter by chord, key, family and tag,
+  grouped by chord; a voicing's sheet edits tags, muddy, lowest register,
+  notes, per-card target, and shows per-mode stats (accuracy, average,
+  isolated vs in-context medians). Add and delete voicings.
+
+**Answer modes**: Play (tap the keys; the voicing may be played whole octaves
+away, never with its bottom below `lowest_register`), Spell (A–G + ♭/♯ pad,
+accidental first; enharmonics accepted unless strict spelling is on), Name
+(root + quality + chord tone on top; any library voicing with the same keys
+counts). Play and Spell submit themselves once the note count is reached.
+Timed from the card being painted to the answer.
+
+**Context gap**: when a card's isolated median (last 10 right answers) is over
+target and ≥ 25% slower than its in-context median (≥ 3 of each), it's flagged:
+in Review it's pulled in up to 2 days early and its interval steps are halved.
+
+**Code**: `jazz/lib/voicings/` (`theory.ts` spelling, qualities, chart-symbol
+mapping, starter generator; `srs.ts` scheduling and queue; `practice.ts`
+grading and set building; `idb.ts` IndexedDB), `jazz/components/voicings/`
+(`TrainerProvider` holds state + sync; `Keyboard`, `NotePad`, `CardRunner`
+shared by all pages), `app/api/jazz/trainer/` (`schema.ts`, `sync.ts`),
+`public/jazz-voicings-sw.js`, `jazz/styles/voicings.css`.
+
+**Data** (tables in `db/schema.sql`, also created on first use by
+`ensureTrainer`): `voicings` (global library; `notes` spelled bottom to top
+with octave, e.g. `{F3,Ab3,C4,Eb4}`), `contexts` (ii–V–I / ii–V–i in 12 keys;
+steps may pin a voicing, else voice leading picks), `attempts`, `srs_state`
+(one per user × voicing × mode; `interval_days`), `voicing_runs`. The first
+bundle read seeds 624 starter voicings (drop-2 inversions of maj7, m7, 7, m7♭5,
+6, m6, °7, m(maj7), 7sus; rootless A/B of maj7, m7, 7, 7alt, 7♭9, m7♭5, 6, m6 —
+all 12 keys) and the progressions when empty, and brings in each
+`chord_voicings` row (popover voicings) once, spelled from its MIDI notes.
+
+**API**: `GET /api/jazz/trainer/bundle` (library, progressions, the viewed
+user's schedules, last 20k answers, last 500 runs), `GET /api/jazz/trainer/tunes`
+(every standard's chord sequence), `POST /api/jazz/trainer/sync` (owner only:
+voicing upserts/deletes, attempts, srs, runs; idempotent, newer schedule wins).
+
+**Offline**: everything lives in IndexedDB (`jazz-voicings`). Answers are saved
+with `synced = false`; schedules changed on the device are `dirty`. Sync runs on
+open, on `online`, after a session and every 2 min while anything waits:
+push, then pull (dirty schedules keep the device copy), tunes weekly, then
+the pages and their `/_next/static` code are fetched through the service worker
+(production only). A spectator's answers stay on the device (`local_only`).
+Tested on a production build: opened online, cut off, reloaded all three
+pages, reviewed and ran a tune, reconnected, uploaded.
+
+---
+
 ## Not yet built / future ideas
 
 - Mastery score with recency decay and rep counting
@@ -121,3 +192,4 @@ To import additional charts later, append more songs to `charts_raw/jazz.ireal` 
 - iReal Pro file upload UI for importing new playlists from the browser
 - Session in-progress mode (start a session, add items as you go, end it)
 - Cross-song progression familiarity (the original idea — shelved, schema can be added back later)
+- Voicing trainer v2 (from the spec): hand-split practice (2+2 vs 1+3), loop / harmonise-a-line mode (a top line + a chord rule, e.g. Barry Harris sixth-diminished, voiced in a chosen family, movable to any key), interval answer mode
