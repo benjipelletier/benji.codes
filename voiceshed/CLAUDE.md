@@ -57,10 +57,17 @@ Links between them are plain `<a>`, so the service worker can serve each one
 with no connection. Tabs sit along the bottom on a phone, in the top bar on a
 wide screen; a run hides both.
 
-- `/voiceshed` — SRS Review: cards due across all three modes, then new cards
-  (15 a day; each voicing starts on a different mode, one new mode per
-  voicing a day). A miss comes round again 4 cards later, once. Summary:
-  accuracy, average time, slowest cards. The ✈ Offline panel and sign in/out.
+- `/voiceshed` — SRS Review: cards due, then new cards (15 a day; each
+  voicing starts on a different mode, one new mode per voicing a day). A miss
+  comes round again 4 cards later, once. Summary: accuracy, average time,
+  slowest cards. The ✈ Offline panel and sign in/out.
+  **This session** (`components/ReviewSetup.tsx`) tailors the run, kept on the
+  device: answer modes (at least one), chord types, voicing types, keys (empty
+  row = all), black-key chords under both names / flats / sharps, which cards
+  (due now incl. context gap; new, within the day's limit; not due yet,
+  soonest first — answered early they're rescheduled from then), and length
+  (10–60 or all). Chips count the cards due now with them, given the other
+  rows. A line above Start says what the session is.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, a tune's changes in any key, or a tag filter; tags
   also choose which voicings a progression uses. Progressions and tunes step in

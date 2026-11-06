@@ -576,3 +576,22 @@
   /* Dark mode's green and red are lighter: dark names read better on them. */
   .vk-w-right + .vk-lbl-w, .vk-w-wrong + .vk-lbl-w, .vk-b-right + .vk-lbl-b, .vk-b-wrong + .vk-lbl-b { fill: #0b0907; }
 }
+
+/* Review: the session set-up */
+.rs { display: flex; flex-direction: column; gap: 16px; }
+.rs-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: -6px; }
+.rs-head .vt-panel-title { margin: 0; }
+.rs .vf-scroll { margin: 0 -16px; padding: 2px 16px 4px; }
+.rs-mode { min-width: 96px; }
+.rs-mode-name { font-size: 17px; font-weight: 600; }
+.rs-include { display: flex; flex-direction: column; gap: 2px; }
+.rs-check { align-items: flex-start; min-height: 40px; padding: 6px 0; }
+.rs-check input { margin-top: 1px; flex: 0 0 auto; }
+.rs-check em { display: block; font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+.rs .vt-seg { width: 100%; }
+.rs .vt-seg button { font-size: 13px; }
+.rv-what { flex-basis: 100%; font-size: 13px; color: var(--accent-ink); font-weight: 500; margin-bottom: -6px !important; }
+@media (min-width: 720px) {
+  .rs .vf-scroll { margin: 0; padding: 2px 0 4px; }
+  .rs .vt-seg { width: fit-content; }
+}

@@ -1,21 +1,21 @@
 'use client';
 
-// SRS Review: the cards due today across all modes, one at a time, with
-// feedback that shows the right voicing on the keyboard. A summary at the
-// end: accuracy, average time and the slowest cards.
+// SRS Review: the cards due today, one at a time, with feedback that shows
+// the right voicing on the keyboard — narrowed to the run you want with the
+// session set-up (ReviewSetup: modes, chord and voicing types, keys,
+// spellings, due / new / ahead of schedule, length). A summary at the end:
+// accuracy, average time and the slowest cards.
 
 import { useCallback, useMemo, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { Keyboard, rangeAround } from './Keyboard';
+import { describe, ReviewSetup, useReviewConfig, voicingIn } from './ReviewSetup';
 import { buildQueue, newState, outcomeOf, schedule, shuffle, targetFor } from '@voiceshed/lib/srs';
 import { midisOf } from '@voiceshed/lib/practice';
 import { pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings } from '@voiceshed/lib/types';
-
-/** Most cards a session deals; what's left stays due for the next. */
-const SESSION_MAX = 60;
 
 export function ReviewPage() {
   const t = useTrainer();
@@ -25,8 +25,31 @@ export function ReviewPage() {
   const [steps, setSteps] = useState<RunnerStep[]>([]);
   const [results, setResults] = useState<RunnerResult[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [config, setConfig] = useReviewConfig();
 
-  const queue = useMemo(() => buildQueue({ voicings, srs, gapKeys, settings, now: new Date() }), [voicings, srs, gapKeys, settings]);
+  // The session's voicings, and its queue (the day's new-card limit still counts every card).
+  const pool = useMemo(() => voicings.filter(v => voicingIn(v, config)), [voicings, config]);
+  const queue = useMemo(
+    () => buildQueue({ voicings: pool, srs, gapKeys, settings: { ...settings, review_modes: config.modes }, now: new Date() }),
+    [pool, srs, gapKeys, settings, config.modes],
+  );
+  // Not due yet, soonest first: extra rounds when there's time.
+  const ahead = useMemo(() => {
+    const ids = new Map(pool.map(v => [v.id, v]));
+    const gap = new Set(queue.gap.map(c => srsKey(c.voicing.id, c.mode)));
+    const now = Date.now();
+    return [...srs.values()]
+      .filter(s => config.modes.includes(s.mode) && ids.has(s.voicing_id) && new Date(s.due_at).getTime() > now && !gap.has(srsKey(s.voicing_id, s.mode)))
+      .sort((a, b) => a.due_at.localeCompare(b.due_at))
+      .map(s => ({ voicing: ids.get(s.voicing_id)!, mode: s.mode }));
+  }, [pool, srs, config.modes, queue.gap]);
+  // Everything due now, for the set-up's counts.
+  const dueAll = useMemo(() => {
+    const ids = new Map(voicings.map(v => [v.id, v]));
+    const now = Date.now();
+    return [...srs.values()].filter(s => ids.has(s.voicing_id) && new Date(s.due_at).getTime() <= now).map(s => ({ voicing: ids.get(s.voicing_id)!, mode: s.mode }));
+  }, [voicings, srs]);
+
   const learned = useMemo(() => [...srs.values()].filter(s => s.learned).length, [srs]);
   const dueByMode = useMemo(() => {
     const out: Record<Mode, number> = { play: 0, spell: 0, name: 0 };
@@ -34,15 +57,22 @@ export function ReviewPage() {
     return out;
   }, [queue]);
 
-  const start = () => {
-    // Due first (soonest first), then the context-gap cards, then new ones mixed in.
-    const due = [...queue.due, ...shuffle([...queue.gap])].slice(0, SESSION_MAX);
-    const fresh = queue.fresh.slice(0, Math.max(0, SESSION_MAX - due.length));
-    const cards = [...due];
+  /** The cards the session deals, in order. */
+  const deal = useMemo(() => {
+    const max = config.length || Infinity;
+    const cards = [
+      ...(config.include.due ? [...queue.due, ...shuffle([...queue.gap])] : []),
+      ...(config.include.ahead ? ahead : []),
+    ].slice(0, max);
+    const fresh = config.include.fresh ? queue.fresh.slice(0, Math.max(0, max - cards.length)) : [];
     // New cards spread through the session rather than all at the end.
     fresh.forEach((c, i) => cards.splice(Math.round(((i + 1) * cards.length) / (fresh.length + 1)) + i, 0, c));
+    return cards;
+  }, [queue, ahead, config]);
+
+  const start = () => {
     setSteps(
-      cards.map(c => ({
+      deal.map(c => ({
         voicing: c.voicing,
         mode: c.mode,
         target: targetFor(srs.get(srsKey(c.voicing.id, c.mode)), c.mode, settings),
@@ -95,7 +125,8 @@ export function ReviewPage() {
   }
   if (phase === 'done') return <Summary results={results} onAgain={() => setPhase('idle')} />;
 
-  const total = Math.min(SESSION_MAX, queue.due.length + queue.gap.length + queue.fresh.length);
+  const total = deal.length;
+  const filtered = describe(config);
   return (
     <div className="vt-page">
       <section className="rv-hero">
@@ -114,19 +145,28 @@ export function ReviewPage() {
           </div>
         )}
         <div className="rv-modes">
-          {settings.review_modes.map(m => (
+          {config.modes.map(m => (
             <span key={m} className="rv-mode">
               {MODE_LABEL[m]} <b>{dueByMode[m]}</b>
             </span>
           ))}
         </div>
+        <p className="rv-what">{filtered}</p>
         <button type="button" className="vt-primary" onClick={start} disabled={!total}>
-          {total ? `Start review · ${total} cards` : 'Nothing due — come back later'}
+          {total
+            ? `Start · ${total} card${total === 1 ? '' : 's'}`
+            : !config.include.due && !config.include.fresh && !config.include.ahead
+              ? 'Pick which cards below'
+              : ahead.length && !config.include.ahead
+                ? 'Nothing due — add “Not due yet” below'
+                : 'Nothing to review with this set-up'}
         </button>
         <p className="rv-note">
-          A card is learned once it’s right <em>and</em> under its target time. {learned} of {voicings.length * settings.review_modes.length} cards learned.
+          A card is learned once it’s right <em>and</em> under its target time. {learned} of {voicings.length * MODES.length} cards learned.
         </p>
       </section>
+
+      <ReviewSetup config={config} onChange={setConfig} voicings={voicings} srs={srs} due={dueAll} />
 
       <section className="vt-panel">
         <button type="button" className="vt-panel-head" onClick={() => setShowSettings(s => !s)} aria-expanded={showSettings}>
@@ -170,24 +210,6 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
         <span className="vt-field-lbl">New cards a day</span>
         <input type="number" min={0} max={200} value={settings.new_per_day} onChange={e => onSave({ ...settings, new_per_day: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })} />
       </label>
-      <div className="vt-field">
-        <span className="vt-field-lbl">Review modes</span>
-        <div className="vt-inline">
-          {MODES.map(m => (
-            <label key={m} className="vt-check">
-              <input
-                type="checkbox"
-                checked={settings.review_modes.includes(m)}
-                onChange={e => {
-                  const modes = e.target.checked ? MODES.filter(x => x === m || settings.review_modes.includes(x)) : settings.review_modes.filter(x => x !== m);
-                  if (modes.length) onSave({ ...settings, review_modes: modes });
-                }}
-              />
-              {MODE_LABEL[m]}
-            </label>
-          ))}
-        </div>
-      </div>
       <label className="vt-check">
         <input type="checkbox" checked={settings.strict_spelling} onChange={e => onSave({ ...settings, strict_spelling: e.target.checked })} />
         Strict spelling (G♯ isn’t A♭ in Spell mode)
