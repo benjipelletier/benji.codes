@@ -1,7 +1,7 @@
 // Voiceshed's tables, made on first use (the same statements are in
 // voiceshed/db/schema.sql). The first read also seeds the library from the
-// owner's shapes (voiceshed/lib/theory.ts, SHAPE_SETS) and the ii–V–I
-// progressions when they are empty.
+// owner's shapes (voiceshed/lib/theory.ts, SHAPE_SETS) — again, additively,
+// whenever SEED_VERSION goes up — and the ii–V–I progressions when empty.
 
 import type { NeonQueryFunction } from '@neondatabase/serverless';
 import { starterProgressions, starterVoicings } from '@voiceshed/lib/theory';
@@ -81,13 +81,25 @@ export const TRAINER_DDL = [
     slow          INT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_voicing_runs_user ON voicing_runs(user_id, set_key, finished_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS voiceshed_meta (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+  )`,
 ];
+
+/**
+ * Bumped when the generated library grows (2: black-key roots under both
+ * names). A database seeded at an older version gets the new voicings added
+ * once; the ones it has, edited or not, are left alone.
+ */
+const SEED_VERSION = 2;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, family text, tags text[], lowest_register int, sort_order int`;
 
 async function seed(sql: Sql) {
-  const [{ n: nv }] = (await sql`SELECT COUNT(*)::int AS n FROM voicings`) as { n: number }[];
-  if (nv === 0) {
+  const rows0 = (await sql`SELECT value FROM voiceshed_meta WHERE key = 'seed_version'`) as { value: string }[];
+  const seeded = Number(rows0[0]?.value ?? 0);
+  if (seeded < SEED_VERSION) {
     const rows = starterVoicings();
     await sql.query(
       `INSERT INTO voicings (chord_label, root, quality, notes, top_note, family, tags, lowest_register, sort_order)
@@ -96,9 +108,16 @@ async function seed(sql: Sql) {
        ON CONFLICT DO NOTHING`,
       [JSON.stringify(rows)],
     );
+    await sql.query(
+      `INSERT INTO voiceshed_meta (key, value) VALUES ('seed_version', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+      [String(SEED_VERSION)],
+    );
   }
-  const [{ n: nc }] = (await sql`SELECT COUNT(*)::int AS n FROM contexts`) as { n: number }[];
-  if (nc === 0) {
+  // The progressions: added when missing, and their steps brought up to date
+  // with each seed version (nothing edits them by hand yet).
+  const [{ n: nc }] = (await sql`SELECT COUNT(*)::int AS n FROM contexts WHERE type = 'progression'`) as { n: number }[];
+  if (nc === 0 || seeded < SEED_VERSION) {
     const rows = starterProgressions().map(p => ({
       name: p.name,
       key: p.key,
@@ -109,9 +128,11 @@ async function seed(sql: Sql) {
       `INSERT INTO contexts (type, name, key, steps, sort_order)
        SELECT 'progression', name, key, steps, sort_order
        FROM jsonb_to_recordset($1::jsonb) AS t(name text, key int, steps jsonb, sort_order int)
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT (type, name) DO UPDATE SET steps = EXCLUDED.steps, key = EXCLUDED.key, sort_order = EXCLUDED.sort_order`,
       [JSON.stringify(rows)],
     );
+    // One no longer generated (a key that can't be spelled) goes.
+    await sql.query(`DELETE FROM contexts WHERE type = 'progression' AND NOT (name = ANY($1::text[]))`, [rows.map(r => r.name)]);
   }
 }
 

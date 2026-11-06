@@ -547,3 +547,10 @@
   /* Room for every chip: the rows wrap instead of scrolling. */
   .vf-scroll { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; -webkit-mask-image: none; mask-image: none; }
 }
+
+/* A black key under both its names, stacked: either is right. */
+.nm-root { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+.nm-root span:first-child:not(:last-child), .nm-root span + span { font-size: 13px; }
+.vf-key-name { display: flex; flex-direction: column; align-items: center; }
+.vf-key-name span:first-child:not(:last-child), .vf-key-name span + span { font-size: 20px; line-height: 0.95; }
+.vt-keys button { font-size: 13px; padding: 0 2px; white-space: nowrap; }

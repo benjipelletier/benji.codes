@@ -27,13 +27,27 @@ so Play mode never accepts one lower.
 | `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
 m7♭5: `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) and `m7b5 spread` 1 ♭5 ♭7 11 and
-1 ♭5 ♭7 ♭3. 180 voicings in all. ♭9 and altered dominants come later.
+1 ♭5 ♭7 ♭3. ♭9 and altered dominants come later. The register is the
+owner's call and is settled: bottom note E♭3 to D4 for every family.
 
-Spelling: each note is spelled as its interval above the root. Roots: flats
-for maj7 and 7 (so G♭7 has F♭), C♯ F♯ G♯ for minor-family chords, and a root
-that would need a double accidental takes its enharmonic (E♭m7♭5 → D♯m7♭5,
-A♭m7♭5 → G♯m7♭5). The seed only runs when the `voicings` table is empty; to
-regenerate after changing the shapes, empty it (attempts and schedules cascade).
+Spelling: each note is spelled as its interval above the root. A black-key
+root is in the library under **both** names, flat and sharp (D♭m7 and C♯m7,
+G♭7 and F♯7), each a card of its own — the owner wants both available. A name
+that would need a double accidental is left out (E♭m7♭5 and A♭m7♭5 would need
+B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5; A♯maj7 likewise). Single ones stay,
+however rare (F♭, C♭, E♯, B♯). 219 voicings in all.
+
+Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
+black key shows both names and either counts. Progressions and tunes keep one
+spelling: a chord takes the voicings spelled as the chart spells it.
+Progressions are spelled from their key's name (in G♭: A♭m7 D♭7 G♭maj7), and
+a black key's ii–V–I comes under both names (D♭ and C♯, G♭ and F♯) where
+every chord then spells cleanly: 26 progressions.
+
+The seed is versioned (`SEED_VERSION` in `app/api/voiceshed/schema.ts`,
+stored in `voiceshed_meta`): raising it adds the voicings a database doesn't
+have yet (its own, edited or not, are left alone; a deleted one comes back),
+updates the progressions' steps, and drops progressions no longer generated.
 
 ---
 
@@ -97,9 +111,9 @@ pulled into Review up to 2 days early, interval steps halved.
 Tunes are always read from the jazz app's `standards` (via its `getDb`).
 Tables (made on first use by `ensureTrainer`, also in `db/schema.sql`):
 `voicings` (global; `notes` spelled bottom to top with octave), `contexts`
-(ii–V–I and ii–V–i in 12 keys; minor steps fall back 7alt→7♭9→7, m6→m(maj7)→m7
+(ii–V–I and ii–V–i, black keys under both names; minor steps fall back 7alt→7♭9→7, m6→m(maj7)→m7
 until those exist), `attempts`, `srs_state` (owner × voicing × mode;
-`interval_days`), `voicing_runs`. `user_id` is the owner's email.
+`interval_days`), `voicing_runs`, `voiceshed_meta` (seed version). `user_id` is the owner's email.
 
 API: `GET bundle` (library, progressions, the owner's schedules, last 20k
 answers, last 500 runs), `GET tunes`, `POST sync` (owner only; voicing

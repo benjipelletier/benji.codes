@@ -1,7 +1,7 @@
 // Grading answers, and building the practice sets: timed runs through
 // ii–V–Is, a key's chords, a tune's changes or a tag filter.
 
-import { diatonicChords, mod12, namePc, noteMidi, parseChartChord, pitchName, PC_FLAT, qualityFallbacks, type Quality } from './theory';
+import { diatonicChords, mod12, namePc, noteMidi, parseChartChord, parseChordLabel, pitchName, PC_FLAT, qualityFallbacks, type Quality } from './theory';
 import type { Context, ContextType, Mode, Tune, Voicing } from './types';
 import { shuffle } from './srs';
 
@@ -144,13 +144,23 @@ function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
   return [...cands].sort((a, b) => distance(p, midisOf(a)) - distance(p, midisOf(b)))[0];
 }
 
-function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[]): Voicing[] {
+/**
+ * The voicings that can play a chord: its quality (or the next best), and —
+ * a black-key root being in the library under both names — the ones spelled
+ * as the chart spells it (C♯m7 for a C♯m7), so a progression keeps one
+ * spelling. Any spelling when the chart's has none.
+ */
+function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string): Voicing[] {
   for (const q of qualities) {
     const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags));
-    if (c.length) return c;
+    if (!c.length) continue;
+    const spelled = rootName ? c.filter(v => parseChordLabel(v.chord_label)?.rootName === rootName) : [];
+    return spelled.length ? spelled : c;
   }
   return [];
 }
+
+const symbolRoot = (symbol: string) => symbol.match(/^[A-G][b#]?/)?.[0];
 
 const keyName = (k: number) => PC_FLAT[k];
 const tagLabel = (tags: string[]) => (tags.length ? ` · ${tags.join(' + ')}` : '');
@@ -167,7 +177,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       let prev: Voicing | null = null;
       for (const s of c.steps) {
         const pinned = s.voicing_id ? voicings.find(v => v.id === s.voicing_id && matchesTags(v, spec.tags)) : undefined;
-        const cands = pinned ? [pinned] : candidatesFor(voicings, s.root, qualityFallbacks(s.quality), spec.tags);
+        const cands = pinned ? [pinned] : candidatesFor(voicings, s.root, qualityFallbacks(s.quality), spec.tags, symbolRoot(s.symbol));
         if (!cands.length) {
           skipped.push(s.symbol);
           continue;
@@ -197,7 +207,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       const moved = transposeSymbol(sym, shift);
       const chord = parseChartChord(moved);
       if (!chord) continue;
-      const cands = candidatesFor(voicings, chord.root, chord.qualities, spec.tags);
+      const cands = candidatesFor(voicings, chord.root, chord.qualities, spec.tags, chord.rootName);
       if (!cands.length) {
         skipped.push(moved);
         continue;

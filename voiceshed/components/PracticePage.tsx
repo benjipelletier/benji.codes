@@ -13,7 +13,7 @@ import { fmtPct, fmtSecs, relTime } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, filterTags, type SetSource, type SetSpec } from '@voiceshed/lib/practice';
 import { dueNow, newState, targetFor } from '@voiceshed/lib/srs';
-import { PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
+import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
 
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
@@ -186,9 +186,9 @@ export function PracticePage() {
                 {spec.source === 'tags' ? 'any root' : 'all'}
               </button>
             )}
-            {PC_FLAT.map((n, pc) => (
+            {PC_FLAT.map((_, pc) => (
               <button type="button" key={pc} className={spec.key === pc ? 'on' : ''} onClick={() => setSpec({ key: pc })}>
-                {pretty(n)}
+                {keyLabel(pc)}
                 {spec.source === 'tune' && tune?.home_key === pc ? '•' : ''}
               </button>
             ))}

@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { midisOf } from '@voiceshed/lib/practice';
-import { CYCLE_OF_FOURTHS, namePc, PC_FLAT, pretty, QUALITIES, QUALITY, type Quality, prettyLabel } from '@voiceshed/lib/theory';
+import { CYCLE_OF_FOURTHS, keyLabel, namePc, PC_FLAT, pretty, QUALITIES, QUALITY, rootNames, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import type { Voicing } from '@voiceshed/lib/types';
 
 export type Flag = 'muddy' | 'gap' | 'new';
@@ -168,7 +168,7 @@ export function VoicingFilter({
   }, [voicings, families, f, tests]);
 
   const tokens: { key: string; label: string; drop: () => void }[] = [
-    ...f.keys.map(k => ({ key: `k${k}`, label: pretty(PC_FLAT[k]), drop: () => set({ keys: f.keys.filter(x => x !== k) }) })),
+    ...f.keys.map(k => ({ key: `k${k}`, label: keyLabel(k), drop: () => set({ keys: f.keys.filter(x => x !== k) }) })),
     ...f.qualities.map(q => ({ key: `q${q}`, label: QUALITY[q].display, drop: () => set({ qualities: f.qualities.filter(x => x !== q) }) })),
     ...f.families.map(fam => ({ key: `f${fam}`, label: fam, drop: () => set({ families: f.families.filter(x => x !== fam) }) })),
     ...f.flags.map(fl => ({ key: `x${fl}`, label: FLAG_LABEL[fl], drop: () => set({ flags: f.flags.filter(x => x !== fl) }) })),
@@ -207,7 +207,11 @@ export function VoicingFilter({
             const on = f.keys.includes(k);
             return (
               <button type="button" key={k} className={`vf-key ${on ? 'on' : ''} ${!n && !on ? 'none' : ''}`} aria-pressed={on} onClick={() => set({ keys: toggle(f.keys, k) })}>
-                <span className="vf-key-name">{pretty(PC_FLAT[k])}</span>
+                <span className="vf-key-name">
+                  {rootNames(k).map(n => (
+                    <span key={n}>{pretty(n)}</span>
+                  ))}
+                </span>
                 <span className="vf-n">{n}</span>
               </button>
             );

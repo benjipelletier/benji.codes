@@ -11,7 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
 import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, type NameAnswer } from '@voiceshed/lib/practice';
-import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, type Quality } from '@voiceshed/lib/theory';
+import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
 
@@ -141,9 +141,12 @@ function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; o
   return (
     <div className="nm">
       <div className="nm-row nm-roots" role="group" aria-label="root">
-        {PC_FLAT.map((n, pc) => (
-          <button type="button" key={pc} className={`nm-btn ${root === pc ? 'nm-on' : ''}`} onPointerDown={pick(setRoot, pc)} aria-pressed={root === pc}>
-            {pretty(n)}
+        {/* A black key under both its names: either counts. */}
+        {PC_FLAT.map((_, pc) => (
+          <button type="button" key={pc} className={`nm-btn nm-root ${root === pc ? 'nm-on' : ''}`} onPointerDown={pick(setRoot, pc)} aria-pressed={root === pc} aria-label={rootNames(pc).join(' or ')}>
+            {rootNames(pc).map(n => (
+              <span key={n}>{pretty(n)}</span>
+            ))}
           </button>
         ))}
       </div>
@@ -166,8 +169,9 @@ function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; o
   );
 }
 
-function nameText(a: NameAnswer): string {
-  return `${pretty(PC_FLAT[a.root])}${QUALITY[a.quality].display}, ${intervalDisplay(intervalName(a.quality, a.top))} on top`;
+function nameText(a: NameAnswer, rootName?: string): string {
+  const root = rootName ? pretty(rootName) : rootNames(a.root).map(pretty).join('/');
+  return `${root}${QUALITY[a.quality].display}, ${intervalDisplay(intervalName(a.quality, a.top))} on top`;
 }
 
 export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, onAttempt, onFinish }: Props) {
@@ -346,7 +350,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
             )}
             {!result.correct && given?.kind === 'name' && (
               <span className="cr-verdict-note">
-                you: {nameText(given.answer)} · answer: {nameText(nameOf(v))}
+                you: {nameText(given.answer)} · answer: {nameText(nameOf(v), parseChordLabel(v.chord_label)?.rootName)}
               </span>
             )}
             {!result.correct && given?.kind === 'play' && <span className="cr-verdict-note">{v.notes.map(n => pretty(n)).join(' ')}</span>}

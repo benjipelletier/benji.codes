@@ -362,9 +362,31 @@ export const SHAPE_SETS: ShapeSet[] = [
 const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '7', 'm7b5'];
 
 /**
- * The starter library: every shape in SHAPE_SETS in all twelve keys, each
- * in the lowest octave whose bottom note is at or above E♭3, and marked so
- * Play mode never accepts it lower than that.
+ * MIDI notes spelled as these intervals above a root named `rootName`, or
+ * null when any note would need a double flat or sharp.
+ */
+export function spellStrict(rootName: string, midis: number[], intervals: string[]): string[] | null {
+  const notes = midis.map((m, i) => spellInterval(rootName, intervals[i], m));
+  const ok = notes.every((n, i) => n[0] === LETTERS[(LETTERS.indexOf(rootName[0] as Letter) + INTERVALS[intervals[i]][1]) % 7]);
+  return ok ? notes : null;
+}
+
+/** Every name a root goes by: one for a white key, the flat and the sharp for a black key. */
+export function rootNames(pc: number): string[] {
+  return PC_FLAT[pc] === PC_SHARP[pc] ? [PC_FLAT[pc]] : [PC_FLAT[pc], PC_SHARP[pc]];
+}
+
+/** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
+export function keyLabel(pc: number): string {
+  return rootNames(pc).map(pretty).join('/');
+}
+
+/**
+ * The starter library: every shape in SHAPE_SETS in all twelve keys —
+ * black-key roots under both names, flat and sharp (D♭m7 and C♯m7), except
+ * a name that would need a double accidental (E♭m7♭5 has B𝄫, so only D♯m7♭5).
+ * Each sits in the lowest octave whose bottom note is at or above E♭3, and is
+ * marked so Play mode never accepts it lower.
  */
 export function starterVoicings(): VoicingSeed[] {
   const out: VoicingSeed[] = [];
@@ -373,22 +395,25 @@ export function starterVoicings(): VoicingSeed[] {
       const shapes = set.shapes[q];
       if (!shapes) continue;
       for (const rootPc of CYCLE_OF_FOURTHS) {
-        shapes.forEach((shape, k) => {
-          const first = mod12(rootPc + INTERVALS[shape.ivs[0]][0]);
-          let bottom = first;
-          while (bottom < LOWEST_NOTE) bottom += 12;
-          const midis = stack(rootPc, shape.ivs, bottom);
-          const { rootName, notes } = spellChord(rootPc, q, midis, shape.ivs);
-          out.push({
-            chord_label: chordLabel(rootName, q),
-            root: rootPc,
-            quality: q,
-            notes,
-            top_note: notes[notes.length - 1],
-            family: set.family,
-            tags: [...set.tags, shape.tag],
-            lowest_register: LOWEST_NOTE,
-            sort_order: si * 10000 + QUALITY_ORDER.indexOf(q) * 1000 + CYCLE_OF_FOURTHS.indexOf(rootPc) * 10 + k,
+        rootNames(rootPc).forEach((rootName, ni) => {
+          shapes.forEach((shape, k) => {
+            const first = mod12(rootPc + INTERVALS[shape.ivs[0]][0]);
+            let bottom = first;
+            while (bottom < LOWEST_NOTE) bottom += 12;
+            const midis = stack(rootPc, shape.ivs, bottom);
+            const notes = spellStrict(rootName, midis, shape.ivs);
+            if (!notes) return;
+            out.push({
+              chord_label: chordLabel(rootName, q),
+              root: rootPc,
+              quality: q,
+              notes,
+              top_note: notes[notes.length - 1],
+              family: set.family,
+              tags: [...set.tags, shape.tag],
+              lowest_register: LOWEST_NOTE,
+              sort_order: si * 10000 + QUALITY_ORDER.indexOf(q) * 1000 + CYCLE_OF_FOURTHS.indexOf(rootPc) * 20 + ni * 10 + k,
+            });
           });
         });
       }
@@ -418,28 +443,48 @@ export interface ProgressionSeed {
 }
 
 /** ii–V–I in every major key and ii–V–i in every minor key. */
+/** Chord tones that decide whether a root name can spell a quality. */
+const QUALITY_TONES: Record<Quality, string[]> = {
+  maj7: ['R', '3', '5', '7'],
+  '6': ['R', '3', '5', '6'],
+  m7: ['R', 'b3', '5', 'b7'],
+  m6: ['R', 'b3', '5', '6'],
+  mMaj7: ['R', 'b3', '5', '7'],
+  '7': ['R', '3', '5', 'b7'],
+  '7b9': ['R', '3', 'b7', 'b9'],
+  // Alterations aren't in the library yet; their spelling is decided when they are.
+  '7alt': ['R', '3', 'b7'],
+  '7sus': ['R', '11', '5', 'b7'],
+  m7b5: ['R', 'b3', 'b5', 'b7'],
+  dim7: ['R', 'b3', 'b5', '6'],
+};
+
+/** Can this root name spell the chord with single accidentals only? */
+export function spellable(rootName: string, rootPc: number, q: Quality): boolean {
+  const ivs = QUALITY_TONES[q];
+  return spellStrict(rootName, ivs.map(iv => 60 + rootPc + INTERVALS[iv][0]), ivs) != null;
+}
+
 export function starterProgressions(): ProgressionSeed[] {
   const out: ProgressionSeed[] = [];
-  CYCLE_OF_FOURTHS.forEach((key, i) => {
-    const step = (semis: number, q: Quality) => {
-      const root = mod12(key + semis);
-      const name = QUALITY[q].roots[root];
-      return { symbol: chordLabel(name, q), root, quality: q };
+  let order = 0;
+  CYCLE_OF_FOURTHS.forEach(key => {
+    // Each chord's root spelled from the key's own name (in G♭: A♭m7 D♭7 G♭maj7, never G♯m7).
+    const step = (keyName: string, interval: string, q: Quality) => {
+      const root = mod12(key + INTERVALS[interval][0]);
+      const name = pitchName(spellInterval(keyName, interval, 60 + root));
+      return { symbol: chordLabel(name, q), root, quality: q, name };
     };
-    const majName = ROOTS_MAJOR[key];
-    out.push({
-      name: `ii–V–I in ${majName}`,
-      key,
-      steps: [step(2, 'm7'), step(7, '7'), step(0, 'maj7')],
-      sort_order: i * 2,
-    });
-    const minName = ROOTS_MINOR[key];
-    out.push({
-      name: `ii–V–i in ${minName} minor`,
-      key,
-      steps: [step(2, 'm7b5'), step(7, '7alt'), step(0, 'm6')],
-      sort_order: i * 2 + 1,
-    });
+    // A black key under both its names (G♭ and F♯), as long as every chord
+    // then has a name the library uses and spells without double accidentals
+    // (A♯ major would need B♯m7, D♭ minor E♭m7♭5: skipped).
+    const add = (label: string, keyName: string, ivs: [string, Quality][]) => {
+      const steps = ivs.map(([iv, q]) => step(keyName, iv, q));
+      if (!steps.every(st => rootNames(st.root).includes(st.name) && spellable(st.name, st.root, st.quality))) return;
+      out.push({ name: label, key, steps: steps.map(({ name: _n, ...st }) => st), sort_order: order++ });
+    };
+    for (const n of rootNames(key)) add(`ii–V–I in ${n}`, n, [['9', 'm7'], ['5', '7'], ['R', 'maj7']]);
+    for (const n of rootNames(key)) add(`ii–V–i in ${n} minor`, n, [['9', 'm7b5'], ['5', '7alt'], ['R', 'm6']]);
   });
   return out;
 }

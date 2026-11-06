@@ -87,3 +87,8 @@ CREATE TABLE IF NOT EXISTS voicing_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_voicing_runs_user ON voicing_runs(user_id, set_key, finished_at DESC);
+
+CREATE TABLE IF NOT EXISTS voiceshed_meta (
+  key    TEXT PRIMARY KEY,
+  value  TEXT NOT NULL
+);
