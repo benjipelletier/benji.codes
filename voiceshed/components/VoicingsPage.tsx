@@ -10,13 +10,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { ProgressMap, TWO_HAND } from './ProgressMap';
-import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
+import { useCardStats } from './TrainerShell';
+import { Retention } from './Retention';
+import { cardStatus, type CardStatus } from '@voiceshed/lib/drill';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { formatTime, parseTime, readSource, sourceHref, SOURCE_NAME } from '@voiceshed/lib/source';
 import { hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
-import { targetFor } from '@voiceshed/lib/srs';
 import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, FOUND, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
@@ -207,14 +208,15 @@ function DeckBar({ shown }: { shown: Voicing[] }) {
 
 export function VoicingCard({
   v,
-  learned,
+  status,
   gap,
   inDeck,
   canEdit,
   onOpen,
 }: {
   v: Voicing;
-  learned: boolean[];
+  /** Per mode, in MODES order. */
+  status: CardStatus[];
   gap: boolean;
   inDeck: boolean;
   canEdit: boolean;
@@ -240,9 +242,9 @@ export function VoicingCard({
           {muddy && <span className="lb-flag">muddy</span>}
           {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
           {inDeck && (
-            <span className="lb-learned" title={MODES.map((md, i) => `${MODE_LABEL[md]}: ${learned[i] ? 'learned' : 'not yet'}`).join(' · ')}>
-              {learned.map((l, i) => (
-                <i key={i} className={l ? 'on' : ''} />
+            <span className="lb-learned" title={MODES.map((md, i) => `${MODE_LABEL[md]}: ${status[i]}`).join(' · ')}>
+              {status.map((st, i) => (
+                <i key={i} className={`lb-st-${st}`} />
               ))}
             </span>
           )}
@@ -265,8 +267,7 @@ export function VoicingCard({
 export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () => void; onOpen?: (id: string) => void }) {
   const t = useTrainer();
   useBackClose(true, onClose);
-  const { canEdit, srs, settings } = t;
-  const { stats, gapKeys } = useCardStats();
+  const { canEdit, srs } = t;
   const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
   const pair = partnersOf(t.voicings, v).filter(o => o.id !== v.id);
   const dimFamily = useDimFamily(v);
@@ -391,61 +392,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
             ))}
         </div>
 
-        <table className="vt-table dt-stats">
-          <thead>
-            <tr>
-              <th>Mode</th>
-              <th>Accuracy</th>
-              <th>Avg</th>
-              <th>Isolated</th>
-              <th>In context</th>
-              <th>Target</th>
-              <th>Due</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MODES.map(md => {
-              const key = srsKey(v.id, md);
-              const s = stats.get(key);
-              const st = srs.get(key);
-              const target = targetFor(st, md, settings);
-              return (
-                <tr key={md} className={gapKeys.has(key) ? 'dt-gap' : ''}>
-                  <td>
-                    {MODE_LABEL[md]} {st?.learned ? <span className="dt-learned">learned</span> : null}
-                  </td>
-                  <td>{s ? `${fmtPct(s.correct, s.attempts)} of ${s.attempts}` : '—'}</td>
-                  <td>{fmtSecs(s?.avgMs)}</td>
-                  <td>{fmtSecs(s?.isolatedMs)}</td>
-                  <td>
-                    {fmtSecs(s?.contextMs)}
-                    {gapKeys.has(key) && <span className="lb-flag lb-flag-gap">gap</span>}
-                  </td>
-                  <td>
-                    <input
-                      className="dt-target"
-                      type="number"
-                      min={0.5}
-                      max={20}
-                      step={0.1}
-                      disabled={!canEdit || !st}
-                      title={st ? undefined : 'Add it to your deck to set its target'}
-                      value={target / 1000}
-                      onChange={e => {
-                        const ms = Math.round(Number(e.target.value) * 1000);
-                        if (ms < 500 || !st) return;
-                        void t.saveSrs([{ ...st, target_ms: ms === settings.target_ms[md] ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
-                      }}
-                    />
-                    s
-                  </td>
-                  <td>{!st ? '—' : st.reps === 0 ? 'new' : relTime(st.due_at)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <span className="vt-hint">Isolated and in-context are the medians of the last ten right answers. “gap”: fast in context but slow on its own — shown more often in review.</span>
+        <Retention v={v} />
 
         {canEdit && (
           <div className="vt-inline dt-danger">
@@ -746,7 +693,7 @@ export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen:
       v={v}
       inDeck={inDeck(v.id)}
       canEdit={t.canEdit && ownButton}
-      learned={MODES.map(m => !!t.srs.get(srsKey(v.id, m))?.learned)}
+      status={MODES.map(m => cardStatus(t.srs.get(srsKey(v.id, m)), gapKeys.has(srsKey(v.id, m))))}
       gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
       onOpen={() => onOpen(v.id)}
     />

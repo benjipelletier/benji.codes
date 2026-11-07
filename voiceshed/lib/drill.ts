@@ -297,3 +297,39 @@ export function afterSlot(prev: SrsState, status: SlotStatus, now: Date): SrsSta
   }
   return { ...prev, learned: true, interval_days: interval, due_at: iso(t + interval * DAY), updated_at: now.toISOString(), dirty: true };
 }
+
+// ── how a card stands (the Voicings page) ───────────────────────────────
+
+export type CardStatus = 'out' | 'new' | 'shaky' | 'solid';
+
+/** Out of the deck, new, shaky (not solid, or flagged for the context gap) or solid. */
+export function cardStatus(st: SrsState | undefined, gap: boolean): CardStatus {
+  if (!st) return 'out';
+  if (st.reps === 0) return 'new';
+  return !st.learned || gap ? 'shaky' : 'solid';
+}
+
+/** Right and fast answers at the end of a card's history, from any source. */
+export function fastStreak(list: Attempt[] | undefined): number {
+  const all = list ?? [];
+  let n = 0;
+  for (let i = all.length - 1; i >= 0 && all[i].correct && !all[i].slow; i--) n++;
+  return n;
+}
+
+export type Source = 'R' | 'C' | 'P' | 'T';
+export const SOURCE_NAME: Record<Source, string> = { R: 'Review', C: 'Review’s ii–V–I', P: 'Practice', T: 'a tune' };
+
+/**
+ * Where an answer came from: Review's drill (no run, on its own), Review's
+ * ii–V–I step (no run, in a progression), a Practice run, or a tune (Practice,
+ * a tune or one of the owner's charts). `what`: the set or progression.
+ */
+export function sourceOf(a: Attempt, runs: Map<string, { set_label: string; context_type: string }>, progressions: Map<string, { name: string }>): { src: Source; what: string | null } {
+  if (a.run_id) {
+    const r = runs.get(a.run_id);
+    return { src: a.context_type === 'tune' ? 'T' : 'P', what: r?.set_label ?? null };
+  }
+  if (a.context_type === 'isolated') return { src: 'R', what: null };
+  return { src: 'C', what: (a.context_id && progressions.get(a.context_id)?.name) || null };
+}

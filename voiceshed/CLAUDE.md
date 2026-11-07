@@ -332,8 +332,17 @@ wide screen; a run hides both.
   sticky bar (tap a token to drop it, Clear for all) and in the address
   (`?key=F,Bb&chord=m7&type=drop-2+two-hand&only=new&q=`). Results grouped by
   chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
-  register, notes, per-card target, per-mode stats (accuracy, average,
-  isolated vs in-context; target editable once it's in the deck). Add and
+  register, notes, and **how it's holding up** (`components/Retention.tsx`;
+  the owner: "is it clear how all the different review types are affecting
+  its retention?"): per mode, solid / shaky / new / not in deck (`cardStatus`)
+  with what it means (next check, leads your next set), for a shaky one why —
+  "Last slip: right but slow in Practice · ii–V–Is in F, 20 hours ago", the
+  context gap, or "2 of 3 fast in a row so far" — its fluency score as a bar,
+  its last 12 answers as dots (fast, slow, missed) marked by source (`sourceOf`:
+  R Review's drill, ii–V Review's ii–V–I, P a Practice run, T a tune; tap one
+  for time, set and when), medians alone and in context, and its target
+  (editable once it's in the deck). A card's three mode dots show solid
+  (green), shaky (red ring) or new (dashed). Add and
   delete voicings. **The deck from here**: a "+ Deck / ✓ In deck" button on
   each voicing, "Add N to deck" / "Remove" for everything the filter shows, the
   sheet's Add / Remove, and "in my deck" / "not in my deck" in the Only row.

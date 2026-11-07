@@ -1070,3 +1070,48 @@ button.pm-bg span { color: var(--accent-ink); }
 .dr-dots { grid-area: dots; font-size: 9px; letter-spacing: 2px; color: var(--good); }
 .dr-dots i { font-style: normal; color: var(--slow); }
 .dr-dots b { font-weight: 400; color: var(--fail); }
+
+/* A card's mode dots: solid, shaky, new. */
+.lb-learned i.lb-st-solid { background: var(--good); border-color: var(--good); }
+.lb-learned i.lb-st-shaky { border: 1.5px solid var(--fail); }
+.lb-learned i.lb-st-new { border-style: dashed; }
+
+/* How a voicing is holding up (Retention.tsx). */
+.rt { display: flex; flex-direction: column; gap: 10px; }
+.rt-mode { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--rule); border-left-width: 4px; border-radius: 12px; background: var(--card); }
+.rt-mode.rt-solid { border-left-color: var(--good); }
+.rt-mode.rt-shaky { border-left-color: var(--fail); }
+.rt-mode.rt-new { border-left-style: dashed; border-left-color: var(--ink-3); }
+.rt-mode.rt-out { border-style: dashed; background: transparent; }
+.rt-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.rt-head b { font-size: 16px; }
+.rt-pill { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--ink-3); }
+.rt-solid .rt-pill { color: var(--good); }
+.rt-shaky .rt-pill { color: var(--fail); }
+.rt-sub { flex-basis: 100%; font-size: 13px; color: var(--ink-3); }
+.rt-why { font-size: 13px; color: var(--ink); background: var(--paper); border-radius: 8px; padding: 6px 9px; }
+.rt-fluency { display: grid; grid-template-columns: auto 1fr 28px; gap: 8px; align-items: center; }
+.rt-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+.rt-bar { height: 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
+.rt-bar i { display: block; height: 100%; border-radius: 999px; background: var(--good); }
+.rt-bar.mid i { background: var(--slow); }
+.rt-bar.low i { background: var(--fail); }
+.rt-num { font-family: var(--mono); font-size: 12px; text-align: right; }
+.rt-strip { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.rt-strip::-webkit-scrollbar { display: none; }
+.rt-dot { flex: 0 0 auto; width: 26px; min-height: 40px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; border-radius: 8px; }
+.rt-dot i { width: 14px; height: 14px; border-radius: 50%; }
+.rt-dot span { font-family: var(--mono); font-size: 9px; color: var(--ink-3); white-space: nowrap; }
+.rt-dot.on { background: var(--paper); box-shadow: inset 0 0 0 1px var(--ink-3); }
+.rt-fast i, i.rt-fast { background: var(--good); }
+.rt-slow i, i.rt-slow { background: var(--slow); }
+.rt-miss i, i.rt-miss { background: var(--fail); }
+.rt-fast-ink { color: var(--good); }
+.rt-slow-ink { color: var(--slow); }
+.rt-miss-ink { color: var(--fail); }
+.rt-pick { font-size: 13px; }
+.rt-none { font-size: 13px; color: var(--ink-3); }
+.rt-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; color: var(--ink-3); }
+.rt-target { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+.rt-key i.rt-k { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 2px 0 6px; }
+.rt-key b { font-family: var(--mono); font-size: 10px; margin-left: 4px; }
