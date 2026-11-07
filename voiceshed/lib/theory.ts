@@ -271,8 +271,9 @@ const EXACT_SUFFIX: [RegExp, Quality][] = [
   [/^6$|^69$/, '6'],
   // 7♭9's voicings carry the 5, not the 13: a 13♭9 isn't the same chord.
   [/^7b9$/, '7b9'],
-  // The altered voicings carry 3 ♭7 ♯9 ♭13 (the owner's pick: 7alt, 7♯9, 7♭13).
-  [/^7alt$|^7#9$|^7b13$/, '7alt'],
+  // The altered voicings carry 3 ♭7 ♯9 ♭13 (the owner's pick: 7alt, 7♯9, 7♭13;
+  // and "remember ♭13": a ♯5 is the ♭13, so 7♯5 and 7♯9♯5 too).
+  [/^7alt$|^7#9$|^7b13$|^7#5$|^7#9#5$|^7#9b13$|^7b13#9$/, '7alt'],
   [/^-7$|^-9$/, 'm7'],
   [/^7$|^9$|^13$/, '7'],
   [/^h7?$/, 'm7b5'],

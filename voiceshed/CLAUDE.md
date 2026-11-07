@@ -36,8 +36,9 @@ the others ("Same keys as …", enharmonic names left out).
 Altered dominant (`7alt`; the owner: "3 ♭7 ♯9 ♭13 without the move and then
 ♭7 3 ♭13 ♯9 with the move"): `drop-2 two-hand`, a pair — 3 ♭7 ♯9 ♭13 (top ♭13)
 and ♭7 3 ♭13 ♯9, whose ♯9 on top then moves down to the ♭9 (`top_move`, tag
-`movement`). G7alt: B F A♯ E♭ · F B E♭ A♯ → A♭. Plays chart `7alt`, `7♯9`
-and `7♭13` (the owner's pick; `7♯5`, `7♯9♯5`, `7♭5`, aug stay skipped).
+`movement`). G7alt: B F A♯ E♭ · F B E♭ A♯ → A♭. Plays chart `7alt`, `7♯9`,
+`7♭13` (the owner's pick) and, since a ♯5 is the ♭13 (the owner: "remember
+♭13"), `7♯5` and `7♯9♯5`; `7♭9♯5`, `9♯5`, `7♭5` and aug stay skipped.
 
 The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
 inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
@@ -146,15 +147,15 @@ wide screen; a run hides both.
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
   `9`, `13`; the voicings carry the 9 and 13), 7♭9 (`7b9`), altered (`7alt`,
-  `7#9`, `7b13`), m7♭5 (`h`, `h7`); a slash chord
+  `7#9`, `7b13`, `7#5`, `7#9#5`), m7♭5 (`h`, `h7`); a slash chord
   as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
   for progressions: a ii–V–i's m6 is skipped until it exists.
-  Across the 1,460 standards that plays 85% of chords (298 tunes whole); the
+  Across the 1,460 standards that plays 86% of chords (324 tunes whole); the
   biggest gaps, by chords: bare major triad 2.9%, °7 2.2%, bare minor triad
-  1.8%, sus 1.6%, other altered (7♯5, 7♯9♯5, 7♭5, aug) 1.6%, m6 1.4%, 7♯11
-  1.3%, maj7♯11 0.7%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
+  1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
+  aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view: keys as
   columns round the cycle of fourths, voicing type × chord as rows (m7, 7,
@@ -269,7 +270,7 @@ cut off, reloaded all three pages, reviewed, ran a tune, reconnected, uploaded.
 
 ## Next (from the spec)
 
-Other altered chords (7♯5, 7♯9♯5, 7♭5); 7♭9 and 7alt in other voicing types; m6; hand-split practice (2+2 vs 1+3); loop /
+Other altered chords (7♭5, 7♭9♯5, aug); 7♭9 and 7alt in other voicing types; m6; hand-split practice (2+2 vs 1+3); loop /
 harmonise-a-line mode (a top line + a chord rule, e.g. Barry Harris
 sixth-diminished, voiced in a chosen family, movable to any key); interval
 answer mode.
