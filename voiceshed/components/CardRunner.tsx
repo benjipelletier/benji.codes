@@ -170,11 +170,12 @@ function useRunOrientation() {
 /** A voicing type as a card's header: a short name and what qualifies it. */
 function typeCue(v: Voicing): [string, string] {
   // Root or not, always said (the owner: "is it obvious when a chord is rootless versus has a root").
+  // One short line, never wrapped (the owner didn't like "has root" wrapping).
   const root = hasRoot(v) ? 'has root' : 'rootless';
-  if (v.family === 'drop-2 two-hand') return ['Drop-2', `two-hand · ${root}`];
+  if (v.family === 'drop-2 two-hand') return ['Drop-2', root];
   if (v.family === 'right-hand rootless') return ['Right-hand', root];
-  if (v.family === 'closed (block)') return ['Block', `${v.notes.length} notes · ${root}`];
-  return [v.family, `${v.notes.length} notes · ${root}`];
+  if (v.family === 'closed (block)') return ['Block', root];
+  return [v.family, root];
 }
 
 /**

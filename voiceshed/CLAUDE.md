@@ -277,8 +277,8 @@ wide screen; a run hides both.
 **The card** (Play and Spell; the owner: "the bottom note, what kind of voicing,
 and then the top note … three big headers", since they build from the bottom up):
 the chord, then three boxes — **Bottom** (its chord tone as a number: ♭3, 5,
-1 for the root), **Voicing** (Drop-2 / Block, with two-hand and rootless / has
-root), **Top** (number, and "→ ♭3" for a move). Notes only come with the
+1 for the root), **Voicing** (Drop-2 / Block, and "rootless" or "has root" on one
+line), **Top** (number, and "→ ♭3" for a move). Notes only come with the
 answer (the owner: "only show the number … showing the note is giving too
 much away"). Review → Settings → "Play and Spell cards
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
@@ -305,9 +305,9 @@ and button clicking"): loading is a small piano playing **The Lick** — D E F
 G E C D in eighths, the last D held, a breath, again (the owner: "the loader's
 piano should play it"; `THE_LICK` in `TrainerShell`) — with notes floating off it
 (`PianoLoader`). Loading rarely lasts long enough to see it (the owner noticed),
-so the piano also opens every run's summary, playing it twice (`rounds`); a tapped button sends up a
-note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; not on a run's keys or note
-pad); the big buttons press down like piano keys. Reduced motion turns them off.
+so the piano also opens every run's summary, playing it twice (`rounds`); a tapped big button (Start run, Done) or a "+ Deck"
+sends up a note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; only those: "every
+button … is kind of a lot"); the big buttons press down like piano keys. Reduced motion turns them off.
 
 **Sideways on a phone, only in a run** (the owner: "allow me to play in
 landscape mode on my phone but only … when I'm reviewing cards"): the installed

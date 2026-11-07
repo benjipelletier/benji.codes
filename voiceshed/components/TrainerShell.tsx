@@ -142,14 +142,17 @@ const TAP_NOTES = ['♪', '♫', '♩', '♬'];
 
 /**
  * A note floats up from a tapped button (the owner: "cute jazz or piano
- * animations on any loading and button clicking"). Not on a run's keys or note
- * pad, where speed counts, and not at all with reduced motion.
+ * animations on any loading and button clicking"), but only the big buttons and
+ * adding to the deck ("every button … is kind of a lot"). Not on a run's keys or
+ * note pad, where speed counts, and not at all with reduced motion.
  */
 function useTapNotes() {
   useEffect(() => {
     if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const onDown = (e: PointerEvent) => {
-      const el = (e.target as Element | null)?.closest('button, a.vt-tab');
+      // Only the moments that count (the owner: "every button … is kind of a lot"): the big
+      // buttons (start a run, Done) and putting voicings into the deck.
+      const el = (e.target as Element | null)?.closest('button.vt-primary, button.lb-deck:not(.on), button.lb-pair-deck:not(.on)');
       if (!el || (el as HTMLButtonElement).disabled || el.closest('.cr-input, .cr-kb, .np, .vk')) return;
       const n = document.createElement('span');
       n.className = 'vt-tapnote';

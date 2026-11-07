@@ -279,7 +279,7 @@
 .cr-iv { color: var(--ink-3); }
 .cr-family { font-family: var(--mono); font-size: 13px; color: var(--accent-ink); }
 .cr-cues { display: flex; justify-content: center; align-items: stretch; gap: 8px; margin-top: 14px; }
-.cr-cue { flex: 1 1 0; min-width: 104px; max-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 9px; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
+.cr-cue { flex: 1 1 0; min-width: 104px; max-width: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 6px 9px; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); }
 .cr-cue-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
 .cr-cue b { font-family: var(--serif); font-weight: 400; font-size: 34px; line-height: 1.05; color: var(--ink); }
 .cr-cue .cr-iv { font-size: 13px; text-align: center; }
@@ -924,3 +924,8 @@
 .vt-loader-small svg { width: 120px; height: 52px; }
 .vt-loader-small .vt-loader-notes { top: 6px; }
 .vt-loader-notes.off i { animation-iteration-count: 1; }
+
+/* The voicing box's line never wraps; the number boxes sit centred, no gap under them. */
+.cr-cue-type .cr-iv { white-space: nowrap; }
+.cr-cue-lbl { margin-bottom: auto; }
+.cr-cue > :last-child { margin-bottom: auto; }
