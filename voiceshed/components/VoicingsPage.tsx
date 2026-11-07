@@ -140,7 +140,7 @@ export function VoicingsPage() {
         </div>
       )}
 
-      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} />}
+      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
       {adding && <NewVoicing onClose={() => setAdding(false)} onCreated={id => { setAdding(false); setOpen(id); }} />}
     </div>
   );
@@ -250,19 +250,13 @@ export function VoicingCard({
   );
 }
 
-export function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
+export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () => void; onOpen?: (id: string) => void }) {
   const t = useTrainer();
   const { canEdit, srs, settings } = t;
   const { stats, gapKeys } = useCardStats();
   const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
   const pair = partnersOf(t.voicings, v).filter(o => o.id !== v.id);
-  // A 7♭9 is a diminished seventh: its keys also voice three other dominants.
-  const siblings = useMemo(() => {
-    if (v.quality !== '7b9') return [];
-    const pcs = (x: Voicing) => [...new Set(x.notes.map(n => noteMidi(n) % 12))].sort((a, b) => a - b).join(',');
-    const mine = pcs(v);
-    return [...new Set(t.voicings.filter(o => o.quality === '7b9' && o.family === v.family && o.root !== v.root && pcs(o) === mine).map(o => o.chord_label))];
-  }, [t.voicings, v]);
+  const dimFamily = useDimFamily(v);
   const [tagDraft, setTagDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState(v.notes_text ?? '');
   const m = midisOf(v);
@@ -304,6 +298,7 @@ export function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void 
           {v.top_move ? `  → ${pretty(v.top_move)}` : ''}
         </p>
         {v.top_move && <span className="vt-hint">The top voice moves from {pretty(pitchName(v.top_note))} to {pretty(pitchName(v.top_move))} after the chord: Play and Spell ask for the move too.</span>}
+        {dimFamily && <DimFamily v={v} fam={dimFamily} onOpen={onOpen} />}
 
         <div className="vt-field">
           <span className="vt-field-lbl">Tags</span>
@@ -363,11 +358,6 @@ export function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void 
             </span>
           ) : (
             <span>Not in your deck: it won’t come up in Review.</span>
-          )}
-          {siblings.length > 0 && (
-            <span className="vt-hint dt-pair">
-              Same keys as {siblings.map(o => prettyLabel(o)).join(', ')} — a diminished shape: one hand shape, four dominants a minor third apart.
-            </span>
           )}
           {pair.length > 0 && (
             <span className="vt-hint dt-pair">
@@ -565,5 +555,90 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
         <span className="vt-hint">Each note is spelled as its interval above the root.</span>
       </div>
     </div>
+  );
+}
+
+// ── the diminished family ────────────────────────────────────────────────
+
+const DIM_KIN = new Set(['7b9', 'dim7']);
+const pcsOf = (x: Voicing) => [...new Set(x.notes.map(n => noteMidi(n) % 12))].sort((a, b) => a - b).join(',');
+const keysOf = (x: Voicing) => x.notes.map(noteMidi).join(',');
+
+interface DimFamilyView {
+  /** Voicings on exactly these keys under another name. */
+  same: Voicing[];
+  /** The family's chords by quality, each with the voicing to open for it. */
+  dims: { label: string; open: Voicing }[];
+  doms: { label: string; open: Voicing }[];
+  /** Every 7♭9 and °7 voicing of this type on these four notes. */
+  all: Voicing[];
+}
+
+/**
+ * A 7♭9 or °7 voicing's family (the owner: "connect this to the dominant 4
+ * chords that have the same rootless shape"): its four notes are a °7, which
+ * names four diminished chords and voices four 7♭9s (a major third below each
+ * note), all on one hand shape. Not linked in the deck — each is its own chord.
+ */
+function useDimFamily(v: Voicing): DimFamilyView | null {
+  const t = useTrainer();
+  return useMemo(() => {
+    if (!DIM_KIN.has(v.quality)) return null;
+    const mine = pcsOf(v);
+    const keys = keysOf(v);
+    const all = t.voicings.filter(o => DIM_KIN.has(o.quality) && o.family === v.family && pcsOf(o) === mine);
+    const pick = (q: string) => {
+      const labels = [...new Set(all.filter(o => o.quality === q).map(o => o.chord_label))];
+      const order = (l: string) => CYCLE_OF_FOURTHS.indexOf(all.find(o => o.chord_label === l)!.root);
+      return labels
+        .sort((a, b) => order(a) - order(b))
+        .map(label => {
+          const vs = all.filter(o => o.chord_label === label);
+          return { label, open: vs.find(o => keysOf(o) === keys) ?? vs[0] };
+        });
+    };
+    return { same: all.filter(o => o.id !== v.id && keysOf(o) === keys), dims: pick('dim7'), doms: pick('7b9'), all };
+  }, [t.voicings, v]);
+}
+
+function DimFamily({ v, fam, onOpen }: { v: Voicing; fam: DimFamilyView; onOpen?: (id: string) => void }) {
+  const t = useTrainer();
+  const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
+  const out = fam.all.filter(o => !inDeck(o.id));
+  const chip = (label: string, o: Voicing) => (
+    <button
+      type="button"
+      key={label}
+      className={`df-chip ${o.chord_label === v.chord_label ? 'on' : ''} ${inDeck(o.id) ? 'in' : ''}`}
+      disabled={!onOpen || o.id === v.id}
+      onClick={() => onOpen?.(o.id)}
+      title={inDeck(o.id) ? 'In your deck' : 'Not in your deck'}
+    >
+      {prettyLabel(label)}
+    </button>
+  );
+  return (
+    <section className="df" aria-label="Diminished family">
+      <span className="vt-field-lbl">Diminished family — one hand shape</span>
+      {fam.same.length > 0 && (
+        <p className="vt-hint">
+          Same keys as {fam.same.map(o => prettyLabel(o.chord_label)).join(', ')}.
+        </p>
+      )}
+      <div className="df-row">
+        <span className="df-q">°7</span>
+        {fam.dims.map(d => chip(d.label, d.open))}
+      </div>
+      <div className="df-row">
+        <span className="df-q">7♭9</span>
+        {fam.doms.map(d => chip(d.label, d.open))}
+      </div>
+      <p className="vt-hint">These four notes are a °7 on any of them, and a rootless 7♭9 a major third below any of them. Tap one to see it; underlined ones are in your deck.</p>
+      {t.canEdit && out.length > 0 && (
+        <button type="button" className="vt-secondary" onClick={() => void t.addToDeck(out.map(o => o.id))}>
+          + Add the whole family to my deck ({out.length} voicing{out.length === 1 ? '' : 's'})
+        </button>
+      )}
+    </section>
   );
 }

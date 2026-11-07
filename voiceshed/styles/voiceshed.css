@@ -669,6 +669,13 @@
 .rv-empty { flex-direction: column; align-items: stretch; }
 .rv-go { display: flex; align-items: center; justify-content: center; text-decoration: none; }
 .dt-pair { flex-basis: 100%; }
+.df { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--rule); }
+.df-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.df-q { font-family: var(--serif); font-size: 18px; min-width: 40px; color: var(--ink-3); }
+.df-chip { font-family: var(--serif); font-size: 18px; padding: 4px 10px; min-height: 36px; border-radius: 10px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+.df-chip.in { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.df-chip.on { border-color: var(--accent); background: var(--accent-soft); }
+.df-chip:disabled { opacity: 1; cursor: default; }
 .pr-tunedeck { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; align-items: flex-start; }
 
 /* ── Voicings: the progress map ─────────────────────────────────── */

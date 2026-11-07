@@ -107,6 +107,7 @@ export const INTERVALS: Record<string, [number, number]> = {
   b13: [8, 5],
   '6': [9, 5],
   '13': [9, 5],
+  bb7: [9, 6],
   b7: [10, 6],
   '7': [11, 6],
 };
@@ -152,7 +153,7 @@ const ROOTS_MINOR = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb',
 const SPELL_MAJOR = { 0: 'R', 1: 'b9', 2: '9', 3: '#9', 4: '3', 5: '11', 6: '#11', 7: '5', 8: '#5', 9: '13', 10: 'b7', 11: '7' };
 const SPELL_MINOR = { ...SPELL_MAJOR, 3: 'b3', 8: 'b13' };
 const SPELL_HALFDIM = { ...SPELL_MINOR, 6: 'b5' };
-const SPELL_DIM = { ...SPELL_HALFDIM, 9: '6' };
+const SPELL_DIM = { ...SPELL_HALFDIM, 9: 'bb7' };
 const SPELL_ALT = { ...SPELL_MAJOR, 6: 'b5', 8: 'b13' };
 
 export const QUALITIES: QualityInfo[] = [
@@ -211,7 +212,7 @@ export function intervalName(q: Quality, semis: number): string {
 
 /** Display form of an interval: "b9" → "♭9", "R" → "root". */
 export function intervalDisplay(name: string): string {
-  return name === 'R' ? 'root' : name.replace(/^b/, '♭').replace(/^#/, '♯');
+  return name === 'R' ? 'root' : name.replace(/^bb/, '𝄫').replace(/^b/, '♭').replace(/^#/, '♯');
 }
 
 // ── chart symbols ───────────────────────────────────────────────────────
@@ -277,6 +278,8 @@ const EXACT_SUFFIX: [RegExp, Quality][] = [
   [/^-7$|^-9$/, 'm7'],
   [/^7$|^9$|^13$/, '7'],
   [/^h7?$/, 'm7b5'],
+  // °7 (iReal "o7"); a bare "o" is the triad and stays skipped.
+  [/^o7$/, 'dim7'],
 ];
 
 /** A chart symbol the library plays exactly: root + quality; null when it has no voicing for it. */
@@ -418,6 +421,14 @@ export const SHAPE_SETS: ShapeSet[] = [
         { ivs: ['3', 'b7', '#9', 'b13'], tag: '3-7-#9-b13' },
         { ivs: ['b7', '3', 'b13', '#9'], tag: '7-3-b13-#9', move: 'b9', tags: ['drop-2', 'two-handed', 'rootless', '4-note', 'movement'] },
       ],
+      // Diminished seventh: the 7♭9 shapes from the °7's own root (E°7 R ♭5 𝄫7 ♭3
+      // is C7♭9's 3 ♭7 ♭9 5 on the same keys) — one hand shape, four °7s and
+      // four dominants (the owner: "connect this to the dominant 4 chords that
+      // have the same rootless shape").
+      dim7: [
+        { ivs: ['R', 'b5', 'bb7', 'b3'], tag: '1-5-7-3', tags: ['drop-2', 'two-handed', '4-note'] },
+        { ivs: ['b5', 'R', 'b3', 'bb7'], tag: '5-1-3-7', tags: ['drop-2', 'two-handed', '4-note'] },
+      ],
     },
   },
   {
@@ -445,7 +456,7 @@ export const SHAPE_SETS: ShapeSet[] = [
   },
 ];
 
-const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5', '7alt'];
+const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5', '7alt', 'dim7'];
 
 /**
  * MIDI notes spelled as these intervals above a root named `rootName`, or
@@ -482,8 +493,11 @@ export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', '
  * with it (the owner: "keep the ones charts actually use"): D♭7♭9's ♭9 is E𝄫,
  * A♭7♭9's B𝄫. Altered: E7alt's ♯9 is F𝄪, B7alt's C𝄪, C♯/F♯/G♯7alt's D𝄪/G𝄪/A𝄪;
  * D♭7alt's ♭13 B𝄫 (and its move to E𝄫), G♭7alt's E𝄫 (→ A𝄫), A♭7alt's move to B𝄫.
+ * °7: charts write every root, both names on black keys (C♯/D♭ 59/41%, E♭/D♯
+ * 85/15, F♯/G♭ 70/30, A♭/G♯ 71/29, B♭/A♯ 90/10), and a °7's 𝄫7 needs a double
+ * flat on most: C°7 C E♭ G♭ B𝄫, D♭°7 D♭ F♭ A𝄫 C𝄫, …
  */
-export const CHARTED_DOUBLE = new Set(['Db7b9', 'Ab7b9', 'E7alt', 'B7alt', 'C#7alt', 'F#7alt', 'G#7alt', 'Db7alt', 'Gb7alt', 'Ab7alt']);
+export const CHARTED_DOUBLE = new Set(['Db7b9', 'Ab7b9', 'E7alt', 'B7alt', 'C#7alt', 'F#7alt', 'G#7alt', 'Db7alt', 'Gb7alt', 'Ab7alt', 'Cdim7', 'Dbdim7', 'Ebdim7', 'Fdim7', 'Gbdim7', 'Abdim7', 'Bbdim7']);
 
 /** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
 export function keyLabel(pc: number): string {
@@ -579,7 +593,7 @@ const QUALITY_TONES: Record<Quality, string[]> = {
   '7alt': ['R', '3', 'b7'],
   '7sus': ['R', '11', '5', 'b7'],
   m7b5: ['R', 'b3', 'b5', 'b7'],
-  dim7: ['R', 'b3', 'b5', '6'],
+  dim7: ['R', 'b3', 'b5', 'bb7'],
 };
 
 /** Can this root name spell the chord with single accidentals only? */

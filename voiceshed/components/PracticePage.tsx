@@ -377,7 +377,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
       </div>
       {openV && (
         <div onClick={e => e.stopPropagation()}>
-          <VoicingDetail v={openV} onClose={() => setOpen(null)} />
+          <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />
         </div>
       )}
     </div>

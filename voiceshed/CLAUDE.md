@@ -29,9 +29,9 @@ so Play mode never accepts one lower.
 7♭9: `drop-2 two-hand` only for now (the owner: "just drop 2 rootless"),
 3 ♭7 ♭9 5 · ♭7 3 5 ♭9 — the 5 stays (no 13), so `13b9` charts aren't exact.
 Its four notes are a diminished seventh chord, so one hand shape is four
-dominants a minor third apart (C7♭9 = E♭7♭9 = G♭7♭9 = A7♭9 on the keys).
-They stay separate voicings and separate deck entries; a 7♭9's sheet names
-the others ("Same keys as …", enharmonic names left out).
+dominants a minor third apart (C7♭9 = E♭7♭9 = G♭7♭9 = A7♭9 on the keys) and
+four °7s (below). They stay separate voicings and separate deck entries,
+connected on the sheet (the diminished family).
 
 Altered dominant (`7alt`; the owner: "3 ♭7 ♯9 ♭13 without the move and then
 ♭7 3 ♭13 ♯9 with the move"): `drop-2 two-hand`, a pair — 3 ♭7 ♯9 ♭13 (top ♭13)
@@ -39,6 +39,23 @@ and ♭7 3 ♭13 ♯9, whose ♯9 on top then moves down to the ♭9 (`top_move`
 `movement`). G7alt: B F A♯ E♭ · F B E♭ A♯ → A♭. Plays chart `7alt`, `7♯9`,
 `7♭13` (the owner's pick) and, since a ♯5 is the ♭13 (the owner: "remember
 ♭13"), `7♯5` and `7♯9♯5`; `7♭9♯5`, `9♯5`, `7♭5` and aug stay skipped.
+
+Diminished seventh (`dim7`, shown °7; the owner: "fill in fully diminished
+… connect this to the dominant 4 chords that have the same rootless shape"):
+`drop-2 two-hand`, R ♭5 𝄫7 ♭3 · ♭5 R ♭3 𝄫7 — the 7♭9 shapes seen from the °7's
+own root, so E°7's first voicing (E3 B♭3 D♭4 G4) is C7♭9's on the same keys.
+Interval `bb7` (9 semitones, a seventh's letter): C°7 is C E♭ G♭ B𝄫. All 17
+names charts write are in (both names on black keys; A♯°7 just makes 10%),
+with their double flats (`CHARTED_DOUBLE`). Plays chart `o7` (a bare `o`, the
+triad, stays skipped). **The diminished family** (`useDimFamily` in
+`VoicingsPage.tsx`): a 7♭9 or °7 voicing's sheet shows, near the top, the
+voicings on exactly the same keys, the four °7s (both names) and four 7♭9s
+whose notes are those four, as chips that open that chord's voicing on the
+same keys (else its first), underlined when in the deck, and "+ Add the whole
+family to my deck (N voicings)". They aren't partners — each is its own chord,
+added on its own unless the family button is used. Name mode already counts
+any library voicing on the same keys, so E°7 is a right answer for C7♭9's
+3 ♭7 ♭9 5 and vice versa.
 
 The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
 inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
@@ -71,7 +88,8 @@ G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, 
 D♯7alt, A♯7alt). Both names stay only where charts use both: D♭m7 / C♯m7,
 G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. So a white key has 14
 voicings, a black key 14, and D♭/C♯ and G♭/F♯ 18, plus a 6 chord each, two
-7♭9s per name (13 names) and two 7alts per name (15). 244 voicings in all.
+7♭9s per name (13 names), two 7alts per name (15) and two °7s per name (17).
+278 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -91,7 +109,7 @@ Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
 removed the rare spellings (generated ones only — a voicing added by hand stays);
 version 6 added the 6 chord (into the library, not the deck); version 7 the
-7♭9s, version 8 the altered dominants (likewise).
+7♭9s, version 8 the altered dominants, version 9 the °7s (likewise).
 
 ---
 
@@ -147,14 +165,13 @@ wide screen; a run hides both.
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
   `9`, `13`; the voicings carry the 9 and 13), 7♭9 (`7b9`), altered (`7alt`,
-  `7#9`, `7b13`, `7#5`, `7#9#5`), m7♭5 (`h`, `h7`); a slash chord
+  `7#9`, `7b13`, `7#5`, `7#9#5`), °7 (`o7`), m7♭5 (`h`, `h7`); a slash chord
   as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
   for progressions: a ii–V–i's m6 is skipped until it exists.
-  Across the 1,460 standards that plays 86% of chords (324 tunes whole); the
-  biggest gaps, by chords: bare major triad 2.9%, °7 2.2%, bare minor triad
-  1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
+  Across the 1,460 standards that plays 88% of chords (469 tunes whole); the
+  biggest gaps, by chords: bare major triad 2.9%, bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
@@ -162,7 +179,7 @@ wide screen; a run hides both.
   types"): tabs above it — drop-2 two-hand, right-hand rootless, m7♭5 closed —
   each with "known/in deck", the pick kept on the device; everything below
   (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
-  Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9,
+  Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9, °7,
   7alt, maj7, 6, m7♭5), scrolling both ways with both headers pinned; each
   voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
   new (outlined), learning (amber, by accuracy), learned (green, deeper the
