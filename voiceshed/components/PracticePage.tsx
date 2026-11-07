@@ -9,8 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { Summary } from './ReviewPage';
-import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
-import { VoicingCard, VoicingDetail } from './VoicingsPage';
+import { fmtPct, fmtSecs, relTime } from './TrainerShell';
+import { VoicingDetail, VoicingGrid } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
@@ -323,7 +323,6 @@ function ToDeck({ order, tags, what, title }: { order: [string, number][]; tags:
  */
 function ChooseVoicings({ title, order, tags, onClose }: { title: string; order: [string, number][]; tags: string[]; onClose: () => void }) {
   const t = useTrainer();
-  const { gapKeys } = useCardStats();
   const [open, setOpen] = useState<string | null>(null);
   const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
   const groups = order
@@ -349,7 +348,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
             ×
           </button>
         </div>
-        <p className="vt-hint">In the order they come. + Deck brings a voicing’s other inversion with it.</p>
+        <p className="vt-hint">In the order they come. Inversions are framed together and go into the deck together.</p>
         {groups.map(g => {
           const k = g.vs.filter(v => inDeck(v.id)).length;
           return (
@@ -361,19 +360,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
                   {k}/{g.vs.length} in deck
                 </span>
               </h3>
-              <div className="lb-cards">
-                {g.vs.map(v => (
-                  <VoicingCard
-                    key={v.id}
-                    v={v}
-                    inDeck={inDeck(v.id)}
-                    canEdit={t.canEdit}
-                    learned={MODES.map(m => !!t.srs.get(srsKey(v.id, m))?.learned)}
-                    gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
-                    onOpen={() => setOpen(v.id)}
-                  />
-                ))}
-              </div>
+              <VoicingGrid voicings={g.vs} onOpen={setOpen} />
             </section>
           );
         })}

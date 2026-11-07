@@ -109,19 +109,7 @@ export function VoicingsPage() {
               <h3 className="lb-group-h">
                 {prettyLabel(label)} <span>{vs.length}</span>
               </h3>
-              <div className="lb-cards">
-                {vs.map(v => (
-                  <VoicingCard
-                    key={v.id}
-                    v={v}
-                    inDeck={tests.inDeck(v)}
-                    canEdit={canEdit}
-                    learned={MODES.map(m => !!srs.get(srsKey(v.id, m))?.learned)}
-                    gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
-                    onOpen={() => setOpen(v.id)}
-                  />
-                ))}
-              </div>
+              <VoicingGrid voicings={vs} onOpen={setOpen} />
             </section>
           ))}
           {filtered.length > shown && (
@@ -640,5 +628,68 @@ function DimFamily({ v, fam, onOpen }: { v: Voicing; fam: DimFamilyView; onOpen?
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * Voicing cards with each pair of inversions framed together (the owner:
+ * "make it more obvious when cards are connected by an inversion"): one frame,
+ * "⇄ 2 inversions", and one deck button for both, since they're added and
+ * removed together. A voicing with no partner stands alone with its own button.
+ */
+export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: string) => void }) {
+  const t = useTrainer();
+  const { gapKeys } = useCardStats();
+  const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
+  // Partners (same chord, same voicing type), in the order they come.
+  const groups: Voicing[][] = [];
+  const at = new Map<string, number>();
+  for (const v of voicings) {
+    const k = `${v.chord_label}|${v.family}`;
+    if (!at.has(k)) {
+      at.set(k, groups.length);
+      groups.push([]);
+    }
+    groups[at.get(k)!].push(v);
+  }
+  const card = (v: Voicing, ownButton: boolean) => (
+    <VoicingCard
+      key={v.id}
+      v={v}
+      inDeck={inDeck(v.id)}
+      canEdit={t.canEdit && ownButton}
+      learned={MODES.map(m => !!t.srs.get(srsKey(v.id, m))?.learned)}
+      gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
+      onOpen={() => onOpen(v.id)}
+    />
+  );
+  return (
+    <div className="lb-cards">
+      {groups.map(g => {
+        if (g.length < 2) return card(g[0], true);
+        const all = g.every(v => inDeck(v.id));
+        return (
+          <div key={g[0].id} className={`lb-pair ${all ? 'lb-pair-in' : ''}`} role="group" aria-label={`${g[0].chord_label} ${g[0].family}: ${g.length} inversions, in the deck together`}>
+            <div className="lb-pair-h">
+              <span className="lb-pair-link" aria-hidden>
+                ⇄
+              </span>
+              {g.length} inversions · {g[0].family.replace('m7b5', 'm7♭5')}
+            </div>
+            <div className="lb-pair-cards">{g.map(v => card(v, false))}</div>
+            {t.canEdit && (
+              <button
+                type="button"
+                className={`lb-deck lb-pair-deck ${all ? 'on' : ''}`}
+                aria-pressed={all}
+                onClick={() => void (all ? t.removeFromDeck(g.map(v => v.id)) : t.addToDeck(g.map(v => v.id)))}
+              >
+                {all ? `✓ Both in deck` : `+ Deck both`}
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
