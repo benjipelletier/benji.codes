@@ -46,6 +46,10 @@ interface Props {
   requeueMisses?: boolean;
   /** A progression or tune: show where the card falls in it. */
   showSequence?: boolean;
+  /** Review's drill: the next cards, asked for when the queue runs out; none ends the session. */
+  more?: () => (RunnerStep & { repeat?: boolean })[];
+  /** In place of "3 / 12" at the top. */
+  status?: string;
   onAttempt: (r: RunnerResult) => void;
   onFinish: (results: RunnerResult[]) => void;
 }
@@ -297,7 +301,7 @@ function nameText(a: NameAnswer, rootName?: string): string {
   return `${root}${QUALITY[a.quality].display}, ${intervalDisplay(intervalName(a.quality, a.top))} on top`;
 }
 
-export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, onAttempt, onFinish }: Props) {
+export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, more, status, onAttempt, onFinish }: Props) {
   const [queue, setQueue] = useState<(RunnerStep & { repeat?: boolean })[]>(steps);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<'ask' | 'feedback'>('ask');
@@ -340,8 +344,12 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   const next = useCallback(() => {
     if (index + 1 >= queue.length) {
-      finish();
-      return;
+      const extra = more?.() ?? [];
+      if (!extra.length) {
+        finish();
+        return;
+      }
+      setQueue(q => [...q, ...extra]);
     }
     setIndex(i => i + 1);
     setPhase('ask');
@@ -349,7 +357,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     setResult(null);
     setTapped([]);
     setShift(0);
-  }, [index, queue.length, finish]);
+  }, [index, queue.length, finish, more]);
 
   /** `at`: when the answer was in (the note pad's last tap), if not now. */
   const submit = useCallback(
@@ -442,7 +450,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const kbStyle = keyPx && step.mode === 'play' ? { width: fit.width, margin: '0 auto' } : undefined;
   const kbAspect = keyPx && step.mode === 'play' && shown !== false ? fit.aspect : undefined;
 
-  const pos = queue.length > 1 ? `${index + 1} / ${queue.length}` : '';
+  const pos = status ?? (queue.length > 1 ? `${index + 1} / ${queue.length}` : '');
   const seq = showSequence ? sequenceAround(queue, index, step.mode === 'name' && phase === 'ask') : null;
 
   return (
@@ -456,7 +464,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
         </button>
       </div>
 
-      {seq && (
+      {seq && seq.length > 0 && (
         <div className="cr-seq" aria-label="where this chord falls">
           {seq.map((s, i) => (
             <span key={i} className={`cr-seq-chord ${s.current ? 'cr-seq-on' : ''}`}>
@@ -568,7 +576,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
           </button>
         ) : (
           <button type="button" className="cr-next" onClick={next} autoFocus={!result?.correct}>
-            {index + 1 >= queue.length ? 'Finish' : 'Next'} <kbd>↵</kbd>
+            {index + 1 >= queue.length && !more ? 'Finish' : 'Next'} <kbd>↵</kbd>
           </button>
         )}
       </div>
@@ -580,6 +588,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 function sequenceAround(queue: RunnerStep[], index: number, hideCurrent: boolean): { label: string; current: boolean }[] {
   const group = queue[index].group;
   const out: { label: string; current: boolean }[] = [];
+  if (!group) return out;
   for (let i = Math.max(0, index - 3); i <= Math.min(queue.length - 1, index + 3); i++) {
     if (queue[i].group !== group) continue;
     if (hideCurrent && i > index) break;

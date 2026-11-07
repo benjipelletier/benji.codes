@@ -2,9 +2,10 @@
 
 Flashcards and timed drills for jazz piano voicings, at `benji.codes/voiceshed`.
 Built from the owner's "Voicing Trainer v1" spec. Speed is the measure: a card
-counts as **learned** only when it's answered right *and* under its target time
-(default 2 s, set per mode in Review → Settings and per card on the Voicings page).
-Right but slow is a weak pass and comes back sooner. Phone first, and works
+counts as **solid** (`learned`) only when it's answered right *and* under its
+target time (default 2 s, set per mode in Review → Settings and per card on the
+Voicings page) several times in a row, and then in a ii–V–I. Review drills,
+rather than spacing one answer a day (below). Phone first, and works
 fully offline (it was built for a 20-hour flight).
 
 Single owner: `VOICESHED_OWNER_EMAIL`, else `JAZZ_OWNER_EMAIL` (the same person).
@@ -160,21 +161,48 @@ Links between them are plain `<a>`, so the service worker can serve each one
 with no connection. Tabs sit along the bottom on a phone, in the top bar on a
 wide screen; a run hides both.
 
-- `/voiceshed` — SRS Review, from **the deck**: only the voicings the owner
-  added on the Voicings page (the owner: "only what I add"; nothing joins on its
-  own). Adding a voicing brings its Play, Spell and Name cards (an `srs_state`
-  row each, `reps` 0 = new, due now); new ones come in the order added, a
-  voicing's three modes spread through the session. An empty deck sends you to
-  the Voicings page. A miss
-  comes round again 4 cards later, once. Summary: accuracy, average time,
-  slowest cards. The ✈ Offline panel and sign in/out.
-  **This session** (`components/ReviewSetup.tsx`) tailors the run, kept on the
-  device: answer modes (at least one), chord types, voicing types, keys (empty
-  row = all), black-key chords under both names / flats / sharps, which cards
-  (due now incl. context gap; new, within the day's limit; not due yet,
-  soonest first — answered early they're rescheduled from then), and length
-  (10–60 or all). Chips count the cards due now with them, given the other
-  rows. A line above Start says what the session is.
+- `/voiceshed` — Review: **today's set**, from **the deck**: only the voicings
+  the owner added on the Voicings page (the owner: "only what I add"; nothing
+  joins on its own). Adding a voicing brings its Play, Spell and Name cards (an
+  `srs_state` row each, `reps` 0 = new, due now). An empty deck sends you to the
+  Voicings page. The algorithm is `lib/drill.ts` — the owner found one-answer
+  spacing useless for voicings ("seeing one voicing, getting it wrong then not
+  seeing it for another day … not that useful"), so a voicing is treated as a
+  motor skill:
+  1. **The set** (`chooseSet`, 4–10 cards, 6 by default): shaky cards first
+     (answered before, not solid, or flagged for the context gap; lowest
+     `fluencyScore` first — each of the last 6 answers scores target ÷ time,
+     capped at 1, a miss 0), then solid cards due a check, then new ones in the
+     order added (a voicing's modes spread across sets; only with "New voicings"
+     on), then — to fill — solid cards ahead of their check, soonest first.
+  2. **The drill** (`startDrill`, `nextSlot`, `answerDrill`): the cards mixed,
+     never one twice running. A miss or slow answer comes back 2 turns later
+     and resets the streak; a fast one later each time. A card leaves after
+     `FLUENT_STREAK` (3) right-and-fast answers in a row — a check after 1,
+     unless it slips — or after `MAX_ASKS` (10), still shaky. The top says
+     "2 / 6 fluent".
+  3. **In a ii–V–I** (`contextSteps`): each card that came out fluent is played
+     once in the first stored progression with its chord (same root, quality,
+     spelling), its own voicing there and the library's of the same family,
+     voice-led, on the other chords; cards of one progression and mode share
+     it. iii voicings, found ones and chords no progression has skip it.
+  4. **The schedule**: every answer counts a rep; a solid card that's slow or
+     missed (in the drill, the ii–V–I, or a Practice run) is demoted —
+     `learned` false, due now — so it leads the next set (`demote`,
+     `afterAnswer`). Leaving fluent: solid, a check in 1 day; a check passed:
+     3 days, then ×2.5, at most 120 (`afterSlot`). Stuck: shaky, due now.
+     `ease` is no longer used.
+  The home shows shaky / checks / new and the set's cards as chips. The summary
+  ("Set done") lists each card — fluent in N, check passed, still shaky, not
+  finished — with how it did in context and a dot per answer, then accuracy
+  (first tries), average time and the slowest cards. The ✈ Offline panel and
+  sign in/out.
+  **This session** (`components/ReviewSetup.tsx`), kept on the device: answer
+  modes (at least one), chord types, voicing types, keys (empty row = all),
+  black-key chords under both names / flats / sharps, cards in a set, and
+  whether new voicings join. Chips count the cards waiting (shaky, due a check,
+  new) with them, given the other rows. A line above Start says what the
+  session draws from.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, **One root** (every chord type on one root — Cm7,
   C7, C7♭9, C7alt, C°7, Cmaj7, C6, Cm7♭5 — both names of a black key, shuffled;
@@ -188,8 +216,8 @@ wide screen; a run hides both.
   this voicing type yet"). Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
-  Right-but-slow and missed cards become due now — if they're in the deck; any
-  that aren't are listed with "Add N to deck", never added on their own.
+  Right-but-slow and missed cards are no longer solid (due now, at the front of
+  the next set) — if they're in the deck; any that aren't are listed with "Add N to deck", never added on their own.
   **Every set** (the owner: "every practice page should allow me to click to
   see all the possible chords so I can add them to my deck"; "make choose
   voicings a bit more obvious") has one big button, "+ Add this set's/tune's
@@ -401,14 +429,17 @@ the keys.
 
 **Context gap**: a card whose isolated median (last 10 right answers) is over
 target and ≥ 25% slower than its in-context median (≥ 3 of each) is flagged:
-pulled into Review up to 2 days early, interval steps halved.
+it counts as shaky in Review until it's fast alone. The other way round —
+fast alone, slow in a ii–V–I — is caught by the set's ii–V–I step and by
+Practice runs, which demote it.
 
 ---
 
 ## Code
 
 - `lib/`: `theory.ts` (spelling, qualities, chart-symbol mapping, `SHAPE_SETS`,
-  progressions), `srs.ts` (scheduling, queue, stats), `practice.ts` (grading,
+  progressions), `drill.ts` (today's set, the drill, the ii–V–I step, the schedule),
+  `srs.ts` (targets, answer stats, the context gap), `practice.ts` (grading,
   sets, voice leading), `idb.ts` (IndexedDB), `session.ts` (owner check).
 - `components/`: `TrainerProvider` (state + sync), `TrainerShell` (frame),
   `Keyboard`, `NotePad`, `CardRunner` (shared by all pages), the three pages.

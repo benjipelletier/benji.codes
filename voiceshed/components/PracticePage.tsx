@@ -14,7 +14,8 @@ import { SourceLine, VoicingDetail, VoicingGrid } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { buildSet, type OrderEntry, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
-import { dueNow, targetFor } from '@voiceshed/lib/srs';
+import { targetFor } from '@voiceshed/lib/srs';
+import { demote } from '@voiceshed/lib/drill';
 import { keyLabel, LATER_FAMILIES, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mode, type Run, type SrsState, type Tune, type Voicing } from '@voiceshed/lib/types';
 
@@ -147,8 +148,9 @@ export function PracticePage() {
         slow: right.filter(r => r.slow).length,
       };
       void t.saveRun(saved);
-      // Right but slow, and missed: into the next review — cards in the deck
-      // only. One that isn't is offered in the results, never added on its own.
+      // Right but slow, and missed: not solid any more, so it leads the next
+      // review's set — cards in the deck only. One that isn't is offered in the
+      // results, never added on its own.
       const now = new Date();
       const rows = new Map<string, SrsState>();
       for (const r of rs) {
@@ -156,7 +158,7 @@ export function PracticePage() {
         const key = srsKey(r.step.voicing.id, r.step.mode);
         const prev = rows.get(key) ?? t.srs.get(key);
         if (!prev) continue;
-        rows.set(key, { ...dueNow(prev, now), dirty: true });
+        rows.set(key, demote(prev, now));
       }
       void t.saveSrs([...rows.values()]).then(() => t.sync());
     },

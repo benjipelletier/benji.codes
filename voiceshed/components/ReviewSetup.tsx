@@ -1,14 +1,16 @@
 'use client';
 
-// What a review session deals: which answer modes, chord types, voicing
-// types, keys and spellings, which cards (due, new, and ahead of schedule),
-// and how many. Rows to scroll sideways and tap, like the Voicings filter;
-// an empty row means all of it. Each chip shows how many cards are due now
-// with it, given the other rows. Remembered on this device.
+// What today's set draws from: which answer modes, chord types, voicing
+// types, keys and spellings, how many cards a set drills, and whether new
+// voicings come in. Rows to scroll sideways and tap, like the Voicings
+// filter; an empty row means all of it. Each chip shows how many cards are
+// waiting with it (shaky, due a check, new), given the other rows.
+// Remembered on this device.
 
 import { useEffect, useMemo, useState } from 'react';
 import { CYCLE_OF_FOURTHS, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, type Quality } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, type Mode, type SrsState, type Voicing } from '@voiceshed/lib/types';
+import { FLUENT_STREAK } from '@voiceshed/lib/drill';
 
 export type Spelling = 'both' | 'flats' | 'sharps';
 
@@ -21,11 +23,13 @@ export interface ReviewConfig {
   keys: number[];
   /** Black-key chords under which name. */
   spelling: Spelling;
-  /** Cards due now (and context-gap ones), new cards (added to the deck, never answered), cards not due yet (soonest first). */
-  include: { due: boolean; fresh: boolean; ahead: boolean };
-  /** Most cards in the session; 0 = no limit. */
-  length: number;
+  /** Cards drilled at once (lib/drill.ts). */
+  size: number;
+  /** New cards (in the deck, never answered) may join the set once nothing shakier is waiting. */
+  fresh: boolean;
 }
+
+export const SET_SIZES = [4, 6, 8, 10];
 
 export const DEFAULT_REVIEW: ReviewConfig = {
   modes: [...MODES],
@@ -33,8 +37,8 @@ export const DEFAULT_REVIEW: ReviewConfig = {
   families: [],
   keys: [],
   spelling: 'both',
-  include: { due: true, fresh: true, ahead: false },
-  length: 60,
+  size: 6,
+  fresh: true,
 };
 
 const STORE = 'vs-review-config';
@@ -47,7 +51,13 @@ export function useReviewConfig(): [ReviewConfig, (c: ReviewConfig) => void] {
       const raw = localStorage.getItem(STORE);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<ReviewConfig>;
-        setC({ ...DEFAULT_REVIEW, ...saved, include: { ...DEFAULT_REVIEW.include, ...saved.include }, modes: saved.modes?.length ? saved.modes : DEFAULT_REVIEW.modes });
+        setC({
+          ...DEFAULT_REVIEW,
+          ...saved,
+          size: SET_SIZES.includes(saved.size ?? 0) ? saved.size! : DEFAULT_REVIEW.size,
+          fresh: saved.fresh ?? DEFAULT_REVIEW.fresh,
+          modes: saved.modes?.length ? saved.modes : DEFAULT_REVIEW.modes,
+        });
       }
     } catch {
       // Not remembered: the default it is.
@@ -103,7 +113,7 @@ export function ReviewSetup({
   onChange: (c: ReviewConfig) => void;
   voicings: Voicing[];
   srs: Map<string, SrsState>;
-  /** Cards due now, all voicings and modes: what the chip counts count. */
+  /** Cards waiting (shaky, due a check, new), all voicings and modes: what the chip counts count. */
   due: { voicing: Voicing; mode: Mode }[];
 }) {
   const c = config;
@@ -117,7 +127,7 @@ export function ReviewSetup({
     return [...order].sort((a, b) => a[1] - b[1]).map(([f]) => f);
   }, [voicings]);
 
-  // Due now with each chip, given the other rows.
+  // Waiting with each chip, given the other rows.
   const counts = useMemo(() => {
     const mode = new Map<Mode, number>();
     const qual = new Map<Quality, number>();
@@ -161,7 +171,7 @@ export function ReviewSetup({
                 onClick={() => (on && c.modes.length === 1 ? undefined : set({ modes: MODES.filter(x => (x === m ? !on : c.modes.includes(x))) }))}
               >
                 <span className="rs-mode-name">{MODE_LABEL[m]}</span>
-                <span className="vf-n">{n} due</span>
+                <span className="vf-n">{n} waiting</span>
               </button>
             );
           })}
@@ -177,7 +187,7 @@ export function ReviewSetup({
             return (
               <button type="button" key={q} className={`vf-qual ${chip(on, n)}`} aria-pressed={on} onClick={() => set({ qualities: toggle(c.qualities, q) })}>
                 <span className="vf-qual-name">{QUALITY[q].display}</span>
-                <span className="vf-n">{n} due</span>
+                <span className="vf-n">{n}</span>
               </button>
             );
           })}
@@ -237,35 +247,23 @@ export function ReviewSetup({
       </div>
 
       <div className="vt-field">
-        <span className="vf-row-lbl">Cards</span>
-        <div className="rs-include">
-          {(
-            [
-              ['due', 'Due now', 'what the schedule says, and context-gap cards'],
-              ['fresh', 'New', 'in your deck, not answered yet'],
-              ['ahead', 'Not due yet', 'soonest first: extra rounds before a flight'],
-            ] as [keyof ReviewConfig['include'], string, string][]
-          ).map(([k, label, hint]) => (
-            <label key={k} className="vt-check rs-check">
-              <input type="checkbox" checked={c.include[k]} onChange={e => set({ include: { ...c.include, [k]: e.target.checked } })} />
-              <span>
-                {label} <em>{hint}</em>
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="vt-field">
-        <span className="vf-row-lbl">Length</span>
-        <div className="vt-seg" role="radiogroup">
-          {[10, 20, 40, 60, 0].map(n => (
-            <button type="button" key={n} role="radio" aria-checked={c.length === n} className={c.length === n ? 'on' : ''} onClick={() => set({ length: n })}>
-              {n || 'All'}
+        <span className="vf-row-lbl">Cards in a set</span>
+        <div className="vt-seg" role="radiogroup" aria-label="Cards in a set">
+          {SET_SIZES.map(n => (
+            <button type="button" key={n} role="radio" aria-checked={c.size === n} className={c.size === n ? 'on' : ''} onClick={() => set({ size: n })}>
+              {n}
             </button>
           ))}
         </div>
+        <span className="vt-hint">Drilled together until each is right and fast {FLUENT_STREAK} times in a row.</span>
       </div>
+
+      <label className="vt-check rs-check">
+        <input type="checkbox" checked={c.fresh} onChange={e => set({ fresh: e.target.checked })} />
+        <span>
+          New voicings <em>join once nothing shakier is waiting</em>
+        </span>
+      </label>
     </section>
   );
 }

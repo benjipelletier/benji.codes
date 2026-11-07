@@ -1049,3 +1049,24 @@ button.pm-bg span { color: var(--accent-ink); }
 .fd-tunes button span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 4px; }
 .pk-heard { padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 14px; }
 .pk-heard h3 { position: static; background: transparent; }
+
+/* Today's set (Review): its cards as chips, and how each came out. */
+.rv-set { flex-basis: 100%; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-card { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--paper); }
+.rv-card b { font-size: 15px; }
+.rv-card span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--ink-3); }
+.rv-card.rv-shaky { border-color: var(--fail); }
+.rv-card.rv-shaky span { color: var(--fail); }
+.rv-card.rv-check, .rv-card.rv-early { border-color: var(--accent); }
+.rv-card.rv-new { border-style: dashed; }
+.dr-list { list-style: none; display: flex; flex-direction: column; }
+.dr-row { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: 'chord mode how' 'dots dots dots'; gap: 4px 10px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.dr-chord { grid-area: chord; font-weight: 700; }
+.dr-mode { grid-area: mode; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.dr-how { grid-area: how; text-align: right; font-size: 13px; }
+.dr-how em { font-style: normal; color: var(--ink-3); }
+.dr-row.good .dr-how { color: var(--good); }
+.dr-row.fail .dr-how { color: var(--fail); }
+.dr-dots { grid-area: dots; font-size: 9px; letter-spacing: 2px; color: var(--good); }
+.dr-dots i { font-style: normal; color: var(--slow); }
+.dr-dots b { font-weight: 400; color: var(--fail); }

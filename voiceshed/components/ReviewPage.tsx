@@ -1,28 +1,45 @@
 'use client';
 
-// SRS Review: the cards due today, one at a time, with feedback that shows
-// the right voicing on the keyboard — narrowed to the run you want with the
-// session set-up (ReviewSetup: modes, chord and voicing types, keys,
-// spellings, due / new / ahead of schedule, length). A summary at the end:
-// accuracy, average time and the slowest cards.
+// Review: today's set (lib/drill.ts). The shakiest cards in the deck, a few
+// at a time, drilled until each is right and fast three times in a row, then
+// each played once in a ii–V–I; solid cards come back for a spaced check.
+// Narrowed with the session set-up (ReviewSetup: modes, chord and voicing
+// types, keys, spellings, set size, new cards). A summary at the end: how
+// each card came out, accuracy and the slowest cards.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { Keyboard, rangeAround } from './Keyboard';
 import { describe, ReviewSetup, useReviewConfig, voicingIn } from './ReviewSetup';
-import { buildQueue, newState, outcomeOf, schedule, shuffle, targetFor } from '@voiceshed/lib/srs';
+import { targetFor } from '@voiceshed/lib/srs';
+import {
+  afterAnswer,
+  afterSlot,
+  answerDrill,
+  answerOf,
+  chooseSet,
+  contextSteps,
+  FLUENT_STREAK,
+  nextSlot,
+  startDrill,
+  WHY_LABEL,
+  type Drill,
+  type Slot,
+} from '@voiceshed/lib/drill';
 import { midisOf } from '@voiceshed/lib/practice';
 import { FAMILY_SPAN, guessPxPerInch, OCTAVE_MM, WHITE_KEY_MM, whiteKeyPx } from '@voiceshed/lib/scale';
 import { pretty, prettyLabel } from '@voiceshed/lib/theory';
-import { MODES, MODE_LABEL, srsKey, type Mode, type Settings } from '@voiceshed/lib/types';
+import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
+
+type DrillStep = RunnerStep & { repeat?: boolean; probe?: string | null };
 
 export function ReviewPage() {
   const t = useTrainer();
-  const { voicings, srs, settings } = t;
-  const { gapKeys } = useCardStats();
+  const { voicings, contexts, srs, settings } = t;
+  const { gapKeys, grouped } = useCardStats();
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
   // Back from a run's summary returns to the set-up.
   useBackClose(phase === 'done', () => setPhase('idle'));
@@ -30,74 +47,77 @@ export function ReviewPage() {
   const [results, setResults] = useState<RunnerResult[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useReviewConfig();
+  const [status, setStatus] = useState('');
+  const [report, setReport] = useState<Slot[]>([]);
+  const drill = useRef<Drill | null>(null);
+  const stage = useRef<'drill' | 'context' | 'over'>('drill');
+  /** Schedules written this session, ahead of the provider's state catching up. */
+  const written = useRef(new Map<string, SrsState>());
 
-  // The session's voicings, and its queue (the day's new-card limit still counts every card).
+  const targetOf = useCallback((v: Voicing, mode: Mode) => targetFor(srs.get(srsKey(v.id, mode)), mode, settings), [srs, settings]);
   const pool = useMemo(() => voicings.filter(v => voicingIn(v, config)), [voicings, config]);
-  const queue = useMemo(
-    () => buildQueue({ voicings: pool, srs, gapKeys, settings: { ...settings, review_modes: config.modes }, now: new Date() }),
-    [pool, srs, gapKeys, settings, config.modes],
+  const today = useMemo(
+    () => chooseSet({ pool, srs, grouped, gapKeys, modes: config.modes, targetOf, size: config.size, fresh: config.fresh, now: new Date() }),
+    [pool, srs, grouped, gapKeys, config.modes, config.size, config.fresh, targetOf],
   );
-  // Not due yet, soonest first: extra rounds when there's time.
-  const ahead = useMemo(() => {
-    const ids = new Map(pool.map(v => [v.id, v]));
-    const gap = new Set(queue.gap.map(c => srsKey(c.voicing.id, c.mode)));
-    const now = Date.now();
-    return [...srs.values()]
-      .filter(s => config.modes.includes(s.mode) && ids.has(s.voicing_id) && new Date(s.due_at).getTime() > now && !gap.has(srsKey(s.voicing_id, s.mode)))
-      .sort((a, b) => a.due_at.localeCompare(b.due_at))
-      .map(s => ({ voicing: ids.get(s.voicing_id)!, mode: s.mode }));
-  }, [pool, srs, config.modes, queue.gap]);
-  // Everything due now, for the set-up's counts.
-  const dueAll = useMemo(() => {
-    const ids = new Map(voicings.map(v => [v.id, v]));
-    const now = Date.now();
-    return [...srs.values()].filter(s => ids.has(s.voicing_id) && new Date(s.due_at).getTime() <= now).map(s => ({ voicing: ids.get(s.voicing_id)!, mode: s.mode }));
-  }, [voicings, srs]);
+  // Waiting, all voicings and modes: the set-up's chip counts.
+  const waitingAll = useMemo(
+    () => chooseSet({ pool: voicings, srs, grouped, gapKeys, modes: [...MODES], targetOf, size: 0, fresh: config.fresh, now: new Date() }).waiting.map(c => ({ voicing: c.voicing, mode: c.mode })),
+    [voicings, srs, grouped, gapKeys, targetOf, config.fresh],
+  );
+  const solid = useMemo(() => [...srs.values()].filter(s => s.learned).length, [srs]);
 
-  const learned = useMemo(() => [...srs.values()].filter(s => s.learned).length, [srs]);
-  const dueByMode = useMemo(() => {
-    const out: Record<Mode, number> = { play: 0, spell: 0, name: 0 };
-    for (const c of queue.due) out[c.mode]++;
-    return out;
-  }, [queue]);
-
-  /** The cards the session deals, in order. */
-  const deal = useMemo(() => {
-    const max = config.length || Infinity;
-    const cards = [
-      ...(config.include.due ? [...queue.due, ...shuffle([...queue.gap])] : []),
-      ...(config.include.ahead ? ahead : []),
-    ].slice(0, max);
-    const fresh = config.include.fresh ? queue.fresh.slice(0, Math.max(0, max - cards.length)) : [];
-    // New cards spread through the session rather than all at the end.
-    fresh.forEach((c, i) => cards.splice(Math.round(((i + 1) * cards.length) / (fresh.length + 1)) + i, 0, c));
-    return cards;
-  }, [queue, ahead, config]);
+  const stepOf = useCallback(
+    (s: Slot): DrillStep => ({ voicing: s.card.voicing, mode: s.card.mode, target: targetOf(s.card.voicing, s.card.mode), context_type: 'isolated', context_id: null, repeat: s.asked > 0 }),
+    [targetOf],
+  );
+  const statusOf = (d: Drill) => {
+    const out = d.slots.filter(s => s.status !== 'active').length;
+    return `${out} / ${d.slots.length} fluent`;
+  };
 
   const start = () => {
-    setSteps(
-      deal.map(c => ({
-        voicing: c.voicing,
-        mode: c.mode,
-        target: targetFor(srs.get(srsKey(c.voicing.id, c.mode)), c.mode, settings),
-        context_type: 'isolated',
-        context_id: null,
-      })),
-    );
+    const d = startDrill(today.set);
+    drill.current = d;
+    stage.current = 'drill';
+    written.current = new Map();
+    const first = nextSlot(d);
+    if (!first) return;
+    setSteps([stepOf(first)]);
+    setStatus(statusOf(d));
     setResults([]);
     setPhase('running');
   };
 
+  // The next card: the drill's, then the set's ii–V–Is, then the end.
+  const more = useCallback((): DrillStep[] => {
+    const d = drill.current;
+    if (!d) return [];
+    if (stage.current === 'drill') {
+      const s = nextSlot(d);
+      if (s) return [stepOf(s)];
+      stage.current = 'context';
+      const cs = contextSteps(d.slots, contexts, voicings);
+      if (cs.length) {
+        setStatus('In a ii–V–I');
+        return cs.map(c => ({ voicing: c.voicing, mode: c.mode, target: targetOf(c.voicing, c.mode), context_type: 'progression', context_id: c.context_id, symbol: c.symbol, group: c.group, probe: c.probe }));
+      }
+    }
+    stage.current = 'over';
+    return [];
+  }, [contexts, voicings, stepOf, targetOf]);
+
   const onAttempt = useCallback(
     (r: RunnerResult) => {
-      const { voicing, mode, target } = r.step;
+      const step = r.step as DrillStep;
+      const { voicing, mode, target } = step;
       void t.recordAttempts([
         {
           id: newId(),
           voicing_id: voicing.id,
           mode,
-          context_type: 'isolated',
-          context_id: null,
+          context_type: step.context_type,
+          context_id: step.context_id,
           run_id: null,
           correct: r.correct,
           slow: r.slow,
@@ -105,19 +125,37 @@ export function ReviewPage() {
           created_at: r.at,
         },
       ]);
-      // A card asked again after a miss is practice: its schedule was set by the miss.
-      if (r.repeat) return;
       const key = srsKey(voicing.id, mode);
       const now = new Date(r.at);
-      const prev = t.srs.get(key) ?? newState(voicing.id, mode, now);
-      void t.saveSrs([schedule(prev, outcomeOf(r.correct, r.ms, target), r.ms, target, now, gapKeys.has(key))]);
+      const a = answerOf(r.correct, r.ms, target);
+      const prev = written.current.get(key) ?? t.srs.get(key);
+      const d = drill.current;
+      if (step.context_type === 'isolated' && d) {
+        const next = answerDrill(d, key, a);
+        drill.current = next;
+        setStatus(statusOf(next));
+        if (!prev) return;
+        let row = afterAnswer(prev, a, now);
+        const slot = next.slots.find(s => s.key === key);
+        if (slot && slot.status !== 'active') row = afterSlot(row, slot.status, now);
+        written.current.set(key, row);
+        void t.saveSrs([row]);
+        return;
+      }
+      // In a ii–V–I: the card it checks takes its result; any deck card slow or missed here isn't solid.
+      if (step.probe && d) drill.current = { ...d, slots: d.slots.map(s => (s.key === step.probe ? { ...s, context: s.context ?? a } : s)) };
+      if (!prev) return;
+      const row = afterAnswer(prev, a, now);
+      written.current.set(key, row);
+      void t.saveSrs([row]);
     },
-    [t, gapKeys],
+    [t], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const onFinish = useCallback(
     (rs: RunnerResult[]) => {
       setResults(rs);
+      setReport(drill.current?.slots ?? []);
       setPhase('done');
       void t.sync();
     },
@@ -125,11 +163,10 @@ export function ReviewPage() {
   );
 
   if (phase === 'running') {
-    return <CardRunner steps={steps} library={voicings} strictSpelling={settings.strict_spelling} requeueMisses onAttempt={onAttempt} onFinish={onFinish} />;
+    return <CardRunner steps={steps} library={voicings} strictSpelling={settings.strict_spelling} showSequence more={more} status={status} onAttempt={onAttempt} onFinish={onFinish} />;
   }
-  if (phase === 'done') return <Summary results={results} onAgain={() => setPhase('idle')} />;
+  if (phase === 'done') return <Summary results={results} onAgain={() => setPhase('idle')} extra={<DrillReport slots={report} />} title="Set done" />;
 
-  const total = deal.length;
   const filtered = describe(config);
   if (!srs.size) {
     return (
@@ -148,46 +185,46 @@ export function ReviewPage() {
       </div>
     );
   }
+  const { set, counts } = today;
   return (
     <div className="vt-page">
       <section className="rv-hero">
         <div className="rv-big">
-          <span className="rv-num">{queue.due.length}</span>
-          <span className="rv-lbl">due</span>
+          <span className="rv-num">{counts.shaky}</span>
+          <span className="rv-lbl">shaky</span>
         </div>
-        <div className="rv-big">
-          <span className="rv-num rv-num-2">{queue.fresh.length}</span>
-          <span className="rv-lbl">new</span>
+        <div className="rv-big" title="Solid cards due a check">
+          <span className="rv-num rv-num-2">{counts.check}</span>
+          <span className="rv-lbl">checks</span>
         </div>
-        {queue.gap.length > 0 && (
-          <div className="rv-big" title="Fast in a progression, slow on its own: shown more often here">
-            <span className="rv-num rv-num-3">{queue.gap.length}</span>
-            <span className="rv-lbl">context gap</span>
+        {config.fresh && (
+          <div className="rv-big">
+            <span className="rv-num rv-num-3">{counts.new}</span>
+            <span className="rv-lbl">new</span>
           </div>
         )}
-        <div className="rv-modes">
-          {config.modes.map(m => (
-            <span key={m} className="rv-mode">
-              {MODE_LABEL[m]} <b>{dueByMode[m]}</b>
-            </span>
-          ))}
-        </div>
+        {set.length > 0 && (
+          <ul className="rv-set" aria-label="Today’s set">
+            {set.map(c => (
+              <li key={srsKey(c.voicing.id, c.mode)} className={`rv-card rv-${c.why}`}>
+                <b>{prettyLabel(c.voicing.chord_label)}</b>
+                <span>
+                  {MODE_LABEL[c.mode]} · {WHY_LABEL[c.why]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="rv-what">{filtered}</p>
-        <button type="button" className="vt-primary" onClick={start} disabled={!total}>
-          {total
-            ? `Start · ${total} card${total === 1 ? '' : 's'}`
-            : !config.include.due && !config.include.fresh && !config.include.ahead
-              ? 'Pick which cards below'
-              : ahead.length && !config.include.ahead
-                ? 'Nothing due — add “Not due yet” below'
-                : 'Nothing to review with this set-up'}
+        <button type="button" className="vt-primary" onClick={start} disabled={!set.length}>
+          {set.length ? `Start today’s set · ${set.length} card${set.length === 1 ? '' : 's'}` : 'Nothing in your deck with this set-up'}
         </button>
         <p className="rv-note">
-          A card is learned once it’s right <em>and</em> under its target time. {learned} of {voicings.length * MODES.length} cards learned.
+          Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.
         </p>
       </section>
 
-      <ReviewSetup config={config} onChange={setConfig} voicings={voicings} srs={srs} due={dueAll} />
+      <ReviewSetup config={config} onChange={setConfig} voicings={voicings} srs={srs} due={waitingAll} />
 
       <section className="vt-panel">
         <button type="button" className="vt-panel-head" onClick={() => setShowSettings(s => !s)} aria-expanded={showSettings}>
@@ -198,6 +235,47 @@ export function ReviewPage() {
 
       <OfflinePanel />
     </div>
+  );
+}
+
+/** How each card of the set came out. */
+function DrillReport({ slots }: { slots: Slot[] }) {
+  if (!slots.length) return null;
+  const how = (s: Slot) =>
+    s.status === 'checked'
+      ? 'check passed'
+      : s.status === 'fluent'
+        ? `fluent in ${s.asked}`
+        : s.status === 'stuck'
+          ? `still shaky after ${s.asked}`
+          : s.asked
+            ? 'not finished'
+            : 'not reached';
+  const ctx = (s: Slot) => (s.context == null ? null : s.context === 'fast' ? '✓ in context' : s.context === 'slow' ? 'slow in context' : 'missed in context');
+  return (
+    <>
+      <h3 className="sm-h">Your set</h3>
+      <ul className="dr-list">
+        {slots.map(s => {
+          const ok = (s.status === 'fluent' || s.status === 'checked') && (s.context == null || s.context === 'fast');
+          return (
+            <li key={s.key} className={`dr-row ${ok ? 'good' : s.status === 'active' ? '' : 'fail'}`}>
+              <span className="dr-chord">{prettyLabel(s.card.voicing.chord_label)}</span>
+              <span className="dr-mode">{MODE_LABEL[s.card.mode]}</span>
+              <span className="dr-how">
+                {how(s)}
+                {ctx(s) && <em> · {ctx(s)}</em>}
+              </span>
+              <span className="dr-dots" aria-label={`${s.misses} missed, ${s.slows} slow`}>
+                {'●'.repeat(Math.min(10, s.asked - s.misses - s.slows))}
+                <i>{'●'.repeat(Math.min(10, s.slows))}</i>
+                <b>{'●'.repeat(Math.min(10, s.misses))}</b>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -345,7 +423,7 @@ function KeysFit({ settings }: { settings: Settings }) {
   );
 }
 
-export function Summary({ results, onAgain, extra }: { results: RunnerResult[]; onAgain: () => void; extra?: React.ReactNode }) {
+export function Summary({ results, onAgain, extra, title = 'Session done' }: { results: RunnerResult[]; onAgain: () => void; extra?: React.ReactNode; title?: string }) {
   const first = results.filter(r => !r.repeat);
   const right = first.filter(r => r.correct);
   const inTime = right.filter(r => !r.slow);
@@ -355,7 +433,7 @@ export function Summary({ results, onAgain, extra }: { results: RunnerResult[]; 
     <div className="vt-page">
       <section className="sm">
         <PianoLoader rounds={2} small />
-        <h2 className="sm-title">Session done</h2>
+        <h2 className="sm-title">{title}</h2>
         <div className="sm-stats">
           <div>
             <span className="sm-num">{fmtPct(right.length, first.length)}</span>

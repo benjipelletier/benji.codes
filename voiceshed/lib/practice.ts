@@ -176,7 +176,7 @@ function distance(a: number[], b: number[]): number {
 }
 
 /** The candidate that moves least from the last voicing; the first sits nearest middle C up a fourth. */
-function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
+export function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
   if (!prev) {
     const centre = (v: Voicing) => {
       const m = midisOf(v);
@@ -195,7 +195,7 @@ function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
  * spelling. Any spelling when the chart's has none.
  */
 /** `iii`: the chord is a m7 as the iii of a major key — its iii voicings (8 for 9) only; otherwise never them. */
-function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string, iii = false): Voicing[] {
+export function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string, iii = false): Voicing[] {
   for (const q of qualities) {
     const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags) && isIii(v) === iii);
     if (!c.length) continue;
