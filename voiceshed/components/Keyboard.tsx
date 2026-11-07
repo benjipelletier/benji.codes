@@ -6,7 +6,8 @@
 
 import { memo, useMemo } from 'react';
 
-export type KeyMark = 'on' | 'right' | 'wrong' | 'missed';
+/** on: held; right / wrong: answered; missed: the answer; move: where the top voice moves to; lift: the top about to move. */
+export type KeyMark = 'on' | 'right' | 'wrong' | 'missed' | 'move' | 'lift';
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 const isBlack = (m: number) => BLACK.has(((m % 12) + 12) % 12);

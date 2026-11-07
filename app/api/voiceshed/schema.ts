@@ -19,6 +19,7 @@ export const TRAINER_DDL = [
     family           TEXT NOT NULL,
     tags             TEXT[] NOT NULL DEFAULT '{}',
     lowest_register  INT,
+    top_move         TEXT,
     notes_text       TEXT,
     sort_order       INT NOT NULL DEFAULT 0,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,6 +27,8 @@ export const TRAINER_DDL = [
     UNIQUE (chord_label, family, notes)
   )`,
   `CREATE INDEX IF NOT EXISTS idx_voicings_label ON voicings(chord_label)`,
+  // Added later: a database made before has the table without it.
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS top_move TEXT`,
   `CREATE TABLE IF NOT EXISTS contexts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type        TEXT NOT NULL CHECK (type IN ('progression', 'tune')),
@@ -88,22 +91,34 @@ export const TRAINER_DDL = [
 ];
 
 /**
- * Bumped when the generated library grows (2: black-key roots under both
- * names). A database seeded at an older version gets the new voicings added
- * once; the ones it has, edited or not, are left alone.
+ * Bumped when the generated library changes. A database seeded at an older
+ * version gets the new voicings added once; the ones it has, edited or not,
+ * are left alone — but for what a version says it changes.
+ *   2: black-key roots under both names.
+ *   3: the m7♭5 spread is one voicing whose top moves 11 → ♭3: its ♭3 cards
+ *      (1 ♭5 ♭7 ♭3) go, answers with them, and the 11 cards get their move.
  */
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 
-const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, family text, tags text[], lowest_register int, sort_order int`;
+const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
 async function seed(sql: Sql) {
   const rows0 = (await sql`SELECT value FROM voiceshed_meta WHERE key = 'seed_version'`) as { value: string }[];
   const seeded = Number(rows0[0]?.value ?? 0);
   if (seeded < SEED_VERSION) {
     const rows = starterVoicings();
+    if (seeded < 3) {
+      await sql.query(`DELETE FROM voicings WHERE family = 'm7b5 spread' AND '1-5-7-3' = ANY(tags)`);
+      await sql.query(
+        `UPDATE voicings v SET top_move = t.top_move, tags = t.tags, updated_at = NOW()
+         FROM jsonb_to_recordset($1::jsonb) AS t(${VOICING_COLUMNS})
+         WHERE v.chord_label = t.chord_label AND v.family = t.family AND v.notes = t.notes AND t.top_move IS NOT NULL`,
+        [JSON.stringify(rows)],
+      );
+    }
     await sql.query(
-      `INSERT INTO voicings (chord_label, root, quality, notes, top_note, family, tags, lowest_register, sort_order)
-       SELECT chord_label, root, quality, notes, top_note, family, tags, lowest_register, sort_order
+      `INSERT INTO voicings (chord_label, root, quality, notes, top_note, top_move, family, tags, lowest_register, sort_order)
+       SELECT chord_label, root, quality, notes, top_note, top_move, family, tags, lowest_register, sort_order
        FROM jsonb_to_recordset($1::jsonb) AS t(${VOICING_COLUMNS})
        ON CONFLICT DO NOTHING`,
       [JSON.stringify(rows)],

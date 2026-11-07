@@ -27,7 +27,7 @@ export function transposeSymbol(symbol: string, semis: number): string {
  * octaves (the prompt names no octave) — but never below the voicing's
  * lowest playable register, when it has one.
  */
-export function gradePlay(v: Voicing, tapped: number[]): boolean {
+export function gradePlay(v: Voicing, tapped: number[], moveTo: number | null = null): boolean {
   const want = midisOf(v);
   const got = [...tapped].sort((a, b) => a - b);
   if (got.length !== want.length) return false;
@@ -35,15 +35,23 @@ export function gradePlay(v: Voicing, tapped: number[]): boolean {
   if (shift % 12 !== 0) return false;
   if (!got.every((m, i) => m - want[i] === shift)) return false;
   if (shift !== 0 && v.lowest_register != null && got[0] < v.lowest_register) return false;
+  // A voicing whose top moves: the move lands where it should, in the same octave as the chord.
+  if (v.top_move && moveTo !== noteMidi(v.top_move) + shift) return false;
   return true;
 }
 
+/** The names Spell expects: the notes bottom to top, then where the top moves, if it moves. */
+export function spellNames(v: Voicing): string[] {
+  return [...v.notes.map(pitchName), ...(v.top_move ? [pitchName(v.top_move)] : [])];
+}
+
 /**
- * Spell: the note names bottom to top. Enharmonic names (G# for Ab) count
- * unless strict spelling is on; `enharmonic` says one was given.
+ * Spell: the note names bottom to top (then the moved-to note). Enharmonic
+ * names (G# for Ab) count unless strict spelling is on; `enharmonic` says
+ * one was given.
  */
 export function gradeSpell(v: Voicing, names: string[], strict: boolean): { correct: boolean; enharmonic: boolean } {
-  const want = v.notes.map(pitchName);
+  const want = spellNames(v);
   if (names.length !== want.length) return { correct: false, enharmonic: false };
   const samePc = names.every((n, i) => namePc(n) === namePc(want[i]));
   const exact = names.every((n, i) => n === want[i]);

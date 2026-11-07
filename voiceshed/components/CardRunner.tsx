@@ -12,8 +12,8 @@ import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
 import { useTrainer } from './TrainerProvider';
 import { whiteKeyPx } from '@voiceshed/lib/scale';
-import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, type NameAnswer } from '@voiceshed/lib/practice';
-import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, type Quality } from '@voiceshed/lib/theory';
+import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
+import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
 
@@ -50,7 +50,7 @@ interface Props {
 }
 
 type Given =
-  | { kind: 'play'; midis: number[] }
+  | { kind: 'play'; midis: number[]; moveTo: number | null }
   | { kind: 'spell'; names: string[]; enharmonic: boolean }
   | { kind: 'name'; answer: NameAnswer }
   | { kind: 'skip' };
@@ -58,6 +58,12 @@ type Given =
 const REQUEUE_GAP = 4;
 const ADVANCE_RIGHT_MS = 550;
 const ADVANCE_SLOW_MS = 1100;
+
+/** The answer as notes: "C G♭ B♭ F → E♭" for a voicing whose top moves. */
+const answerText = (v: Voicing) => {
+  const names = spellNames(v).map(pretty);
+  return v.top_move ? `${names.slice(0, -1).join(' ')} → ${names[names.length - 1]}` : names.join(' ');
+};
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
@@ -118,7 +124,25 @@ export function playWindow(midis: number[], whites: number, shift: number): [num
   return [WHITE_MIDIS[start], WHITE_MIDIS[Math.min(last, start + whites - 1)]];
 }
 
-function Prompt({ step }: { step: RunnerStep }) {
+/** Where the top voice moves: " → ♭3" while it's asked (the note is the answer), " → E♭ (♭3)" after. */
+function MoveText({ v, reveal }: { v: Voicing; reveal: boolean }) {
+  if (!v.top_move) return null;
+  const iv = intervalDisplay(intervalName(v.quality, mod12(noteMidi(v.top_move) - v.root)));
+  return (
+    <span className="cr-move">
+      {' '}→{' '}
+      {reveal ? (
+        <>
+          <b>{pretty(pitchName(v.top_move))}</b> <span className="cr-iv">({iv})</span>
+        </>
+      ) : (
+        <b>{iv}</b>
+      )}
+    </span>
+  );
+}
+
+function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }) {
   const v = step.voicing;
   const p = parseChordLabel(v.chord_label);
   const d = p ? chordDisplay(p.rootName, p.quality) : { root: v.chord_label, quality: '' };
@@ -132,11 +156,14 @@ function Prompt({ step }: { step: RunnerStep }) {
       <div className="cr-sub">
         <span>
           top <b>{pretty(pitchName(v.top_note))}</b> <span className="cr-iv">({intervalDisplay(intervalName(v.quality, top))})</span>
+          {v.top_move && <MoveText v={v} reveal={reveal} />}
         </span>
         <span className="cr-dot">·</span>
         <span className="cr-family">{v.family}</span>
         <span className="cr-dot">·</span>
-        <span>{v.notes.length} notes</span>
+        <span>
+          {v.notes.length} notes{v.top_move ? ' + move' : ''}
+        </span>
       </div>
     </div>
   );
@@ -253,7 +280,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       answered.current = index;
       const ms = Math.max(0, Math.round((at ?? performance.now()) - t0.current));
       let correct = false;
-      if (g.kind === 'play') correct = gradePlay(step.voicing, g.midis);
+      if (g.kind === 'play') correct = gradePlay(step.voicing, g.midis, g.moveTo);
       else if (g.kind === 'spell') correct = gradeSpell(step.voicing, g.names, strictSpelling).correct;
       else if (g.kind === 'name') correct = gradeName(step.voicing, g.answer, library);
       const r: RunnerResult = { step, correct, slow: correct && ms > step.target, ms, repeat: !!step.repeat, at: new Date().toISOString() };
@@ -294,9 +321,15 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const onKey = useCallback(
     (m: number) => {
       if (phase !== 'ask' || !v) return;
+      // The chord is down and the top voice moves: the next new key is where it goes.
+      // Lifting the old top (or touching any held key) on the way is fine.
+      if (v.top_move && tapped.length >= v.notes.length) {
+        if (!tapped.includes(m)) submit({ kind: 'play', midis: tapped, moveTo: m });
+        return;
+      }
       const nextSet = tapped.includes(m) ? tapped.filter(x => x !== m) : [...tapped, m].sort((a, b) => a - b);
       setTapped(nextSet);
-      if (nextSet.length >= v.notes.length) submit({ kind: 'play', midis: nextSet });
+      if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
     },
     [phase, v, tapped, submit],
   );
@@ -304,7 +337,9 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   if (!step || !v) return null;
 
   const [pLo, pHi] = playWindow(midis, whites, shift);
-  const labels = Object.fromEntries(v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]));
+  const moveMidi = v.top_move ? noteMidi(v.top_move) : null;
+  const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, `→${pretty(pitchName(v.top_move))}`]] : [])]);
+  const moving = step.mode === 'play' && !!v.top_move && tapped.length >= v.notes.length && phase === 'ask';
 
   // Feedback keyboard: the right voicing, with what was played over it.
   let fbMarks: Record<number, KeyMark> = {};
@@ -312,10 +347,14 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   if (phase === 'feedback') {
     if (given?.kind === 'play' && !result?.correct) {
       for (const m of midis) fbMarks[m] = 'missed';
+      if (moveMidi != null) fbMarks[moveMidi] = 'move';
       for (const m of given.midis) fbMarks[m] = midis.includes(m) ? 'right' : 'wrong';
-      fbRange = rangeAround([...midis, ...given.midis], 15);
+      if (given.moveTo != null) fbMarks[given.moveTo] = given.moveTo === moveMidi ? 'right' : 'wrong';
+      fbRange = rangeAround([...midis, ...given.midis, ...(moveMidi != null ? [moveMidi] : []), ...(given.moveTo != null ? [given.moveTo] : [])], 15);
     } else {
       fbMarks = Object.fromEntries(midis.map(m => [m, result?.correct ? 'right' : 'missed']));
+      if (moveMidi != null) fbMarks[moveMidi] = 'move';
+      if (moveMidi != null) fbRange = rangeAround([...midis, moveMidi], 15);
     }
   }
 
@@ -359,7 +398,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
       <div className="cr-card">
         {/* Name mode hides the chord until it's answered; then it's shown like any prompt. */}
-        {(step.mode !== 'name' || phase === 'feedback') && <Prompt step={step} />}
+        {(step.mode !== 'name' || phase === 'feedback') && <Prompt step={step} reveal={phase === 'feedback'} />}
         {step.mode === 'name' && (
           <div className="cr-name-kb">
             <Keyboard low={fbRange[0]} high={fbRange[1]} marks={phase === 'ask' ? Object.fromEntries(midis.map(m => [m, 'on'])) : fbMarks} labels={phase === 'feedback' ? labels : undefined} />
@@ -373,12 +412,12 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
             {result.slow && <span className="cr-verdict-note">slow · target {secs(step.target)}</span>}
             {given?.kind === 'spell' && given.enharmonic && (
               <span className="cr-verdict-note">
-                {result.correct ? 'right notes, ' : ''}written {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+                {result.correct ? 'right notes, ' : ''}written {answerText(v)}
               </span>
             )}
             {!result.correct && given?.kind === 'spell' && !given.enharmonic && (
               <span className="cr-verdict-note">
-                you: {given.names.map(pretty).join(' ')} · answer: {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+                you: {given.names.map(pretty).join(' ')} · answer: {answerText(v)}
               </span>
             )}
             {!result.correct && given?.kind === 'name' && (
@@ -388,7 +427,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
             )}
             {!result.correct && (given?.kind === 'play' || given?.kind === 'skip') && (
               <span className="cr-verdict-note">
-                answer: {prettyLabel(v.chord_label)} · {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+                answer: {prettyLabel(v.chord_label)} · {answerText(v)}
               </span>
             )}
           </div>
@@ -400,7 +439,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
           (phase === 'ask' ? (
             <>
               <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={kbStyle}>
-                <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, 'on']))} onKey={onKey} aspect={fit.aspect} />
+                <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
               </div>
               <div className="cr-kb-shift">
                 <span className="cr-kb-move">
@@ -413,9 +452,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                     </button>
                   )}
                 </span>
-                <span>
-                  {tapped.length} / {v.notes.length}
-                </span>
+                <span className={moving ? 'cr-moving' : ''}>{moving ? 'now move the top' : `${tapped.length} / ${v.notes.length}`}</span>
                 <span className="cr-kb-move">
                   {keyPx && (
                     <button type="button" onClick={() => setShift(o => o + 1)} aria-label="one key up">
@@ -440,7 +477,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                 <Keyboard low={fbRange[0]} high={fbRange[1]} marks={fbMarks} labels={labels} />
               </div>
             )}
-            {phase === 'ask' && <NotePad key={index} count={v.notes.length} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
+            {phase === 'ask' && <NotePad key={index} count={spellNames(v).length} moveSlot={!!v.top_move} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
           </>
         )}
         {step.mode === 'name' && phase === 'ask' && <NamePicker key={index} qualities={qualities} onAnswer={answer => submit({ kind: 'name', answer })} disabled={false} />}

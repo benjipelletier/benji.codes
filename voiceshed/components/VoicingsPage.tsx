@@ -13,7 +13,7 @@ import { newId, useTrainer } from './TrainerProvider';
 import { midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { newState, targetFor } from '@voiceshed/lib/srs';
-import { chordLabel, CYCLE_OF_FOURTHS, midiName, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
+import { chordLabel, CYCLE_OF_FOURTHS, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
 const PAGE = 120;
@@ -102,12 +102,16 @@ export function VoicingsPage() {
 
 function VoicingCard({ v, learned, gap, onOpen }: { v: Voicing; learned: boolean[]; gap: boolean; onOpen: () => void }) {
   const m = midisOf(v);
-  const [lo, hi] = rangeAround(m, 10);
+  const mv = v.top_move ? noteMidi(v.top_move) : null;
+  const [lo, hi] = rangeAround(mv != null ? [...m, mv] : m, 10);
   const muddy = v.tags.includes('muddy');
   return (
     <button type="button" className={`lb-card ${muddy ? 'lb-muddy' : ''}`} onClick={onOpen}>
-      <Keyboard compact low={lo} high={hi} marks={Object.fromEntries(m.map(x => [x, 'on']))} />
-      <span className="lb-notes">{v.notes.map(n => pretty(pitchName(n))).join(' ')}</span>
+      <Keyboard compact low={lo} high={hi} marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }} />
+      <span className="lb-notes">
+        {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+        {v.top_move ? ` → ${pretty(pitchName(v.top_move))}` : ''}
+      </span>
       <span className="lb-meta">
         <span className="lb-fam">{v.family}</span>
         {muddy && <span className="lb-flag">muddy</span>}
@@ -129,7 +133,8 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
   const [tagDraft, setTagDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState(v.notes_text ?? '');
   const m = midisOf(v);
-  const [lo, hi] = rangeAround(m, 15);
+  const mv = v.top_move ? noteMidi(v.top_move) : null;
+  const [lo, hi] = rangeAround(mv != null ? [...m, mv] : m, 15);
   const labels = Object.fromEntries(v.notes.map((n, i) => [m[i], pretty(pitchName(n))]));
   const muddy = v.tags.includes('muddy');
 
@@ -154,9 +159,18 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
           </button>
         </div>
         <div className="dt-kb">
-          <Keyboard low={lo} high={hi} marks={Object.fromEntries(m.map(x => [x, 'on']))} labels={labels} />
+          <Keyboard
+            low={lo}
+            high={hi}
+            marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }}
+            labels={{ ...labels, ...(mv != null ? { [mv]: `→${pretty(pitchName(v.top_move!))}` } : {}) }}
+          />
         </div>
-        <p className="dt-notes">{v.notes.map(pretty).join('  ')}</p>
+        <p className="dt-notes">
+          {v.notes.map(pretty).join('  ')}
+          {v.top_move ? `  → ${pretty(v.top_move)}` : ''}
+        </p>
+        {v.top_move && <span className="vt-hint">The top voice moves from {pretty(pitchName(v.top_note))} to {pretty(pitchName(v.top_move))} after the chord: Play and Spell ask for the move too.</span>}
 
         <div className="vt-field">
           <span className="vt-field-lbl">Tags</span>
@@ -313,6 +327,7 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
       quality,
       notes: spelled.notes,
       top_note: spelled.notes[spelled.notes.length - 1],
+      top_move: null,
       family: family.trim() || 'custom',
       tags: [...new Set([...tags, `${spelled.notes.length}-note`])],
       lowest_register: null,

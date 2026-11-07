@@ -615,3 +615,15 @@
 }
 /* A run at real piano size uses the whole width: the keys are as wide as they are. */
 .vt-main:has(.cr-kb-real) { max-width: none; }
+
+/* The m7♭5 spread's movement: where the top voice goes, and the top about to lift. */
+.vk-w-move { fill: var(--card); stroke: var(--accent-ink); stroke-width: 2.5; stroke-dasharray: 2 3; }
+.vk-b-move { fill: var(--accent-ink); stroke: var(--accent); stroke-width: 2; stroke-dasharray: 2 2; }
+.vk-w-move + .vk-lbl-w { fill: var(--accent-ink); }
+.vk-b-move + .vk-lbl-b { fill: var(--paper); }
+.vk-w-lift { fill: var(--accent); opacity: 0.55; }
+.vk-b-lift { fill: var(--accent-ink); opacity: 0.55; }
+.cr-move { white-space: nowrap; }
+.cr-moving { color: var(--accent-ink); font-weight: 600; }
+.np-slot-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.np-arrow { font-size: 22px; color: var(--accent-ink); }

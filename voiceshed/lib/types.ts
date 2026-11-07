@@ -17,6 +17,8 @@ export interface Voicing {
   /** Spelled, bottom to top, with octave: ["F3", "Ab3", "C4", "Eb4"]. */
   notes: string[];
   top_note: string;
+  /** The top voice moves here after the chord (the m7♭5 spread's 11 → ♭3), with octave; null when it stays. */
+  top_move: string | null;
   family: string;
   tags: string[];
   /** MIDI number of the lowest note this voicing's bottom may sit on, or null. */

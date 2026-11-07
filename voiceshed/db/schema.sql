@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS voicings (
   family           TEXT NOT NULL,
   tags             TEXT[] NOT NULL DEFAULT '{}',
   lowest_register  INT,
+  top_move         TEXT,
   notes_text       TEXT,
   sort_order       INT NOT NULL DEFAULT 0,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,6 +27,8 @@ CREATE TABLE IF NOT EXISTS voicings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_voicings_label ON voicings(chord_label);
+
+ALTER TABLE voicings ADD COLUMN IF NOT EXISTS top_move TEXT;
 
 CREATE TABLE IF NOT EXISTS contexts (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

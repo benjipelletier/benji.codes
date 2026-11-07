@@ -320,6 +320,8 @@ export function spellChord(rootPc: number, q: Quality, midis: number[], interval
 }
 
 export interface VoicingSeed {
+  /** Where the top voice moves to (the m7♭5 spread's 11 → ♭3), spelled with octave; null when it stays. */
+  top_move: string | null;
   chord_label: string;
   root: number;
   quality: Quality;
@@ -341,8 +343,11 @@ interface ShapeSet {
   family: string;
   /** Tags every voicing of the family carries. */
   tags: string[];
-  /** Per quality, each shape bottom to top, with the tag that names it. */
-  shapes: Partial<Record<Quality, { ivs: string[]; tag: string }[]>>;
+  /**
+   * Per quality, each shape bottom to top, with the tag that names it, and
+   * where the top voice moves to, if it moves (an interval of the root).
+   */
+  shapes: Partial<Record<Quality, { ivs: string[]; tag: string; move?: string }[]>>;
 }
 
 export const SHAPE_SETS: ShapeSet[] = [
@@ -390,14 +395,10 @@ export const SHAPE_SETS: ShapeSet[] = [
     shapes: { m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }] },
   },
   {
+    // One voicing with a movement: the top voice steps from the 11 down to the ♭3.
     family: 'm7b5 spread',
-    tags: ['spread', '4-note'],
-    shapes: {
-      m7b5: [
-        { ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11' },
-        { ivs: ['R', 'b5', 'b7', 'b3'], tag: '1-5-7-3' },
-      ],
-    },
+    tags: ['spread', '4-note', 'movement'],
+    shapes: { m7b5: [{ ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11', move: 'b3' }] },
   },
 ];
 
@@ -445,12 +446,24 @@ export function starterVoicings(): VoicingSeed[] {
             const midis = stack(rootPc, shape.ivs, bottom);
             const notes = spellStrict(rootName, midis, shape.ivs);
             if (!notes) return;
+            // The top voice's move: the nearest such note to where it starts.
+            let move: string | null = null;
+            if (shape.move) {
+              const top = midis[midis.length - 1];
+              const pc = mod12(rootPc + INTERVALS[shape.move][0]);
+              let m = top - 1;
+              while (mod12(m) !== pc) m--;
+              if (top - m > 6) m += 12;
+              move = spellStrict(rootName, [m], [shape.move])?.[0] ?? null;
+              if (!move) return;
+            }
             out.push({
               chord_label: chordLabel(rootName, q),
               root: rootPc,
               quality: q,
               notes,
               top_note: notes[notes.length - 1],
+              top_move: move,
               family: set.family,
               tags: [...set.tags, shape.tag],
               lowest_register: LOWEST_NOTE,

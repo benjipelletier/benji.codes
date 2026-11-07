@@ -26,8 +26,10 @@ so Play mode never accepts one lower.
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
 | `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
-m7♭5: `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) and `m7b5 spread` 1 ♭5 ♭7 11 and
-1 ♭5 ♭7 ♭3. ♭9 and altered dominants come later. The register is the
+m7♭5: `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes), and `m7b5 spread` 1 ♭5 ♭7 11
+whose top voice then moves to the ♭3 — one voicing, a **movement**, not two
+(`top_move`, the owner: "always just on the m7♭5, from 11 to ♭3"; tag
+`movement`). ♭9 and altered dominants come later. The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
 
 Spelling: each note is spelled as its interval above the root. A black-key
@@ -35,7 +37,7 @@ root is in the library under **both** names, flat and sharp (D♭m7 and C♯m7,
 G♭7 and F♯7), each a card of its own — the owner wants both available. A name
 that would need a double accidental is left out (E♭m7♭5 and A♭m7♭5 would need
 B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5; A♯maj7 likewise). Single ones stay,
-however rare (F♭, C♭, E♯, B♯). 219 voicings in all.
+however rare (F♭, C♭, E♯, B♯). 206 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -48,6 +50,8 @@ The seed is versioned (`SEED_VERSION` in `app/api/voiceshed/schema.ts`,
 stored in `voiceshed_meta`): raising it adds the voicings a database doesn't
 have yet (its own, edited or not, are left alone; a deleted one comes back),
 updates the progressions' steps, and drops progressions no longer generated.
+Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
+(answers with them) and its 11 cards got their `top_move`.
 
 ---
 
@@ -108,6 +112,13 @@ chord tone on top; any library voicing with the same keys counts). Play and
 Spell submit themselves at the note count. Timed from the card being painted.
 After a miss or "Don't know" the answer is shown: chord, top note, voicing
 type and notes (Name mode reveals its chord then).
+
+**Movement** (`top_move`): Play asks for the chord, then a tap where the top
+goes ("now move the top"; lifting the old top on the way is fine; the move must
+land in the chord's octave). Spell has one slot more, after an arrow. The
+prompt says "→ ♭3" while asked and names the note once answered; Name grades
+the chord and its starting top as before and shows the move after. The
+Voicings page shows "C G♭ B♭ F → E♭" with the target outlined on the keys.
 
 **Real piano size** (Review → Settings → Play keyboard; `lib/scale.ts`): Play's
 keys drawn a piano's width, 23.5 mm (an octave 16.5 cm), from CSS px per real

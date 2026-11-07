@@ -17,12 +17,14 @@ const GRACE_MS = 650;
 
 interface Props {
   count: number;
+  /** The last slot is where the top voice moves to: an arrow before it. */
+  moveSlot?: boolean;
   /** The names, and when the last of them was tapped (performance.now()). */
   onSubmit: (names: string[], at: number) => void;
   disabled?: boolean;
 }
 
-export function NotePad({ count, onSubmit, disabled = false }: Props) {
+export function NotePad({ count, moveSlot = false, onSubmit, disabled = false }: Props) {
   const [names, setNames] = useState<string[]>([]);
   const namesRef = useRef(names);
   namesRef.current = names;
@@ -116,8 +118,11 @@ export function NotePad({ count, onSubmit, disabled = false }: Props) {
     <div className="np">
       <div className="np-slots" aria-live="polite">
         {Array.from({ length: count }, (_, i) => (
-          <span key={i} className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''} ${full && i === count - 1 ? 'np-slot-wait' : ''}`}>
-            {names[i] ? pretty(names[i]) : ''}
+          <span key={i} className="np-slot-wrap">
+            {moveSlot && i === count - 1 && <span className="np-arrow" aria-label="moves to">→</span>}
+            <span className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''} ${full && i === count - 1 ? 'np-slot-wait' : ''}`}>
+              {names[i] ? pretty(names[i]) : ''}
+            </span>
           </span>
         ))}
       </div>
