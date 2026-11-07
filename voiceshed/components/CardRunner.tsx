@@ -190,6 +190,8 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
   const d = p ? chordDisplay(p.rootName, p.quality) : { root: v.chord_label, quality: '' };
   const m = midisOf(v);
   const iv = (midi: number) => intervalDisplay(intervalName(v.quality, mod12(midi - v.root)));
+  /** A chord tone as a number: "♭3", "5", "1" for the root. */
+  const tone = (midi: number) => (mod12(midi - v.root) === 0 ? '1' : iv(midi));
   const cues = reveal ? 'both' : (settings.cues ?? 'both');
   const [type, typeSub] = typeCue(v);
   return (
@@ -199,21 +201,25 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
         <span className="cr-qual">{d.quality}</span>
       </div>
       {v.tags.includes('iii') && (
-        // The iii's rule, loud (the owner: "a big warning sign that says no 9!").
-        <div className="cr-no9" role="note">
-          <span className="cr-no9-sign" aria-hidden>
-            !
+        // The iii's rule as a little sticker (the owner: "a big warning sign that says
+        // no 9!" … "make the no 9 warning cuter"): a 9 crossed out, a wiggle.
+        <div className="cr-no9" role="note" aria-label="No 9: iii of the key, play the 8 instead">
+          <span className="cr-no9-nine" aria-hidden>
+            9
           </span>
-          <b>No 9!</b>
-          <span>iii of the key: the 8 instead</span>
+          <span className="cr-no9-text">
+            <b>No 9!</b>
+            <span>it's the iii · play the 8</span>
+          </span>
         </div>
       )}
       <div className="cr-cues">
         {cues !== 'top' && (
           <div className="cr-cue">
             <span className="cr-cue-lbl">Bottom</span>
-            <b>{pretty(pitchName(v.notes[0]))}</b>
-            <span className="cr-iv">{iv(m[0])}</span>
+            {/* The chord tone only, while asked (the owner: "showing the note is giving too much away"); the note with the answer. */}
+            <b>{tone(m[0])}</b>
+            {reveal && <span className="cr-iv">{pretty(pitchName(v.notes[0]))}</span>}
           </div>
         )}
         <div className="cr-cue cr-cue-type">
@@ -224,9 +230,9 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
         {cues !== 'bottom' && (
           <div className="cr-cue">
             <span className="cr-cue-lbl">Top</span>
-            <b>{pretty(pitchName(v.top_note))}</b>
+            <b>{tone(m[m.length - 1])}</b>
             <span className="cr-iv">
-              {iv(m[m.length - 1])}
+              {reveal && pretty(pitchName(v.top_note))}
               {v.top_move && <MoveText v={v} reveal={reveal} />}
             </span>
           </div>

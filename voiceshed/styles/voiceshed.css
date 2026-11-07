@@ -878,18 +878,20 @@
 .pm-tabgroup-row { display: flex; gap: 6px; padding: 4px; border: 1px solid var(--rule); border-radius: 15px; }
 .pm-tabs .pm-tabgroup-row button { min-height: 44px; }
 
-/* The iii's rule, loud. */
-.cr-no9 { display: inline-flex; align-items: center; gap: 10px; margin: 10px auto 0; padding: 8px 16px 8px 10px; border: 2px solid var(--slow); border-radius: 14px; background: var(--slow-soft); color: var(--ink); animation: vt-no9 0.5s ease-out; }
-.cr-no9-sign { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--slow); color: var(--paper); font-weight: 800; font-size: 20px; line-height: 1; animation: vt-ring 1.6s ease-in-out infinite; }
-.cr-no9 b { font-size: 24px; font-weight: 800; letter-spacing: 0.01em; }
-.cr-no9 span:last-child { font-size: 13px; color: var(--ink-2); }
-@keyframes vt-no9 { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
-@keyframes vt-ring { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-14deg); } 84% { transform: rotate(12deg); } 92% { transform: rotate(-6deg); } }
+/* The iii's rule as a sticker: a 9 in a circle, struck through, tilted, wiggling now and then. */
+.cr-no9 { display: inline-flex; align-items: center; gap: 10px; margin: 12px auto 0; padding: 7px 16px 7px 8px; border: 2px dashed var(--slow); border-radius: 999px; background: var(--slow-soft); color: var(--ink); transform: rotate(-3deg); box-shadow: 0 3px 0 color-mix(in srgb, var(--slow) 35%, transparent); animation: vt-no9-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), vt-no9-wiggle 3.2s ease-in-out 0.8s infinite; }
+.cr-no9-nine { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid var(--fail); background: var(--card); font-family: var(--sans, inherit); font-weight: 800; font-size: 20px; line-height: 1; color: var(--ink); }
+.cr-no9-nine::after { content: ''; position: absolute; left: 3px; right: 3px; top: 50%; height: 2.5px; margin-top: -1px; background: var(--fail); border-radius: 2px; transform: rotate(-45deg); }
+.cr-no9-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.cr-no9-text b { font-size: 20px; font-weight: 800; }
+.cr-no9-text span { font-size: 12px; color: var(--ink-2); }
+@keyframes vt-no9-in { 0% { transform: rotate(-12deg) scale(0.4); opacity: 0; } 100% { transform: rotate(-3deg) scale(1); opacity: 1; } }
+@keyframes vt-no9-wiggle { 0%, 80%, 100% { transform: rotate(-3deg); } 85% { transform: rotate(3deg) scale(1.04); } 90% { transform: rotate(-5deg); } 95% { transform: rotate(1deg); } }
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  .cr-no9 { margin: 0; padding: 4px 10px 4px 6px; gap: 6px; }
-  .cr-no9 b { font-size: 18px; }
-  .cr-no9 span:last-child { display: none; }
-  .cr-no9-sign { width: 24px; height: 24px; font-size: 16px; }
+  .cr-no9 { margin: 0; padding: 4px 10px 4px 5px; gap: 6px; }
+  .cr-no9-nine { width: 26px; height: 26px; font-size: 18px; }
+  .cr-no9-text b { font-size: 16px; }
+  .cr-no9-text span { display: none; }
 }
 .lb-flag-root { border-color: var(--rule); color: var(--ink-3); }
 .lb-flag-root.has { border-color: var(--ink-3); color: var(--ink-2); font-weight: 600; }
@@ -912,6 +914,6 @@
 @keyframes vt-tapnote { 0% { transform: translate(0, 0) scale(0.6) rotate(0); opacity: 0; } 15% { opacity: 1; transform: translate(calc(var(--dx) * 0.2), -8px) scale(1.15) rotate(calc(var(--rot) * 0.3)); } 100% { transform: translate(var(--dx), -56px) scale(0.9) rotate(var(--rot)); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .vt-loader-w, .vt-loader-notes i, .cr-no9, .cr-no9-sign { animation: none; }
+  .vt-loader-w, .vt-loader-notes i, .cr-no9 { animation: none; }
   .vt-primary, .vt-secondary { transition: none; }
 }

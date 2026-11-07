@@ -276,15 +276,18 @@ wide screen; a run hides both.
 
 **The card** (Play and Spell; the owner: "the bottom note, what kind of voicing,
 and then the top note … three big headers", since they build from the bottom up):
-the chord, then three boxes — **Bottom** (note and interval), **Voicing**
-(Drop-2 / Right-hand / Block, with two-hand / rootless / as iii), **Top** (note,
-interval, and "→ ♭3" for a move). Review → Settings → "Play and Spell cards
+the chord, then three boxes — **Bottom** (its chord tone as a number: ♭3, 5,
+1 for the root), **Voicing** (Drop-2 / Block, with two-hand and rootless / has
+root), **Top** (number, and "→ ♭3" for a move). Notes only come with the
+answer (the owner: "only show the number … showing the note is giving too
+much away"). Review → Settings → "Play and Spell cards
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
 always shows, and the answer shows both.
 
-**The iii and the root, said loud**: a iii card has a big amber "No 9! — iii of
-the key: the 8 instead" banner under the chord (the owner: "whenever a 3 chord
-comes up have a big warning sign that says no 9!"), and every card, sheet and
+**The iii and the root, said loud**: a iii card has a "No 9!" sticker under the
+chord — a 9 in a circle struck through, "it's the iii · play the 8", tilted,
+dashed, wiggling now and then (the owner: "a big warning sign that says no 9!",
+then "make it cuter"), and every card, sheet and
 list card says "rootless" or "has root" (`hasRoot` in `lib/practice.ts`; the
 m7♭5 spread, the iii's, °7 and block chords have theirs).
 
