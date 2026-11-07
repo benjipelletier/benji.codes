@@ -124,6 +124,7 @@ export function VoicingFilter({
   tests,
   total,
   shown,
+  collapsible = false,
 }: {
   voicings: Voicing[];
   value: FilterState;
@@ -131,7 +132,11 @@ export function VoicingFilter({
   tests: FilterTests;
   total: number;
   shown: number;
+  /** Fold the rows away behind a Filter button (the map wants the screen). */
+  collapsible?: boolean;
 }) {
+  const [open, setOpen] = useState(!collapsible);
+  useEffect(() => setOpen(!collapsible), [collapsible]);
   const f = value;
   const set = (p: Partial<FilterState>) => onChange({ ...f, ...p });
 
@@ -203,8 +208,14 @@ export function VoicingFilter({
             Clear
           </button>
         )}
+        {collapsible && (
+          <button type="button" className={`vf-toggle ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} aria-expanded={open}>
+            Filter {open ? '▴' : '▾'}
+          </button>
+        )}
       </div>
 
+      {open && (
       <section className="vf" aria-label="Filter voicings">
         <Row label="Key">
           {CYCLE_OF_FOURTHS.map(k => {
@@ -271,6 +282,7 @@ export function VoicingFilter({
 
         <input className="vt-input vf-search" type="search" placeholder="Search notes, tags…" value={f.q} onChange={e => set({ q: e.target.value })} />
       </section>
+      )}
     </>
   );
 }

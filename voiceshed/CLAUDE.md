@@ -99,6 +99,9 @@ wide screen; a run hides both.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
   Right-but-slow and missed cards become due now — if they're in the deck; any
   that aren't are listed with "Add N to deck", never added on their own.
+  A tune's preview has "+ Add this tune's N voicings to my deck" (every voicing
+  of every chord it plays, in its spelling, with the tags picked) — for
+  learning a set.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
@@ -111,7 +114,19 @@ wide screen; a run hides both.
   biggest gaps, by chords: 7♭9 4.3%, altered 3.7%, bare major triad 2.9%, °7 2.2%,
   bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%,
   m(maj7) 0.4%, m11 0.3%.
-- `/voiceshed/voicings` — every voicing, narrowed with a stackable filter
+- `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
+  The map (`components/ProgressMap.tsx`) is the progress view: keys as
+  columns round the cycle of fourths, voicing type × chord as rows (m7, 7,
+  maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
+  voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
+  new (outlined), learning (amber, by accuracy), learned (green, deeper the
+  faster against target), a red dot for due; a black key's two spellings side
+  by side. Above it a circle of fifths shaded by the share of each key's deck
+  cards learned (tap a key to scroll to its column), voicings known (all three
+  modes learned) of those in the deck, cards learned per mode, the five
+  slowest cards; S/M/L tile size. Tap a tile to open its sheet. In map view the
+  filter folds behind a Filter button; it narrows the map too.
+  The list: every voicing, narrowed with a stackable filter
   (`components/VoicingFilter.tsx`): rows you scroll sideways and tap — Key
   (cycle of fourths), Chord, Voicing (each type drawn as a mini keyboard of one
   that fits the other rows), Only (muddy, context gap, not learned yet) — plus

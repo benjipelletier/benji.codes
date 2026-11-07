@@ -243,6 +243,7 @@ export function PracticePage() {
               {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
             <SkippedList skipped={built.skipped} />
+            {spec.source === 'tune' && t.canEdit && <TuneToDeck built={built} tags={spec.tags} />}
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -251,6 +252,39 @@ export function PracticePage() {
       </section>
 
       <RunHistory runs={history} />
+    </div>
+  );
+}
+
+/**
+ * A tune's voicings into the deck, for learning a set: every voicing (with
+ * the tags picked) of every chord the tune plays, in its spelling — pairs come
+ * in together, as everywhere.
+ */
+function TuneToDeck({ built, tags }: { built: ReturnType<typeof buildSet>; tags: string[] }) {
+  const t = useTrainer();
+  const [said, setSaid] = useState<string | null>(null);
+  const labels = new Set(built.steps.map(s => s.voicing.chord_label));
+  const all = t.voicings.filter(v => labels.has(v.chord_label) && tags.every(tag => v.tags.includes(tag)));
+  const out = all.filter(v => !MODES.some(m => t.srs.has(srsKey(v.id, m))));
+  if (!all.length) return null;
+  return (
+    <div className="pr-tunedeck">
+      {out.length ? (
+        <button
+          type="button"
+          className="vt-secondary"
+          onClick={async () => {
+            const n = await t.addToDeck(out.map(v => v.id));
+            setSaid(`Added ${n / 3} voicings for this tune — new in your next review.`);
+          }}
+        >
+          + Add this tune’s {out.length} voicing{out.length === 1 ? '' : 's'} to my deck
+        </button>
+      ) : (
+        <span className="vt-hint">All {all.length} of this tune’s voicings are in your deck.</span>
+      )}
+      {said && <span className="vt-hint">{said}</span>}
     </div>
   );
 }

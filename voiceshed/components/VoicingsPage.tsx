@@ -1,13 +1,15 @@
 'use client';
 
 // Voicings: every voicing, narrowed with the stackable filter (key, chord
-// type, voicing type — VoicingFilter) and grouped by chord. Open one to see it on the keyboard, edit
+// type, voicing type — VoicingFilter), as a progress map (ProgressMap: keys ×
+// voicing types, each card's state at a glance) or a list grouped by chord. Open one to see it on the keyboard, edit
 // its tags, mark it muddy, set its lowest playable register, set a card's
 // target time, and see its stats per mode — accuracy, average time, and
 // isolated against in-context speed.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
+import { ProgressMap } from './ProgressMap';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { midisOf } from '@voiceshed/lib/practice';
@@ -21,7 +23,26 @@ const PAGE = 120;
 export function VoicingsPage() {
   const t = useTrainer();
   const { voicings, srs, canEdit } = t;
-  const { gapKeys } = useCardStats();
+  const { gapKeys, stats } = useCardStats();
+  const { settings } = t;
+  // Map or list, kept on this device.
+  const [view, setViewState] = useState<'map' | 'list'>('map');
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('vs-voicings-view');
+      if (v === 'map' || v === 'list') setViewState(v);
+    } catch {
+      // The map, then.
+    }
+  }, []);
+  const setView = (v: 'map' | 'list') => {
+    setViewState(v);
+    try {
+      localStorage.setItem('vs-voicings-view', v);
+    } catch {
+      // Not remembered.
+    }
+  };
   const [filter, setFilter] = useFilterState();
   const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<string | null>(null);
@@ -60,49 +81,61 @@ export function VoicingsPage() {
 
   return (
     <div className="vt-page">
-      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} />
+      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} collapsible={view === 'map'} />
+      <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
+        {(['map', 'list'] as const).map(m => (
+          <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
+            {m === 'map' ? 'Map' : 'List'}
+          </button>
+        ))}
+      </div>
+
+      {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
+      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} />}
       {canEdit && <DeckBar shown={filtered} />}
-      {canEdit && (
+      {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing
         </button>
       )}
 
-      <div className="lb-groups">
-        {groups.map(([label, vs]) => (
-          <section key={label} className="lb-group">
-            <h3 className="lb-group-h">
-              {prettyLabel(label)} <span>{vs.length}</span>
-            </h3>
-            <div className="lb-cards">
-              {vs.map(v => (
-                <VoicingCard
-                  key={v.id}
-                  v={v}
-                  inDeck={tests.inDeck(v)}
-                  canEdit={canEdit}
-                  learned={MODES.map(m => !!srs.get(srsKey(v.id, m))?.learned)}
-                  gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
-                  onOpen={() => setOpen(v.id)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-        {filtered.length > shown && (
-          <button type="button" className="vt-secondary lb-more" onClick={() => setShown(s => s + PAGE * 2)}>
-            Show more ({filtered.length - shown} left)
-          </button>
-        )}
-        {!filtered.length && (
-          <p className="vt-empty">
-            Nothing fits all of that.{' '}
-            <button type="button" className="vf-inline" onClick={() => changeFilter(EMPTY_FILTER)}>
-              Clear the filter
+      {view === 'map' ? null : (
+        <div className="lb-groups">
+          {groups.map(([label, vs]) => (
+            <section key={label} className="lb-group">
+              <h3 className="lb-group-h">
+                {prettyLabel(label)} <span>{vs.length}</span>
+              </h3>
+              <div className="lb-cards">
+                {vs.map(v => (
+                  <VoicingCard
+                    key={v.id}
+                    v={v}
+                    inDeck={tests.inDeck(v)}
+                    canEdit={canEdit}
+                    learned={MODES.map(m => !!srs.get(srsKey(v.id, m))?.learned)}
+                    gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
+                    onOpen={() => setOpen(v.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          {filtered.length > shown && (
+            <button type="button" className="vt-secondary lb-more" onClick={() => setShown(s => s + PAGE * 2)}>
+              Show more ({filtered.length - shown} left)
             </button>
-          </p>
-        )}
-      </div>
+          )}
+          {!filtered.length && (
+            <p className="vt-empty">
+              Nothing fits all of that.{' '}
+              <button type="button" className="vf-inline" onClick={() => changeFilter(EMPTY_FILTER)}>
+                Clear the filter
+              </button>
+            </p>
+          )}
+        </div>
+      )}
 
       {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} />}
       {adding && <NewVoicing onClose={() => setAdding(false)} onCreated={id => { setAdding(false); setOpen(id); }} />}
