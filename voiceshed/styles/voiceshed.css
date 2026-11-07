@@ -180,8 +180,16 @@
 .vt-field-lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
 .vt-inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .vt-row2 { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; }
-.vt-check { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; min-height: 44px; cursor: pointer; }
-.vt-check input { accent-color: var(--accent-ink); width: 20px; height: 20px; }
+.vt-check { display: inline-flex; align-items: center; gap: 12px; font-size: 15px; min-height: 44px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Checkboxes drawn to match: a rounded square that fills gold, with a drawn tick. */
+.vt-check input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 24px; height: 24px; margin: 0; display: grid; place-items: center; border: 1.5px solid var(--ink-4); border-radius: 7px; background: var(--card); cursor: pointer; transition: background-color 0.15s, border-color 0.15s, transform 0.1s; }
+.vt-check input::after { content: ''; width: 6px; height: 12px; margin-top: -3px; border: solid var(--paper); border-width: 0 2.5px 2.5px 0; border-radius: 1px; transform: rotate(45deg) scale(0); transition: transform 0.15s ease-out; }
+.vt-check input:checked { background: var(--accent); border-color: var(--accent); }
+.vt-check input:checked::after { transform: rotate(45deg) scale(1); }
+.vt-check input:active { transform: scale(0.92); }
+.vt-check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vt-check input:disabled { opacity: 0.45; cursor: default; }
+.vt-check:has(input:disabled) { cursor: default; }
 .vt-mini { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .vt-mini input { width: 70px; min-height: 40px; padding: 4px 8px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; font-size: 16px; }
 .vt-form { display: flex; flex-direction: column; gap: 18px; padding-top: 14px; }
@@ -616,9 +624,11 @@
 .rs-mode { min-width: 96px; }
 .rs-mode-name { font-size: 17px; font-weight: 600; }
 .rs-include { display: flex; flex-direction: column; gap: 2px; }
-.rs-check { align-items: flex-start; min-height: 40px; padding: 6px 0; }
-.rs-check input { margin-top: 1px; flex: 0 0 auto; }
-.rs-check em { display: block; font-style: normal; font-size: 12.5px; color: var(--ink-3); }
+.rs-include { gap: 6px; }
+/* Review's "Cards": each choice a row you tap, lit when it's on. */
+.rs-check { display: flex; align-items: center; min-height: 52px; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); transition: background-color 0.15s, border-color 0.15s; }
+.rs-check:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.rs-check em { display: block; font-style: normal; font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
 .rs .vt-seg { width: 100%; }
 .rs .vt-seg button { font-size: 13px; }
 .rv-what { flex-basis: 100%; font-size: 13px; color: var(--accent-ink); font-weight: 500; margin-bottom: -6px !important; }
