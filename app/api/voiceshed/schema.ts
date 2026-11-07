@@ -107,8 +107,9 @@ export const TRAINER_DDL = [
  *   8: altered dominants join (drop-2 two-hand: 3 ♭7 ♯9 ♭13, and ♭7 3 ♭13 ♯9
  *      whose ♯9 moves to ♭9); double accidentals where charts use the name.
  *   9: °7 joins (drop-2 two-hand, R ♭5 𝄫7 ♭3 and ♭5 R ♭3 𝄫7: the 7♭9 shapes).
+ *  10: the minor ii–V–i ends on m7 instead of m6 (progressions only).
  */
-const SEED_VERSION = 9;
+const SEED_VERSION = 10;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 

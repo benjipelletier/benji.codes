@@ -623,7 +623,8 @@ export function starterProgressions(): ProgressionSeed[] {
       out.push({ name: label, key, steps: steps.map(({ name: _n, ...st }) => st), sort_order: order++ });
     };
     for (const n of rootNames(key)) add(`ii–V–I in ${n}`, n, [['9', 'm7'], ['5', '7'], ['R', 'maj7']]);
-    for (const n of rootNames(key)) add(`ii–V–i in ${n} minor`, n, [['9', 'm7b5'], ['5', '7alt'], ['R', 'm6']]);
+    // The minor one ends on m7 for now (the owner: "we can just end on m7"; no m6 voicings yet).
+    for (const n of rootNames(key)) add(`ii–V–i in ${n} minor`, n, [['9', 'm7b5'], ['5', '7alt'], ['R', 'm7']]);
   });
   return out;
 }

@@ -109,7 +109,8 @@ Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
 removed the rare spellings (generated ones only — a voicing added by hand stays);
 version 6 added the 6 chord (into the library, not the deck); version 7 the
-7♭9s, version 8 the altered dominants, version 9 the °7s (likewise).
+7♭9s, version 8 the altered dominants, version 9 the °7s (likewise);
+version 10 ended the minor ii–V–i on m7.
 
 ---
 
@@ -176,7 +177,8 @@ wide screen; a run hides both.
   as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
-  for progressions: a ii–V–i's m6 is skipped until it exists.
+  for progressions. The minor ii–V–i ends on m7 for now (the owner: "we can
+  just end on m7"; `starterProgressions`, seed version 10): Dm7♭5 G7alt Cm7.
   Across the 1,460 standards that plays 88% of chords (469 tunes whole); the
   biggest gaps, by chords: bare major triad 2.9%, bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
@@ -274,8 +276,8 @@ My charts from iFake Pro's database (`IFAKEPRO_DATABASE_URL`, its `getDb`;
 read only; none set or no tables = no charts).
 Tables (made on first use by `ensureTrainer`, also in `db/schema.sql`):
 `voicings` (global; `notes` spelled bottom to top with octave), `contexts`
-(ii–V–I and ii–V–i, black keys under both names; the minor one's m6 is
-skipped until it exists), `attempts`, `srs_state` (owner × voicing × mode;
+(ii–V–I and ii–V–i, black keys under both names; the minor one ends on m7
+for now), `attempts`, `srs_state` (owner × voicing × mode;
 `interval_days`), `voicing_runs`, `voiceshed_meta` (seed version). `user_id` is the owner's email.
 
 API: `GET bundle` (library, progressions, the owner's schedules, last 20k

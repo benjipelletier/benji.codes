@@ -229,7 +229,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       for (const s of c.steps) {
         const pinned = s.voicing_id ? voicings.find(v => v.id === s.voicing_id && matchesTags(v, spec.tags)) : undefined;
         chords++;
-        // Exact chords only: a ii–V–i's 7alt and m6 wait until the library has them.
+        // Exact chords only: a chord the library has no voicing for is skipped.
         const cands = pinned ? [pinned] : candidatesFor(voicings, s.root, [s.quality], spec.tags, symbolRoot(s.symbol));
         if (!cands.length) {
           skipped.push({ symbol: prettyChord(s.symbol), why: why(s.root, s.quality) });
