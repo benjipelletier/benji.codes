@@ -104,8 +104,10 @@ export const TRAINER_DDL = [
  *   6: the 6 chord (3 6 9 5, drop-2 two-hand) joins: added, not into the deck.
  *   7: 7♭9 (drop-2 two-hand, 3 ♭7 ♭9 5 and ♭7 3 5 ♭9) joins; D♭7♭9 and
  *      A♭7♭9 spelled with their double flat, as charts write them.
+ *   8: altered dominants join (drop-2 two-hand: 3 ♭7 ♯9 ♭13, and ♭7 3 ♭13 ♯9
+ *      whose ♯9 moves to ♭9); double accidentals where charts use the name.
  */
-const SEED_VERSION = 7;
+const SEED_VERSION = 8;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 

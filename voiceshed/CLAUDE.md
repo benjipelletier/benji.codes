@@ -33,6 +33,12 @@ dominants a minor third apart (C7♭9 = E♭7♭9 = G♭7♭9 = A7♭9 on the ke
 They stay separate voicings and separate deck entries; a 7♭9's sheet names
 the others ("Same keys as …", enharmonic names left out).
 
+Altered dominant (`7alt`; the owner: "3 ♭7 ♯9 ♭13 without the move and then
+♭7 3 ♭13 ♯9 with the move"): `drop-2 two-hand`, a pair — 3 ♭7 ♯9 ♭13 (top ♭13)
+and ♭7 3 ♭13 ♯9, whose ♯9 on top then moves down to the ♭9 (`top_move`, tag
+`movement`). G7alt: B F A♯ E♭ · F B E♭ A♯ → A♭. Plays chart `7alt`, `7♯9`
+and `7♭13` (the owner's pick; `7♯5`, `7♯9♯5`, `7♭5`, aug stay skipped).
+
 The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
 inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
 charts).
@@ -42,8 +48,8 @@ voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
 files under `drop-2 two-hand` (the owner: "only the spread one goes under
 drop 2"; it has its root, so no `rootless` tag), so a drop-2 ii–V–i plays it.
 `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) stays its own type. Moves so far: the
-m7♭5 spread's 11 → ♭3. Next, when altered dominants come: ♯9 on top moving
-to the ♭9 — a shape's `move` in `SHAPE_SETS` takes it. Altered dominants come later. The register is the
+m7♭5 spread's 11 → ♭3, the altered ♭7 3 ♭13 ♯9's ♯9 → ♭9 (a shape's `move`
+in `SHAPE_SETS`). The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
 
 Spelling: each note is spelled as its interval above the root. A black-key
@@ -53,24 +59,27 @@ that would need a double accidental is left out (E♭m7♭5 and A♭m7♭5 would
 B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5 — the owner declined adding them;
 A♯maj7 likewise) — except where charts use that name (`CHARTED_DOUBLE`, the
 owner: "keep the ones charts actually use"): D♭7♭9 (F C♭ E𝄫 A♭, 54% of its
-chart appearances) and A♭7♭9 (C G♭ B𝄫 E♭, 93%). Notes are stored with
+chart appearances) and A♭7♭9 (C G♭ B𝄫 E♭, 93%); every altered name charts
+use — E7alt's ♯9 is F𝄪, B7alt's C𝄪, C♯/F♯/G♯7alt's D𝄪/G𝄪/A𝄪, D♭7alt's ♭13
+B𝄫, G♭7alt's E𝄫, and the moves to D♭'s E𝄫, G♭'s A𝄫, A♭'s B𝄫. Notes are stored with
 ASCII `bb`/`##` and shown as 𝄫/𝄪. Single ones stay,
 however rare (F♭, C♭, E♯, B♯) — but a spelling charts barely use is left out
 too (`RARE_SPELLINGS`: under 10% of that chord's appearances in the 1,460
 standards where the other name is in the library — A♯m7, C♯maj7, D♯m7, C♯7,
-G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, G♯7♭9, A♯7♭9).
-Both names stay only where charts use both: D♭m7 / C♯m7, G♭7 / F♯7,
-D♭7♭9 / C♯7♭9. So a white key has 14 voicings, a black key 14, and D♭/C♯ and
-G♭/F♯ 18, plus a 6 chord each and two 7♭9s per name (13 names). 214 voicings
-in all.
+G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, G♯7♭9, A♯7♭9,
+D♯7alt, A♯7alt). Both names stay only where charts use both: D♭m7 / C♯m7,
+G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. So a white key has 14
+voicings, a black key 14, and D♭/C♯ and G♭/F♯ 18, plus a 6 chord each, two
+7♭9s per name (13 names) and two 7alts per name (15). 244 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
 spelling: a chord takes the voicings spelled as the chart spells it.
 Progressions are spelled from their key's name (in G♭: A♭m7 D♭7 G♭maj7), and
 a black key's ii–V–I comes under both names (D♭ and C♯, G♭ and F♯) where
-every chord then spells cleanly and none is a rare spelling: 22 progressions
-(no C♯ or F♯ ones: they'd need G♯m7, G♯7, F♯maj7 or C♯7).
+every chord then spells cleanly and none is a rare spelling: 24 progressions
+(no C♯ or F♯ major ones: they'd need G♯m7, G♯7, F♯maj7 or C♯7; C♯ and F♯
+minor are in, their V being G♯7alt and C♯7alt).
 
 The seed is versioned (`SEED_VERSION` in `app/api/voiceshed/schema.ts`,
 stored in `voiceshed_meta`): raising it adds the voicings a database doesn't
@@ -81,7 +90,7 @@ Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
 removed the rare spellings (generated ones only — a voicing added by hand stays);
 version 6 added the 6 chord (into the library, not the deck); version 7 the
-7♭9s (likewise).
+7♭9s, version 8 the altered dominants (likewise).
 
 ---
 
@@ -136,19 +145,20 @@ wide screen; a run hides both.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
-  `9`, `13`; the voicings carry the 9 and 13), 7♭9 (`7b9`), m7♭5 (`h`, `h7`); a slash chord
+  `9`, `13`; the voicings carry the 9 and 13), 7♭9 (`7b9`), altered (`7alt`,
+  `7#9`, `7b13`), m7♭5 (`h`, `h7`); a slash chord
   as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
-  for progressions: a ii–V–i's 7alt and m6 are skipped until they exist.
-  Across the 1,460 standards that plays 83% of chords (233 tunes whole); the
-  biggest gaps, by chords: altered 3.7%, bare major triad 2.9%, °7 2.2%,
-  bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%,
-  m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
+  for progressions: a ii–V–i's m6 is skipped until it exists.
+  Across the 1,460 standards that plays 85% of chords (298 tunes whole); the
+  biggest gaps, by chords: bare major triad 2.9%, °7 2.2%, bare minor triad
+  1.8%, sus 1.6%, other altered (7♯5, 7♯9♯5, 7♭5, aug) 1.6%, m6 1.4%, 7♯11
+  1.3%, maj7♯11 0.7%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view: keys as
   columns round the cycle of fourths, voicing type × chord as rows (m7, 7,
-  7♭9, maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
+  7♭9, 7alt, maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
   voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
   new (outlined), learning (amber, by accuracy), learned (green, deeper the
   faster against target), a red dot for due; a black key's two spellings side
@@ -235,8 +245,8 @@ My charts from iFake Pro's database (`IFAKEPRO_DATABASE_URL`, its `getDb`;
 read only; none set or no tables = no charts).
 Tables (made on first use by `ensureTrainer`, also in `db/schema.sql`):
 `voicings` (global; `notes` spelled bottom to top with octave), `contexts`
-(ii–V–I and ii–V–i, black keys under both names; the minor one's 7alt and m6
-are skipped until those exist), `attempts`, `srs_state` (owner × voicing × mode;
+(ii–V–I and ii–V–i, black keys under both names; the minor one's m6 is
+skipped until it exists), `attempts`, `srs_state` (owner × voicing × mode;
 `interval_days`), `voicing_runs`, `voiceshed_meta` (seed version). `user_id` is the owner's email.
 
 API: `GET bundle` (library, progressions, the owner's schedules, last 20k
@@ -259,7 +269,7 @@ cut off, reloaded all three pages, reviewed, ran a tune, reconnected, uploaded.
 
 ## Next (from the spec)
 
-Altered dominants (♯9 on top moving to ♭9); 7♭9 in other voicing types; hand-split practice (2+2 vs 1+3); loop /
+Other altered chords (7♯5, 7♯9♯5, 7♭5); 7♭9 and 7alt in other voicing types; m6; hand-split practice (2+2 vs 1+3); loop /
 harmonise-a-line mode (a top line + a chord rule, e.g. Barry Harris
 sixth-diminished, voiced in a chosen family, movable to any key); interval
 answer mode.

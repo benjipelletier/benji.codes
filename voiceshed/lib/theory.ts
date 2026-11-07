@@ -153,7 +153,7 @@ const SPELL_MAJOR = { 0: 'R', 1: 'b9', 2: '9', 3: '#9', 4: '3', 5: '11', 6: '#11
 const SPELL_MINOR = { ...SPELL_MAJOR, 3: 'b3', 8: 'b13' };
 const SPELL_HALFDIM = { ...SPELL_MINOR, 6: 'b5' };
 const SPELL_DIM = { ...SPELL_HALFDIM, 9: '6' };
-const SPELL_ALT = { ...SPELL_MAJOR, 6: 'b5', 8: '#5' };
+const SPELL_ALT = { ...SPELL_MAJOR, 6: 'b5', 8: 'b13' };
 
 export const QUALITIES: QualityInfo[] = [
   { id: 'maj7', suffix: 'maj7', display: 'maj7', spelling: SPELL_MAJOR, roots: ROOTS_MAJOR },
@@ -271,6 +271,8 @@ const EXACT_SUFFIX: [RegExp, Quality][] = [
   [/^6$|^69$/, '6'],
   // 7♭9's voicings carry the 5, not the 13: a 13♭9 isn't the same chord.
   [/^7b9$/, '7b9'],
+  // The altered voicings carry 3 ♭7 ♯9 ♭13 (the owner's pick: 7alt, 7♯9, 7♭13).
+  [/^7alt$|^7#9$|^7b13$/, '7alt'],
   [/^-7$|^-9$/, 'm7'],
   [/^7$|^9$|^13$/, '7'],
   [/^h7?$/, 'm7b5'],
@@ -409,6 +411,12 @@ export const SHAPE_SETS: ShapeSet[] = [
       // The m7♭5 of this set (the owner's call: the spread one only) has its
       // root, and its top voice moves from the 11 down to the ♭3.
       m7b5: [{ ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11', move: 'b3', tags: ['drop-2', 'two-handed', 'spread', '4-note', 'movement'] }],
+      // Altered dominant (the owner: "3 ♭7 ♯9 ♭13 without the move, and then
+      // ♭7 3 ♭13 ♯9 with the move"): the second's ♯9 on top moves down to the ♭9.
+      '7alt': [
+        { ivs: ['3', 'b7', '#9', 'b13'], tag: '3-7-#9-b13' },
+        { ivs: ['b7', '3', 'b13', '#9'], tag: '7-3-b13-#9', move: 'b9', tags: ['drop-2', 'two-handed', 'rootless', '4-note', 'movement'] },
+      ],
     },
   },
   {
@@ -436,7 +444,7 @@ export const SHAPE_SETS: ShapeSet[] = [
   },
 ];
 
-const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5'];
+const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5', '7alt'];
 
 /**
  * MIDI notes spelled as these intervals above a root named `rootName`, or
@@ -461,17 +469,20 @@ export function rootNames(pc: number): string[] {
  * G♯7 31 (A♭7 1,144), A♯m7♭5 2 (B♭m7♭5 33), F♯maj7 15 (G♭maj7 253), G♯m7 38
  * (A♭m7 434); 6 chords (and 6/9) C♯6 0 (D♭6 87), F♯6 2 (G♭6 24), G♯6 0
  * (A♭6 317); 7♭9 (and 13♭9) D♯7♭9 1 (E♭7♭9 77), G♭7♭9 1 (F♯7♭9 49), G♯7♭9 4
- * (A♭7♭9 54), A♯7♭9 0 (B♭7♭9 121). Both names stay where charts use both:
- * D♭m7 / C♯m7 30 / 70%, G♭7 / F♯7 69 / 31%, D♭7♭9 / C♯7♭9 54 / 46%.
+ * (A♭7♭9 54), A♯7♭9 0 (B♭7♭9 121); altered (7alt, 7♯9, 7♭13) D♯7alt 1
+ * (E♭7alt 58), A♯7alt 0 (B♭7alt 78). Both names stay where charts use both:
+ * D♭m7 / C♯m7 30 / 70%, G♭7 / F♯7 69 / 31%, D♭7♭9 / C♯7♭9 54 / 46%,
+ * D♭7alt / C♯7alt 82 / 18%, F♯7alt / G♭7alt 86 / 14%, A♭7alt / G♯7alt 82 / 18%.
  */
-export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7', 'C#6', 'F#6', 'G#6', 'D#7b9', 'Gb7b9', 'G#7b9', 'A#7b9']);
+export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7', 'C#6', 'F#6', 'G#6', 'D#7b9', 'Gb7b9', 'G#7b9', 'A#7b9', 'D#7alt', 'A#7alt']);
 
 /**
  * Names charts write although they need a double accidental, so they're kept
  * with it (the owner: "keep the ones charts actually use"): D♭7♭9's ♭9 is E𝄫,
- * A♭7♭9's B𝄫.
+ * A♭7♭9's B𝄫. Altered: E7alt's ♯9 is F𝄪, B7alt's C𝄪, C♯/F♯/G♯7alt's D𝄪/G𝄪/A𝄪;
+ * D♭7alt's ♭13 B𝄫 (and its move to E𝄫), G♭7alt's E𝄫 (→ A𝄫), A♭7alt's move to B𝄫.
  */
-export const CHARTED_DOUBLE = new Set(['Db7b9', 'Ab7b9']);
+export const CHARTED_DOUBLE = new Set(['Db7b9', 'Ab7b9', 'E7alt', 'B7alt', 'C#7alt', 'F#7alt', 'G#7alt', 'Db7alt', 'Gb7alt', 'Ab7alt']);
 
 /** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
 export function keyLabel(pc: number): string {
@@ -509,7 +520,7 @@ export function starterVoicings(): VoicingSeed[] {
               let m = top - 1;
               while (mod12(m) !== pc) m--;
               if (top - m > 6) m += 12;
-              move = spellStrict(rootName, [m], [shape.move])?.[0] ?? null;
+              move = spellStrict(rootName, [m], [shape.move], CHARTED_DOUBLE.has(label))?.[0] ?? null;
               if (!move) return;
             }
             out.push({
@@ -562,7 +573,8 @@ const QUALITY_TONES: Record<Quality, string[]> = {
   mMaj7: ['R', 'b3', '5', '7'],
   '7': ['R', '3', '5', 'b7'],
   '7b9': ['R', '3', 'b7', 'b9'],
-  // Alterations aren't in the library yet; their spelling is decided when they are.
+  // The altered tones' doubles (E7alt's F𝄪) are kept where charts use the name
+  // (CHARTED_DOUBLE), so only the plain dominant decides.
   '7alt': ['R', '3', 'b7'],
   '7sus': ['R', '11', '5', 'b7'],
   m7b5: ['R', 'b3', 'b5', 'b7'],
@@ -590,8 +602,8 @@ export function starterProgressions(): ProgressionSeed[] {
     // (A♯ major would need B♯m7, D♭ minor E♭m7♭5: skipped).
     const add = (label: string, keyName: string, ivs: [string, Quality][]) => {
       const steps = ivs.map(([iv, q]) => step(keyName, iv, q));
-      // …and isn't a spelling left out as rare (a 7alt goes by its dominant's name).
-      const rare = (st: { name: string; quality: Quality }) => RARE_SPELLINGS.has(chordLabel(st.name, st.quality === '7alt' ? '7' : st.quality));
+      // …and isn't a spelling left out as rare.
+      const rare = (st: { name: string; quality: Quality }) => RARE_SPELLINGS.has(chordLabel(st.name, st.quality));
       if (!steps.every(st => rootNames(st.root).includes(st.name) && spellable(st.name, st.root, st.quality) && !rare(st))) return;
       out.push({ name: label, key, steps: steps.map(({ name: _n, ...st }) => st), sort_order: order++ });
     };
