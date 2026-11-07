@@ -997,3 +997,13 @@ button.pm-bg span { color: var(--accent-ink); }
 .pm-invs { display: flex; gap: 4px; margin-top: 4px; padding: 0 5px; font-family: var(--mono); font-style: normal; font-size: 9.5px; color: var(--ink-3); }
 .pm-invs span { flex: 1; text-align: center; }
 .pm-hint { font-size: 12px; color: var(--ink-3); }
+
+/* Zoomed in: each inversion a soft pill; connected ones joined by a liquid neck. */
+.pm-board-zoom .pm-bc { gap: 0; }
+.pm-pill { --pill: color-mix(in srgb, var(--ink) 7%, var(--card)); background: var(--pill); border-radius: 7px; padding: 3px; }
+.pm-neck { flex: 0 0 9px; align-self: center; height: 34%; margin: 0 -1px; fill: color-mix(in srgb, var(--ink) 7%, var(--card)); position: relative; z-index: 0; }
+.pm-board-zoom .pm-part-block { margin-left: 6px; }
+.pm-sample-tile.zoomed { gap: 0; }
+.pm-sample-tile.zoomed .pm-part-block { margin-left: 5px; }
+.pm-pill.pm-part-block { border-left: 0; padding-left: 3px; margin-left: 10px; position: relative; overflow: visible; }
+.pm-pill.pm-part-block::before { content: ''; position: absolute; left: -6px; top: 12%; bottom: 12%; width: 1.5px; border-radius: 1px; background: var(--rule); }

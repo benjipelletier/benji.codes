@@ -254,7 +254,10 @@ wide screen; a run hides both.
   inversion, each with its own Play / Spell / Name bars** (their earlier pick,
   "both: a tiny grid in each tile"), labelled under each chord — 1st, 2nd, …,
   spread, block (a black key's two names share a column; block after a thin
-  line). Chips move between groups or back ("‹ All"); so does the back button
+  line). Each inversion is a soft pill, and connected ones (same voicing type)
+  are joined by a pinched "liquid" neck (`LiquidNeck`; the owner: "connect the
+  inversions with a small liquid type connector"); block stays apart behind its
+  line. Chips move between groups or back ("‹ All"); so does the back button
   (`useBackClose`). Bars: not in deck (dashed), new (outlined), learning (amber),
   learned (green, deeper the faster); a red dot for due. A key above the map is
   a sample tile labelled Play / Spell / Name down its side ("all inversions"

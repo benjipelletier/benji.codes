@@ -374,11 +374,15 @@ export function ProgressMap({
                   >
                     {/* The overview sums a chord's inversions; zoomed in, each has its own column. */}
                     {(zoom ? parts : [bands]).map((part, pi) => (
-                      <span key={pi} className={`pm-part ${zoom && fams[pi] === 'closed (block)' && fams[pi - 1] && fams[pi - 1] !== 'closed (block)' ? 'pm-part-block' : ''}`}>
-                        {part.map((c, i) => (
-                          <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
-                        ))}
-                      </span>
+                      <Fragment key={pi}>
+                        {/* Connected inversions (same voicing type) joined by a liquid neck (the owner: "connect the inversions with a small liquid type connector"). */}
+                        {zoom && pi > 0 && fams[pi] === fams[pi - 1] && <LiquidNeck />}
+                        <span className={`pm-part ${zoom ? 'pm-pill' : ''} ${zoom && fams[pi] === 'closed (block)' && fams[pi - 1] && fams[pi - 1] !== 'closed (block)' ? 'pm-part-block' : ''}`}>
+                          {part.map((c, i) => (
+                            <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
+                          ))}
+                        </span>
+                      </Fragment>
                     ))}
                     {bands.some(b => b.due) && <i className="pm-due" />}
                   </button>
@@ -393,6 +397,15 @@ export function ProgressMap({
 }
 
 
+/** A pinched neck joining two inversion pills, like two drops meeting. */
+function LiquidNeck() {
+  return (
+    <svg className="pm-neck" viewBox="0 0 10 24" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 0 C 3 10, 7 10, 10 0 L 10 24 C 7 14, 3 14, 0 24 Z" />
+    </svg>
+  );
+}
+
 /** How to read a tile — inversions across, Play/Spell/Name down — and what the colours mean. */
 function Legend({ zoomed }: { zoomed: boolean }) {
   const bar = (state: CardState, strength = 0.8) => <i className={`pm-band pm-${state}`} style={state === 'learning' || state === 'learned' ? ({ '--s': strength } as React.CSSProperties) : undefined} />;
@@ -404,20 +417,21 @@ function Legend({ zoomed }: { zoomed: boolean }) {
           <span>Spell</span>
           <span>Name</span>
         </span>
-        <span className="pm-sample-tile">
-          <span className="pm-part">
+        <span className={`pm-sample-tile ${zoomed ? 'zoomed' : ''}`}>
+          <span className={`pm-part ${zoomed ? 'pm-pill' : ''}`}>
             {bar('learned', 0.9)}
             {bar('learning', 0.7)}
             {bar('learned', 0.6)}
           </span>
           {zoomed && (
             <>
-              <span className="pm-part">
+              <LiquidNeck />
+              <span className="pm-part pm-pill">
                 {bar('learning', 0.6)}
                 {bar('new')}
                 {bar('learning', 0.4)}
               </span>
-              <span className="pm-part pm-part-block">
+              <span className="pm-part pm-pill pm-part-block">
                 {bar('out')}
                 {bar('out')}
                 {bar('out')}
