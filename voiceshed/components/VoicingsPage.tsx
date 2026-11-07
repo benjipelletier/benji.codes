@@ -633,8 +633,9 @@ function DimFamily({ v, fam, onOpen }: { v: Voicing; fam: DimFamilyView; onOpen?
 
 /**
  * Voicing cards with each pair of inversions framed together (the owner:
- * "make it more obvious when cards are connected by an inversion"): one frame,
- * "⇄ 2 inversions", and one deck button for both, since they're added and
+ * "make it more obvious when cards are connected by an inversion"; their pick,
+ * "rails with rounded lines"): each card's thick bottom edge forks, with
+ * rounded corners, into one deck button for them all, since they're added and
  * removed together. A voicing with no partner stands alone with its own button.
  */
 export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: string) => void }) {
@@ -669,14 +670,9 @@ export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen:
         if (g.length < 2) return card(g[0], true);
         const all = g.every(v => inDeck(v.id));
         return (
-          <div key={g[0].id} className={`lb-pair ${all ? 'lb-pair-in' : ''}`} role="group" aria-label={`${g[0].chord_label} ${g[0].family}: ${g.length} inversions, in the deck together`}>
-            <div className="lb-pair-h">
-              <span className="lb-pair-link" aria-hidden>
-                ⇄
-              </span>
-              {g.length} inversions · {g[0].family.replace('m7b5', 'm7♭5')}
-            </div>
+          <div key={g[0].id} className={`lb-pair ${all ? 'lb-pair-in' : ''} ${g.length > 2 ? 'lb-pair-grid' : ''}`} role="group" aria-label={`${g[0].chord_label} ${g[0].family}: ${g.length} inversions, in the deck together`}>
             <div className="lb-pair-cards">{g.map(v => card(v, false))}</div>
+            <div className="lb-rail" aria-hidden />
             {t.canEdit && (
               <button
                 type="button"

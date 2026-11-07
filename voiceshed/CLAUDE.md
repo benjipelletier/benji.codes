@@ -221,9 +221,12 @@ wide screen; a run hides both.
   same voicing type (`partnersOf`) — are added and removed together, and a
   deck holding one of a pair gets the other on load. On screen (`VoicingGrid`,
   used by the list and Practice's Choose voicings; the owner: "make it more
-  obvious when cards are connected by an inversion") a pair sits in one
-  frame — "⇄ 2 inversions · drop-2 two-hand" — with one "+ Deck both / ✓ Both
-  in deck" button; a voicing with no partner keeps its own. The 6 and the m7♭5s have
+  obvious when cards are connected by an inversion"; their pick of four
+  mock-ups: "rails with rounded lines") each card of a pair keeps its border
+  with a thick bottom edge, and a rounded fork joins those edges into one
+  "+ Deck both / ✓ Both in deck" button (°7's four: a 2 × 2, a short rail
+  joining each top card to the one below, "+ Deck all 4"); the rails turn full
+  accent when all are in the deck. A voicing with no partner keeps its own button. The 6 and the m7♭5s have
   no partner; a 7♭9's diminished siblings aren't partners. Shape tags (`3-7-9-5`,
   `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
   Practice.
