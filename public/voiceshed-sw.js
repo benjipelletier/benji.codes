@@ -9,7 +9,8 @@
 // left to the network: a failed sync just waits for the connection.
 
 const PAGE = "vsh-page-v1";
-const STATIC = "vsh-static-v1";
+// v2: drops a manifest kept from v1, which kept it cache first (see below).
+const STATIC = "vsh-static-v2";
 const KEEP = [PAGE, STATIC];
 const ROUTES = ["/voiceshed", "/voiceshed/practice", "/voiceshed/voicings"];
 
@@ -32,15 +33,15 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-/** From the network, kept under `key`; the kept copy when the network fails. */
-async function networkFirst(req, key) {
+/** From the network, kept under `key`; the kept copy when the network fails (for a page, else the main page). */
+async function networkFirst(req, key, isPage = true) {
   const cache = await caches.open(PAGE);
   try {
     const res = await fetch(req);
     if (res.ok) await cache.put(key, res.clone());
     return res;
   } catch (err) {
-    const kept = (await cache.match(key)) || (await cache.match(ROUTES[0]));
+    const kept = (await cache.match(key)) || (isPage ? await cache.match(ROUTES[0]) : undefined);
     if (kept) return kept;
     throw err;
   }
@@ -78,7 +79,13 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(networkFirst(req, r));
     return;
   }
-  if (url.pathname.startsWith("/_next/static/") || (url.pathname.startsWith("/voiceshed/") && /\.(png|webmanifest|ico|svg)$/.test(url.pathname))) {
+  // The manifest describes the installed app, so it's fetched fresh when online
+  // (cache first would keep an old one on the phone for good); the last copy offline.
+  if (url.pathname === "/voiceshed/manifest.webmanifest") {
+    e.respondWith(networkFirst(req, url.pathname, false));
+    return;
+  }
+  if (url.pathname.startsWith("/_next/static/") || (url.pathname.startsWith("/voiceshed/") && /\.(png|ico|svg)$/.test(url.pathname))) {
     e.respondWith(cacheFirst(req));
   }
 });
