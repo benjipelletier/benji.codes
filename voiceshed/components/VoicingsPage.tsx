@@ -13,10 +13,11 @@ import { ProgressMap, TWO_HAND } from './ProgressMap';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
+import { formatTime, parseTime, readSource, sourceHref, SOURCE_NAME } from '@voiceshed/lib/source';
 import { hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { targetFor } from '@voiceshed/lib/srs';
-import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
+import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, FOUND, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
 const PAGE = 120;
@@ -27,16 +28,16 @@ export function VoicingsPage() {
   const { gapKeys, stats } = useCardStats();
   const { settings } = t;
   // Map or list, kept on this device.
-  const [view, setViewState] = useState<'map' | 'list'>('map');
+  const [view, setViewState] = useState<'map' | 'list' | 'found'>('map');
   useEffect(() => {
     try {
       const v = localStorage.getItem('vs-voicings-view');
-      if (v === 'map' || v === 'list') setViewState(v);
+      if (v === 'map' || v === 'list' || v === 'found') setViewState(v);
     } catch {
       // The map, then.
     }
   }, []);
-  const setView = (v: 'map' | 'list') => {
+  const setView = (v: 'map' | 'list' | 'found') => {
     setViewState(v);
     try {
       localStorage.setItem('vs-voicings-view', v);
@@ -60,6 +61,8 @@ export function VoicingsPage() {
   const filtered = useMemo(() => applyFilter(voicings, filter, tests), [voicings, filter, tests]);
   // In map view the deck bar acts on the chart showing (one voicing type).
   const [chart, setChart] = useState<string | null>(null);
+  // Logging a voicing heard in the wild.
+  const [logging, setLogging] = useState(false);
   // A map tile tapped: its voicings in a sheet.
   const [cell, setCell] = useState<{ ids: string[]; title: string } | null>(null);
   const deckShown = useMemo(
@@ -90,25 +93,26 @@ export function VoicingsPage() {
 
   return (
     <div className="vt-page">
-      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} collapsible={view === 'map'} />
+      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} collapsible={view !== 'list'} />
       <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
-        {(['map', 'list'] as const).map(m => (
+        {(['map', 'list', 'found'] as const).map(m => (
           <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
-            {m === 'map' ? 'Map' : 'List'}
+            {m === 'map' ? 'Map' : m === 'list' ? 'List' : 'Found'}
           </button>
         ))}
       </div>
 
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
       {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}
-      {canEdit && <DeckBar shown={deckShown} />}
+      {view !== 'found' && canEdit && <DeckBar shown={deckShown} />}
       {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing
         </button>
       )}
 
-      {view === 'map' ? null : (
+      {view === 'found' && <FoundView onLog={() => setLogging(true)} onOpen={setOpen} />}
+      {view !== 'list' ? null : (
         <div className="lb-groups">
           {groups.map(([label, vs]) => (
             <section key={label} className="lb-group">
@@ -137,6 +141,17 @@ export function VoicingsPage() {
       {cell && <CellSheet ids={cell.ids} title={cell.title} onClose={() => setCell(null)} onOpen={setOpen} />}
       {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
       {adding && <NewVoicing onClose={() => setAdding(false)} onCreated={id => { setAdding(false); setOpen(id); }} />}
+      {logging && (
+        <NewVoicing
+          found
+          onClose={() => setLogging(false)}
+          onCreated={id => {
+            setLogging(false);
+            setView('found');
+            setOpen(id);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -297,6 +312,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
           {v.top_move ? `  → ${pretty(v.top_move)}` : ''}
         </p>
         {v.top_move && <span className="vt-hint">The top voice moves from {pretty(pitchName(v.top_note))} to {pretty(pitchName(v.top_move))} after the chord: Play and Spell ask for the move too.</span>}
+        {v.source_url || v.source_label ? <SourceLine v={v} /> : null}
         {dimFamily && <DimFamily v={v} fam={dimFamily} onOpen={onOpen} />}
 
         <div className="vt-field">
@@ -452,12 +468,25 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
   );
 }
 
-function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function NewVoicing({ onClose, onCreated, found = false }: { onClose: () => void; onCreated: (id: string) => void; found?: boolean }) {
   useBackClose(true, onClose);
   const t = useTrainer();
   const [root, setRoot] = useState(0);
   const [quality, setQuality] = useState<Quality>('maj7');
-  const [family, setFamily] = useState('custom');
+  const [family, setFamily] = useState(found ? FOUND : 'custom');
+  // Heard in the wild: where, when, what song, and a note.
+  const [srcUrl, setSrcUrl] = useState('');
+  const [srcTime, setSrcTime] = useState('');
+  const [srcLabel, setSrcLabel] = useState('');
+  const [noteText, setNoteText] = useState('');
+  const src = srcUrl.trim() ? readSource(srcUrl) : null;
+  const time = srcTime.trim() ? parseTime(srcTime) : src?.time ?? null;
+  const onUrl = (u: string) => {
+    setSrcUrl(u);
+    // A link that carries its time fills the time in.
+    const r = u.trim() ? readSource(u) : null;
+    if (r?.time != null && !srcTime.trim()) setSrcTime(formatTime(r.time));
+  };
   const [tagText, setTagText] = useState('');
   const [midis, setMidis] = useState<number[]>([]);
   const [lo, setLo] = useState(48);
@@ -482,20 +511,23 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
       top_note: spelled.notes[spelled.notes.length - 1],
       top_move: null,
       family: family.trim() || 'custom',
-      tags: [...new Set([...tags, `${spelled.notes.length}-note`])],
+      tags: [...new Set([...tags, ...(found ? ['found'] : []), `${spelled.notes.length}-note`])],
       lowest_register: null,
-      notes_text: null,
+      notes_text: found ? noteText.trim() || null : null,
       sort_order: 30000 + t.voicings.length,
       updated_at: new Date().toISOString(),
+      ...(found
+        ? { source_url: src ? srcUrl.trim() : null, source_time: src ? time : null, source_label: srcLabel.trim() || null }
+        : {}),
     });
     onCreated(id);
   };
 
   return (
-    <div className="vt-modal" role="dialog" aria-modal="true" aria-label="new voicing" onClick={onClose}>
+    <div className="vt-modal" role="dialog" aria-modal="true" aria-label={found ? 'log a voicing you heard' : 'new voicing'} onClick={onClose}>
       <div className="vt-sheet" onClick={e => e.stopPropagation()}>
         <div className="vt-sheet-head">
-          <h2>New voicing</h2>
+          <h2>{found ? 'Log a voicing you heard' : 'New voicing'}</h2>
           <button type="button" className="vt-x" onClick={onClose} aria-label="close">
             ×
           </button>
@@ -521,11 +553,39 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
               ))}
             </select>
           </label>
-          <label className="vt-field vt-field-inline">
-            <span className="vt-field-lbl">Family</span>
-            <input className="vt-input" value={family} onChange={e => setFamily(e.target.value)} />
-          </label>
+          {!found && (
+            <label className="vt-field vt-field-inline">
+              <span className="vt-field-lbl">Family</span>
+              <input className="vt-input" value={family} onChange={e => setFamily(e.target.value)} />
+            </label>
+          )}
         </div>
+        {found && (
+          <div className="fd-src">
+            <label className="vt-field">
+              <span className="vt-field-lbl">Song</span>
+              <input className="vt-input" value={srcLabel} onChange={e => setSrcLabel(e.target.value)} placeholder="Bill Evans — Peace Piece" />
+            </label>
+            <label className="vt-field">
+              <span className="vt-field-lbl">Link (YouTube or Spotify)</span>
+              <input className="vt-input" inputMode="url" value={srcUrl} onChange={e => onUrl(e.target.value)} placeholder="https://youtu.be/… or https://open.spotify.com/track/…" />
+            </label>
+            <div className="vt-row2">
+              <label className="vt-field vt-field-inline">
+                <span className="vt-field-lbl">At</span>
+                <input className="vt-input fd-time" inputMode="numeric" value={srcTime} onChange={e => setSrcTime(e.target.value)} placeholder="1:23" />
+              </label>
+              <span className="vt-hint fd-src-hint">
+                {srcUrl.trim() && !src
+                  ? 'That isn’t a link.'
+                  : src
+                    ? `${SOURCE_NAME[src.kind]}${time != null ? ` at ${formatTime(time)}` : ''}${src.kind === 'youtube' && time != null ? ' — it’ll open right there' : ''}`
+                    : 'A YouTube link opens at the time; a Spotify one shows it.'}
+              </span>
+            </div>
+            {srcTime.trim() && time == null && <span className="vt-error">Write the time as 1:23.</span>}
+          </div>
+        )}
         <span className="vt-field-lbl">Tap the notes</span>
         <div className="dt-kb">
           <Keyboard low={lo} high={lo + 28} marks={Object.fromEntries(midis.map(m => [m, 'on']))} onKey={m => setMidis(cur => (cur.includes(m) ? cur.filter(x => x !== m) : [...cur, m].sort((a, b) => a - b)))} />
@@ -539,14 +599,20 @@ function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (i
             8va ▶
           </button>
         </div>
+        {found && (
+          <label className="vt-field">
+            <span className="vt-field-lbl">Note</span>
+            <textarea className="vt-input" rows={2} value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Left hand plays the 3 and 7; the top note is the melody…" />
+          </label>
+        )}
         <label className="vt-field">
           <span className="vt-field-lbl">Tags (comma separated)</span>
           <input className="vt-input" value={tagText} onChange={e => setTagText(e.target.value)} placeholder="rootless, left-hand" />
         </label>
         {dup && <p className="vt-error">That voicing is already in your voicings.</p>}
         <div className="vt-inline">
-          <button type="button" className="vt-primary" disabled={!spelled || midis.length < 2 || !!dup} onClick={create}>
-            Add voicing
+          <button type="button" className="vt-primary" disabled={!spelled || midis.length < 2 || !!dup || (srcTime.trim() !== '' && time == null)} onClick={create}>
+            {found ? 'Log it' : 'Add voicing'}
           </button>
           <button type="button" className="vt-secondary" onClick={() => setMidis([])} disabled={!midis.length}>
             Clear
@@ -731,5 +797,64 @@ function CellSheet({ ids, title, onClose, onOpen }: { ids: string[]; title: stri
         ))}
       </div>
     </div>
+  );
+}
+
+/** Where a found voicing was heard: the song, and a link that opens at the time (YouTube) or shows it (Spotify). */
+function SourceLine({ v }: { v: Voicing }) {
+  const src = v.source_url ? readSource(v.source_url) : null;
+  const at = v.source_time != null ? formatTime(v.source_time) : null;
+  return (
+    <div className="fd-line">
+      <span className="fd-ear" aria-hidden>
+        ♪
+      </span>
+      <span className="fd-what">
+        <b>{v.source_label || 'Heard in the wild'}</b>
+        {at && <span> at {at}</span>}
+      </span>
+      {v.source_url && src && (
+        <a className="fd-open" href={sourceHref(v.source_url, v.source_time)} target="_blank" rel="noreferrer">
+          ▶ {SOURCE_NAME[src.kind]}
+          {src.kind !== 'youtube' && at ? ` · ${at}` : ''}
+        </a>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Voicings heard in the wild (the owner: "log extra voicings I hear in the wild … linked to a certain
+ * time in a YouTube video or a Spotify song"), newest first, each with where it came from.
+ */
+function FoundView({ onLog, onOpen }: { onLog: () => void; onOpen: (id: string) => void }) {
+  const t = useTrainer();
+  const found = t.voicings.filter(v => v.family === FOUND).sort((a, b) => b.sort_order - a.sort_order);
+  return (
+    <section className="fd">
+      {t.canEdit && (
+        <button type="button" className="fd-log" onClick={onLog}>
+          <span aria-hidden>♪</span>
+          <span>
+            <b>Log a voicing you heard</b>
+            <span>In a song or a video — with the link and the time, so you can go back to it.</span>
+          </span>
+        </button>
+      )}
+      {!found.length ? (
+        <p className="vt-empty">Nothing logged yet. Heard a voicing you love? Log it here, with where you heard it.</p>
+      ) : (
+        <div className="fd-list">
+          {found.map(v => (
+            <div key={v.id} className="fd-item">
+              <h3 className="lb-group-h">{prettyLabel(v.chord_label)}</h3>
+              <SourceLine v={v} />
+              {v.notes_text && <p className="fd-note">{v.notes_text}</p>}
+              <VoicingGrid voicings={[v]} onOpen={onOpen} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

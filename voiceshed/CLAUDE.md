@@ -230,7 +230,23 @@ wide screen; a run hides both.
   Across the 1,460 standards that plays 88% of chords (469 tunes whole); the
   biggest gaps, by chords: bare major triad 2.9%, bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
-- `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
+- `/voiceshed/voicings` — **Map** (default), **List** or **Found**, kept on the device.
+  **Found** (the owner: "log extra voicings I hear in the wild … linked to a
+  certain time in a YouTube video or a Spotify song, so I always have that
+  reference"): "Log a voicing you heard" opens the New voicing form in `found`
+  mode — song, link (YouTube or Spotify), time (filled from a link's `t=` or
+  Spotify `#1:23`; `lib/source.ts`), chord, the notes tapped on a keyboard, a
+  note. Saved as family `found` (`FOUND`, tag `found`) with `source_url`,
+  `source_time` (seconds), `source_label` on the voicing (columns added by
+  `TRAINER_DDL`; `applySync` keeps only http(s) links, ≤ 10 h, 200-char labels).
+  The Found view lists them newest first, each with its source line — "♪ Bill
+  Evans — Peace Piece at 1:23 ▶ YouTube" (YouTube opens at the second; Spotify
+  can't be trusted to jump, so its time is shown) — its note and its card (+ Deck).
+  A found voicing's sheet shows the same line; it has no partners; Review cards
+  call it "Found". Not in Practice runs (not `two-handed`). Identifying a voicing
+  from audio is for later: no audio can be taken from YouTube or Spotify, but a
+  mic recording or a clip through an in-browser transcriber (e.g. Basic Pitch)
+  could pre-fill a guess to correct — fine on solo piano, rough in a band.
   The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
   voicing type** (the owner: "separate charts for the different rootless
   types"; then "see drop-2 and block at the same time, not a toggle"): tabs

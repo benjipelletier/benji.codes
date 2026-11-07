@@ -46,6 +46,10 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
       tags: Array.isArray(v.tags) ? (v.tags as unknown[]).filter(t => typeof t === 'string').map(t => (t as string).slice(0, 40)).slice(0, 30) : [],
       lowest_register: num(v.lowest_register, 0, 127) ? v.lowest_register : null,
       notes_text: str(v.notes_text, 2000),
+      // Where it was heard: an http(s) link, seconds in, the song.
+      source_url: typeof v.source_url === 'string' && /^https?:\/\/\S+$/.test(v.source_url) ? v.source_url.slice(0, 500) : null,
+      source_time: num(v.source_time, 0, 36000) ? Math.round(v.source_time as number) : null,
+      source_label: str(v.source_label, 200),
       sort_order: num(v.sort_order, -1e9, 1e9) ? Math.round(v.sort_order as number) : 0,
       updated_at: isTime(v.updated_at) ? v.updated_at : new Date().toISOString(),
     }));
@@ -109,18 +113,23 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
     await sql.query(
       `UPDATE voicings v SET chord_label = t.chord_label, root = t.root, quality = t.quality, notes = t.notes,
          top_note = t.top_note, family = t.family, tags = t.tags, lowest_register = t.lowest_register,
-         notes_text = t.notes_text, sort_order = t.sort_order, updated_at = t.updated_at
+         notes_text = t.notes_text, sort_order = t.sort_order, updated_at = t.updated_at,
+         source_url = t.source_url, source_time = t.source_time, source_label = t.source_label
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, chord_label text, root int, quality text, notes text[], top_note text,
-         family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz)
+         family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz,
+         source_url text, source_time int, source_label text)
        WHERE v.id = t.id AND v.updated_at <= t.updated_at`,
       [json],
     );
     // …and new ones (one already in the library with the same notes is left as it is).
     await sql.query(
-      `INSERT INTO voicings (id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at)
-       SELECT id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at
+      `INSERT INTO voicings (id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at,
+         source_url, source_time, source_label)
+       SELECT id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at,
+         source_url, source_time, source_label
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, chord_label text, root int, quality text, notes text[], top_note text,
-         family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz)
+         family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz,
+         source_url text, source_time int, source_label text)
        ON CONFLICT DO NOTHING`,
       [json],
     );

@@ -27,7 +27,7 @@ export async function GET() {
   const [voicings, contexts, srs, attempts, runs] = await Promise.all([
     sql`
       SELECT id, chord_label, root, quality, notes, top_note, top_move, family, tags, lowest_register,
-             notes_text, sort_order, updated_at
+             notes_text, sort_order, updated_at, source_url, source_time, source_label
       FROM voicings ORDER BY sort_order, chord_label, family`,
     sql`
       SELECT id, type, name, key, tune_id, steps, sort_order

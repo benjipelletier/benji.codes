@@ -29,6 +29,10 @@ export const TRAINER_DDL = [
   `CREATE INDEX IF NOT EXISTS idx_voicings_label ON voicings(chord_label)`,
   // Added later: a database made before has the table without it.
   `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS top_move TEXT`,
+  // A voicing heard in the wild: where (a YouTube or Spotify link), when (seconds in), and what song.
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_url TEXT`,
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_time INT`,
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_label TEXT`,
   `CREATE TABLE IF NOT EXISTS contexts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type        TEXT NOT NULL CHECK (type IN ('progression', 'tune')),

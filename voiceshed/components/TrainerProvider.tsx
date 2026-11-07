@@ -100,6 +100,8 @@ export function newId(): string {
  * m7♭5s) stand alone.
  */
 export function partnersOf(voicings: Voicing[], v: Voicing): Voicing[] {
+  // A voicing heard in the wild stands alone, whatever else has its chord.
+  if (v.family === 'found') return [v];
   // A m7's iii voicings (8 for 9) are a pair of their own, apart from its 9 ones.
   const iii = v.tags.includes('iii');
   return voicings.filter(o => o.chord_label === v.chord_label && o.family === v.family && o.tags.includes('iii') === iii);

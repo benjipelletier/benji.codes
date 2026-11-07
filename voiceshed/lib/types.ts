@@ -26,6 +26,10 @@ export interface Voicing {
   notes_text: string | null;
   sort_order: number;
   updated_at: string;
+  /** Heard in the wild (family `found`): a YouTube or Spotify link, seconds in, and the song. */
+  source_url?: string | null;
+  source_time?: number | null;
+  source_label?: string | null;
 }
 
 export interface ContextStep {

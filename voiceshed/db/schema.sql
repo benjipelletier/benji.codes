@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS voicings (
   lowest_register  INT,
   top_move         TEXT,
   notes_text       TEXT,
+  -- Heard in the wild: a YouTube or Spotify link, seconds in, and the song.
+  source_url       TEXT,
+  source_time      INT,
+  source_label     TEXT,
   sort_order       INT NOT NULL DEFAULT 0,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),

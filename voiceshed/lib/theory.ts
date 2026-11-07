@@ -488,10 +488,14 @@ export const SHAPE_SETS: ShapeSet[] = [
  * two-hand drop-2 and block chords").
  */
 export function familyLabel(family: string): string {
+  if (family === FOUND) return 'Found · heard in the wild';
   if (family === 'drop-2 two-hand') return 'Two-hand · drop-2';
   if (family === 'closed (block)') return 'Two-hand · block';
   return family.replace('m7b5', 'm7♭5');
 }
+
+/** Voicings the owner logged from a recording (a song, a video), each with its source. */
+export const FOUND = 'found';
 
 /** Voicing types to come: placeholders on the map and in Practice, no voicings yet. */
 export const LATER_FAMILIES = ['left-hand rootless', ...SHAPE_SETS.filter(s => s.later).map(s => s.family)];
