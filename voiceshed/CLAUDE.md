@@ -42,8 +42,10 @@ and ♭7 3 ♭13 ♯9, whose ♯9 on top then moves down to the ♭9 (`top_move`
 
 Diminished seventh (`dim7`, shown °7; the owner: "fill in fully diminished
 … connect this to the dominant 4 chords that have the same rootless shape"):
-`drop-2 two-hand`, R ♭5 𝄫7 ♭3 · ♭5 R ♭3 𝄫7 — the 7♭9 shapes seen from the °7's
-own root, so E°7's first voicing (E3 B♭3 D♭4 G4) is C7♭9's on the same keys.
+`drop-2 two-hand`, all four inversions (the owner: "I want all 4"): R ♭5 𝄫7 ♭3
+· ♭5 R ♭3 𝄫7 (the 7♭9 shapes seen from the °7's own root, so E°7's first
+voicing, E3 B♭3 D♭4 G4, is C7♭9's on the same keys) · ♭3 𝄫7 R ♭5 · 𝄫7 ♭3 ♭5 R
+— connected like a pair (all four in and out of the deck together).
 Interval `bb7` (9 semitones, a seventh's letter): C°7 is C E♭ G♭ B𝄫. All 17
 names charts write are in (both names on black keys; A♯°7 just makes 10%),
 with their double flats (`CHARTED_DOUBLE`). Plays chart `o7` (a bare `o`, the
@@ -88,8 +90,8 @@ G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, 
 D♯7alt, A♯7alt). Both names stay only where charts use both: D♭m7 / C♯m7,
 G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. So a white key has 14
 voicings, a black key 14, and D♭/C♯ and G♭/F♯ 18, plus a 6 chord each, two
-7♭9s per name (13 names), two 7alts per name (15) and two °7s per name (17).
-278 voicings in all.
+7♭9s per name (13 names), two 7alts per name (15) and four °7s per name (17).
+312 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -110,7 +112,8 @@ spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
 removed the rare spellings (generated ones only — a voicing added by hand stays);
 version 6 added the 6 chord (into the library, not the deck); version 7 the
 7♭9s, version 8 the altered dominants, version 9 the °7s (likewise);
-version 10 ended the minor ii–V–i on m7.
+version 10 ended the minor ii–V–i on m7; version 11 added the °7's other two
+inversions.
 
 ---
 

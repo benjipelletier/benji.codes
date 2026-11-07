@@ -428,6 +428,10 @@ export const SHAPE_SETS: ShapeSet[] = [
       dim7: [
         { ivs: ['R', 'b5', 'bb7', 'b3'], tag: '1-5-7-3', tags: ['drop-2', 'two-handed', '4-note'] },
         { ivs: ['b5', 'R', 'b3', 'bb7'], tag: '5-1-3-7', tags: ['drop-2', 'two-handed', '4-note'] },
+        // …and the other two (the owner: "add the other two inversions, I want all 4"):
+        // the drop-2s of the closed 1st and 3rd inversions.
+        { ivs: ['b3', 'bb7', 'R', 'b5'], tag: '3-7-1-5', tags: ['drop-2', 'two-handed', '4-note'] },
+        { ivs: ['bb7', 'b3', 'b5', 'R'], tag: '7-3-5-1', tags: ['drop-2', 'two-handed', '4-note'] },
       ],
     },
   },

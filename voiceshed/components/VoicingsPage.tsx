@@ -684,7 +684,7 @@ export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen:
                 aria-pressed={all}
                 onClick={() => void (all ? t.removeFromDeck(g.map(v => v.id)) : t.addToDeck(g.map(v => v.id)))}
               >
-                {all ? `✓ Both in deck` : `+ Deck both`}
+                {g.length === 2 ? (all ? '✓ Both in deck' : '+ Deck both') : all ? `✓ All ${g.length} in deck` : `+ Deck all ${g.length}`}
               </button>
             )}
           </div>
