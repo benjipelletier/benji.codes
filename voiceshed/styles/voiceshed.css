@@ -661,10 +661,20 @@
 .vt-main:has(.cr-kb-real) { max-width: none; }
 
 /* The m7♭5 spread's movement: where the top voice goes, and the top about to lift. */
-.vk-w-move { fill: var(--card); stroke: var(--accent-ink); stroke-width: 2.5; stroke-dasharray: 2 3; }
-.vk-b-move { fill: var(--accent-ink); stroke: var(--accent); stroke-width: 2; stroke-dasharray: 2 2; }
-.vk-w-move + .vk-lbl-w { fill: var(--accent-ink); }
-.vk-b-move + .vk-lbl-b { fill: var(--paper); }
+/* Where it goes: striped in the accent, outlined, with an arrow arching over from the top note. */
+.vk-w-move, .vk-b-move { stroke: var(--accent); stroke-width: 2.5; }
+.vk-stripe-bg-w { fill: var(--key-white); }
+.vk-stripe-bg-b { fill: var(--key-black); }
+.vk-stripe { fill: var(--accent); opacity: 0.7; }
+.vk-arrow { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 0; animation: vk-draw 700ms 150ms cubic-bezier(.3,.7,.3,1) both; }
+.vk-compact .vk-arrow { stroke-width: 4; }
+.vk-arrow-head { fill: var(--accent); animation: vk-head 200ms 700ms both; }
+@keyframes vk-head { from { opacity: 0; } }
+@keyframes vk-draw { from { stroke-dashoffset: 100; } }
+.vk-move-txt { color: var(--accent); font-weight: 700; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .vk-arrow, .vk-arrow-head { animation: none; } }
+.vk-w-move + .vk-lbl-w { fill: var(--accent-ink); paint-order: stroke; stroke: var(--key-white); stroke-width: 4px; stroke-linejoin: round; }
+.vk-b-move + .vk-lbl-b { fill: var(--accent); paint-order: stroke; stroke: var(--key-black); stroke-width: 4px; stroke-linejoin: round; }
 .vk-w-lift { fill: var(--accent); opacity: 0.55; }
 .vk-b-lift { fill: var(--accent-ink); opacity: 0.55; }
 .cr-move { white-space: nowrap; }
@@ -1027,3 +1037,15 @@ button.pm-bg span { color: var(--accent-ink); }
 .fd-src { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 12px; }
 .fd-time { width: 90px; }
 .fd-src-hint { align-self: center; }
+
+/* A found voicing's standard, and picking one. */
+.fd-tune { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 13px; font-weight: 600; }
+.fd-picked { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 6px 6px 12px; border: 1px solid var(--accent); border-radius: 999px; background: var(--accent-soft); font-size: 14px; }
+.fd-picked button { width: 28px; height: 28px; border-radius: 50%; font-size: 18px; line-height: 1; color: var(--ink-3); }
+.fd-tunes { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.fd-tunes::-webkit-scrollbar { display: none; }
+.fd-tunes button { flex: 0 0 auto; min-height: 38px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 999px; background: var(--card); font-size: 13px; white-space: nowrap; }
+.fd-tunes button.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.fd-tunes button span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+.pk-heard { padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 14px; }
+.pk-heard h3 { position: static; background: transparent; }

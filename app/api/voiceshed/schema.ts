@@ -33,6 +33,9 @@ export const TRAINER_DDL = [
   `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_url TEXT`,
   `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_time INT`,
   `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_label TEXT`,
+  // …and the standard (or iFake Pro song) it belongs to: its tune id and title.
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_tune_id TEXT`,
+  `ALTER TABLE voicings ADD COLUMN IF NOT EXISTS source_tune_title TEXT`,
   `CREATE TABLE IF NOT EXISTS contexts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type        TEXT NOT NULL CHECK (type IN ('progression', 'tune')),

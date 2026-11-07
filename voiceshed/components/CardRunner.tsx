@@ -416,7 +416,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   const [pLo, pHi] = playWindow(midis, whites, shift);
   const moveMidi = v.top_move ? noteMidi(v.top_move) : null;
-  const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, `→${pretty(pitchName(v.top_move))}`]] : [])]);
+  const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, pretty(pitchName(v.top_move))]] : [])]);
   const moving = step.mode === 'play' && !!v.top_move && tapped.length >= v.notes.length && phase === 'ask';
 
   // Feedback keyboard: the right voicing, with what was played over it.

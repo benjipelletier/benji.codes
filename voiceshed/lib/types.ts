@@ -30,6 +30,9 @@ export interface Voicing {
   source_url?: string | null;
   source_time?: number | null;
   source_label?: string | null;
+  /** The standard (or iFake Pro song, "ifp-…") it belongs to, and its title. */
+  source_tune_id?: string | null;
+  source_tune_title?: string | null;
 }
 
 export interface ContextStep {

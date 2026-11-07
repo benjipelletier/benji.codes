@@ -4,7 +4,7 @@
 // pointer-down, not click, so a tap counts the moment the finger lands —
 // every attempt is timed.
 
-import { memo, useMemo } from 'react';
+import { memo, useId, useMemo } from 'react';
 
 /** on: held; right / wrong: answered; missed: the answer; move: where the top voice moves to; lift: the top about to move. */
 export type KeyMark = 'on' | 'right' | 'wrong' | 'missed' | 'move' | 'lift';
@@ -45,6 +45,21 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
     return { whites: w, blacks: b, width: w.length * WW };
   }, [lo, hi]);
 
+  // The top voice's move: an arrow arching over the keys, from the top note to where it goes.
+  const keyX = (m: number) => {
+    const b = blacks.find(k => k.midi === m);
+    if (b) return b.x + BW / 2;
+    const i = whites.indexOf(m);
+    return i < 0 ? null : i * WW + WW / 2;
+  };
+  const moveTo = Object.keys(marks).map(Number).find(m => marks[m] === 'move');
+  const moveFrom = moveTo == null ? undefined : Math.max(...Object.keys(marks).map(Number).filter(m => m !== moveTo && ['on', 'right', 'missed', 'lift'].includes(marks[m]!)));
+  const x1 = moveFrom != null && Number.isFinite(moveFrom) ? keyX(moveFrom) : null;
+  const x2 = moveTo != null ? keyX(moveTo) : null;
+  const arrow = x1 != null && x2 != null && x1 !== x2;
+  const HEAD = arrow ? 28 : 0; // room above the keys for it
+  const uid = useId().replace(/:/g, '');
+
   const down = (midi: number) => (e: React.PointerEvent) => {
     if (!onKey) return;
     e.preventDefault();
@@ -58,14 +73,27 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
   return (
     <svg
       className={`vk ${onKey ? 'vk-play' : ''} ${compact ? 'vk-compact' : ''} ${className}`}
-      viewBox={`0 0 ${width} ${WH}`}
+      viewBox={`0 ${-HEAD} ${width} ${WH + HEAD}`}
       preserveAspectRatio="xMidYMin meet"
       role={onKey ? 'group' : 'img'}
       aria-label={onKey ? 'piano keyboard' : 'voicing on a keyboard'}
     >
+      <defs>
+        {(['w', 'b'] as const).map(k => (
+          <pattern key={k} id={`vk-stripe-${k}-${uid}`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="5" height="5" className={`vk-stripe-bg-${k}`} />
+            <rect width="2.2" height="5" className="vk-stripe" />
+          </pattern>
+        ))}
+        {arrow && (
+          <marker id={`vk-head-${uid}`} viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" className="vk-arrow-head" />
+          </marker>
+        )}
+      </defs>
       {whites.map((m, i) => (
         <g key={m} onPointerDown={down(m)} data-midi={m}>
-          <rect className={cls('vk-w', m)} x={i * WW + 0.5} y={0.5} width={WW - 1} height={WH - 1} rx={2.5} />
+          <rect className={cls('vk-w', m)} x={i * WW + 0.5} y={0.5} width={WW - 1} height={WH - 1} rx={2.5} style={marks[m] === 'move' ? { fill: `url(#vk-stripe-w-${uid})` } : undefined} />
           {labels[m] && !compact ? (
             <text className="vk-lbl vk-lbl-w" x={i * WW + WW / 2} y={WH - 9} textAnchor="middle">
               {labels[m]}
@@ -79,7 +107,7 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
       ))}
       {blacks.map(({ midi, x }) => (
         <g key={midi} onPointerDown={down(midi)} data-midi={midi}>
-          <rect className={cls('vk-b', midi)} x={x} y={0.5} width={BW} height={BH} rx={2} />
+          <rect className={cls('vk-b', midi)} x={x} y={0.5} width={BW} height={BH} rx={2} style={marks[midi] === 'move' ? { fill: `url(#vk-stripe-b-${uid})` } : undefined} />
           {labels[midi] && !compact && (
             <text className="vk-lbl vk-lbl-b" x={x + BW / 2} y={BH - 8} textAnchor="middle">
               {labels[midi]}
@@ -87,6 +115,14 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
           )}
         </g>
       ))}
+      {arrow && (
+        <path
+          className="vk-arrow"
+          d={`M ${x1} -2 C ${x1! + (x1! - x2!) * 0.5} ${-HEAD}, ${x2!} ${-HEAD}, ${x2!} -4`}
+          markerEnd={`url(#vk-head-${uid})`}
+          pathLength={100}
+        />
+      )}
     </svg>
   );
 }

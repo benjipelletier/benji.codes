@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { Summary } from './ReviewPage';
 import { fmtPct, fmtSecs, relTime } from './TrainerShell';
-import { VoicingDetail, VoicingGrid } from './VoicingsPage';
+import { SourceLine, VoicingDetail, VoicingGrid } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { buildSet, type OrderEntry, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
@@ -268,7 +268,7 @@ export function PracticePage() {
               {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
             <SkippedList skipped={built.skipped} />
-            {t.canEdit && built.order.length > 0 && <ToDeck order={built.order} tags={spec.tags} what={isTune ? 'this tune’s' : 'this set’s'} title={isTune ? tune?.title ?? 'This tune' : built.label} />}
+            {t.canEdit && (built.order.length > 0 || (isTune && !!tune && t.voicings.some(v => v.family === 'found' && v.source_tune_id === tune.id))) && <ToDeck order={built.order} tags={spec.tags} what={isTune ? 'this tune’s' : 'this set’s'} title={isTune ? tune?.title ?? 'This tune' : built.label} tuneId={isTune ? tune?.id : undefined} />}
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -299,13 +299,14 @@ function mergeOrders(orders: OrderEntry[][]): OrderEntry[] {
  * all of them (with the tags picked) of every chord it plays, in its spelling,
  * or chosen one by one in a sheet — pairs come in together, as everywhere.
  */
-function ToDeck({ order, tags, what, title }: { order: OrderEntry[]; tags: string[]; what: string; title: string }) {
+function ToDeck({ order, tags, what, title, tuneId }: { order: OrderEntry[]; tags: string[]; what: string; title: string; tuneId?: string }) {
   const t = useTrainer();
   const [choosing, setChoosing] = useState(false);
   const keys = new Set(order.map(([l, , iii]) => `${l}|${iii}`));
   const labels = new Set(order.map(([l]) => l));
   // The voicings the set plays: a iii's iii ones, every other chord's own.
-  const all = t.voicings.filter(v => keys.has(`${v.chord_label}|${v.tags.includes('iii')}`) && tags.every(tag => v.tags.includes(tag)));
+  const heard = tuneId ? t.voicings.filter(v => v.family === 'found' && v.source_tune_id === tuneId) : [];
+  const all = [...t.voicings.filter(v => keys.has(`${v.chord_label}|${v.tags.includes('iii')}`) && tags.every(tag => v.tags.includes(tag))), ...heard];
   const have = all.filter(v => MODES.some(m => t.srs.has(srsKey(v.id, m)))).length;
   if (!all.length) return null;
   // One obvious way in (the owner: "make choose voicings a bit more obvious"); Add all is in the sheet.
@@ -318,14 +319,16 @@ function ToDeck({ order, tags, what, title }: { order: OrderEntry[]; tags: strin
         <span className="pr-choose-text">
           <b>Add {what} voicings to your deck</b>
           <span>
-            {labels.size} chord{labels.size === 1 ? '' : 's'} · {have} of {all.length} voicings in your deck
+            {labels.size ? `${labels.size} chord${labels.size === 1 ? '' : 's'} · ` : ''}
+            {heard.length ? `${heard.length} heard · ` : ''}
+            {have} of {all.length} voicings in your deck
           </span>
         </span>
         <span className="pr-choose-go" aria-hidden>
           ›
         </span>
       </button>
-      {choosing && <ChooseVoicings title={title} order={order} tags={tags} onClose={() => setChoosing(false)} />}
+      {choosing && <ChooseVoicings title={title} order={order} tags={tags} tuneId={tuneId} onClose={() => setChoosing(false)} />}
     </div>
   );
 }
@@ -337,7 +340,7 @@ function ToDeck({ order, tags, what, title }: { order: OrderEntry[]; tags: strin
  */
 const BLOCK = 'closed (block)';
 
-function ChooseVoicings({ title, order, tags, onClose }: { title: string; order: OrderEntry[]; tags: string[]; onClose: () => void }) {
+function ChooseVoicings({ title, order, tags, tuneId, onClose }: { title: string; order: OrderEntry[]; tags: string[]; tuneId?: string; onClose: () => void }) {
   const t = useTrainer();
   const [open, setOpen] = useState<string | null>(null);
   useBackClose(true, onClose);
@@ -345,6 +348,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
   const [asIii, setAsIii] = useState<Set<string>>(new Set());
   const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
   const ofType = (v: Voicing) => tags.every(tag => v.tags.includes(tag));
+  const heard = tuneId ? t.voicings.filter(v => v.family === 'found' && v.source_tune_id === tuneId) : [];
   // The voicings the set plays: a iii's iii ones only, every other chord's own (the owner: "only show
   // the iii voicing when it's the iii of that key").
   const groups = order
@@ -360,8 +364,10 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
       extra: iii ? [] : t.voicings.filter(v => v.chord_label === label && v.tags.includes('iii') && (ofType(v) || v.family === BLOCK)),
     }))
     .filter(g => g.vs.length + g.block.length);
-  const total = groups.reduce((n, g) => n + g.vs.length + g.block.length, 0);
-  const have = groups.reduce((n, g) => n + [...g.vs, ...g.block].filter(v => inDeck(v.id)).length, 0);
+  // Add all takes what was heard in the tune too.
+  const every = [...heard, ...groups.flatMap(g => [...g.vs, ...g.block])];
+  const total = every.length;
+  const have = every.filter(v => inDeck(v.id)).length;
   const openV = open ? t.voicings.find(v => v.id === open) : null;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !open && onClose();
@@ -381,6 +387,21 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
           </button>
         </div>
         <p className="vt-hint">In the order they come. Inversions are framed together and go into the deck together.</p>
+        {tuneId && heard.length > 0 && (
+          // Voicings logged from recordings of this tune (the owner: "attachable to a standard as well").
+          <section className="pk-chord pk-heard">
+            <h3>
+              Heard in this tune <span>{heard.length}</span>
+            </h3>
+            {heard.map(v => (
+              <div key={v.id} className="fd-item">
+                <span className="vt-field-lbl">{prettyLabel(v.chord_label)}</span>
+                <SourceLine v={v} />
+                <VoicingGrid voicings={[v]} onOpen={setOpen} />
+              </div>
+            ))}
+          </section>
+        )}
         {groups.map(g => {
           const k = g.vs.filter(v => inDeck(v.id)).length;
           return (
@@ -418,7 +439,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
         })}
         <div className="pk-foot">
           {t.canEdit && total > have ? (
-            <button type="button" className="vt-secondary" onClick={() => void t.addToDeck(groups.flatMap(g => [...g.vs, ...g.block]).filter(v => !inDeck(v.id)).map(v => v.id))}>
+            <button type="button" className="vt-secondary" onClick={() => void t.addToDeck(every.filter(v => !inDeck(v.id)).map(v => v.id))}>
               + Add all {total - have}
             </button>
           ) : (

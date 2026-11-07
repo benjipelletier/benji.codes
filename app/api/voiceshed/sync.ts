@@ -50,6 +50,8 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
       source_url: typeof v.source_url === 'string' && /^https?:\/\/\S+$/.test(v.source_url) ? v.source_url.slice(0, 500) : null,
       source_time: num(v.source_time, 0, 36000) ? Math.round(v.source_time as number) : null,
       source_label: str(v.source_label, 200),
+      source_tune_id: str(v.source_tune_id, 100),
+      source_tune_title: str(v.source_tune_title, 200),
       sort_order: num(v.sort_order, -1e9, 1e9) ? Math.round(v.sort_order as number) : 0,
       updated_at: isTime(v.updated_at) ? v.updated_at : new Date().toISOString(),
     }));
@@ -114,22 +116,23 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
       `UPDATE voicings v SET chord_label = t.chord_label, root = t.root, quality = t.quality, notes = t.notes,
          top_note = t.top_note, family = t.family, tags = t.tags, lowest_register = t.lowest_register,
          notes_text = t.notes_text, sort_order = t.sort_order, updated_at = t.updated_at,
-         source_url = t.source_url, source_time = t.source_time, source_label = t.source_label
+         source_url = t.source_url, source_time = t.source_time, source_label = t.source_label,
+         source_tune_id = t.source_tune_id, source_tune_title = t.source_tune_title
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, chord_label text, root int, quality text, notes text[], top_note text,
          family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz,
-         source_url text, source_time int, source_label text)
+         source_url text, source_time int, source_label text, source_tune_id text, source_tune_title text)
        WHERE v.id = t.id AND v.updated_at <= t.updated_at`,
       [json],
     );
     // …and new ones (one already in the library with the same notes is left as it is).
     await sql.query(
       `INSERT INTO voicings (id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at,
-         source_url, source_time, source_label)
+         source_url, source_time, source_label, source_tune_id, source_tune_title)
        SELECT id, chord_label, root, quality, notes, top_note, family, tags, lowest_register, notes_text, sort_order, updated_at,
-         source_url, source_time, source_label
+         source_url, source_time, source_label, source_tune_id, source_tune_title
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, chord_label text, root int, quality text, notes text[], top_note text,
          family text, tags text[], lowest_register int, notes_text text, sort_order int, updated_at timestamptz,
-         source_url text, source_time int, source_label text)
+         source_url text, source_time int, source_label text, source_tune_id text, source_tune_title text)
        ON CONFLICT DO NOTHING`,
       [json],
     );

@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS voicings (
   source_url       TEXT,
   source_time      INT,
   source_label     TEXT,
+  -- The standard (or iFake Pro song) it belongs to.
+  source_tune_id   TEXT,
+  source_tune_title TEXT,
   sort_order       INT NOT NULL DEFAULT 0,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),

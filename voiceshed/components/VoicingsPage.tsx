@@ -231,7 +231,7 @@ export function VoicingCard({
         <Keyboard compact low={lo} high={hi} marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }} />
         <span className="lb-notes">
           {v.notes.map(n => pretty(pitchName(n))).join(' ')}
-          {v.top_move ? ` → ${pretty(pitchName(v.top_move))}` : ''}
+          {v.top_move ? <b className="vk-move-txt"> → {pretty(pitchName(v.top_move))}</b> : ''}
         </span>
         <span className="lb-meta">
           <span className="lb-fam">{familyLabel(v.family)}</span>
@@ -304,15 +304,15 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
             low={lo}
             high={hi}
             marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }}
-            labels={{ ...labels, ...(mv != null ? { [mv]: `→${pretty(pitchName(v.top_move!))}` } : {}) }}
+            labels={{ ...labels, ...(mv != null ? { [mv]: pretty(pitchName(v.top_move!)) } : {}) }}
           />
         </div>
         <p className="dt-notes">
           {v.notes.map(pretty).join('  ')}
-          {v.top_move ? `  → ${pretty(v.top_move)}` : ''}
+          {v.top_move ? <b className="vk-move-txt">  → {pretty(v.top_move)}</b> : ''}
         </p>
         {v.top_move && <span className="vt-hint">The top voice moves from {pretty(pitchName(v.top_note))} to {pretty(pitchName(v.top_move))} after the chord: Play and Spell ask for the move too.</span>}
-        {v.source_url || v.source_label ? <SourceLine v={v} /> : null}
+        {v.source_url || v.source_label || v.source_tune_id ? <SourceLine v={v} /> : null}
         {dimFamily && <DimFamily v={v} fam={dimFamily} onOpen={onOpen} />}
 
         <div className="vt-field">
@@ -479,6 +479,8 @@ function NewVoicing({ onClose, onCreated, found = false }: { onClose: () => void
   const [srcTime, setSrcTime] = useState('');
   const [srcLabel, setSrcLabel] = useState('');
   const [noteText, setNoteText] = useState('');
+  // The standard it belongs to (the owner: "attachable to a standard as well").
+  const [tune, setTune] = useState<{ id: string; title: string } | null>(null);
   const src = srcUrl.trim() ? readSource(srcUrl) : null;
   const time = srcTime.trim() ? parseTime(srcTime) : src?.time ?? null;
   const onUrl = (u: string) => {
@@ -517,7 +519,13 @@ function NewVoicing({ onClose, onCreated, found = false }: { onClose: () => void
       sort_order: 30000 + t.voicings.length,
       updated_at: new Date().toISOString(),
       ...(found
-        ? { source_url: src ? srcUrl.trim() : null, source_time: src ? time : null, source_label: srcLabel.trim() || null }
+        ? {
+            source_url: src ? srcUrl.trim() : null,
+            source_time: src ? time : null,
+            source_label: srcLabel.trim() || null,
+            source_tune_id: tune?.id ?? null,
+            source_tune_title: tune?.title ?? null,
+          }
         : {}),
     });
     onCreated(id);
@@ -562,8 +570,9 @@ function NewVoicing({ onClose, onCreated, found = false }: { onClose: () => void
         </div>
         {found && (
           <div className="fd-src">
+            <TuneSearch value={tune} onPick={setTune} />
             <label className="vt-field">
-              <span className="vt-field-lbl">Song</span>
+              <span className="vt-field-lbl">Recording (who, what)</span>
               <input className="vt-input" value={srcLabel} onChange={e => setSrcLabel(e.target.value)} placeholder="Bill Evans — Peace Piece" />
             </label>
             <label className="vt-field">
@@ -801,10 +810,17 @@ function CellSheet({ ids, title, onClose, onOpen }: { ids: string[]; title: stri
 }
 
 /** Where a found voicing was heard: the song, and a link that opens at the time (YouTube) or shows it (Spotify). */
-function SourceLine({ v }: { v: Voicing }) {
+export function SourceLine({ v }: { v: Voicing }) {
   const src = v.source_url ? readSource(v.source_url) : null;
   const at = v.source_time != null ? formatTime(v.source_time) : null;
   return (
+    <>
+    {v.source_tune_title && (
+      <span className="fd-tune">
+        <span aria-hidden>𝄞</span> {v.source_tune_title}
+      </span>
+    )}
+    {(v.source_url || v.source_label) && (
     <div className="fd-line">
       <span className="fd-ear" aria-hidden>
         ♪
@@ -820,6 +836,59 @@ function SourceLine({ v }: { v: Voicing }) {
         </a>
       )}
     </div>
+    )}
+    </>
+  );
+}
+
+/** Pick a standard (or one of the owner's iFake Pro songs) by name. */
+function TuneSearch({ value, onPick }: { value: { id: string; title: string } | null; onPick: (t: { id: string; title: string } | null) => void }) {
+  const t = useTrainer();
+  const [tunes, setTunes] = useState<{ id: string; title: string; sub: string }[]>([]);
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    void t.loadTunes().then(list =>
+      setTunes([
+        ...t.charts.flatMap(p => p.songs.map(s => ({ id: s.id, title: s.title, sub: `iFake Pro · ${p.title}` }))),
+        ...list.map(x => ({ id: x.id, title: x.title, sub: x.composer ?? '' })),
+      ]),
+    );
+  }, [t.loadTunes, t.charts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const s = q.trim().toLowerCase();
+  const hits = s ? tunes.filter(x => x.title.toLowerCase().includes(s)).slice(0, 8) : [];
+  return (
+    <div className="vt-field">
+      <span className="vt-field-lbl">Standard (optional)</span>
+      {value ? (
+        <span className="fd-picked">
+          <span aria-hidden>𝄞</span> <b>{value.title}</b>
+          <button type="button" onClick={() => onPick(null)} aria-label="remove the standard">
+            ×
+          </button>
+        </span>
+      ) : (
+        <>
+          <input className="vt-input" value={q} onChange={e => setQ(e.target.value)} placeholder={tunes.length ? `Search ${tunes.length.toLocaleString()} tunes` : 'Tunes download with the next sync'} />
+          {hits.length > 0 && (
+            <ul className="pr-hits">
+              {hits.map(x => (
+                <li key={x.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onPick({ id: x.id, title: x.title });
+                      setQ('');
+                    }}
+                  >
+                    <b>{x.title}</b> <span>{x.sub}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -829,7 +898,11 @@ function SourceLine({ v }: { v: Voicing }) {
  */
 function FoundView({ onLog, onOpen }: { onLog: () => void; onOpen: (id: string) => void }) {
   const t = useTrainer();
-  const found = t.voicings.filter(v => v.family === FOUND).sort((a, b) => b.sort_order - a.sort_order);
+  const all = t.voicings.filter(v => v.family === FOUND).sort((a, b) => b.sort_order - a.sort_order);
+  // Narrowed to one standard, if one's picked.
+  const [tune, setTune] = useState<string | null>(null);
+  const tunes = [...new Map(all.filter(v => v.source_tune_id).map(v => [v.source_tune_id!, v.source_tune_title ?? v.source_tune_id!])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const found = tune ? all.filter(v => v.source_tune_id === tune) : all;
   return (
     <section className="fd">
       {t.canEdit && (
@@ -840,6 +913,18 @@ function FoundView({ onLog, onOpen }: { onLog: () => void; onOpen: (id: string) 
             <span>In a song or a video — with the link and the time, so you can go back to it.</span>
           </span>
         </button>
+      )}
+      {tunes.length > 0 && (
+        <div className="fd-tunes" role="group" aria-label="By standard">
+          <button type="button" className={tune == null ? 'on' : ''} onClick={() => setTune(null)}>
+            All {all.length}
+          </button>
+          {tunes.map(([id, title]) => (
+            <button type="button" key={id} className={tune === id ? 'on' : ''} onClick={() => setTune(tune === id ? null : id)}>
+              𝄞 {title} <span>{all.filter(v => v.source_tune_id === id).length}</span>
+            </button>
+          ))}
+        </div>
       )}
       {!found.length ? (
         <p className="vt-empty">Nothing logged yet. Heard a voicing you love? Log it here, with where you heard it.</p>

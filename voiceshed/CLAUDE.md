@@ -102,7 +102,10 @@ files under `drop-2 two-hand` (the owner: "only the spread one goes under
 drop 2"; it has its root, so no `rootless` tag), so a drop-2 ii–V–i plays it.
 The m7♭5 block chord ♭5 ♭7 1 ♭3 ♭5 (5 notes) is its own type, `closed (block)`. Moves so far: the
 m7♭5 spread's 11 → ♭3, the altered ♭7 3 ♭13 ♯9's ♯9 → ♭9 (a shape's `move`
-in `SHAPE_SETS`). The register is the
+in `SHAPE_SETS`). On a keyboard (`Keyboard.tsx`, mark `move`) the key it moves
+to is striped and outlined in the accent, and an arrow arches over the keys from
+the top note to it (drawn in once; the owner: "make the motion more obvious");
+written notes put "→ E♭" in the accent. The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
 
 Spelling: each note is spelled as its interval above the root. A black-key
@@ -234,14 +237,22 @@ wide screen; a run hides both.
   **Found** (the owner: "log extra voicings I hear in the wild … linked to a
   certain time in a YouTube video or a Spotify song, so I always have that
   reference"): "Log a voicing you heard" opens the New voicing form in `found`
-  mode — song, link (YouTube or Spotify), time (filled from a link's `t=` or
+  mode — a standard (optional; searches the standards and the owner's iFake
+  Pro songs), the recording (who, what), link (YouTube or Spotify, optional), time (filled from a link's `t=` or
   Spotify `#1:23`; `lib/source.ts`), chord, the notes tapped on a keyboard, a
   note. Saved as family `found` (`FOUND`, tag `found`) with `source_url`,
-  `source_time` (seconds), `source_label` on the voicing (columns added by
-  `TRAINER_DDL`; `applySync` keeps only http(s) links, ≤ 10 h, 200-char labels).
+  `source_time` (seconds), `source_label`, and the standard as `source_tune_id`
+  (a standard's id, or an iFake Pro song's) and `source_tune_title`, on the
+  voicing (columns added by `TRAINER_DDL`; `applySync` keeps only http(s) links,
+  ≤ 10 h, 200-char labels and titles, 100-char tune ids). The owner: "I want it
+  to be attachable to a standard as well" — with or without a link.
   The Found view lists them newest first, each with its source line — "♪ Bill
   Evans — Peace Piece at 1:23 ▶ YouTube" (YouTube opens at the second; Spotify
-  can't be trusted to jump, so its time is shown) — its note and its card (+ Deck).
+  can't be trusted to jump, so its time is shown), above it a 𝄞 chip for its
+  standard — its note and its card (+ Deck). Chips above the list narrow it to
+  one standard. In Practice, a tune with found voicings gets a **Heard in this
+  tune** section at the top of its Choose voicings sheet (and the button shows
+  even if the tune has no other voicings); Add all takes them too.
   A found voicing's sheet shows the same line; it has no partners; Review cards
   call it "Found". Not in Practice runs (not `two-handed`). Identifying a voicing
   from audio is for later: no audio can be taken from YouTube or Spotify, but a
