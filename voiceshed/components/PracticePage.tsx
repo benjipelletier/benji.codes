@@ -12,7 +12,7 @@ import { Summary } from './ReviewPage';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { VoicingCard, VoicingDetail } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
-import { buildSet, filterTags, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
+import { buildSet, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
 import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
@@ -22,16 +22,23 @@ const SOURCES: { id: SetSource; label: string; hint: string }[] = [
   { id: 'key', label: 'One key', hint: 'The diatonic chords of a major key, shuffled.' },
   { id: 'tune', label: 'A tune', hint: 'Search the standards and your iFake Pro songs; the changes in order, in any key.' },
   { id: 'charts', label: 'My charts', hint: 'A song from your iFake Pro playlists, in order, in any key.' },
-  { id: 'tags', label: 'Tag filter', hint: 'Any voicings with the tags you pick, shuffled.' },
+];
+
+/** Which voicings a set uses (the owner: "just switch between right-hand rootless and drop-2s"), as the tag each type carries. */
+const TYPES: { tag: string; label: string }[] = [
+  { tag: 'drop-2', label: 'Drop-2 two-hand' },
+  { tag: 'right-hand', label: 'Right-hand rootless' },
 ];
 
 const SPEC_KEY = 'vt-practice-spec';
 
 function loadSpec(): SetSpec {
-  const fallback: SetSpec = { source: 'ii-v-i', key: null, tuneId: null, tags: [], mode: 'play', limit: 40 };
+  const fallback: SetSpec = { source: 'ii-v-i', key: null, tuneId: null, tags: ['drop-2'], mode: 'play', limit: 40 };
   try {
     const raw = localStorage.getItem(SPEC_KEY);
-    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    const spec: SetSpec = raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    // One voicing type, drop-2 unless right-hand was picked; the tag filter set is gone.
+    return { ...spec, source: spec.source === 'tags' ? 'ii-v-i' : spec.source, tags: [spec.tags?.includes('right-hand') ? 'right-hand' : 'drop-2'] };
   } catch {
     return fallback;
   }
@@ -40,7 +47,7 @@ function loadSpec(): SetSpec {
 export function PracticePage() {
   const t = useTrainer();
   const { voicings, contexts, settings, runs } = t;
-  const [spec, setSpecState] = useState<SetSpec>(() => ({ source: 'ii-v-i', key: null, tuneId: null, tags: [], mode: 'play', limit: 40 }));
+  const [spec, setSpecState] = useState<SetSpec>(() => ({ source: 'ii-v-i', key: null, tuneId: null, tags: ['drop-2'], mode: 'play', limit: 40 }));
   const [tunes, setTunes] = useState<Tune[]>([]);
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
   const [steps, setSteps] = useState<RunnerStep[]>([]);
@@ -73,7 +80,6 @@ export function PracticePage() {
   const skippedN = built.skipped.reduce((n, x) => n + x.count, 0);
   const history = useMemo(() => runs.filter(r => r.set_key === built.setKey).slice(-12), [runs, built.setKey]);
 
-  const tagCounts = useMemo(() => filterTags(voicings), [voicings]);
 
   const start = () => {
     const fresh = buildSet(spec, { voicings, contexts, tunes: allTunes });
@@ -209,11 +215,11 @@ export function PracticePage() {
         </div>
 
         <div className="vt-field">
-          <span className="vt-field-lbl">Tags {spec.source === 'ii-v-i' || isTune ? '(which voicings to use)' : ''}</span>
-          <div className="vt-chips">
-            {tagCounts.map(([tag, n]) => (
-              <button type="button" key={tag} className={spec.tags.includes(tag) ? 'vt-chip on' : 'vt-chip'} onClick={() => setSpec({ tags: spec.tags.includes(tag) ? spec.tags.filter(x => x !== tag) : [...spec.tags, tag] })}>
-                {tag} <span>{n}</span>
+          <span className="vt-field-lbl">Voicings</span>
+          <div className="vt-seg" role="radiogroup" aria-label="Voicing type">
+            {TYPES.map(ty => (
+              <button type="button" key={ty.tag} role="radio" aria-checked={spec.tags.includes(ty.tag)} className={spec.tags.includes(ty.tag) ? 'on' : ''} onClick={() => setSpec({ tags: [ty.tag] })}>
+                {ty.label}
               </button>
             ))}
           </div>
@@ -252,7 +258,7 @@ export function PracticePage() {
               {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
             <SkippedList skipped={built.skipped} />
-            {isTune && t.canEdit && <ToDeck order={labelOrder([built.steps.map(s => s.voicing.chord_label)])} tags={spec.tags} what="this tune’s" title={tune?.title ?? 'This tune'} />}
+            {t.canEdit && built.order.length > 0 && <ToDeck order={built.order} tags={spec.tags} what={isTune ? 'this tune’s' : 'this set’s'} title={isTune ? tune?.title ?? 'This tune' : built.label} />}
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -337,13 +343,13 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
         <div className="vt-sheet-head">
           <h2>{title}</h2>
           <span className="vt-hint">
-            {have} of {total} in your deck{tags.length ? ` · tags: ${tags.join(', ')}` : ''}
+            {have} of {total} in your deck{tags.length ? ` · ${tags.map(tag => TYPES.find(ty => ty.tag === tag)?.label ?? tag).join(', ')}` : ''}
           </span>
           <button type="button" className="vt-x" onClick={onClose} aria-label="close">
             ×
           </button>
         </div>
-        <p className="vt-hint">In the order the tune plays them. + Deck brings a voicing’s other inversion with it.</p>
+        <p className="vt-hint">In the order they come. + Deck brings a voicing’s other inversion with it.</p>
         {groups.map(g => {
           const k = g.vs.filter(v => inDeck(v.id)).length;
           return (
@@ -389,7 +395,7 @@ function SkippedList({ skipped }: { skipped: Skipped[] }) {
   if (!skipped.length) return null;
   const groups: [Skipped['why'], string][] = [
     ['no-voicing', 'Skipped — no voicing yet'],
-    ['tags', 'Skipped — none with these tags'],
+    ['tags', 'Skipped — none of this voicing type yet'],
   ];
   return (
     <div className="pr-skipped">

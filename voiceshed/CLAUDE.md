@@ -135,17 +135,24 @@ wide screen; a run hides both.
   (10–60 or all). Chips count the cards due now with them, given the other
   rows. A line above Start says what the session is.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
-  diatonic chords of a key, a tune's changes in any key, **My charts** (a song
-  from the owner's iFake Pro playlists, below), or a tag filter; tags
-  also choose which voicings a progression uses. Progressions and tunes step in
+  diatonic chords of a key, a tune's changes in any key, or **My charts** (a
+  song from the owner's iFake Pro playlists, below). **Voicings**: Drop-2
+  two-hand or Right-hand rootless (the owner: "I don't care about filtering
+  for tags … I just wanna switch between right-hand rootless and drop-2s";
+  kept as the type's tag in `spec.tags`, `drop-2` by default; the tag-filter
+  set is gone). A chord with no voicing of that type is skipped ("none of
+  this voicing type yet"). Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
   Right-but-slow and missed cards become due now — if they're in the deck; any
   that aren't are listed with "Add N to deck", never added on their own.
-  A tune's preview has "+ Add all this tune's N voicings to my deck" (every
-  voicing of every chord it plays, in its spelling, with the tags picked) and
-  **Choose voicings…** (the owner: "selectively add voicings to my deck"): a
-  sheet of the tune's chords in the order played ("Cm7 ×2 · 2/4 in deck"),
+  **Every set** (the owner: "every practice page should allow me to click to
+  see all the possible chords so I can add them to my deck") has "+ Add all
+  this set's/tune's N voicings to my deck" (every voicing of the type picked
+  of every chord it plays — `BuiltSet.order`, whatever the shuffle or card
+  limit, progressions in their own order) and **Choose voicings…** (the
+  owner: "selectively add voicings to my deck"): a sheet of the chords in
+  the order they come ("Cm7 ×2 · 2/4 in deck"),
   each with its voicings as the Voicings page's cards — + Deck on each (its
   other inversion with it), tap one for its sheet. The tune search finds the
   standards and the owner's iFake Pro songs (theirs first).
