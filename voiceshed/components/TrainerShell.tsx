@@ -92,14 +92,21 @@ const BREATH_EIGHTHS = 3;
  * round), and a run's summary (`rounds`: the owner noticed loading never takes
  * long enough to see it, so it plays at the end of every run too).
  */
-export function PianoLoader({ label, rounds = Infinity, small = false }: { label?: string; rounds?: number; small?: boolean }) {
+export function PianoLoader({ label, rounds = Infinity, small = false, delay = 0 }: { label?: string; rounds?: number; small?: boolean; delay?: number }) {
+  // Loading is usually over in a blink: show nothing unless it lasts (the owner saw it flash on every reload).
+  const [shown, setShown] = useState(delay === 0);
+  useEffect(() => {
+    if (delay === 0) return;
+    const t = setTimeout(() => setShown(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
   const whites = 8;
   const blacks = [0, 1, 3, 4, 5]; // after these white keys
   // Which step is sounding (-1 between rounds); still with reduced motion.
   const [step, setStep] = useState(-1);
   const [done, setDone] = useState(false);
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!shown || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     let i = 0;
     let played = 0;
     let timer: ReturnType<typeof setTimeout>;
@@ -116,8 +123,9 @@ export function PianoLoader({ label, rounds = Infinity, small = false }: { label
     };
     timer = setTimeout(play, 250);
     return () => clearTimeout(timer);
-  }, [rounds]);
+  }, [rounds, shown]);
   const down = step >= 0 ? THE_LICK[step][0] : -1;
+  if (!shown) return null;
   return (
     <div className={`vt-loader ${small ? 'vt-loader-small' : ''}`} role={label ? 'status' : undefined}>
       <svg viewBox="0 0 160 70" aria-hidden="true">
@@ -202,10 +210,10 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
       <main className="vt-main">
         {error && <p className="vt-error">{error}</p>}
         {!ready ? (
-          <PianoLoader label="Warming up…" />
+          <PianoLoader label="Warming up…" delay={600} />
         ) : !voicings.length ? (
           status === 'syncing' || status === 'loading' ? (
-            <PianoLoader label="Downloading the voicings…" />
+            <PianoLoader label="Downloading the voicings…" delay={600} />
           ) : (
             <p className="vt-empty">{status === 'offline' ? 'No voicings on this device yet. Open Voiceshed once with a connection to download it.' : 'No voicings yet.'}</p>
           )

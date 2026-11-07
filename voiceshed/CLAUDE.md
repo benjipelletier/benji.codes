@@ -304,7 +304,8 @@ ending into its summary). Tested on dev and a production build.
 and button clicking"): loading is a small piano playing **The Lick** — D E F
 G E C D in eighths, the last D held, a breath, again (the owner: "the loader's
 piano should play it"; `THE_LICK` in `TrainerShell`) — with notes floating off it
-(`PianoLoader`). Loading rarely lasts long enough to see it (the owner noticed),
+(`PianoLoader`), shown only if loading lasts past 600 ms (`delay`; it used to
+flash on every reload). Loading rarely lasts long enough to see it (the owner noticed),
 so the piano also opens every run's summary, playing it twice (`rounds`); a tapped big button (Start run, Done) or a "+ Deck"
 sends up a note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; only those: "every
 button … is kind of a lot"); the big buttons press down like piano keys. Reduced motion turns them off.
