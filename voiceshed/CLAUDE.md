@@ -158,7 +158,7 @@ chords `two-handed`.
 ## Pages (`app/voiceshed/`)
 
 Links between them are plain `<a>`, so the service worker can serve each one
-with no connection. Tabs sit along the bottom on a phone, in the top bar on a
+with no connection. Four tabs — Review, Practice, Listen, Voicings — sit along the bottom on a phone, in the top bar on a
 wide screen; a run hides both.
 
 - `/voiceshed` — Review: **today's set**, from **the deck**: only the voicings
@@ -221,6 +221,25 @@ wide screen; a run hides both.
   sends the group out stuck. New-card limits count groups (2 new chords at a
   time, 5 a session). The home shows one chip per group ("Dm7 · Play · shaky ·
   2 inv."); the counts are groups.
+- `/voiceshed/listen` — **Listen** (`components/ListenPage.tsx`; the owner:
+  "play a bass note (bass guitar) and then one of the chords in my deck on
+  piano. I need to click which type of chord it is … just go through the whole
+  deck, don't need to do any new card capping"): its own session, a fourth tab.
+  Every voicing in the deck (any mode scheduled) once, shuffled: the root on a
+  bass guitar, E1–E♭2 (`bassNote`), then ~0.55 s later the voicing on piano at
+  its own pitch (`playCue`); tap the chord type (the types the deck has, in
+  `QUALITIES` order; a iii voicing is m7). Right moves on by itself; wrong
+  shows the chord and its keys, marks the right type, plays it again on
+  request, and **Hear yours** plays the type picked on the same root (the
+  deck's voicing of it, else the library's) to compare; a miss comes back
+  once, 4 chords later. Summary: first-time accuracy, each type, and "7♭9
+  heard as 7". Nothing is recorded or scheduled. Sound (`lib/sound.ts`) is
+  synthesized with Web Audio, no samples, so it works offline: the bass a
+  Karplus–Strong pluck through a closing low-pass, the piano stretched partials
+  each decaying at its own rate plus a soft hammer knock, through a gentle
+  compressor. Gains are anchored at the release (`setValueAtTime` then
+  `setTargetAtTime`): not every engine holds a ramp's end value until the next
+  event. The context is woken on the Start tap. The bars hide during a run.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, **One root** (every chord type on one root — Cm7,
   C7, C7♭9, C7alt, C°7, Cmaj7, C6, Cm7♭5 — both names of a black key, shuffled;

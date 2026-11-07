@@ -12,7 +12,7 @@ const PAGE = "vsh-page-v1";
 // v2: drops a manifest kept from v1, which kept it cache first (see below).
 const STATIC = "vsh-static-v2";
 const KEEP = [PAGE, STATIC];
-const ROUTES = ["/voiceshed", "/voiceshed/practice", "/voiceshed/voicings"];
+const ROUTES = ["/voiceshed", "/voiceshed/practice", "/voiceshed/listen", "/voiceshed/voicings"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

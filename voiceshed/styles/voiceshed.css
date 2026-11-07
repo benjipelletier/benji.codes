@@ -94,7 +94,7 @@
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   height: calc(var(--tabs-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--paper);
@@ -249,8 +249,8 @@
 .vk-compact .vk-w { stroke-width: 1.5; }
 
 /* ── a run takes the whole screen ───────────────────────────────── */
-.vt:has(.cr) .vt-bar, .vt:has(.cr) .vt-tabs { display: none; }
-.vt:has(.cr) .vt-main { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.vt:has(.cr) .vt-bar, .vt:has(.cr) .vt-tabs, .vt:has(.ls-run) .vt-bar, .vt:has(.ls-run) .vt-tabs { display: none; }
+.vt:has(.cr) .vt-main, .vt:has(.ls-run) .vt-main { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 
 .cr { display: flex; flex-direction: column; gap: 10px; min-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 .cr-top { display: flex; align-items: center; gap: 10px; min-height: 36px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
@@ -1117,3 +1117,38 @@ button.pm-bg span { color: var(--accent-ink); }
 .rt-key b { font-family: var(--mono); font-size: 10px; margin-left: 4px; }
 .rv-card.rv-later { opacity: 0.55; }
 .rv-rolling { margin-top: -6px; }
+
+/* Listen: a bass note, then a deck chord; tap its type. */
+.ls-hero { flex-direction: column; align-items: stretch; gap: 12px; }
+.ls-what { font-size: 15px; color: var(--ink-2); }
+.ls-types { display: flex; flex-wrap: wrap; gap: 6px; }
+.ls-types span { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--rule); font-family: var(--serif); font-style: italic; font-size: 17px; }
+.ls-run { display: flex; flex-direction: column; gap: 16px; min-height: calc(100dvh - 40px); }
+.ls-stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 220px; }
+.ls-play { width: 180px; height: 180px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--card); border: 2px solid var(--accent); color: var(--accent-ink); box-shadow: 0 6px 0 var(--accent-soft); }
+.ls-play span { font-size: 54px; line-height: 1; margin-left: 8px; }
+.ls-play b { font-size: 14px; }
+.ls-play:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--accent-soft); }
+.ls-answer { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; text-align: center; }
+.ls-mark { font-size: 34px; font-weight: 700; }
+.ls-right .ls-mark { color: var(--good); }
+.ls-wrong .ls-mark { color: var(--fail); }
+.ls-chord { font-family: var(--serif); font-size: 52px; line-height: 1; font-weight: 400; }
+.ls-sub { font-size: 14px; color: var(--ink-3); }
+.ls-kb { width: 100%; max-width: 420px; margin-top: 8px; }
+.ls-types-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ls-types-pick .nm-btn { height: 58px; font-family: var(--serif); font-style: italic; font-size: 22px; font-weight: 400; }
+.ls-types-pick .nm-btn:disabled { opacity: 0.45; }
+.ls-types-pick .nm-btn.ls-good { opacity: 1; background: var(--good); border-color: var(--good); color: #fff; }
+.ls-types-pick .nm-btn.ls-bad { opacity: 1; background: var(--fail); border-color: var(--fail); color: #fff; }
+.ls-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ls-actions .vt-primary { flex: 1 0 100%; }
+.ls-actions .vt-secondary { flex: 1; }
+.ls-sum, .ls-mixed { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ls-sum li { display: grid; grid-template-columns: 52px 1fr 44px; gap: 10px; align-items: center; }
+.ls-sum b { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 18px; }
+.ls-sum-bar { height: 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
+.ls-sum-bar i { display: block; height: 100%; background: var(--good); }
+.ls-sum-n { font-family: var(--mono); font-size: 12px; text-align: right; }
+.ls-mixed li { font-size: 14px; }
+.ls-mixed b { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 17px; }

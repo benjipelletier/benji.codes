@@ -13,11 +13,12 @@ import { TrainerProvider, useTrainer } from './TrainerProvider';
 import { groupAttempts, hasContextGap, modeStats, targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import type { Attempt } from '@voiceshed/lib/types';
 
-export type TrainerPage = 'review' | 'practice' | 'voicings';
+export type TrainerPage = 'review' | 'practice' | 'listen' | 'voicings';
 
 const PAGES: { id: TrainerPage; href: string; label: string }[] = [
   { id: 'review', href: '/voiceshed', label: 'Review' },
   { id: 'practice', href: '/voiceshed/practice', label: 'Practice' },
+  { id: 'listen', href: '/voiceshed/listen', label: 'Listen' },
   { id: 'voicings', href: '/voiceshed/voicings', label: 'Voicings' },
 ];
 
@@ -67,6 +68,8 @@ const TAB_ICONS: Record<TrainerPage, React.ReactNode> = {
   // A card, a metronome-ish run, a shelf.
   review: <path d="M5 4h11a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2V4Zm2 13h9M8 8h7M8 11h5" />,
   practice: <path d="M4 18h16M7 18V9m5 9V5m5 13v-6" />,
+  // Headphones.
+  listen: <path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15h3v5H5a1 1 0 0 1-1-1v-4Zm16 0h-3v5h2a1 1 0 0 0 1-1v-4Z" />,
   voicings: <path d="M5 4v16M9 4v16M13 5l4 15" />,
 };
 
