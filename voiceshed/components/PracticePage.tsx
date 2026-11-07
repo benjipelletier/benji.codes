@@ -14,7 +14,7 @@ import { VoicingDetail, VoicingGrid } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, type OrderEntry, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
-import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
+import { keyLabel, LATER_FAMILIES, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mode, type Run, type SrsState, type Tune, type Voicing } from '@voiceshed/lib/types';
 
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
@@ -24,11 +24,12 @@ const SOURCES: { id: SetSource; label: string; hint: string }[] = [
   { id: 'charts', label: 'My charts', hint: 'A song from your iFake Pro playlists, in order, in any key.' },
 ];
 
-/** Which voicings a set uses (the owner: "just switch between right-hand rootless and drop-2s"), as the tag each type carries. */
-const TYPES: { tag: string; label: string }[] = [
-  { tag: 'drop-2', label: 'Drop-2 two-hand' },
-  { tag: 'right-hand', label: 'Right-hand rootless' },
-];
+/**
+ * Which voicings a set uses, as the tag each type carries: two-hand comping for
+ * now (the owner: "keep this as a two-hand comping thing"); the hands-apart
+ * types are placeholders until they come (LATER_FAMILIES).
+ */
+const TYPES: { tag: string; label: string }[] = [{ tag: 'drop-2', label: 'Drop-2 two\u2011hand' }];
 
 const SPEC_KEY = 'vt-practice-spec';
 
@@ -38,7 +39,7 @@ function loadSpec(): SetSpec {
     const raw = localStorage.getItem(SPEC_KEY);
     const spec: SetSpec = raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
     // One voicing type, drop-2 unless right-hand was picked; the tag filter set is gone.
-    return { ...spec, source: spec.source === 'tags' ? 'ii-v-i' : spec.source, tags: [spec.tags?.includes('right-hand') ? 'right-hand' : 'drop-2'] };
+    return { ...spec, source: spec.source === 'tags' ? 'ii-v-i' : spec.source, tags: ['drop-2'] };
   } catch {
     return fallback;
   }
@@ -220,6 +221,11 @@ export function PracticePage() {
             {TYPES.map(ty => (
               <button type="button" key={ty.tag} role="radio" aria-checked={spec.tags.includes(ty.tag)} className={spec.tags.includes(ty.tag) ? 'on' : ''} onClick={() => setSpec({ tags: [ty.tag] })}>
                 {ty.label}
+              </button>
+            ))}
+            {LATER_FAMILIES.map(f => (
+              <button type="button" key={f} role="radio" aria-checked={false} disabled className="vt-later" title="Coming later">
+                {f[0].toUpperCase() + f.slice(1)} <em>later</em>
               </button>
             ))}
           </div>

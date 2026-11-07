@@ -852,3 +852,8 @@
   .cr-skip { min-height: 32px; }
   .cr-next { min-height: 40px; }
 }
+
+/* Voicing types to come: placeholders, not choosable yet. */
+.vt-seg button.vt-later, .pm-tabs button.pm-tab-later { opacity: 0.5; border-style: dashed; cursor: default; }
+.vt-later em { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+.vt-seg button.vt-later { border: 1px dashed var(--rule); }

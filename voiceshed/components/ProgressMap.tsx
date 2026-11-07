@@ -11,7 +11,7 @@
 // column), the totals, and the slowest cards. Tap a tile to open its voicing.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CYCLE_OF_FOURTHS, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, SHAPE_SETS, prettyLabel } from '@voiceshed/lib/theory';
+import { CYCLE_OF_FOURTHS, LATER_FAMILIES, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, SHAPE_SETS, prettyLabel } from '@voiceshed/lib/theory';
 import { targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
 import { fmtSecs } from './TrainerShell';
@@ -177,6 +177,13 @@ export function ProgressMap({
             </button>
           );
         })}
+        {/* Placeholders for the hands-apart types to come. */}
+        {LATER_FAMILIES.filter(f => !families.includes(f)).map(f => (
+          <button type="button" key={f} role="tab" aria-selected={false} disabled className="pm-tab-later" title="Coming later">
+            <b>{f}</b>
+            <span>later</span>
+          </button>
+        ))}
       </div>
       <section className="pm-top">
         <Wheel perKey={totals.perKey} onKey={goToKey} />

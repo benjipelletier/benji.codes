@@ -112,8 +112,11 @@ export const TRAINER_DDL = [
  *  12: the iii's m7 voicings join (8 for 9: drop-2 ♭3 ♭7 1 5 · ♭7 ♭3 5 1,
  *      right-hand 5 ♭7 1 ♭3, block 5 ♭7 1 ♭3 5, tagged iii); "m7b5 closed"
  *      becomes "closed (block)", holding both block chords.
+ *  13: right-hand rootless goes, for now (the owner: "keep this as a two-hand
+ *      comping thing … get rid of all the right-handed stuff"): its voicings,
+ *      with their cards and answers. The shapes stay in SHAPE_SETS, marked later.
  */
-const SEED_VERSION = 12;
+const SEED_VERSION = 13;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
@@ -144,6 +147,9 @@ async function seed(sql: Sql) {
         // (a rare spelling of it was never moved, so it's still there).
         [...SHAPE_SETS.map(set => set.family), 'm7b5 spread'],
       ]);
+    }
+    if (seeded < 13) {
+      await sql.query(`DELETE FROM voicings WHERE family = 'right-hand rootless'`);
     }
     if (seeded < 12) {
       // The m7♭5's block chord's type takes the iii's m7 block too, under a wider name.

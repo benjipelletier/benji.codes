@@ -24,7 +24,16 @@ so Play mode never accepts one lower.
 | Family | m7 | maj7 | 7 (the 5 becomes 13) |
 |---|---|---|---|
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
-| `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
+| `right-hand rootless` — **later** | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
+
+**Two-hand comping only, for now** (the owner: "I want to keep this as a two-hand
+comping thing … get rid of all the right-handed stuff"; left-hand rootless,
+for under a solo line or the melody, comes later too). `right-hand rootless`
+is marked `later` in `SHAPE_SETS`: its shapes (and its iii shape, 5 ♭7 1 ♭3)
+are kept but nothing is generated; seed version 13 deleted its voicings, with
+their cards and answers. `LATER_FAMILIES` (left-hand rootless, right-hand
+rootless) show as greyed placeholders — "later" — in Practice's Voicings
+switch and the map's tabs. To bring one back: drop `later`, raise the seed.
 
 7♭9: `drop-2 two-hand` only for now (the owner: "just drop 2 rootless"),
 3 ♭7 ♭9 5 · ♭7 3 5 ♭9 — the 5 stays (no 13), so `13b9` charts aren't exact.
@@ -63,10 +72,11 @@ any library voicing on the same keys, so E°7 is a right answer for C7♭9's
 bc it's not in the key, instead we play the 8, or play block chords 5 7 1 3 5"):
 every m7 also has voicings tagged `iii` (`isIii`) — drop-2 two-hand ♭3 ♭7 1 5 ·
 ♭7 ♭3 5 1 (a pair of their own: `partnersOf` keeps iii and 9 pairs apart),
-right-hand 5 ♭7 1 ♭3 (one shape: "I don't want the bunch at the top"), and the
+right-hand 5 ♭7 1 ♭3 (one shape: "I don't want the bunch at the top"; later,
+with right-hand), and the
 block chord 5 ♭7 1 ♭3 5 in `closed (block)` (the type that was "m7b5 closed",
 renamed in seed version 12; it holds the m7♭5's block too). Em7: G D E B ·
-D G B E, B D E G, B D E G B. Practice uses them (and only them) for One key's
+D G B E, and the block B D E G B. Practice uses them (and only them) for One key's
 iii and for a m7 that's the iii of a tune's home major key, in whatever key
 it's played (`candidatesFor(…, iii)`); everywhere else a m7 keeps its 9. Cards,
 sheets and prompts say "as iii"; the map gives them their own row (m7 as iii).
@@ -100,10 +110,9 @@ too (`RARE_SPELLINGS`: under 10% of that chord's appearances in the 1,460
 standards where the other name is in the library — A♯m7, C♯maj7, D♯m7, C♯7,
 G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, G♯7♭9, A♯7♭9,
 D♯7alt, A♯7alt). Both names stay only where charts use both: D♭m7 / C♯m7,
-G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. So a white key has 14
-voicings, a black key 14, and D♭/C♯ and G♭/F♯ 18, plus a 6 chord each, two
-7♭9s per name (13 names), two 7alts per name (15), four °7s per name (17) and
-four iii voicings per m7 name (13). 364 voicings in all.
+G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. 275 voicings in all: drop-2 two-hand 250 (m7, its iii
+pair, maj7, 6, 7, 7♭9, m7♭5, 7alt, °7) and closed (block) 25 (the iii's m7,
+the m7♭5).
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -125,7 +134,8 @@ removed the rare spellings (generated ones only — a voicing added by hand stay
 version 6 added the 6 chord (into the library, not the deck); version 7 the
 7♭9s, version 8 the altered dominants, version 9 the °7s (likewise);
 version 10 ended the minor ii–V–i on m7; version 11 added the °7's other two
-inversions; version 12 the iii voicings (and the `closed (block)` rename).
+inversions; version 12 the iii voicings (and the `closed (block)` rename);
+version 13 removed right-hand rootless (for now).
 
 ---
 
@@ -153,10 +163,10 @@ wide screen; a run hides both.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, a tune's changes in any key, or **My charts** (a
   song from the owner's iFake Pro playlists, below). **Voicings**: Drop-2
-  two-hand or Right-hand rootless (the owner: "I don't care about filtering
-  for tags … I just wanna switch between right-hand rootless and drop-2s";
-  kept as the type's tag in `spec.tags`, `drop-2` by default; the tag-filter
-  set is gone). A chord with no voicing of that type is skipped ("none of
+  two-hand, with Left-hand and Right-hand rootless as greyed "later"
+  placeholders (the owner first asked for a drop-2 / right-hand switch instead
+  of tags, then to keep it two-hand; kept as the type's tag in `spec.tags`,
+  always `drop-2` now; the tag-filter set is gone). A chord with no voicing of that type is skipped ("none of
   this voicing type yet"). Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
@@ -209,7 +219,8 @@ wide screen; a run hides both.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
   voicing type** (the owner: "separate charts for the different rootless
-  types"): tabs above it — drop-2 two-hand, right-hand rootless, closed (block) —
+  types"): tabs above it — drop-2 two-hand, closed (block), and the later
+  types as greyed placeholders —
   each with "known/in deck", the pick kept on the device; everything below
   (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
   Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9, °7,

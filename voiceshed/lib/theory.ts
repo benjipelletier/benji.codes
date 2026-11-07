@@ -374,6 +374,12 @@ export const LOWEST_NOTE = 51; // Eb3
 
 interface ShapeSet {
   family: string;
+  /**
+   * A type for later: shown as a placeholder, nothing generated (the owner:
+   * "keep this as a two-hand comping thing for now … placeholders for left-hand
+   * rootless, right-hand rootless where that would be eventually").
+   */
+  later?: boolean;
   /** Tags every voicing of the family carries. */
   tags: string[];
   /**
@@ -440,7 +446,9 @@ export const SHAPE_SETS: ShapeSet[] = [
     },
   },
   {
+    // Later (see `later`): its shapes are kept for when it comes back.
     family: 'right-hand rootless',
+    later: true,
     tags: ['right-hand', 'rootless', '4-note'],
     shapes: {
       m7: [
@@ -471,6 +479,9 @@ export const SHAPE_SETS: ShapeSet[] = [
     },
   },
 ];
+
+/** Voicing types to come: placeholders on the map and in Practice, no voicings yet. */
+export const LATER_FAMILIES = ['left-hand rootless', ...SHAPE_SETS.filter(s => s.later).map(s => s.family)];
 
 const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5', '7alt', 'dim7'];
 
@@ -530,6 +541,7 @@ export function keyLabel(pc: number): string {
 export function starterVoicings(): VoicingSeed[] {
   const out: VoicingSeed[] = [];
   SHAPE_SETS.forEach((set, si) => {
+    if (set.later) return;
     for (const q of QUALITY_ORDER) {
       const shapes = set.shapes[q];
       if (!shapes) continue;
