@@ -91,7 +91,7 @@ export function gradeName(v: Voicing, answer: NameAnswer, library: Voicing[]): b
 // ── sets ────────────────────────────────────────────────────────────────
 
 /** 'charts' is a tune from the owner's iFake Pro playlists: the same as 'tune' from here on. */
-export type SetSource = 'ii-v-i' | 'key' | 'tune' | 'charts' | 'tags';
+export type SetSource = 'ii-v-i' | 'key' | 'root' | 'tune' | 'charts' | 'tags';
 
 export interface SetSpec {
   source: SetSource;
@@ -315,6 +315,15 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     // Each chord in the key's spelling; a name the library doesn't use (G♭ major's C♭maj7) takes the other.
     pool = diatonicChords(key).flatMap(c => candidatesFor(voicings, c.root, [c.quality], spec.tags, c.rootName, c.iii));
     label = `The chords of ${keyName(key)} major${tagLabel(spec.tags)}`;
+  } else if (spec.source === 'root') {
+    // Every chord on one root (the owner: "practice chords with the same root, so all C type chords"):
+    // both names of a black key; a m7's iii voicings are for a key's iii, so not here.
+    const root = spec.key ?? 0;
+    const qOrder: Quality[] = ['m7', '7', '7b9', '7alt', 'dim7', 'maj7', '6', 'm7b5'];
+    pool = voicings
+      .filter(v => v.root === root && matchesTags(v, spec.tags) && !isIii(v))
+      .sort((a, b) => qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || a.sort_order - b.sort_order);
+    label = `Every chord on ${keyName(root)}${tagLabel(spec.tags)}`;
   } else {
     pool = voicings.filter(v => matchesTags(v, spec.tags) && (spec.key == null || v.root === spec.key));
     label = `${spec.tags.length ? spec.tags.join(' + ') : 'All voicings'}${spec.key == null ? '' : ` on ${keyName(spec.key)}`}`;

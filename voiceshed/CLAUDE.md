@@ -173,7 +173,10 @@ wide screen; a run hides both.
   (10–60 or all). Chips count the cards due now with them, given the other
   rows. A line above Start says what the session is.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
-  diatonic chords of a key, a tune's changes in any key, or **My charts** (a
+  diatonic chords of a key, **One root** (every chord type on one root — Cm7,
+  C7, C7♭9, C7alt, C°7, Cmaj7, C6, Cm7♭5 — both names of a black key, shuffled;
+  the owner: "practice chords with the same root, so all C type chords"; a m7's
+  iii voicings stay out), a tune's changes in any key, or **My charts** (a
   song from the owner's iFake Pro playlists, below). **Voicings**: Two-hand
   (drop-2 and block), with Left-hand and Right-hand rootless as greyed "later"
   placeholders (the owner first asked for a drop-2 / right-hand switch instead

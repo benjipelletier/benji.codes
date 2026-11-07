@@ -21,6 +21,7 @@ import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mod
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
   { id: 'ii-v-i', label: 'ii–V–Is', hint: 'Major and minor, in one key or all twelve.' },
   { id: 'key', label: 'One key', hint: 'The diatonic chords of a major key, shuffled.' },
+  { id: 'root', label: 'One root', hint: 'Every chord type on one root — Cm7, C7, C7♭9, C°7, Cmaj7… — shuffled.' },
   { id: 'tune', label: 'A tune', hint: 'Search the standards and your iFake Pro songs; the changes in order, in any key.' },
   { id: 'charts', label: 'My charts', hint: 'A song from your iFake Pro playlists, in order, in any key.' },
 ];
@@ -187,7 +188,7 @@ export function PracticePage() {
           <span className="vt-field-lbl">Set</span>
           <div className="vt-seg" role="radiogroup">
             {SOURCES.map(s => (
-              <button type="button" key={s.id} role="radio" aria-checked={spec.source === s.id} className={spec.source === s.id ? 'on' : ''} onClick={() => setSpec({ source: s.id, key: s.id === 'key' ? spec.key ?? 0 : spec.key })}>
+              <button type="button" key={s.id} role="radio" aria-checked={spec.source === s.id} className={spec.source === s.id ? 'on' : ''} onClick={() => setSpec({ source: s.id, key: s.id === 'key' || s.id === 'root' ? spec.key ?? 0 : spec.key })}>
                 {s.label}
               </button>
             ))}
@@ -203,7 +204,7 @@ export function PracticePage() {
         <div className="vt-field">
           <span className="vt-field-lbl">Key</span>
           <div className="vt-keys">
-            {spec.source !== 'key' && !isTune && (
+            {spec.source !== 'key' && spec.source !== 'root' && !isTune && (
               <button type="button" className={spec.key == null ? 'on' : ''} onClick={() => setSpec({ key: null })}>
                 {spec.source === 'tags' ? 'any root' : 'all'}
               </button>
@@ -245,7 +246,7 @@ export function PracticePage() {
               ))}
             </div>
           </div>
-          {(spec.source === 'key' || spec.source === 'tags') && (
+          {(spec.source === 'key' || spec.source === 'root' || spec.source === 'tags') && (
             <div className="vt-field">
               <span className="vt-field-lbl">Cards</span>
               <div className="vt-seg">
