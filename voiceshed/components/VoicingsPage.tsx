@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
-import { newId, useTrainer } from './TrainerProvider';
+import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { targetFor } from '@voiceshed/lib/srs';
@@ -132,7 +132,8 @@ function DeckBar({ shown }: { shown: Voicing[] }) {
             className="vt-primary db-add"
             onClick={async () => {
               const n = await t.addToDeck(out.map(v => v.id));
-              setSaid(`Added ${out.length} voicing${out.length === 1 ? '' : 's'} — ${n} cards, new in your next review.`);
+              const vs = n / 3;
+              setSaid(`Added ${vs} voicing${vs === 1 ? '' : 's'}${vs > out.length ? ' (with their other inversions)' : ''} — ${n} cards, new in your next review.`);
             }}
           >
             Add {out.length === shown.length ? 'all ' : ''}
@@ -218,6 +219,7 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
   const { canEdit, srs, settings } = t;
   const { stats, gapKeys } = useCardStats();
   const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
+  const pair = partnersOf(t.voicings, v).filter(o => o.id !== v.id);
   const [tagDraft, setTagDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState(v.notes_text ?? '');
   const m = midisOf(v);
@@ -318,6 +320,11 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
             </span>
           ) : (
             <span>Not in your deck: it won’t come up in Review.</span>
+          )}
+          {pair.length > 0 && (
+            <span className="vt-hint dt-pair">
+              Goes with its other inversion, {pair.map(o => o.notes.map(n => pretty(pitchName(n))).join(' ')).join(', ')}: added and removed together.
+            </span>
           )}
           {canEdit &&
             (deckIn ? (

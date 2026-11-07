@@ -91,6 +91,25 @@ export function newId(): string {
   });
 }
 
+/**
+ * A voicing and its other inversion: the same chord in the same voicing type
+ * (Cm7's two drop-2s, 3 7 9 5 and 7 3 5 9). Ones with no partner (the 6, the
+ * m7♭5s) stand alone.
+ */
+export function partnersOf(voicings: Voicing[], v: Voicing): Voicing[] {
+  return voicings.filter(o => o.chord_label === v.chord_label && o.family === v.family);
+}
+
+function withPartners(voicings: Voicing[], ids: string[]): string[] {
+  const byId = new Map(voicings.map(v => [v.id, v]));
+  const out = new Set(ids);
+  for (const id of ids) {
+    const v = byId.get(id);
+    if (v) for (const o of partnersOf(voicings, v)) out.add(o.id);
+  }
+  return [...out];
+}
+
 const TUNES_MAX_AGE = 7 * 86_400_000;
 const PUSH_CHUNK = 2000;
 export const TRAINER_ROUTES = ['/voiceshed', '/voiceshed/practice', '/voiceshed/voicings'];
@@ -169,6 +188,9 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
   ref.current = state;
   const outboxCount = useRef(0);
   const syncing = useRef<Promise<void> | null>(null);
+  /** A sync asked for while one runs: one more goes after it, so nothing saved meanwhile waits. */
+  const again = useRef<{ tunes?: boolean } | null>(null);
+  const syncRef = useRef<(opts?: { tunes?: boolean }) => Promise<void>>(async () => undefined);
   const tunesCache = useRef<Tune[] | null>(null);
 
   const patch = useCallback((p: Partial<TrainerState> | ((s: TrainerState) => Partial<TrainerState>)) => {
@@ -359,7 +381,10 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
 
   const sync = useCallback(
     async (opts?: { tunes?: boolean }) => {
-      if (syncing.current) return syncing.current;
+      if (syncing.current) {
+        again.current = { tunes: !!(again.current?.tunes || opts?.tunes) };
+        return syncing.current;
+      }
       const run = (async () => {
         patch({ status: 'syncing', syncError: null });
         try {
@@ -390,12 +415,16 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
         }
       })().finally(() => {
         syncing.current = null;
+        const next = again.current;
+        again.current = null;
+        if (next) void syncRef.current(next);
       });
       syncing.current = run;
       return run;
     },
     [patch, push, pull, pullTunes],
   );
+  syncRef.current = sync;
 
   useEffect(() => {
     let alive = true;
@@ -488,22 +517,29 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     [patch],
   );
 
-  /** Into the deck: each voicing's Play, Spell and Name cards, new and due now (any already there stay as they are). */
+  /**
+   * Into the deck: each voicing — with its other inversion, the two being
+   * connected (the owner: "both inversions… added automatically") — brings its
+   * Play, Spell and Name cards, new and due now (any already there stay).
+   */
   const addToDeck = useCallback(
     async (voicingIds: string[]) => {
       const now = new Date();
       const rows: SrsState[] = [];
-      for (const id of voicingIds) for (const m of MODES) if (!ref.current.srs.has(srsKey(id, m))) rows.push({ ...newState(id, m, now), dirty: true });
+      for (const id of withPartners(ref.current.voicings, voicingIds))
+        for (const m of MODES) if (!ref.current.srs.has(srsKey(id, m))) rows.push({ ...newState(id, m, now), dirty: true });
       if (rows.length) await saveSrs(rows);
       return rows.length;
     },
     [saveSrs],
   );
 
-  /** Out of the deck: the voicings' cards leave the schedule; their answers stay, for the stats. */
+  /** Out of the deck: the voicings, with their other inversions, leave the schedule; their answers stay, for the stats. */
   const removeFromDeck = useCallback(
     async (voicingIds: string[]) => {
-      const keys = voicingIds.flatMap(id => MODES.map(m => srsKey(id, m))).filter(k => ref.current.srs.has(k));
+      const keys = withPartners(ref.current.voicings, voicingIds)
+        .flatMap(id => MODES.map(m => srsKey(id, m)))
+        .filter(k => ref.current.srs.has(k));
       if (!keys.length) return 0;
       outboxCount.current += keys.length;
       patch(s => {
@@ -519,10 +555,19 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
           return { kind: 'unschedule', voicing_id, mode };
         }),
       );
-      return keys.length / MODES.length;
+      return new Set(keys.map(k => k.split('|')[0])).size;
     },
     [patch],
   );
+
+  // A voicing in the deck without its other inversion (added before they were
+  // connected) gets it: the pair is one thing.
+  useEffect(() => {
+    if (!state.ready || !state.viewer?.isOwner || !state.srs.size) return;
+    const inDeck = new Set([...state.srs.values()].map(r => r.voicing_id));
+    const missing = withPartners(state.voicings, [...inDeck]).filter(id => !inDeck.has(id));
+    if (missing.length) void addToDeck(missing).then(() => sync());
+  }, [state.ready, state.viewer, state.srs, state.voicings, addToDeck, sync]);
 
   const saveSettings = useCallback(
     async (settings: Settings) => {

@@ -126,7 +126,11 @@ wide screen; a run hides both.
   each voicing, "Add N to deck" / "Remove" for everything the filter shows, the
   sheet's Add / Remove, and "in my deck" / "not in my deck" in the Only row.
   Removing takes the cards' schedules out (`srsDeletes` in sync; the outbox
-  holds them offline); answers stay, for the stats. Shape tags (`3-7-9-5`,
+  holds them offline); answers stay, for the stats. **Inversions are
+  connected** (the owner): a voicing and its other inversion — same chord,
+  same voicing type (`partnersOf`) — are added and removed together, and a
+  deck holding one of a pair gets the other on load. The 6 and the m7♭5s have
+  no partner. Shape tags (`3-7-9-5`,
   `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
   Practice.
 
