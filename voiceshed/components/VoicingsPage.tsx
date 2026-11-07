@@ -12,6 +12,7 @@ import { Keyboard, rangeAround } from './Keyboard';
 import { ProgressMap } from './ProgressMap';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
+import { useBackClose } from './useBackClose';
 import { hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { targetFor } from '@voiceshed/lib/srs';
@@ -242,6 +243,7 @@ export function VoicingCard({
 
 export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () => void; onOpen?: (id: string) => void }) {
   const t = useTrainer();
+  useBackClose(true, onClose);
   const { canEdit, srs, settings } = t;
   const { stats, gapKeys } = useCardStats();
   const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
@@ -445,6 +447,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
 }
 
 function NewVoicing({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+  useBackClose(true, onClose);
   const t = useTrainer();
   const [root, setRoot] = useState(0);
   const [quality, setQuality] = useState<Quality>('maj7');

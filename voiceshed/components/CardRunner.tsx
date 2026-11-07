@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
+import { useBackClose } from './useBackClose';
 import { useTrainer } from './TrainerProvider';
 import { whiteKeyPx } from '@voiceshed/lib/scale';
 import { gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
@@ -326,6 +327,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   }, [index, phase]);
 
   const finish = useCallback(() => onFinish(results.current), [onFinish]);
+  // Back ends the run, as END does.
+  useBackClose(true, finish);
 
   const next = useCallback(() => {
     if (index + 1 >= queue.length) {

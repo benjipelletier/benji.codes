@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
+import { useBackClose } from './useBackClose';
 import { Keyboard, rangeAround } from './Keyboard';
 import { describe, ReviewSetup, useReviewConfig, voicingIn } from './ReviewSetup';
 import { buildQueue, newState, outcomeOf, schedule, shuffle, targetFor } from '@voiceshed/lib/srs';
@@ -23,6 +24,8 @@ export function ReviewPage() {
   const { voicings, srs, settings } = t;
   const { gapKeys } = useCardStats();
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
+  // Back from a run's summary returns to the set-up.
+  useBackClose(phase === 'done', () => setPhase('idle'));
   const [steps, setSteps] = useState<RunnerStep[]>([]);
   const [results, setResults] = useState<RunnerResult[]>([]);
   const [showSettings, setShowSettings] = useState(false);

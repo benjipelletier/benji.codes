@@ -288,6 +288,15 @@ comes up have a big warning sign that says no 9!"), and every card, sheet and
 list card says "rootless" or "has root" (`hasRoot` in `lib/practice.ts`; the
 m7♭5 spread, the iii's, °7 and block chords have theirs).
 
+**The back button** (the owner: "fix the back button … on Android"):
+`useBackClose` (`components/useBackClose.ts`) makes each open thing a history
+step — a voicing's sheet, Choose voicings, New voicing, a run, a run's
+summary. Back closes the newest one (a card's sheet over the chooser first),
+ends a run as END does, and takes a summary back to its set-up; only then does
+it leave the page. Closing any other way (×, Done, END) takes its step back off.
+history.back() is asynchronous, so pushes and backs go through one queue (a run
+ending into its summary). Tested on dev and a production build.
+
 **Little animations** (the owner: "cute jazz or piano animations on any loading
 and button clicking"): loading is a small piano playing an arpeggio with notes
 floating off it (`PianoLoader` in `TrainerShell`); a tapped button sends up a

@@ -12,6 +12,7 @@ import { Summary } from './ReviewPage';
 import { fmtPct, fmtSecs, relTime } from './TrainerShell';
 import { VoicingDetail, VoicingGrid } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
+import { useBackClose } from './useBackClose';
 import { buildSet, type OrderEntry, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
 import { keyLabel, LATER_FAMILIES, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
@@ -51,6 +52,8 @@ export function PracticePage() {
   const [spec, setSpecState] = useState<SetSpec>(() => ({ source: 'ii-v-i', key: null, tuneId: null, tags: ['two-handed'], mode: 'play', limit: 40 }));
   const [tunes, setTunes] = useState<Tune[]>([]);
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
+  // Back from a run's summary returns to the set-up.
+  useBackClose(phase === 'done', () => setPhase('idle'));
   const [steps, setSteps] = useState<RunnerStep[]>([]);
   const [results, setResults] = useState<RunnerResult[]>([]);
   const [ranSet, setRanSet] = useState<{ label: string; setKey: string } | null>(null);
@@ -336,6 +339,7 @@ const BLOCK = 'closed (block)';
 function ChooseVoicings({ title, order, tags, onClose }: { title: string; order: OrderEntry[]; tags: string[]; onClose: () => void }) {
   const t = useTrainer();
   const [open, setOpen] = useState<string | null>(null);
+  useBackClose(true, onClose);
   // m7s not played as the iii can show their iii voicings too, on request (the owner: "a little hidden button").
   const [asIii, setAsIii] = useState<Set<string>>(new Set());
   const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
