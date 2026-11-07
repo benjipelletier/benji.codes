@@ -931,7 +931,7 @@
 .cr-cue > :last-child { margin-bottom: auto; }
 
 /* The map, phone first: keys down, chords across, the whole chart the screen's width. */
-.pm-board { display: grid; grid-template-columns: 52px repeat(var(--pm-cols), minmax(0, 1fr)); gap: 4px; max-width: 680px; width: 100%; margin: 0 auto; }
+.pm-board { --pm-track: minmax(0, 1fr); display: grid; gap: 4px; max-width: 680px; width: 100%; margin: 0 auto; }
 .pm-bh { position: sticky; top: calc(var(--bar-h, 56px) + env(safe-area-inset-top)); z-index: 2; background: var(--paper); padding: 6px 0 4px; text-align: center; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1; color: var(--ink); white-space: nowrap; overflow: hidden; }
 .pm-bh-corner { background: var(--paper); }
 .pm-bk { display: flex; flex-direction: column; justify-content: center; padding-right: 4px; border-radius: 8px; transition: background-color 0.3s; }
@@ -946,7 +946,7 @@
 .pm-bc .pm-due { position: absolute; top: -3px; right: -3px; }
 .pm-bc-none { aspect-ratio: 1 / 1; border-radius: 8px; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--rule) 50%, transparent) 4px 5px); }
 @media (min-width: 720px) {
-  .pm-board { grid-template-columns: 64px repeat(var(--pm-cols), minmax(0, 72px)); justify-content: center; gap: 6px; }
+  .pm-board { --pm-track: minmax(0, 72px); justify-content: center; gap: 6px; }
   .pm-bh { font-size: 19px; }
   .pm-bk b { font-size: 18px; }
 }
@@ -960,3 +960,23 @@
 .pm-legend-split i { display: inline-flex; gap: 2px; width: 20px; height: 12px; padding: 1px; border: 1px solid var(--rule); border-radius: 3px; }
 .pm-legend-split i b { flex: 1; background: var(--accent-soft); border-radius: 1px; }
 .pm-legend-split i b + b { border-left: 1px solid var(--rule); }
+
+/* Column groups: minor · major · dominant · diminished, a gap between them. */
+.pm-bg { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); text-align: center; padding-bottom: 2px; border-bottom: 1px solid var(--rule); margin: 0 1px; white-space: nowrap; overflow: hidden; }
+.pm-bg-corner { border: 0; }
+/* Inversions across a tile, each its own Play/Spell/Name bars. */
+.pm-bc { gap: 2px; padding: 3px; }
+.pm-bc .pm-part { gap: 2px; }
+.pm-bc .pm-band { border-radius: 2px; }
+/* The legend: a sample tile, labelled. */
+.pm-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.pm-sample { display: grid; grid-template-columns: auto 96px; grid-template-rows: 58px auto; gap: 3px 6px; align-items: stretch; }
+.pm-sample-modes { display: flex; flex-direction: column; justify-content: space-around; font-family: var(--mono); font-size: 10.5px; line-height: 1; color: var(--ink-3); text-align: right; padding: 3px 0; }
+.pm-sample-tile { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+.pm-sample-tile .pm-part { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pm-sample-tile .pm-band { flex: 1; display: block; width: auto; height: auto; }
+.pm-sample-invs { grid-column: 2; display: flex; justify-content: space-around; font-family: var(--mono); font-size: 9px; line-height: 1; color: var(--ink-3); white-space: nowrap; }
+.pm-sample-invs span { flex: 1; text-align: center; }
+.pm-legend-states { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--ink-2); align-items: center; }
+.pm-legend-states span { display: inline-flex; align-items: center; gap: 5px; }
+.pm-legend-states .pm-band { display: inline-block; width: 16px; height: 9px; flex: none; }

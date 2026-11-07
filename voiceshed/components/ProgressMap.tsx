@@ -41,6 +41,9 @@ function cardView(st: SrsState | undefined, s: ModeStats | undefined, target: nu
 /** Short chord names for the map's narrow columns. */
 const SHORT: Partial<Record<Voicing['quality'], string>> = { maj7: 'Δ7', m7: 'm7', '7': '7', '7b9': '7♭9', '7alt': 'alt', dim7: '°7', '6': '6', m7b5: 'ø7' };
 
+/** The map's column groups, in order. */
+const GROUP: Partial<Record<Voicing['quality'], string>> = { m7: 'minor', maj7: 'major', '6': 'major', '7': 'dominant', '7b9': 'dominant', '7alt': 'dominant', dim7: 'dim', m7b5: 'dim' };
+
 /** A chord's cards in one key, summed per mode: out if none is in the deck, learned if every one is, else learning or new. */
 function sumCards(cards: CardView[]): CardView {
   const inDeck = cards.filter(c => c.state !== 'out');
@@ -138,13 +141,30 @@ export function ProgressMap({
   const rows = useMemo(() => {
     const famOrder = SHAPE_SETS.map(s => s.family);
     // Chords as a ii–V–I runs, then the rest.
-    const qOrder = ['m7', '7', '7b9', 'dim7', '7alt', 'maj7', '6', 'm7b5', ...QUALITIES.map(q => q.id)];
+    // Grouped (the owner: "m7 and iii together, maj7 and 6 together, all the dominants together, and the
+    // two diminisheds, full and half, together").
+    const qOrder = ['m7', 'maj7', '6', '7', '7b9', '7alt', 'dim7', 'm7b5', ...QUALITIES.map(q => q.id)];
     // One column per chord (drop-2 and block share it: a split tile).
     void famOrder;
     const seen = new Map<string, { quality: Voicing['quality']; iii: boolean }>();
     for (const v of voicings) seen.set(`${v.quality}|${v.tags.includes('iii')}`, { quality: v.quality, iii: v.tags.includes('iii') });
     return [...seen.values()].sort((a, b) => qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || Number(a.iii) - Number(b.iii));
   }, [voicings]);
+  // Column groups, and the columns that start one after another (a gap before them).
+  const groups = useMemo(() => {
+    const out: { name: string; start: number; n: number }[] = [];
+    rows.forEach((r, i) => {
+      const name = GROUP[r.quality] ?? 'other';
+      const last = out[out.length - 1];
+      if (last && last.name === name) last.n++;
+      else out.push({ name, start: i, n: 1 });
+    });
+    return out;
+  }, [rows]);
+  const gapAt = useMemo(() => new Set(groups.filter(g => g.start > 0).map(g => g.start)), [groups]);
+  // The grid's columns: the keys, then each chord, a thin spacer before each new group.
+  const colOf = (ri: number) => 2 + ri + [...gapAt].filter(g => g <= ri).length;
+  const template = `52px ${rows.map((_, ri) => `${gapAt.has(ri) ? '6px ' : ''}var(--pm-track)`).join(' ')}`;
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
   // Totals, over this chart's voicings.
@@ -261,10 +281,16 @@ export function ProgressMap({
       </div>
 
       {/* Keys down, chords across: the whole chart fits the width (the owner: "see everything at a glance"). */}
-      <div className="pm-board" role="grid" aria-label="Progress by key and chord" style={{ '--pm-cols': rows.length } as React.CSSProperties}>
+      <div className="pm-board" role="grid" aria-label="Progress by key and chord" style={{ gridTemplateColumns: template }}>
+        <div className="pm-bg pm-bg-corner" />
+        {groups.map(g => (
+          <div key={g.name} className="pm-bg" style={{ gridColumn: `${colOf(g.start)} / span ${g.n}` }}>
+            {g.name}
+          </div>
+        ))}
         <div className="pm-bh pm-bh-corner" role="columnheader" />
-        {rows.map(r => (
-          <div key={`${r.quality}|${r.iii}`} className="pm-bh" role="columnheader" title={`${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`}>
+        {rows.map((r, ri) => (
+          <div key={`${r.quality}|${r.iii}`} className="pm-bh" style={{ gridColumn: colOf(ri) }} role="columnheader" title={`${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`}>
             {r.iii ? 'iii' : SHORT[r.quality] ?? QUALITY[r.quality].display}
           </div>
         ))}
@@ -276,12 +302,18 @@ export function ProgressMap({
                 <b>{rootNames(k).map(n => pretty(n)).join('/')}</b>
                 <span>{pk?.deck ? `${Math.round((pk.learned / pk.deck) * 100)}%` : ''}</span>
               </div>
-              {rows.map(r => {
+              {rows.map((r, ri) => {
                 const here = voicings.filter(v => v.root === k && v.quality === r.quality && v.tags.includes('iii') === r.iii);
-                if (!here.length) return <span key={`${r.quality}|${r.iii}`} className="pm-bc pm-bc-none" role="gridcell" aria-label="none" />;
-                // Drop-2 and block in one tile, split down the middle where a chord has both.
-                const fams = [...new Set(here.map(v => v.family))].sort((a, b) => TWO_HAND.indexOf(a) - TWO_HAND.indexOf(b));
-                const parts = fams.map(f => MODES.map(m => sumCards(here.filter(v => v.family === f).map(v => view.get(srsKey(v.id, m))!))));
+                if (!here.length) return <span key={`${r.quality}|${r.iii}`} className="pm-bc pm-bc-none" style={{ gridColumn: colOf(ri) }} role="gridcell" aria-label="none" />;
+                // A column per inversion (its shape; a black key's two names share one), each with its
+                // Play/Spell/Name bars (the owner picked "both: a tiny grid in each tile"); block after drop-2.
+                const shapes = new Map<string, Voicing[]>();
+                for (const v of [...here].sort((a, b) => TWO_HAND.indexOf(a.family) - TWO_HAND.indexOf(b.family) || a.sort_order - b.sort_order)) {
+                  const key = `${v.family}|${v.tags[v.tags.length - 1]}`;
+                  shapes.set(key, [...(shapes.get(key) ?? []), v]);
+                }
+                const fams = [...shapes.keys()].map(k => k.split('|')[0]);
+                const parts = [...shapes.values()].map(vs => MODES.map(m => sumCards(vs.map(v => view.get(srsKey(v.id, m))!))));
                 const bands = MODES.map(m => sumCards(here.map(v => view.get(srsKey(v.id, m))!)));
                 const inDeck = bands.some(b => b.state !== 'out');
                 const name = `${rootNames(k).map(n => pretty(n)).join('/')}${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`;
@@ -291,13 +323,14 @@ export function ProgressMap({
                     type="button"
                     key={`${r.quality}|${r.iii}`}
                     className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''} ${parts.length > 1 ? 'split' : ''}`}
+                    style={{ gridColumn: colOf(ri) }}
                     role="gridcell"
                     aria-label={label}
                     title={label}
                     onClick={() => onOpenCell(here.map(v => v.id), name)}
                   >
                     {parts.map((part, pi) => (
-                      <span key={fams[pi]} className={`pm-part ${fams[pi] === 'closed (block)' && parts.length > 1 ? 'pm-part-block' : ''}`}>
+                      <span key={pi} className={`pm-part ${fams[pi] === 'closed (block)' && fams[pi - 1] && fams[pi - 1] !== 'closed (block)' ? 'pm-part-block' : ''}`}>
                         {part.map((c, i) => (
                           <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
                         ))}
@@ -316,32 +349,57 @@ export function ProgressMap({
 }
 
 
+/** How to read a tile — inversions across, Play/Spell/Name down — and what the colours mean. */
 function Legend() {
+  const bar = (state: CardState, strength = 0.8) => <i className={`pm-band pm-${state}`} style={state === 'learning' || state === 'learned' ? ({ '--s': strength } as React.CSSProperties) : undefined} />;
   return (
-    <div className="pm-legend" aria-label="Legend">
-      <span>
-        <i className="pm-band pm-out" /> not in deck
-      </span>
-      <span>
-        <i className="pm-band pm-new" /> new
-      </span>
-      <span>
-        <i className="pm-band pm-learning" style={{ '--s': 0.7 } as React.CSSProperties} /> learning
-      </span>
-      <span>
-        <i className="pm-band pm-learned" style={{ '--s': 0.9 } as React.CSSProperties} /> learned
-      </span>
-      <span>
-        <i className="pm-due pm-due-key" /> due
-      </span>
-      <span className="pm-legend-modes">stripes: Play · Spell · Name</span>
-      <span className="pm-legend-split">
-        <i>
-          <b />
-          <b />
-        </i>{' '}
-        split: drop-2 | block
-      </span>
+    <div className="pm-keys" aria-label="How to read the map">
+      <div className="pm-sample" aria-hidden="true">
+        <span className="pm-sample-modes">
+          <span>Play</span>
+          <span>Spell</span>
+          <span>Name</span>
+        </span>
+        <span className="pm-sample-tile">
+          <span className="pm-part">
+            {bar('learned', 0.9)}
+            {bar('learning', 0.7)}
+            {bar('learned', 0.6)}
+          </span>
+          <span className="pm-part">
+            {bar('learning', 0.6)}
+            {bar('new')}
+            {bar('learning', 0.4)}
+          </span>
+          <span className="pm-part pm-part-block">
+            {bar('out')}
+            {bar('out')}
+            {bar('out')}
+          </span>
+        </span>
+        <span className="pm-sample-invs">
+          <span>1st</span>
+          <span>2nd</span>
+          <span>block</span>
+        </span>
+      </div>
+      <div className="pm-legend-states">
+        <span>
+          {bar('out')} not in deck
+        </span>
+        <span>
+          {bar('new')} new
+        </span>
+        <span>
+          {bar('learning', 0.7)} learning
+        </span>
+        <span>
+          {bar('learned', 0.9)} learned
+        </span>
+        <span>
+          <i className="pm-due pm-due-key" /> due
+        </span>
+      </div>
     </div>
   );
 }
