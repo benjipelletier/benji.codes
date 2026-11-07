@@ -157,9 +157,13 @@ wide screen; a run hides both.
   1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
-  The map (`components/ProgressMap.tsx`) is the progress view: keys as
-  columns round the cycle of fourths, voicing type × chord as rows (m7, 7,
-  7♭9, 7alt, maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
+  The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
+  voicing type** (the owner: "separate charts for the different rootless
+  types"): tabs above it — drop-2 two-hand, right-hand rootless, m7♭5 closed —
+  each with "known/in deck", the pick kept on the device; everything below
+  (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
+  Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9,
+  7alt, maj7, 6, m7♭5), scrolling both ways with both headers pinned; each
   voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
   new (outlined), learning (amber, by accuracy), learned (green, deeper the
   faster against target), a red dot for due; a black key's two spellings side

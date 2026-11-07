@@ -57,6 +57,9 @@ export function VoicingsPage() {
     [gapKeys, srs],
   );
   const filtered = useMemo(() => applyFilter(voicings, filter, tests), [voicings, filter, tests]);
+  // In map view the deck bar acts on the chart showing (one voicing type).
+  const [chart, setChart] = useState<string | null>(null);
+  const deckShown = useMemo(() => (view === 'map' && chart ? filtered.filter(v => v.family === chart) : filtered), [view, chart, filtered]);
   const changeFilter = (f: FilterState) => {
     setFilter(f);
     setShown(PAGE);
@@ -91,8 +94,8 @@ export function VoicingsPage() {
       </div>
 
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
-      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} />}
-      {canEdit && <DeckBar shown={filtered} />}
+      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onChart={setChart} />}
+      {canEdit && <DeckBar shown={deckShown} />}
       {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing

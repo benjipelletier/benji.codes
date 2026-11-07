@@ -674,6 +674,12 @@
 /* ── Voicings: the progress map ─────────────────────────────────── */
 .lb-view { width: 100%; }
 .pm { display: flex; flex-direction: column; gap: 14px; }
+.pm-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.pm-tabs::-webkit-scrollbar { display: none; }
+.pm-tabs button { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 48px; padding: 8px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); text-align: left; }
+.pm-tabs button b { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.pm-tabs button span { font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.pm-tabs button.on { border-color: var(--accent); background: var(--accent-soft); }
 .pm-top { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--rule); border-radius: 16px; background: var(--card); }
 .pm-wheel { width: 100%; max-width: 230px; justify-self: center; display: block; }
 .pm-seg { cursor: pointer; }
@@ -721,7 +727,7 @@
 .pm-grid { border-collapse: separate; border-spacing: 0; }
 .pm-grid th, .pm-grid td { padding: 0; }
 .pm-grid thead th { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--rule); }
-.pm-row { position: sticky; left: 0; z-index: 1; background: var(--card); border-right: 1px solid var(--rule); text-align: left; padding: 6px 8px !important; min-width: 96px; max-width: 110px; }
+.pm-row { position: sticky; left: 0; z-index: 1; background: var(--card); border-right: 1px solid var(--rule); text-align: left; padding: 6px 8px !important; min-width: 64px; max-width: 110px; }
 .pm-corner { left: 0; z-index: 3 !important; }
 .pm-col { min-width: calc(var(--pm-cell) + 10px); padding: 6px 4px !important; text-align: center; }
 .pm-key { display: flex; flex-direction: column; align-items: center; font-family: var(--serif); font-size: 21px; line-height: 1; font-weight: 400; }

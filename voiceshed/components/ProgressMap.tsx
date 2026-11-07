@@ -1,15 +1,16 @@
 'use client';
 
 // The progress map: every voicing laid out by key (columns, round the cycle
-// of fourths) and by chord and voicing type (rows), to scroll around in both
-// directions. Each voicing is a tile with three stripes — Play, Spell, Name —
+// of fourths) and by chord (rows), one chart per voicing type (the owner:
+// "separate charts for the different rootless types"), to scroll around in
+// both directions. Each voicing is a tile with three stripes — Play, Spell, Name —
 // each showing that card: not in the deck (empty), new (outlined), learning
 // (amber, stronger as its accuracy rises), learned (green, deeper the faster
 // it is against its target); a dot marks one due now. Above it, a circle of
 // fifths shaded by how much of each key is known (tap a key to go to its
 // column), the totals, and the slowest cards. Tap a tile to open its voicing.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CYCLE_OF_FOURTHS, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, SHAPE_SETS, prettyLabel } from '@voiceshed/lib/theory';
 import { targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
@@ -36,13 +37,15 @@ function cardView(st: SrsState | undefined, s: ModeStats | undefined, target: nu
 }
 
 const ZOOMS = [44, 58, 76];
+const FAMILY_KEY = 'vt-map-family';
 
 export function ProgressMap({
-  voicings,
+  voicings: all,
   srs,
   stats,
   settings,
   onOpen,
+  onChart,
 }: {
   /** The voicings the filter leaves. */
   voicings: Voicing[];
@@ -50,10 +53,53 @@ export function ProgressMap({
   stats: Map<string, ModeStats>;
   settings: Settings;
   onOpen: (id: string) => void;
+  /** Told which voicing type's chart is showing, so the page's deck bar acts on it. */
+  onChart?: (family: string | null) => void;
 }) {
   const [zoom, setZoom] = useState(1);
   const scroller = useRef<HTMLDivElement>(null);
   const now = Date.now();
+
+  // One chart per voicing type, picked above the map and kept on the device.
+  const families = useMemo(() => {
+    const famOrder = SHAPE_SETS.map(s => s.family);
+    const rank = (f: string) => (famOrder.includes(f) ? famOrder.indexOf(f) : famOrder.length);
+    return [...new Set(all.map(v => v.family))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }, [all]);
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setPicked(localStorage.getItem(FAMILY_KEY));
+    } catch {
+      // Not remembered: the first chart.
+    }
+  }, []);
+  const pick = (f: string) => {
+    setPicked(f);
+    try {
+      localStorage.setItem(FAMILY_KEY, f);
+    } catch {
+      // Not remembered: fine.
+    }
+  };
+  const family = picked && families.includes(picked) ? picked : families[0];
+  const voicings = useMemo(() => all.filter(v => v.family === family), [all, family]);
+  useEffect(() => {
+    onChart?.(family ?? null);
+  }, [family, onChart]);
+  // Each chart's tab: voicings known (all three modes learned) of those in the deck.
+  const famTotals = useMemo(() => {
+    const out = new Map<string, { known: number; deck: number; all: number }>();
+    for (const v of all) {
+      const t = out.get(v.family) ?? { known: 0, deck: 0, all: 0 };
+      t.all++;
+      const sts = MODES.map(m => srs.get(srsKey(v.id, m)));
+      if (sts.some(Boolean)) t.deck++;
+      if (sts.every(st => st?.learned)) t.known++;
+      out.set(v.family, t);
+    }
+    return out;
+  }, [all, srs]);
 
   const view = useMemo(() => {
     const out = new Map<string, CardView>();
@@ -65,7 +111,7 @@ export function ProgressMap({
     return out;
   }, [voicings, srs, stats, settings, now]);
 
-  // Rows: each voicing type × chord the filter leaves, in the library's order.
+  // Rows: each chord of this voicing type the filter leaves (one family per chart).
   const rows = useMemo(() => {
     const famOrder = SHAPE_SETS.map(s => s.family);
     // Chords as a ii–V–I runs, then the rest.
@@ -77,7 +123,7 @@ export function ProgressMap({
   }, [voicings]);
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
-  // Totals, over the voicings shown.
+  // Totals, over this chart's voicings.
   const totals = useMemo(() => {
     let deckV = 0;
     let known = 0;
@@ -117,10 +163,21 @@ export function ProgressMap({
   };
 
   const cell = ZOOMS[zoom];
-  if (!voicings.length) return <p className="vt-empty">No voicings match.</p>;
+  if (!all.length) return <p className="vt-empty">No voicings match.</p>;
 
   return (
     <div className="pm" style={{ '--pm-cell': `${cell}px` } as React.CSSProperties}>
+      <div className="pm-tabs" role="tablist" aria-label="Voicing type">
+        {families.map(f => {
+          const t = famTotals.get(f);
+          return (
+            <button type="button" key={f} role="tab" aria-selected={f === family} className={f === family ? 'on' : ''} onClick={() => pick(f)}>
+              <b>{f.replace('m7b5', 'm7♭5')}</b>
+              <span>{t?.deck ? `${t.known}/${t.deck} known` : `${t?.all ?? 0} voicings`}</span>
+            </button>
+          );
+        })}
+      </div>
       <section className="pm-top">
         <Wheel perKey={totals.perKey} onKey={goToKey} />
         <div className="pm-totals">
@@ -202,7 +259,6 @@ export function ProgressMap({
               <tr key={`${r.family}|${r.quality}`}>
                 <th className="pm-row">
                   <span className="pm-row-q">{QUALITY[r.quality].display}</span>
-                  <span className="pm-row-f">{r.family}</span>
                 </th>
                 {cols.map(k => {
                   const here = voicings.filter(v => v.root === k && v.family === r.family && v.quality === r.quality);
