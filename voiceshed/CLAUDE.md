@@ -40,14 +40,20 @@ root is in the library under **both** names, flat and sharp (D♭m7 and C♯m7,
 G♭7 and F♯7), each a card of its own — the owner wants both available. A name
 that would need a double accidental is left out (E♭m7♭5 and A♭m7♭5 would need
 B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5; A♯maj7 likewise). Single ones stay,
-however rare (F♭, C♭, E♯, B♯). 206 voicings in all.
+however rare (F♭, C♭, E♯, B♯) — but a spelling charts barely use is left out
+too (`RARE_SPELLINGS`: under 10% of that chord's appearances in the 1,460
+standards where the other name is in the library — A♯m7, C♯maj7, D♯m7, C♯7,
+G♯7, A♯m7♭5, F♯maj7, G♯m7). Both names stay only where charts use both:
+D♭m7 / C♯m7, G♭7 / F♯7. So a white key has 14 voicings, a black key 14, and
+D♭/C♯ and G♭/F♯ 18. 176 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
 spelling: a chord takes the voicings spelled as the chart spells it.
 Progressions are spelled from their key's name (in G♭: A♭m7 D♭7 G♭maj7), and
 a black key's ii–V–I comes under both names (D♭ and C♯, G♭ and F♯) where
-every chord then spells cleanly: 26 progressions.
+every chord then spells cleanly and none is a rare spelling: 22 progressions
+(no C♯ or F♯ ones: they'd need G♯m7, G♯7, F♯maj7 or C♯7).
 
 The seed is versioned (`SEED_VERSION` in `app/api/voiceshed/schema.ts`,
 stored in `voiceshed_meta`): raising it adds the voicings a database doesn't
@@ -55,7 +61,8 @@ have yet (its own, edited or not, are left alone; a deleted one comes back),
 updates the progressions' steps, and drops progressions no longer generated.
 Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 (answers with them) and its 11 cards got their `top_move`; version 4 moved the
-spread from its own type into `drop-2 two-hand`, keeping its tags.
+spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
+removed the rare spellings (generated ones only — a voicing added by hand stays).
 
 ---
 

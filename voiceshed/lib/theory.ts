@@ -417,6 +417,17 @@ export function rootNames(pc: number): string[] {
   return PC_FLAT[pc] === PC_SHARP[pc] ? [PC_FLAT[pc]] : [PC_FLAT[pc], PC_SHARP[pc]];
 }
 
+/**
+ * Spellings left out as rare (the owner: "drop the rare ones like A♯m7 and
+ * D♯m7"): under 10% of that chord's appearances in the 1,460 standards'
+ * charts, where the other name is in the library. Counted Nov 2026 — A♯m7 3
+ * (B♭m7 1,337), C♯maj7 2 (D♭maj7 579), D♯m7 15 (E♭m7 737), C♯7 27 (D♭7 856),
+ * G♯7 31 (A♭7 1,144), A♯m7♭5 2 (B♭m7♭5 33), F♯maj7 15 (G♭maj7 253), G♯m7 38
+ * (A♭m7 434). Both names stay where charts use both: D♭m7 / C♯m7 30 / 70%,
+ * G♭7 / F♯7 69 / 31%.
+ */
+export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7']);
+
 /** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
 export function keyLabel(pc: number): string {
   return rootNames(pc).map(pretty).join('/');
@@ -443,7 +454,7 @@ export function starterVoicings(): VoicingSeed[] {
             while (bottom < LOWEST_NOTE) bottom += 12;
             const midis = stack(rootPc, shape.ivs, bottom);
             const notes = spellStrict(rootName, midis, shape.ivs);
-            if (!notes) return;
+            if (!notes || RARE_SPELLINGS.has(chordLabel(rootName, q))) return;
             // The top voice's move: the nearest such note to where it starts.
             let move: string | null = null;
             if (shape.move) {
@@ -533,7 +544,9 @@ export function starterProgressions(): ProgressionSeed[] {
     // (A♯ major would need B♯m7, D♭ minor E♭m7♭5: skipped).
     const add = (label: string, keyName: string, ivs: [string, Quality][]) => {
       const steps = ivs.map(([iv, q]) => step(keyName, iv, q));
-      if (!steps.every(st => rootNames(st.root).includes(st.name) && spellable(st.name, st.root, st.quality))) return;
+      // …and isn't a spelling left out as rare (a 7alt goes by its dominant's name).
+      const rare = (st: { name: string; quality: Quality }) => RARE_SPELLINGS.has(chordLabel(st.name, st.quality === '7alt' ? '7' : st.quality));
+      if (!steps.every(st => rootNames(st.root).includes(st.name) && spellable(st.name, st.root, st.quality) && !rare(st))) return;
       out.push({ name: label, key, steps: steps.map(({ name: _n, ...st }) => st), sort_order: order++ });
     };
     for (const n of rootNames(key)) add(`ii–V–I in ${n}`, n, [['9', 'm7'], ['5', '7'], ['R', 'maj7']]);

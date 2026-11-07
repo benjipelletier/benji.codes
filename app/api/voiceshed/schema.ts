@@ -4,7 +4,7 @@
 // whenever SEED_VERSION goes up — and the ii–V–I progressions when empty.
 
 import type { NeonQueryFunction } from '@neondatabase/serverless';
-import { starterProgressions, starterVoicings } from '@voiceshed/lib/theory';
+import { RARE_SPELLINGS, SHAPE_SETS, starterProgressions, starterVoicings } from '@voiceshed/lib/theory';
 
 type Sql = NeonQueryFunction<false, false>;
 
@@ -99,8 +99,10 @@ export const TRAINER_DDL = [
  *      (1 ♭5 ♭7 ♭3) go, answers with them, and the 11 cards get their move.
  *   4: the spread files under drop-2 two-hand (the closed one stays its own
  *      type); its own tags are kept, the set's added.
+ *   5: rare spellings go (RARE_SPELLINGS: A♯m7, D♯m7…), answers with them —
+ *      generated ones only; a voicing added by hand stays whatever its name.
  */
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
@@ -123,6 +125,14 @@ async function seed(sql: Sql) {
          WHERE v.family = 'm7b5 spread' AND v.chord_label = t.chord_label AND v.notes = t.notes AND t.top_move IS NOT NULL`,
         [JSON.stringify(rows)],
       );
+    }
+    if (seeded < 5) {
+      await sql.query(`DELETE FROM voicings WHERE chord_label = ANY($1::text[]) AND family = ANY($2::text[])`, [
+        [...RARE_SPELLINGS],
+        // Today's families, and the spread's own type from before version 4
+        // (a rare spelling of it was never moved, so it's still there).
+        [...SHAPE_SETS.map(set => set.family), 'm7b5 spread'],
+      ]);
     }
     await sql.query(
       `INSERT INTO voicings (chord_label, root, quality, notes, top_note, top_move, family, tags, lowest_register, sort_order)
