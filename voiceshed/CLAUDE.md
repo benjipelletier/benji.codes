@@ -282,6 +282,18 @@ interval, and "→ ♭3" for a move). Review → Settings → "Play and Spell ca
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
 always shows, and the answer shows both.
 
+**The iii and the root, said loud**: a iii card has a big amber "No 9! — iii of
+the key: the 8 instead" banner under the chord (the owner: "whenever a 3 chord
+comes up have a big warning sign that says no 9!"), and every card, sheet and
+list card says "rootless" or "has root" (`hasRoot` in `lib/practice.ts`; the
+m7♭5 spread, the iii's, °7 and block chords have theirs).
+
+**Little animations** (the owner: "cute jazz or piano animations on any loading
+and button clicking"): loading is a small piano playing an arpeggio with notes
+floating off it (`PianoLoader` in `TrainerShell`); a tapped button sends up a
+note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; not on a run's keys or note
+pad); the big buttons press down like piano keys. Reduced motion turns them off.
+
 **Sideways on a phone, only in a run** (the owner: "allow me to play in
 landscape mode on my phone but only … when I'm reviewing cards"): the installed
 app is portrait (manifest `orientation`); `useRunOrientation` in `CardRunner`

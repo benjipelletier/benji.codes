@@ -151,7 +151,9 @@
   width: 100%;
   touch-action: manipulation;
 }
-.vt-primary:active:not(:disabled) { transform: scale(0.985); }
+.vt-primary { box-shadow: 0 4px 0 color-mix(in srgb, var(--ink) 55%, var(--accent)); transition: transform 0.08s ease-out, box-shadow 0.08s ease-out; }
+/* Pressed like a piano key: down, its shadow taken up. */
+.vt-primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 55%, var(--accent)); }
 .vt-secondary {
   font-size: 14px;
   font-weight: 500;
@@ -161,7 +163,8 @@
   border-radius: 12px;
   background: var(--card);
 }
-.vt-secondary:active:not(:disabled) { background: var(--accent-soft); }
+.vt-secondary { transition: transform 0.08s ease-out, background-color 0.12s; }
+.vt-secondary:active:not(:disabled) { background: var(--accent-soft); transform: translateY(1px) scale(0.99); }
 .vt-input, .vsh :where(select, textarea) {
   font: inherit;
   font-size: 16px; /* 16px keeps iOS from zooming in on focus */
@@ -874,3 +877,41 @@
 .pm-tabgroup-h { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); padding-left: 4px; }
 .pm-tabgroup-row { display: flex; gap: 6px; padding: 4px; border: 1px solid var(--rule); border-radius: 15px; }
 .pm-tabs .pm-tabgroup-row button { min-height: 44px; }
+
+/* The iii's rule, loud. */
+.cr-no9 { display: inline-flex; align-items: center; gap: 10px; margin: 10px auto 0; padding: 8px 16px 8px 10px; border: 2px solid var(--slow); border-radius: 14px; background: var(--slow-soft); color: var(--ink); animation: vt-no9 0.5s ease-out; }
+.cr-no9-sign { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--slow); color: var(--paper); font-weight: 800; font-size: 20px; line-height: 1; animation: vt-ring 1.6s ease-in-out infinite; }
+.cr-no9 b { font-size: 24px; font-weight: 800; letter-spacing: 0.01em; }
+.cr-no9 span:last-child { font-size: 13px; color: var(--ink-2); }
+@keyframes vt-no9 { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes vt-ring { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-14deg); } 84% { transform: rotate(12deg); } 92% { transform: rotate(-6deg); } }
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .cr-no9 { margin: 0; padding: 4px 10px 4px 6px; gap: 6px; }
+  .cr-no9 b { font-size: 18px; }
+  .cr-no9 span:last-child { display: none; }
+  .cr-no9-sign { width: 24px; height: 24px; font-size: 16px; }
+}
+.lb-flag-root { border-color: var(--rule); color: var(--ink-3); }
+.lb-flag-root.has { border-color: var(--ink-3); color: var(--ink-2); font-weight: 600; }
+
+/* Loading: a little piano playing an arpeggio, notes floating off it. */
+.vt-loader { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 0; color: var(--ink-3); font-size: 14px; position: relative; }
+.vt-loader svg { width: 160px; height: 70px; overflow: visible; }
+.vt-loader-w { fill: var(--card); stroke: var(--ink); stroke-width: 1.2; animation: vt-key 1.26s ease-in-out infinite; transform-box: fill-box; transform-origin: top; }
+.vt-loader-b { fill: var(--ink); }
+@keyframes vt-key { 0%, 30%, 100% { fill: var(--card); transform: scaleY(1); } 10% { fill: var(--accent); transform: scaleY(0.96); } }
+.vt-loader-notes { position: absolute; top: 30px; left: 50%; width: 120px; margin-left: -60px; height: 0; }
+.vt-loader-notes i { position: absolute; font-style: normal; font-size: 18px; color: var(--accent-ink); opacity: 0; animation: vt-float 2.1s ease-out infinite; }
+.vt-loader-notes i:nth-child(1) { left: 10%; }
+.vt-loader-notes i:nth-child(2) { left: 50%; animation-delay: 0.7s; }
+.vt-loader-notes i:nth-child(3) { left: 85%; animation-delay: 1.4s; }
+@keyframes vt-float { 0% { transform: translateY(0) rotate(-10deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-46px) rotate(12deg); opacity: 0; } }
+
+/* A note off a tapped button. */
+.vt-tapnote { position: fixed; z-index: 200; pointer-events: none; font-size: 26px; font-weight: 700; line-height: 1; color: var(--accent-ink); margin: -12px 0 0 -6px; animation: vt-tapnote 0.9s ease-out forwards; text-shadow: 0 1px 0 var(--paper); }
+@keyframes vt-tapnote { 0% { transform: translate(0, 0) scale(0.6) rotate(0); opacity: 0; } 15% { opacity: 1; transform: translate(calc(var(--dx) * 0.2), -8px) scale(1.15) rotate(calc(var(--rot) * 0.3)); } 100% { transform: translate(var(--dx), -56px) scale(0.9) rotate(var(--rot)); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vt-loader-w, .vt-loader-notes i, .cr-no9, .cr-no9-sign { animation: none; }
+  .vt-primary, .vt-secondary { transition: none; }
+}

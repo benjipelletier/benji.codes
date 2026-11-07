@@ -67,6 +67,11 @@ export interface NameAnswer {
   top: number;
 }
 
+/** Whether the voicing has its root in it (the m7♭5 spread, the iii's, °7, block chords) or is rootless. */
+export function hasRoot(v: Voicing): boolean {
+  return midisOf(v).some(m => mod12(m - v.root) === 0);
+}
+
 export function nameOf(v: Voicing): NameAnswer {
   const m = midisOf(v);
   return { root: v.root, quality: v.quality, top: mod12(m[m.length - 1] - v.root) };

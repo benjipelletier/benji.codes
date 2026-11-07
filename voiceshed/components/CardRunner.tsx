@@ -12,7 +12,7 @@ import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
 import { useTrainer } from './TrainerProvider';
 import { whiteKeyPx } from '@voiceshed/lib/scale';
-import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
+import { gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
 import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
@@ -168,12 +168,12 @@ function useRunOrientation() {
 
 /** A voicing type as a card's header: a short name and what qualifies it. */
 function typeCue(v: Voicing): [string, string] {
-  const iii = v.tags.includes('iii') ? 'as iii' : '';
-  const sub = (x: string) => [x, iii].filter(Boolean).join(' · ');
-  if (v.family === 'drop-2 two-hand') return ['Drop-2', sub('two-hand')];
-  if (v.family === 'right-hand rootless') return ['Right-hand', sub(iii ? '' : 'rootless')];
-  if (v.family === 'closed (block)') return ['Block', sub(`two-hand · ${v.notes.length} notes`)];
-  return [v.family, sub(`${v.notes.length} notes`)];
+  // Root or not, always said (the owner: "is it obvious when a chord is rootless versus has a root").
+  const root = hasRoot(v) ? 'has root' : 'rootless';
+  if (v.family === 'drop-2 two-hand') return ['Drop-2', `two-hand · ${root}`];
+  if (v.family === 'right-hand rootless') return ['Right-hand', root];
+  if (v.family === 'closed (block)') return ['Block', `${v.notes.length} notes · ${root}`];
+  return [v.family, `${v.notes.length} notes · ${root}`];
 }
 
 /**
@@ -197,6 +197,16 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
         <span className="cr-root">{d.root}</span>
         <span className="cr-qual">{d.quality}</span>
       </div>
+      {v.tags.includes('iii') && (
+        // The iii's rule, loud (the owner: "a big warning sign that says no 9!").
+        <div className="cr-no9" role="note">
+          <span className="cr-no9-sign" aria-hidden>
+            !
+          </span>
+          <b>No 9!</b>
+          <span>iii of the key: the 8 instead</span>
+        </div>
+      )}
       <div className="cr-cues">
         {cues !== 'top' && (
           <div className="cr-cue">

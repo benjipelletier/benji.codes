@@ -8,7 +8,7 @@
 // can answer with no connection, where a client-side route change would
 // need the server.
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { TrainerProvider, useTrainer } from './TrainerProvider';
 import { groupAttempts, hasContextGap, modeStats, targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import type { Attempt } from '@voiceshed/lib/types';
@@ -70,8 +70,62 @@ const TAB_ICONS: Record<TrainerPage, React.ReactNode> = {
   voicings: <path d="M5 4v16M9 4v16M13 5l4 15" />,
 };
 
+/** A little piano playing an arpeggio up and down, for while the app loads. */
+export function PianoLoader({ label }: { label: string }) {
+  const whites = 8;
+  const blacks = [0, 1, 3, 4, 5]; // after these white keys
+  return (
+    <div className="vt-loader" role="status">
+      <svg viewBox="0 0 160 70" aria-hidden="true">
+        {Array.from({ length: whites }, (_, i) => (
+          <rect key={`w${i}`} className="vt-loader-w" x={i * 20 + 1} y={1} width={18} height={66} rx={2.5} style={{ animationDelay: `${(i < 5 ? i : 9 - i) * 0.14}s` } as React.CSSProperties} />
+        ))}
+        {blacks.map(i => (
+          <rect key={`b${i}`} className="vt-loader-b" x={i * 20 + 14} y={1} width={12} height={40} rx={2} />
+        ))}
+      </svg>
+      <span className="vt-loader-notes" aria-hidden="true">
+        <i>♪</i>
+        <i>♫</i>
+        <i>♪</i>
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+const TAP_NOTES = ['♪', '♫', '♩', '♬'];
+
+/**
+ * A note floats up from a tapped button (the owner: "cute jazz or piano
+ * animations on any loading and button clicking"). Not on a run's keys or note
+ * pad, where speed counts, and not at all with reduced motion.
+ */
+function useTapNotes() {
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const onDown = (e: PointerEvent) => {
+      const el = (e.target as Element | null)?.closest('button, a.vt-tab');
+      if (!el || (el as HTMLButtonElement).disabled || el.closest('.cr-input, .cr-kb, .np, .vk')) return;
+      const n = document.createElement('span');
+      n.className = 'vt-tapnote';
+      n.textContent = TAP_NOTES[Math.floor(Math.random() * TAP_NOTES.length)];
+      n.style.left = `${e.clientX}px`;
+      n.style.top = `${e.clientY}px`;
+      n.style.setProperty('--dx', `${Math.round(Math.random() * 36 - 18)}px`);
+      n.style.setProperty('--rot', `${Math.round(Math.random() * 40 - 20)}deg`);
+      document.body.appendChild(n);
+      n.addEventListener('animationend', () => n.remove());
+      setTimeout(() => n.remove(), 1200);
+    };
+    document.addEventListener('pointerdown', onDown, { passive: true });
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, []);
+}
+
 function Frame({ page, children }: { page: TrainerPage; children: React.ReactNode }) {
   const { ready, error, voicings, status } = useTrainer();
+  useTapNotes();
   return (
     <div className="vt">
       {/* A phone on its side outside a run (CSS decides; a run sets html.vt-running). */}
@@ -101,9 +155,13 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
       <main className="vt-main">
         {error && <p className="vt-error">{error}</p>}
         {!ready ? (
-          <p className="vt-empty">Loading…</p>
+          <PianoLoader label="Warming up…" />
         ) : !voicings.length ? (
-          <p className="vt-empty">{status === 'syncing' || status === 'loading' ? 'Downloading the voicings…' : status === 'offline' ? 'No voicings on this device yet. Open Voiceshed once with a connection to download it.' : 'No voicings yet.'}</p>
+          status === 'syncing' || status === 'loading' ? (
+            <PianoLoader label="Downloading the voicings…" />
+          ) : (
+            <p className="vt-empty">{status === 'offline' ? 'No voicings on this device yet. Open Voiceshed once with a connection to download it.' : 'No voicings yet.'}</p>
+          )
         ) : (
           children
         )}

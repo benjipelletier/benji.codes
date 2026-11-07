@@ -12,7 +12,7 @@ import { Keyboard, rangeAround } from './Keyboard';
 import { ProgressMap } from './ProgressMap';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
-import { midisOf } from '@voiceshed/lib/practice';
+import { hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { targetFor } from '@voiceshed/lib/srs';
 import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
@@ -213,7 +213,8 @@ export function VoicingCard({
         </span>
         <span className="lb-meta">
           <span className="lb-fam">{familyLabel(v.family)}</span>
-          {v.tags.includes('iii') && <span className="lb-flag lb-flag-iii" title="For a iii: the 8 for the 9">iii</span>}
+          <span className={`lb-flag lb-flag-root ${hasRoot(v) ? 'has' : ''}`}>{hasRoot(v) ? 'has root' : 'rootless'}</span>
+          {v.tags.includes('iii') && <span className="lb-flag lb-flag-iii" title="For a iii: the 8 for the 9">iii · no 9</span>}
           {muddy && <span className="lb-flag">muddy</span>}
           {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
           {inDeck && (
@@ -268,7 +269,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
         <div className="vt-sheet-head">
           <h2>{prettyLabel(v.chord_label)}</h2>
           <span className="vt-hint">
-            {familyLabel(v.family)} · top {pretty(pitchName(v.top_note))}
+            {familyLabel(v.family)} · {hasRoot(v) ? 'has root' : 'rootless'} · top {pretty(pitchName(v.top_note))}
             {v.tags.includes('iii') ? ' · as iii (8 for 9)' : ''}
           </span>
           <button type="button" className="vt-x" onClick={onClose} aria-label="close">
