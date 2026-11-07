@@ -980,3 +980,20 @@
 .pm-legend-states { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--ink-2); align-items: center; }
 .pm-legend-states span { display: inline-flex; align-items: center; gap: 5px; }
 .pm-legend-states .pm-band { display: inline-block; width: 16px; height: 9px; flex: none; }
+
+/* Group headings are buttons; zoomed in, a row of groups to move between. */
+button.pm-bg { cursor: pointer; }
+button.pm-bg span { color: var(--accent-ink); }
+.pm-zoomnav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.pm-zoomnav::-webkit-scrollbar { display: none; }
+.pm-zoomnav button { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 1px solid var(--rule); border-radius: 999px; background: var(--card); font-size: 14px; text-transform: capitalize; }
+.pm-zoomnav button.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.pm-zoomnav .pm-zoom-all { text-transform: none; color: var(--ink-2); }
+/* Zoomed in: fewer, bigger tiles, a column per inversion, labelled under the chord. */
+.pm-board-zoom { --pm-track: minmax(0, 120px); justify-content: center; }
+.pm-board-zoom .pm-bc { aspect-ratio: 4 / 3; padding: 5px; gap: 4px; }
+.pm-board-zoom .pm-bc .pm-part { gap: 3px; }
+.pm-board-zoom .pm-bh { font-size: 20px; }
+.pm-invs { display: flex; gap: 4px; margin-top: 4px; padding: 0 5px; font-family: var(--mono); font-style: normal; font-size: 9.5px; color: var(--ink-3); }
+.pm-invs span { flex: 1; text-align: center; }
+.pm-hint { font-size: 12px; color: var(--ink-3); }

@@ -17,6 +17,7 @@ import { CYCLE_OF_FOURTHS, LATER_FAMILIES, parseChordLabel, pretty, QUALITIES, Q
 import { targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
 import { fmtSecs } from './TrainerShell';
+import { useBackClose } from './useBackClose';
 
 type CardState = 'out' | 'new' | 'learning' | 'learned';
 
@@ -85,6 +86,12 @@ export function ProgressMap({
   const now = Date.now();
   /** A key tapped on the circle: its row, lit for a moment. */
   const [lit, setLit] = useState<number | null>(null);
+  /**
+   * A chord group zoomed into (the owner: "clicking on a group could zoom in to just that group and
+   * show more details … that's busy"): its chords only, each tile split into its inversions.
+   */
+  const [zoom, setZoom] = useState<string | null>(null);
+  useBackClose(zoom != null, () => setZoom(null));
 
   // One chart per voicing type, picked above the map and kept on the device.
   const families = useMemo(() => {
@@ -151,20 +158,33 @@ export function ProgressMap({
     return [...seen.values()].sort((a, b) => qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || Number(a.iii) - Number(b.iii));
   }, [voicings]);
   // Column groups, and the columns that start one after another (a gap before them).
+  const allGroups = useMemo(() => [...new Set(rows.map(r => GROUP[r.quality] ?? 'other'))], [rows]);
+  const shown = useMemo(() => (zoom ? rows.filter(r => (GROUP[r.quality] ?? 'other') === zoom) : rows), [rows, zoom]);
   const groups = useMemo(() => {
     const out: { name: string; start: number; n: number }[] = [];
-    rows.forEach((r, i) => {
+    shown.forEach((r, i) => {
       const name = GROUP[r.quality] ?? 'other';
       const last = out[out.length - 1];
       if (last && last.name === name) last.n++;
       else out.push({ name, start: i, n: 1 });
     });
     return out;
-  }, [rows]);
+  }, [shown]);
   const gapAt = useMemo(() => new Set(groups.filter(g => g.start > 0).map(g => g.start)), [groups]);
   // The grid's columns: the keys, then each chord, a thin spacer before each new group.
   const colOf = (ri: number) => 2 + ri + [...gapAt].filter(g => g <= ri).length;
-  const template = `52px ${rows.map((_, ri) => `${gapAt.has(ri) ? '6px ' : ''}var(--pm-track)`).join(' ')}`;
+  const template = `52px ${shown.map((_, ri) => `${gapAt.has(ri) ? '6px ' : ''}var(--pm-track)`).join(' ')}`;
+  /** A chord's inversion columns, named (1st, 2nd…, spread, block), from any key that has it. */
+  const invLabels = (r: { quality: Voicing['quality']; iii: boolean }) => {
+    const shapes: { family: string; tag: string }[] = [];
+    for (const v of [...voicings].filter(v => v.quality === r.quality && v.tags.includes('iii') === r.iii).sort((a, b) => TWO_HAND.indexOf(a.family) - TWO_HAND.indexOf(b.family) || a.sort_order - b.sort_order)) {
+      const tag = v.tags[v.tags.length - 1];
+      if (!shapes.some(x => x.family === v.family && x.tag === tag)) shapes.push({ family: v.family, tag });
+    }
+    const ord = ['1st', '2nd', '3rd', '4th'];
+    let n = 0;
+    return shapes.map(x => (x.family === 'closed (block)' ? 'block' : x.tag === '1-5-7-11' ? 'spread' : ord[n++] ?? `${n}th`));
+  };
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
   // Totals, over this chart's voicings.
@@ -277,21 +297,44 @@ export function ProgressMap({
       )}
 
       <div className="pm-tools">
-        <Legend />
+        <Legend zoomed={!!zoom} />
       </div>
 
       {/* Keys down, chords across: the whole chart fits the width (the owner: "see everything at a glance"). */}
-      <div className="pm-board" role="grid" aria-label="Progress by key and chord" style={{ gridTemplateColumns: template }}>
-        <div className="pm-bg pm-bg-corner" />
-        {groups.map(g => (
-          <div key={g.name} className="pm-bg" style={{ gridColumn: `${colOf(g.start)} / span ${g.n}` }}>
-            {g.name}
-          </div>
-        ))}
+      {zoom && (
+        <div className="pm-zoomnav" role="tablist" aria-label="Chord group">
+          <button type="button" className="pm-zoom-all" onClick={() => setZoom(null)}>
+            ‹ All
+          </button>
+          {allGroups.map(g => (
+            <button type="button" key={g} role="tab" aria-selected={g === zoom} className={g === zoom ? 'on' : ''} onClick={() => setZoom(g)}>
+              {g}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className={`pm-board ${zoom ? 'pm-board-zoom' : ''}`} role="grid" aria-label="Progress by key and chord" style={{ gridTemplateColumns: template }}>
+        {!zoom && (
+          <>
+            <div className="pm-bg pm-bg-corner" />
+            {groups.map(g => (
+              <button type="button" key={g.name} className="pm-bg" style={{ gridColumn: `${colOf(g.start)} / span ${g.n}` }} onClick={() => setZoom(g.name)} title={`Zoom into ${g.name}: inversions`}>
+                {g.name} <span aria-hidden>›</span>
+              </button>
+            ))}
+          </>
+        )}
         <div className="pm-bh pm-bh-corner" role="columnheader" />
-        {rows.map((r, ri) => (
+        {shown.map((r, ri) => (
           <div key={`${r.quality}|${r.iii}`} className="pm-bh" style={{ gridColumn: colOf(ri) }} role="columnheader" title={`${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`}>
             {r.iii ? 'iii' : SHORT[r.quality] ?? QUALITY[r.quality].display}
+            {zoom && (
+              <span className="pm-invs">
+                {invLabels(r).map((l, li) => (
+                  <span key={li}>{l}</span>
+                ))}
+              </span>
+            )}
           </div>
         ))}
         {cols.map(k => {
@@ -302,7 +345,7 @@ export function ProgressMap({
                 <b>{rootNames(k).map(n => pretty(n)).join('/')}</b>
                 <span>{pk?.deck ? `${Math.round((pk.learned / pk.deck) * 100)}%` : ''}</span>
               </div>
-              {rows.map((r, ri) => {
+              {shown.map((r, ri) => {
                 const here = voicings.filter(v => v.root === k && v.quality === r.quality && v.tags.includes('iii') === r.iii);
                 if (!here.length) return <span key={`${r.quality}|${r.iii}`} className="pm-bc pm-bc-none" style={{ gridColumn: colOf(ri) }} role="gridcell" aria-label="none" />;
                 // A column per inversion (its shape; a black key's two names share one), each with its
@@ -322,15 +365,16 @@ export function ProgressMap({
                   <button
                     type="button"
                     key={`${r.quality}|${r.iii}`}
-                    className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''} ${parts.length > 1 ? 'split' : ''}`}
+                    className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''} ${zoom && parts.length > 1 ? 'split' : ''}`}
                     style={{ gridColumn: colOf(ri) }}
                     role="gridcell"
                     aria-label={label}
                     title={label}
                     onClick={() => onOpenCell(here.map(v => v.id), name)}
                   >
-                    {parts.map((part, pi) => (
-                      <span key={pi} className={`pm-part ${fams[pi] === 'closed (block)' && fams[pi - 1] && fams[pi - 1] !== 'closed (block)' ? 'pm-part-block' : ''}`}>
+                    {/* The overview sums a chord's inversions; zoomed in, each has its own column. */}
+                    {(zoom ? parts : [bands]).map((part, pi) => (
+                      <span key={pi} className={`pm-part ${zoom && fams[pi] === 'closed (block)' && fams[pi - 1] && fams[pi - 1] !== 'closed (block)' ? 'pm-part-block' : ''}`}>
                         {part.map((c, i) => (
                           <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
                         ))}
@@ -350,7 +394,7 @@ export function ProgressMap({
 
 
 /** How to read a tile — inversions across, Play/Spell/Name down — and what the colours mean. */
-function Legend() {
+function Legend({ zoomed }: { zoomed: boolean }) {
   const bar = (state: CardState, strength = 0.8) => <i className={`pm-band pm-${state}`} style={state === 'learning' || state === 'learned' ? ({ '--s': strength } as React.CSSProperties) : undefined} />;
   return (
     <div className="pm-keys" aria-label="How to read the map">
@@ -366,23 +410,34 @@ function Legend() {
             {bar('learning', 0.7)}
             {bar('learned', 0.6)}
           </span>
-          <span className="pm-part">
-            {bar('learning', 0.6)}
-            {bar('new')}
-            {bar('learning', 0.4)}
-          </span>
-          <span className="pm-part pm-part-block">
-            {bar('out')}
-            {bar('out')}
-            {bar('out')}
-          </span>
+          {zoomed && (
+            <>
+              <span className="pm-part">
+                {bar('learning', 0.6)}
+                {bar('new')}
+                {bar('learning', 0.4)}
+              </span>
+              <span className="pm-part pm-part-block">
+                {bar('out')}
+                {bar('out')}
+                {bar('out')}
+              </span>
+            </>
+          )}
         </span>
         <span className="pm-sample-invs">
-          <span>1st</span>
-          <span>2nd</span>
-          <span>block</span>
+          {zoomed ? (
+            <>
+              <span>1st</span>
+              <span>2nd</span>
+              <span>block</span>
+            </>
+          ) : (
+            <span>all inversions</span>
+          )}
         </span>
       </div>
+      {!zoomed && <span className="pm-hint">Tap a group (minor, major…) to see each inversion.</span>}
       <div className="pm-legend-states">
         <span>
           {bar('out')} not in deck

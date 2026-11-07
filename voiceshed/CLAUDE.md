@@ -246,15 +246,19 @@ wide screen; a run hides both.
   m7 · iii | major Δ7 · 6 | dominant 7 · 7♭9 · alt | dim °7 · ø7, with a thin
   spacer column between groups (`GROUP`, `colOf`). A whole chart fits the
   screen's width with no scrolling inside it (a CSS grid, `.pm-board`; the chord
-  row sticks under the top bar). Each key × chord is a square tile with **a
-  column per inversion, each with its own Play / Spell / Name bars** (the owner
-  picked "both: a tiny grid in each tile" from three mock-ups): a black key's
-  two names share a column (same shape), block chords get a column of their own
-  after a thin line (the iii: 1st, 2nd, block; ø7: spread, block; °7: four).
-  Each bar sums its voicings (`sumCards`): not in deck (dashed), new (outlined),
-  learning (amber), learned (green, deeper the faster); a red dot for due. A key
-  above the map is a sample tile labelled Play / Spell / Name down its side and
-  1st / 2nd / block under it (the owner didn't like P S N in the corner). Tap a tile for a sheet of its
+  row sticks under the top bar). **Overview**: each key × chord is a square tile
+  of three bars, Play / Spell / Name, each summing all the chord's voicings there
+  (`sumCards`). **Zoom** (the owner found the per-inversion tiles "busy": "clicking
+  on a group could zoom in to just that group and show more details"): the group
+  headings are buttons; a group alone gets bigger tiles with **a column per
+  inversion, each with its own Play / Spell / Name bars** (their earlier pick,
+  "both: a tiny grid in each tile"), labelled under each chord — 1st, 2nd, …,
+  spread, block (a black key's two names share a column; block after a thin
+  line). Chips move between groups or back ("‹ All"); so does the back button
+  (`useBackClose`). Bars: not in deck (dashed), new (outlined), learning (amber),
+  learned (green, deeper the faster); a red dot for due. A key above the map is
+  a sample tile labelled Play / Spell / Name down its side ("all inversions"
+  under it, or 1st / 2nd / block when zoomed). Tap a tile for a sheet of its
   voicings (`CellSheet` in `VoicingsPage`: both names of a black key, pairs on
   their rails, + Deck). Above it a circle of fifths shaded by the share of each
   key's deck cards learned (tap a key to light its row), voicings known (all
