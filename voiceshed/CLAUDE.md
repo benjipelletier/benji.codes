@@ -163,11 +163,16 @@ wide screen; a run hides both.
   Right-but-slow and missed cards become due now — if they're in the deck; any
   that aren't are listed with "Add N to deck", never added on their own.
   **Every set** (the owner: "every practice page should allow me to click to
-  see all the possible chords so I can add them to my deck") has "+ Add all
-  this set's/tune's N voicings to my deck" (every voicing of the type picked
-  of every chord it plays — `BuiltSet.order`, whatever the shuffle or card
-  limit, progressions in their own order) and **Choose voicings…** (the
-  owner: "selectively add voicings to my deck"): a sheet of the chords in
+  see all the possible chords so I can add them to my deck"; "make choose
+  voicings a bit more obvious") has one big button, "+ Add this set's/tune's
+  voicings to your deck · N chords · k of M voicings in your deck ›", opening
+  **Choose voicings** (the owner: "selectively add voicings to my deck"): every
+  chord the set plays (`BuiltSet.order`: label, count, and whether as a iii —
+  whatever the shuffle or card limit, progressions in their own order), with
+  "+ Add all N" and Done pinned at the bottom. Only the voicings the set plays
+  are offered: a iii's iii voicings, every other chord's own; another m7 has a
+  collapsed "Show Dm7 as iii (8 for 9) ▾" (the owner: "a little hidden button")
+  that adds its iii voicings below, outside Add all. The sheet lists the chords in
   the order they come ("Cm7 ×2 · 2/4 in deck"),
   each with its voicings as the Voicings page's cards — + Deck on each (its
   other inversion with it), tap one for its sheet. The tune search finds the

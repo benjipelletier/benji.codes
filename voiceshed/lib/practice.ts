@@ -143,8 +143,11 @@ export interface BuiltSet {
    * with how often, whatever the shuffle or card limit: for choosing what
    * goes into the deck.
    */
-  order: [string, number][];
+  order: OrderEntry[];
 }
+
+/** A chord the set plays: its label, how often, and whether as a iii (its iii voicings, 8 for 9). */
+export type OrderEntry = [label: string, count: number, iii: boolean];
 
 /** A shape's own tag ("3-7-9-5", "1-5-7-11"): kept on the voicing, not offered as a filter. */
 export const isShapeTag = (tag: string) => /^[b#]?\d+(-[b#]?\d+)+$/.test(tag);
@@ -207,11 +210,17 @@ const prettyChord = (label: string) => {
 const keyName = (k: number) => prettyLabel(PC_FLAT[k]);
 const tagLabel = (tags: string[]) => (tags.length ? ` · ${tags.join(' + ')}` : '');
 
-/** Chord labels in the order they first come, with how many times each is played. */
-function countLabels(labels: string[]): [string, number][] {
-  const m = new Map<string, number>();
-  for (const l of labels) m.set(l, (m.get(l) ?? 0) + 1);
-  return [...m];
+/** The voicings' chords in the order they first come, with how many times each is played (a iii apart). */
+export function countLabels(vs: { chord_label: string; tags: string[] }[]): OrderEntry[] {
+  const m = new Map<string, OrderEntry>();
+  for (const v of vs) {
+    const iii = isIii(v);
+    const k = `${v.chord_label}|${iii}`;
+    const e = m.get(k);
+    if (e) e[1]++;
+    else m.set(k, [v.chord_label, 1, iii]);
+  }
+  return [...m.values()];
 }
 
 export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: Context[]; tunes: Tune[] }): BuiltSet {
@@ -245,7 +254,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     const rank = new Map(contexts.map((c, i) => [c.id, c.sort_order ?? i]));
     const ordered = [...steps].sort((a, b) => (rank.get(a.context_id!) ?? 0) - (rank.get(b.context_id!) ?? 0));
     return {
-      order: countLabels(ordered.map(s => s.voicing.chord_label)),
+      order: countLabels(ordered.map(s => s.voicing)),
       steps,
       label: `ii–V–Is${spec.key == null ? ', all keys' : ` in ${keyName(spec.key)}`}${tagLabel(spec.tags)}`,
       setKey: `ii-v-i:${spec.key ?? 'all'}:${tagKey}:${spec.mode}`,
@@ -284,7 +293,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
       prev = v;
     }
     return {
-      order: countLabels(steps.map(s => s.voicing.chord_label)),
+      order: countLabels(steps.map(s => s.voicing)),
       steps,
       label: `${tune.title} in ${keyName(key)}${tune.is_minor ? ' minor' : ''}${tagLabel(spec.tags)}`,
       setKey: `tune:${tune.id}:${key}:${tagKey}:${spec.mode}`,
@@ -306,7 +315,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     label = `${spec.tags.length ? spec.tags.join(' + ') : 'All voicings'}${spec.key == null ? '' : ` on ${keyName(spec.key)}`}`;
   }
   // For the deck: every chord in the pool, in the key's order (before the shuffle and limit).
-  const order = countLabels(pool.map(v => v.chord_label)).map(([l]) => [l, 1] as [string, number]);
+  const order = countLabels(pool).map(([l, , iii]) => [l, 1, iii] as OrderEntry);
   shuffle(pool);
   if (spec.limit > 0) pool = pool.slice(0, spec.limit);
   return {
