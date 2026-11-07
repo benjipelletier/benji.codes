@@ -1,16 +1,18 @@
 'use client';
 
-// The progress map: every voicing laid out by key (columns, round the cycle
-// of fourths) and by chord (rows), one chart per voicing type (the owner:
-// "separate charts for the different rootless types"), to scroll around in
-// both directions. Each voicing is a tile with three stripes — Play, Spell, Name —
-// each showing that card: not in the deck (empty), new (outlined), learning
-// (amber, stronger as its accuracy rises), learned (green, deeper the faster
-// it is against its target); a dot marks one due now. Above it, a circle of
-// fifths shaded by how much of each key is known (tap a key to go to its
-// column), the totals, and the slowest cards. Tap a tile to open its voicing.
+// The progress map, phone first (the owner: "I can't scroll the map easily on
+// mobile … see everything at a glance and easily move across it"): one chart
+// per voicing type, keys down the side (round the cycle of fourths, a black
+// key's two names in one row) and chords across, so a whole chart fits the
+// screen's width — no scrolling inside it. Each key × chord is one tile of
+// three stripes, Play, Spell, Name, each summing that chord's voicings there:
+// not in the deck (dashed), new (outlined), learning (amber), learned (green,
+// deeper the faster); a dot marks one due now. Tap a tile for its voicings
+// (`onOpenCell`), to see them and add them to the deck. Above it, a circle of
+// fifths shaded by how much of each key is known (tap a key to find its row),
+// the totals, and the slowest cards.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CYCLE_OF_FOURTHS, LATER_FAMILIES, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, SHAPE_SETS, prettyLabel } from '@voiceshed/lib/theory';
 import { targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
@@ -36,7 +38,21 @@ function cardView(st: SrsState | undefined, s: ModeStats | undefined, target: nu
   return { state: 'learned', due, strength: Math.max(0.35, Math.min(1, 1 - (avg / target - 0.5))), avgMs: s?.avgMs ?? null };
 }
 
-const ZOOMS = [44, 58, 76];
+/** Short chord names for the map's narrow columns. */
+const SHORT: Partial<Record<Voicing['quality'], string>> = { maj7: 'Δ7', m7: 'm7', '7': '7', '7b9': '7♭9', '7alt': 'alt', dim7: '°7', '6': '6', m7b5: 'ø7' };
+
+/** A chord's cards in one key, summed per mode: out if none is in the deck, learned if every one is, else learning or new. */
+function sumCards(cards: CardView[]): CardView {
+  const inDeck = cards.filter(c => c.state !== 'out');
+  const due = cards.some(c => c.due);
+  if (!inDeck.length) return { state: 'out', due: false, strength: 0, avgMs: null };
+  if (inDeck.every(c => c.state === 'learned')) return { state: 'learned', due, strength: inDeck.reduce((s, c) => s + c.strength, 0) / inDeck.length, avgMs: null };
+  if (inDeck.some(c => c.state === 'learned' || c.state === 'learning')) {
+    const done = inDeck.filter(c => c.state === 'learned').length + inDeck.filter(c => c.state === 'learning').reduce((s, c) => s + c.strength * 0.5, 0);
+    return { state: 'learning', due, strength: Math.max(0.25, done / inDeck.length), avgMs: null };
+  }
+  return { state: 'new', due, strength: 0, avgMs: null };
+}
 /** The two-hand types, grouped under one heading on the tabs. */
 const TWO_HAND = ['drop-2 two-hand', 'closed (block)'];
 const FAMILY_KEY = 'vt-map-family';
@@ -47,6 +63,7 @@ export function ProgressMap({
   stats,
   settings,
   onOpen,
+  onOpenCell,
   onChart,
 }: {
   /** The voicings the filter leaves. */
@@ -55,12 +72,14 @@ export function ProgressMap({
   stats: Map<string, ModeStats>;
   settings: Settings;
   onOpen: (id: string) => void;
+  /** A tile tapped: its voicings (both names of a black key), and a title for them. */
+  onOpenCell: (ids: string[], title: string) => void;
   /** Told which voicing type's chart is showing, so the page's deck bar acts on it. */
   onChart?: (family: string | null) => void;
 }) {
-  const [zoom, setZoom] = useState(1);
-  const scroller = useRef<HTMLDivElement>(null);
   const now = Date.now();
+  /** A key tapped on the circle: its row, lit for a moment. */
+  const [lit, setLit] = useState<number | null>(null);
 
   // One chart per voicing type, picked above the map and kept on the device.
   const families = useMemo(() => {
@@ -160,11 +179,11 @@ export function ProgressMap({
   }, [voicings, view, stats, srs, settings]);
 
   const goToKey = (k: number) => {
-    const el = scroller.current?.querySelector<HTMLElement>(`[data-col="${k}"]`);
-    if (el && scroller.current) scroller.current.scrollTo({ left: el.offsetLeft - (scroller.current.querySelector<HTMLElement>('.pm-corner')?.offsetWidth ?? 0) - 8, behavior: 'smooth' });
+    document.querySelector(`[data-row="${k}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setLit(k);
+    setTimeout(() => setLit(x => (x === k ? null : x)), 1600);
   };
 
-  const cell = ZOOMS[zoom];
   if (!all.length) return <p className="vt-empty">No voicings match.</p>;
   const tab = (f: string, label: string) => {
     const t = famTotals.get(f);
@@ -177,7 +196,7 @@ export function ProgressMap({
   };
 
   return (
-    <div className="pm" style={{ '--pm-cell': `${cell}px` } as React.CSSProperties}>
+    <div className="pm">
       <div className="pm-tabs" role="tablist" aria-label="Voicing type">
         {/* Two-hand first, its types under it (the owner: "under two hand we have drop twos … and then
             block chords"); then any other type; then the hands-apart ones to come. */}
@@ -242,85 +261,56 @@ export function ProgressMap({
 
       <div className="pm-tools">
         <Legend />
-        <div className="vt-seg pm-zoom" role="radiogroup" aria-label="Tile size">
-          {['S', 'M', 'L'].map((z, i) => (
-            <button type="button" key={z} role="radio" aria-checked={zoom === i} className={zoom === i ? 'on' : ''} onClick={() => setZoom(i)}>
-              {z}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="pm-scroll" ref={scroller}>
-        <table className="pm-grid">
-          <thead>
-            <tr>
-              <th className="pm-corner" />
-              {cols.map(k => {
-                const pk = totals.perKey.get(k);
+      {/* Keys down, chords across: the whole chart fits the width (the owner: "see everything at a glance"). */}
+      <div className="pm-board" role="grid" aria-label="Progress by key and chord" style={{ '--pm-cols': rows.length } as React.CSSProperties}>
+        <div className="pm-bh pm-bh-corner" role="columnheader" />
+        {rows.map(r => (
+          <div key={`${r.quality}|${r.iii}`} className="pm-bh" role="columnheader" title={`${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`}>
+            {r.iii ? 'iii' : SHORT[r.quality] ?? QUALITY[r.quality].display}
+          </div>
+        ))}
+        {cols.map(k => {
+          const pk = totals.perKey.get(k);
+          return (
+            <Fragment key={k}>
+              <div className={`pm-bk ${lit === k ? 'lit' : ''}`} data-row={k} role="rowheader">
+                <b>{rootNames(k).map(n => pretty(n)).join('/')}</b>
+                <span>{pk?.deck ? `${Math.round((pk.learned / pk.deck) * 100)}%` : ''}</span>
+              </div>
+              {rows.map(r => {
+                const here = voicings.filter(v => v.root === k && v.quality === r.quality && v.tags.includes('iii') === r.iii);
+                if (!here.length) return <span key={`${r.quality}|${r.iii}`} className="pm-bc pm-bc-none" role="gridcell" aria-label="none" />;
+                const bands = MODES.map(m => sumCards(here.map(v => view.get(srsKey(v.id, m))!)));
+                const inDeck = bands.some(b => b.state !== 'out');
+                const name = `${rootNames(k).map(n => pretty(n)).join('/')}${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`;
+                const label = `${name}: ${here.length} voicing${here.length === 1 ? '' : 's'} — ${MODES.map((m, i) => `${MODE_LABEL[m]} ${bands[i].state}${bands[i].due ? ', due' : ''}`).join(' · ')}`;
                 return (
-                  <th key={k} data-col={k} className="pm-col">
-                    <span className="pm-key">
-                      {rootNames(k).map(n => (
-                        <span key={n}>{pretty(n)}</span>
-                      ))}
-                    </span>
-                    <span className="pm-keypct">{pk?.deck ? `${Math.round((pk.learned / pk.deck) * 100)}%` : '—'}</span>
-                  </th>
+                  <button
+                    type="button"
+                    key={`${r.quality}|${r.iii}`}
+                    className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''}`}
+                    role="gridcell"
+                    aria-label={label}
+                    title={label}
+                    onClick={() => onOpenCell(here.map(v => v.id), name)}
+                  >
+                    {bands.map((c, i) => (
+                      <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
+                    ))}
+                    {bands.some(b => b.due) && <i className="pm-due" />}
+                  </button>
                 );
               })}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={`${r.family}|${r.quality}|${r.iii}`}>
-                <th className="pm-row">
-                  <span className="pm-row-q">{QUALITY[r.quality].display}</span>
-                  {r.iii && <span className="pm-row-f">as iii</span>}
-                </th>
-                {cols.map(k => {
-                  const here = voicings.filter(v => v.root === k && v.family === r.family && v.quality === r.quality && v.tags.includes('iii') === r.iii);
-                  // A black key's two spellings side by side, each with its inversions.
-                  const names = [...new Set(here.map(v => v.chord_label))];
-                  return (
-                    <td key={k} className="pm-cell">
-                      {names.map(label => (
-                        <div key={label} className="pm-spelling">
-                          {names.length > 1 && <span className="pm-name">{pretty(parseChordLabel(label)?.rootName ?? '')}</span>}
-                          <div className="pm-tiles">
-                            {here
-                              .filter(v => v.chord_label === label)
-                              .map(v => (
-                                <Tile key={v.id} v={v} cards={MODES.map(m => view.get(srsKey(v.id, m))!)} onOpen={() => onOpen(v.id)} />
-                              ))}
-                          </div>
-                        </div>
-                      ))}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function Tile({ v, cards, onOpen }: { v: Voicing; cards: CardView[]; onOpen: () => void }) {
-  const inDeck = cards.some(c => c.state !== 'out');
-  const title = `${v.chord_label} · ${v.notes.join(' ')} — ${MODES.map((m, i) => `${MODE_LABEL[m]}: ${cards[i].state}${cards[i].avgMs ? ` ${fmtSecs(cards[i].avgMs)}` : ''}${cards[i].due ? ', due' : ''}`).join(' · ')}`;
-  return (
-    <button type="button" className={`pm-tile ${inDeck ? '' : 'pm-out'}`} onClick={onOpen} title={title} aria-label={title}>
-      {cards.map((c, i) => (
-        <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined}>
-          {c.due && <i className="pm-due" />}
-        </span>
-      ))}
-    </button>
-  );
-}
 
 function Legend() {
   return (

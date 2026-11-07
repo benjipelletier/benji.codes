@@ -60,6 +60,8 @@ export function VoicingsPage() {
   const filtered = useMemo(() => applyFilter(voicings, filter, tests), [voicings, filter, tests]);
   // In map view the deck bar acts on the chart showing (one voicing type).
   const [chart, setChart] = useState<string | null>(null);
+  // A map tile tapped: its voicings in a sheet.
+  const [cell, setCell] = useState<{ ids: string[]; title: string } | null>(null);
   const deckShown = useMemo(() => (view === 'map' && chart ? filtered.filter(v => v.family === chart) : filtered), [view, chart, filtered]);
   const changeFilter = (f: FilterState) => {
     setFilter(f);
@@ -95,7 +97,7 @@ export function VoicingsPage() {
       </div>
 
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
-      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onChart={setChart} />}
+      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}
       {canEdit && <DeckBar shown={deckShown} />}
       {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
@@ -129,6 +131,7 @@ export function VoicingsPage() {
         </div>
       )}
 
+      {cell && <CellSheet ids={cell.ids} title={cell.title} onClose={() => setCell(null)} onOpen={setOpen} />}
       {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
       {adding && <NewVoicing onClose={() => setAdding(false)} onCreated={id => { setAdding(false); setOpen(id); }} />}
     </div>
@@ -692,6 +695,38 @@ export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen:
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * A map tile's voicings — one chord in one key, both names of a black key — to
+ * see them and put them in the deck (inversions on their rails, as in the list).
+ */
+function CellSheet({ ids, title, onClose, onOpen }: { ids: string[]; title: string; onClose: () => void; onOpen: (id: string) => void }) {
+  const t = useTrainer();
+  useBackClose(true, onClose);
+  const vs = ids.map(id => t.voicings.find(v => v.id === id)).filter((v): v is Voicing => !!v).sort((a, b) => a.sort_order - b.sort_order);
+  const labels = [...new Set(vs.map(v => v.chord_label))];
+  return (
+    <div className="vt-modal" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
+      <div className="vt-sheet pk-sheet" onClick={e => e.stopPropagation()}>
+        <div className="vt-sheet-head">
+          <h2>{title}</h2>
+          <span className="vt-hint">
+            {vs.length} voicing{vs.length === 1 ? '' : 's'} · {vs.filter(v => MODES.some(m => t.srs.has(srsKey(v.id, m)))).length} in your deck
+          </span>
+          <button type="button" className="vt-x" onClick={onClose} aria-label="close">
+            ×
+          </button>
+        </div>
+        {labels.map(label => (
+          <section key={label} className="pk-chord">
+            {labels.length > 1 && <h3>{prettyLabel(label)}</h3>}
+            <VoicingGrid voicings={vs.filter(v => v.chord_label === label)} onOpen={onOpen} />
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

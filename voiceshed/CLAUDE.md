@@ -234,15 +234,20 @@ wide screen; a run hides both.
   types as greyed placeholders —
   each with "known/in deck", the pick kept on the device; everything below
   (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
-  Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9, °7,
-  7alt, maj7, 6, m7♭5), scrolling both ways with both headers pinned; each
-  voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
-  new (outlined), learning (amber, by accuracy), learned (green, deeper the
-  faster against target), a red dot for due; a black key's two spellings side
-  by side. Above it a circle of fifths shaded by the share of each key's deck
-  cards learned (tap a key to scroll to its column), voicings known (all three
-  modes learned) of those in the deck, cards learned per mode, the five
-  slowest cards; S/M/L tile size. Tap a tile to open its sheet. In map view the
+  **Phone first** (the owner: "I can't scroll the map easily on mobile … see
+  everything at a glance and easily move across it"): keys down the side (round
+  the cycle of fourths, a black key's two names in one row, with its % learned)
+  and chords across (m7, iii, 7, 7♭9, °7, alt, Δ7, 6, ø7), so a whole chart fits
+  the screen's width with no scrolling inside it (a CSS grid, `.pm-board`; the
+  chord row sticks under the top bar). Each key × chord is one square tile of
+  three stripes (Play, Spell, Name), each summing that chord's voicings there
+  (`sumCards`): not in deck (dashed), new (outlined), learning (amber), learned
+  (green, deeper the faster), a red dot for due. Tap a tile for a sheet of its
+  voicings (`CellSheet` in `VoicingsPage`: both names of a black key, pairs on
+  their rails, + Deck). Above it a circle of fifths shaded by the share of each
+  key's deck cards learned (tap a key to light its row), voicings known (all
+  three modes learned) of those in the deck, cards learned per mode, the five
+  slowest cards (tap one to open its voicing). In map view the
   filter folds behind a Filter button; it narrows the map too.
   The list: every voicing, narrowed with a stackable filter
   (`components/VoicingFilter.tsx`): rows you scroll sideways and tap — Key
