@@ -69,7 +69,7 @@ export function ProgressMap({
   const rows = useMemo(() => {
     const famOrder = SHAPE_SETS.map(s => s.family);
     // Chords as a ii–V–I runs, then the rest.
-    const qOrder = ['m7', '7', 'maj7', '6', 'm7b5', ...QUALITIES.map(q => q.id)];
+    const qOrder = ['m7', '7', '7b9', 'maj7', '6', 'm7b5', ...QUALITIES.map(q => q.id)];
     const seen = new Map<string, { family: string; quality: Voicing['quality'] }>();
     for (const v of voicings) seen.set(`${v.family}|${v.quality}`, { family: v.family, quality: v.quality });
     const rank = (f: string) => (famOrder.includes(f) ? famOrder.indexOf(f) : famOrder.length);

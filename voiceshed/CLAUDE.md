@@ -26,6 +26,13 @@ so Play mode never accepts one lower.
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
 | `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
+7♭9: `drop-2 two-hand` only for now (the owner: "just drop 2 rootless"),
+3 ♭7 ♭9 5 · ♭7 3 5 ♭9 — the 5 stays (no 13), so `13b9` charts aren't exact.
+Its four notes are a diminished seventh chord, so one hand shape is four
+dominants a minor third apart (C7♭9 = E♭7♭9 = G♭7♭9 = A7♭9 on the keys).
+They stay separate voicings and separate deck entries; a 7♭9's sheet names
+the others ("Same keys as …", enharmonic names left out).
+
 The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
 inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
 charts).
@@ -36,20 +43,26 @@ files under `drop-2 two-hand` (the owner: "only the spread one goes under
 drop 2"; it has its root, so no `rootless` tag), so a drop-2 ii–V–i plays it.
 `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) stays its own type. Moves so far: the
 m7♭5 spread's 11 → ♭3. Next, when altered dominants come: ♯9 on top moving
-to the ♭9 — a shape's `move` in `SHAPE_SETS` takes it. ♭9 and altered dominants come later. The register is the
+to the ♭9 — a shape's `move` in `SHAPE_SETS` takes it. Altered dominants come later. The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
 
 Spelling: each note is spelled as its interval above the root. A black-key
 root is in the library under **both** names, flat and sharp (D♭m7 and C♯m7,
 G♭7 and F♯7), each a card of its own — the owner wants both available. A name
 that would need a double accidental is left out (E♭m7♭5 and A♭m7♭5 would need
-B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5; A♯maj7 likewise). Single ones stay,
+B𝄫 and E𝄫, so only D♯m7♭5 and G♯m7♭5 — the owner declined adding them;
+A♯maj7 likewise) — except where charts use that name (`CHARTED_DOUBLE`, the
+owner: "keep the ones charts actually use"): D♭7♭9 (F C♭ E𝄫 A♭, 54% of its
+chart appearances) and A♭7♭9 (C G♭ B𝄫 E♭, 93%). Notes are stored with
+ASCII `bb`/`##` and shown as 𝄫/𝄪. Single ones stay,
 however rare (F♭, C♭, E♯, B♯) — but a spelling charts barely use is left out
 too (`RARE_SPELLINGS`: under 10% of that chord's appearances in the 1,460
 standards where the other name is in the library — A♯m7, C♯maj7, D♯m7, C♯7,
-G♯7, A♯m7♭5, F♯maj7, G♯m7). Both names stay only where charts use both:
-D♭m7 / C♯m7, G♭7 / F♯7. So a white key has 14 voicings, a black key 14, and
-D♭/C♯ and G♭/F♯ 18, plus a 6 chord each. 188 voicings in all.
+G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, G♯7♭9, A♯7♭9).
+Both names stay only where charts use both: D♭m7 / C♯m7, G♭7 / F♯7,
+D♭7♭9 / C♯7♭9. So a white key has 14 voicings, a black key 14, and D♭/C♯ and
+G♭/F♯ 18, plus a 6 chord each and two 7♭9s per name (13 names). 214 voicings
+in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -67,7 +80,8 @@ Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 (answers with them) and its 11 cards got their `top_move`; version 4 moved the
 spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
 removed the rare spellings (generated ones only — a voicing added by hand stays);
-version 6 added the 6 chord (into the library, not the deck).
+version 6 added the 6 chord (into the library, not the deck); version 7 the
+7♭9s (likewise).
 
 ---
 
@@ -105,19 +119,19 @@ wide screen; a run hides both.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
-  `9`, `13`; the voicings carry the 9 and 13), m7♭5 (`h`, `h7`); a slash chord
+  `9`, `13`; the voicings carry the 9 and 13), 7♭9 (`7b9`), m7♭5 (`h`, `h7`); a slash chord
   as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
   for progressions: a ii–V–i's 7alt and m6 are skipped until they exist.
-  Across the 1,460 standards that plays 79% of chords (151 tunes whole); the
-  biggest gaps, by chords: 7♭9 4.3%, altered 3.7%, bare major triad 2.9%, °7 2.2%,
+  Across the 1,460 standards that plays 83% of chords (233 tunes whole); the
+  biggest gaps, by chords: altered 3.7%, bare major triad 2.9%, °7 2.2%,
   bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%,
-  m(maj7) 0.4%, m11 0.3%.
+  m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view: keys as
   columns round the cycle of fourths, voicing type × chord as rows (m7, 7,
-  maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
+  7♭9, maj7, 6, m7♭5 per type), scrolling both ways with both headers pinned; each
   voicing a tile of three stripes (Play, Spell, Name): not in deck (dashed),
   new (outlined), learning (amber, by accuracy), learned (green, deeper the
   faster against target), a red dot for due; a black key's two spellings side
@@ -145,13 +159,14 @@ wide screen; a run hides both.
   connected** (the owner): a voicing and its other inversion — same chord,
   same voicing type (`partnersOf`) — are added and removed together, and a
   deck holding one of a pair gets the other on load. The 6 and the m7♭5s have
-  no partner. Shape tags (`3-7-9-5`,
+  no partner; a 7♭9's diminished siblings aren't partners. Shape tags (`3-7-9-5`,
   `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
   Practice.
 
 **Answer modes**: Play (tap keys; whole octaves away is fine, never with the
 bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
-the note before it, as it's said — A then ♭ is A♭; a full pad waits 650 ms for
+the note before it, as it's said — A then ♭ is A♭, ♭ again A𝄫, a third time A;
+a full pad waits 650 ms for
 an accidental on its last note, timed from the last tap; enharmonics accepted
 unless strict spelling is on), Name (root + quality +
 chord tone on top; any library voicing with the same keys counts). Play and
@@ -222,7 +237,7 @@ cut off, reloaded all three pages, reviewed, ran a tune, reconnected, uploaded.
 
 ## Next (from the spec)
 
-♭9 and altered dominants; hand-split practice (2+2 vs 1+3); loop /
+Altered dominants (♯9 on top moving to ♭9); 7♭9 in other voicing types; hand-split practice (2+2 vs 1+3); loop /
 harmonise-a-line mode (a top line + a chord rule, e.g. Barry Harris
 sixth-diminished, voiced in a chosen family, movable to any key); interval
 answer mode.

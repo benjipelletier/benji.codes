@@ -5,7 +5,7 @@ import { isQuality } from '@voiceshed/lib/theory';
 const MODES = new Set(['play', 'spell', 'name']);
 const CONTEXT_TYPES = new Set(['isolated', 'progression', 'tune']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const NOTE = /^[A-G][b#]?-?\d$/;
+const NOTE = /^[A-G](bb|##|b|#)?-?\d$/;
 const MAX_ROWS = 5000;
 
 const isId = (x: unknown): x is string => typeof x === 'string' && UUID.test(x);

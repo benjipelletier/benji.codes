@@ -56,19 +56,23 @@ export function NotePad({ count, moveSlot = false, onSubmit, disabled = false }:
     set(next);
     arm(next);
   };
-  /** ♭ or ♯ on the note before; the same one again takes it off, the other swaps it. */
+  /**
+   * ♭ or ♯ on the note before, round a cycle: E → E♭ → E𝄫 → E (the double
+   * only for the few names charts write that way, D♭7♭9's E𝄫); the other sign
+   * starts its own cycle. On the last note the pad still waits its moment, so
+   * a second tap can make it double.
+   */
   const accidental = (acc: 'b' | '#') => {
     const cur = namesRef.current;
     if (disabled || sent.current || !cur.length) return;
     lastAt.current = performance.now();
     const last = cur[cur.length - 1];
     const letter = last[0];
-    const changed = last.slice(1) === acc ? letter : letter + acc;
+    const now = last.slice(1);
+    const changed = now === acc ? letter + acc + acc : now === acc + acc ? letter : letter + acc;
     const next = [...cur.slice(0, -1), changed];
     set(next);
-    // An accidental on the last note finishes the pad at once.
-    if (next.length >= count && changed !== letter) send(next);
-    else arm(next);
+    arm(next);
   };
   const back = () => {
     const cur = namesRef.current;

@@ -253,6 +253,13 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
   const { stats, gapKeys } = useCardStats();
   const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
   const pair = partnersOf(t.voicings, v).filter(o => o.id !== v.id);
+  // A 7♭9 is a diminished seventh: its keys also voice three other dominants.
+  const siblings = useMemo(() => {
+    if (v.quality !== '7b9') return [];
+    const pcs = (x: Voicing) => [...new Set(x.notes.map(n => noteMidi(n) % 12))].sort((a, b) => a - b).join(',');
+    const mine = pcs(v);
+    return [...new Set(t.voicings.filter(o => o.quality === '7b9' && o.family === v.family && o.root !== v.root && pcs(o) === mine).map(o => o.chord_label))];
+  }, [t.voicings, v]);
   const [tagDraft, setTagDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState(v.notes_text ?? '');
   const m = midisOf(v);
@@ -353,6 +360,11 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
             </span>
           ) : (
             <span>Not in your deck: it won’t come up in Review.</span>
+          )}
+          {siblings.length > 0 && (
+            <span className="vt-hint dt-pair">
+              Same keys as {siblings.map(o => prettyLabel(o)).join(', ')} — a diminished shape: one hand shape, four dominants a minor third apart.
+            </span>
           )}
           {pair.length > 0 && (
             <span className="vt-hint dt-pair">

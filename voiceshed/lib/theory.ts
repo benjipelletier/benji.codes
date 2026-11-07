@@ -20,19 +20,39 @@ export const mod12 = (n: number) => ((n % 12) + 12) % 12;
 
 export interface Spelled {
   letter: Letter;
-  /** -1 flat, 0 natural, 1 sharp. */
-  acc: -1 | 0 | 1;
+  /** -2 double flat, -1 flat, 0 natural, 1 sharp, 2 double sharp. */
+  acc: -2 | -1 | 0 | 1 | 2;
   octave: number;
 }
 
-const NOTE_RE = /^([A-G])([b#♭♯]?)(-?\d)$/;
-const NAME_RE = /^([A-G])([b#♭♯]?)$/;
+// Double accidentals only where charts write them (D♭7♭9's E𝄫): "bb" / "##".
+const ACC = '(bb|##|𝄫|𝄪|[b#♭♯])?';
+const NOTE_RE = new RegExp(`^([A-G])${ACC}(-?\\d)$`, 'u');
+const NAME_RE = new RegExp(`^([A-G])${ACC}$`, 'u');
+
+function accOf(a: string | undefined): Spelled['acc'] {
+  switch (a) {
+    case 'bb':
+    case '𝄫':
+      return -2;
+    case 'b':
+    case '♭':
+      return -1;
+    case '#':
+    case '♯':
+      return 1;
+    case '##':
+    case '𝄪':
+      return 2;
+    default:
+      return 0;
+  }
+}
 
 export function parseNote(s: string): Spelled | null {
   const m = s.trim().match(NOTE_RE);
   if (!m) return null;
-  const acc = m[2] === 'b' || m[2] === '♭' ? -1 : m[2] === '#' || m[2] === '♯' ? 1 : 0;
-  return { letter: m[1] as Letter, acc, octave: Number(m[3]) };
+  return { letter: m[1] as Letter, acc: accOf(m[2]), octave: Number(m[3]) };
 }
 
 export function noteMidi(s: string): number {
@@ -50,13 +70,16 @@ export function pitchName(s: string): string {
 export function namePc(name: string): number | null {
   const m = name.trim().match(NAME_RE);
   if (!m) return null;
-  const acc = m[2] === 'b' || m[2] === '♭' ? -1 : m[2] === '#' || m[2] === '♯' ? 1 : 0;
-  return mod12(LETTER_PC[m[1] as Letter] + acc);
+  return mod12(LETTER_PC[m[1] as Letter] + accOf(m[2]));
 }
 
-/** Pretty accidentals for display: "Bb" → "B♭". */
+/** Pretty accidentals for display: "Bb" → "B♭", "Ebb" → "E𝄫". */
 export function pretty(s: string): string {
-  return s.replace(/([A-G])b/g, '$1♭').replace(/([A-G])#/g, '$1♯');
+  return s
+    .replace(/([A-G])bb/g, '$1𝄫')
+    .replace(/([A-G])##/g, '$1𝄪')
+    .replace(/([A-G])b/g, '$1♭')
+    .replace(/([A-G])#/g, '$1♯');
 }
 
 /** A MIDI number's plain name in flats ("Eb4"). */
@@ -91,9 +114,9 @@ export const INTERVALS: Record<string, [number, number]> = {
 /**
  * Spell `midi` as `interval` above a root spelled `rootName` ("Eb"). Falls
  * back to a plain flat/sharp name when the interval's letter would need a
- * double accidental.
+ * double accidental — unless `allowDouble` (a name charts write that way).
  */
-export function spellInterval(rootName: string, interval: string, midi: number): string {
+export function spellInterval(rootName: string, interval: string, midi: number, allowDouble = false): string {
   const root = rootName.match(NAME_RE);
   const iv = INTERVALS[interval];
   if (!root || !iv) return midiName(midi);
@@ -102,9 +125,9 @@ export function spellInterval(rootName: string, interval: string, midi: number):
   let acc = mod12(midi) - LETTER_PC[letter];
   if (acc > 6) acc -= 12;
   if (acc < -6) acc += 12;
-  if (acc < -1 || acc > 1) return midiName(midi, rootName.includes('#'));
+  if (acc < -2 || acc > 2 || (!allowDouble && (acc < -1 || acc > 1))) return midiName(midi, rootName.includes('#'));
   const octave = (midi - acc - LETTER_PC[letter]) / 12 - 1;
-  return `${letter}${acc === -1 ? 'b' : acc === 1 ? '#' : ''}${octave}`;
+  return `${letter}${acc === -2 ? 'bb' : acc === -1 ? 'b' : acc === 1 ? '#' : acc === 2 ? '##' : ''}${octave}`;
 }
 
 // ── qualities ───────────────────────────────────────────────────────────
@@ -237,7 +260,7 @@ export function parseChartChord(symbol: string): ChartChord | null {
 /**
  * The chart symbols the library plays exactly, by iReal suffix. The library's
  * voicings carry the 9 (and the dominants the 13), so a 9th or 13th chord is
- * the same chord (a 6 voicing's 9 makes a 6/9 one too); anything else — a bare triad, sus, ♭9, alterations, ♯11,
+ * the same chord (a 6 voicing's 9 makes a 6/9 one too; 7♭9 matches 7♭9 only); anything else — a bare triad, sus, alterations, ♯11,
  * 11, °7, m(maj7), m6 — has no voicing yet and is skipped, never stood in for.
  * In iReal "^" alone is maj7 and "h" alone is ø7. A slash chord counts as the
  * chord above the slash (the voicings are rootless; the bass is elsewhere).
@@ -246,6 +269,8 @@ const EXACT_SUFFIX: [RegExp, Quality][] = [
   [/^\^7?$|^\^9$/, 'maj7'],
   // The 6 voicing (3 6 9 5) carries the 9: a 6/9 is the same chord.
   [/^6$|^69$/, '6'],
+  // 7♭9's voicings carry the 5, not the 13: a 13♭9 isn't the same chord.
+  [/^7b9$/, '7b9'],
   [/^-7$|^-9$/, 'm7'],
   [/^7$|^9$|^13$/, '7'],
   [/^h7?$/, 'm7b5'],
@@ -374,6 +399,13 @@ export const SHAPE_SETS: ShapeSet[] = [
         { ivs: ['3', 'b7', '9', '13'], tag: '3-7-9-5' },
         { ivs: ['b7', '3', '13', '9'], tag: '7-3-5-9' },
       ],
+      // 7♭9 (the owner: "just drop-2 rootless for now"): the 13's place keeps the
+      // 5, so the four notes are a diminished seventh — the same keys serve
+      // four dominants a minor third apart.
+      '7b9': [
+        { ivs: ['3', 'b7', 'b9', '5'], tag: '3-7-9-5' },
+        { ivs: ['b7', '3', '5', 'b9'], tag: '7-3-5-9' },
+      ],
       // The m7♭5 of this set (the owner's call: the spread one only) has its
       // root, and its top voice moves from the 11 down to the ♭3.
       m7b5: [{ ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11', move: 'b3', tags: ['drop-2', 'two-handed', 'spread', '4-note', 'movement'] }],
@@ -404,14 +436,14 @@ export const SHAPE_SETS: ShapeSet[] = [
   },
 ];
 
-const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', 'm7b5'];
+const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', '7b9', 'm7b5'];
 
 /**
  * MIDI notes spelled as these intervals above a root named `rootName`, or
  * null when any note would need a double flat or sharp.
  */
-export function spellStrict(rootName: string, midis: number[], intervals: string[]): string[] | null {
-  const notes = midis.map((m, i) => spellInterval(rootName, intervals[i], m));
+export function spellStrict(rootName: string, midis: number[], intervals: string[], allowDouble = false): string[] | null {
+  const notes = midis.map((m, i) => spellInterval(rootName, intervals[i], m, allowDouble));
   const ok = notes.every((n, i) => n[0] === LETTERS[(LETTERS.indexOf(rootName[0] as Letter) + INTERVALS[intervals[i]][1]) % 7]);
   return ok ? notes : null;
 }
@@ -428,10 +460,18 @@ export function rootNames(pc: number): string[] {
  * (B♭m7 1,337), C♯maj7 2 (D♭maj7 579), D♯m7 15 (E♭m7 737), C♯7 27 (D♭7 856),
  * G♯7 31 (A♭7 1,144), A♯m7♭5 2 (B♭m7♭5 33), F♯maj7 15 (G♭maj7 253), G♯m7 38
  * (A♭m7 434); 6 chords (and 6/9) C♯6 0 (D♭6 87), F♯6 2 (G♭6 24), G♯6 0
- * (A♭6 317). Both names stay where charts use both: D♭m7 / C♯m7 30 / 70%,
- * G♭7 / F♯7 69 / 31%.
+ * (A♭6 317); 7♭9 (and 13♭9) D♯7♭9 1 (E♭7♭9 77), G♭7♭9 1 (F♯7♭9 49), G♯7♭9 4
+ * (A♭7♭9 54), A♯7♭9 0 (B♭7♭9 121). Both names stay where charts use both:
+ * D♭m7 / C♯m7 30 / 70%, G♭7 / F♯7 69 / 31%, D♭7♭9 / C♯7♭9 54 / 46%.
  */
-export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7', 'C#6', 'F#6', 'G#6']);
+export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7', 'C#6', 'F#6', 'G#6', 'D#7b9', 'Gb7b9', 'G#7b9', 'A#7b9']);
+
+/**
+ * Names charts write although they need a double accidental, so they're kept
+ * with it (the owner: "keep the ones charts actually use"): D♭7♭9's ♭9 is E𝄫,
+ * A♭7♭9's B𝄫.
+ */
+export const CHARTED_DOUBLE = new Set(['Db7b9', 'Ab7b9']);
 
 /** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
 export function keyLabel(pc: number): string {
@@ -458,8 +498,9 @@ export function starterVoicings(): VoicingSeed[] {
             let bottom = first;
             while (bottom < LOWEST_NOTE) bottom += 12;
             const midis = stack(rootPc, shape.ivs, bottom);
-            const notes = spellStrict(rootName, midis, shape.ivs);
-            if (!notes || RARE_SPELLINGS.has(chordLabel(rootName, q))) return;
+            const label = chordLabel(rootName, q);
+            const notes = spellStrict(rootName, midis, shape.ivs, CHARTED_DOUBLE.has(label));
+            if (!notes || RARE_SPELLINGS.has(label)) return;
             // The top voice's move: the nearest such note to where it starts.
             let move: string | null = null;
             if (shape.move) {

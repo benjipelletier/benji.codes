@@ -102,8 +102,10 @@ export const TRAINER_DDL = [
  *   5: rare spellings go (RARE_SPELLINGS: A♯m7, D♯m7…), answers with them —
  *      generated ones only; a voicing added by hand stays whatever its name.
  *   6: the 6 chord (3 6 9 5, drop-2 two-hand) joins: added, not into the deck.
+ *   7: 7♭9 (drop-2 two-hand, 3 ♭7 ♭9 5 and ♭7 3 5 ♭9) joins; D♭7♭9 and
+ *      A♭7♭9 spelled with their double flat, as charts write them.
  */
-const SEED_VERSION = 6;
+const SEED_VERSION = 7;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
