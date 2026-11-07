@@ -114,16 +114,21 @@ wide screen; a run hides both.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
   Right-but-slow and missed cards become due now — if they're in the deck; any
   that aren't are listed with "Add N to deck", never added on their own.
-  A tune's preview has "+ Add this tune's N voicings to my deck" (every voicing
-  of every chord it plays, in its spelling, with the tags picked) — for
-  learning a set.
+  A tune's preview has "+ Add all this tune's N voicings to my deck" (every
+  voicing of every chord it plays, in its spelling, with the tags picked) and
+  **Choose voicings…** (the owner: "selectively add voicings to my deck"): a
+  sheet of the tune's chords in the order played ("Cm7 ×2 · 2/4 in deck"),
+  each with its voicings as the Voicings page's cards — + Deck on each (its
+  other inversion with it), tap one for its sheet. The tune search finds the
+  standards and the owner's iFake Pro songs (theirs first).
   **My charts** (the owner: "see the tunes I have in ifakepro and add chord
   charts from there"): every playlist the owner owns or edits in iFake Pro
   (`app/api/voiceshed/charts.ts`, matched by email through `ifp_profiles`;
   spectators get the public ones), each song with its written key, "x/y
   chords" the library plays (exact chords, tags picked) and ↗ to the chart in
   iFake Pro. Picking a song runs it like a standard; each playlist has
-  "+ Add <playlist>'s N voicings to my deck" — a show's set in one go.
+  "+ Add all <playlist>'s N voicings to my deck" — a show's set in one go —
+  and Choose voicings… over the whole playlist.
   Chords are read in chart order, a 1- or 2-bar repeat sign playing the bars
   it stands for, a chord held into the next bar written once; repeats and
   endings aren't unfolded (as with the standards). Read-only: charts are

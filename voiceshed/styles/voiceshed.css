@@ -379,6 +379,16 @@
 .pr-songs button { flex: 1; min-width: 0; text-align: left; min-height: 48px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
 .pr-songs button b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pr-songs button span { color: var(--ink-3); font-size: 12px; font-family: var(--mono); }
+.pk-sheet { max-width: 760px; color: var(--ink); font-size: 15px; }
+.pk-sheet b { font-size: inherit; }
+.pk-sheet .vt-sheet-head { display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 4px; }
+.pk-sheet .vt-sheet-head h2 { grid-column: 1; grid-row: 1; font-size: 32px; }
+.pk-sheet .vt-sheet-head .vt-hint { grid-column: 1 / -1; grid-row: 2; }
+.pk-sheet .vt-sheet-head .vt-x { grid-column: 2; grid-row: 1; }
+.pk-chord { display: flex; flex-direction: column; gap: 8px; }
+.pk-chord h3 { font-family: var(--serif); font-weight: 400; font-size: 26px; display: flex; align-items: baseline; gap: 10px; position: sticky; top: -16px; background: var(--paper); padding: 6px 0; z-index: 1; }
+.pk-chord h3 span { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+@media (min-width: 620px) { .pk-sheet .lb-cards { grid-template-columns: repeat(3, 1fr); } }
 .pr-open { display: grid; place-items: center; width: 48px; color: var(--ink-3); text-decoration: none; border-left: 1px solid var(--rule); }
 .pr-results { display: flex; flex-direction: column; gap: 8px; }
 .pr-set { font-size: 15px; font-weight: 600; }

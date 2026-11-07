@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { Summary } from './ReviewPage';
-import { fmtPct, fmtSecs, relTime } from './TrainerShell';
+import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
+import { VoicingCard, VoicingDetail } from './VoicingsPage';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, filterTags, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
@@ -19,7 +20,7 @@ import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mod
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
   { id: 'ii-v-i', label: 'ii–V–Is', hint: 'Major and minor, in one key or all twelve.' },
   { id: 'key', label: 'One key', hint: 'The diatonic chords of a major key, shuffled.' },
-  { id: 'tune', label: 'A tune', hint: 'The changes of a standard, in order, in any key.' },
+  { id: 'tune', label: 'A tune', hint: 'Search the standards and your iFake Pro songs; the changes in order, in any key.' },
   { id: 'charts', label: 'My charts', hint: 'A song from your iFake Pro playlists, in order, in any key.' },
   { id: 'tags', label: 'Tag filter', hint: 'Any voicings with the tags you pick, shuffled.' },
 ];
@@ -184,7 +185,7 @@ export function PracticePage() {
           <span className="vt-hint">{SOURCES.find(s => s.id === spec.source)?.hint}</span>
         </div>
 
-        {spec.source === 'tune' && <TunePicker tunes={tunes} value={tune?.id.startsWith('ifp-') ? null : tune} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />}
+        {spec.source === 'tune' && <TunePicker tunes={allTunes} value={tune} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />}
         {spec.source === 'charts' && (
           <ChartsPicker playlists={t.charts} syncedAt={t.chartsAt} value={tune?.id.startsWith('ifp-') ? (tune as ChartTune) : null} tags={spec.tags} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />
         )}
@@ -251,7 +252,7 @@ export function PracticePage() {
               {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
             <SkippedList skipped={built.skipped} />
-            {isTune && t.canEdit && <ToDeck labels={new Set(built.steps.map(s => s.voicing.chord_label))} tags={spec.tags} what="this tune’s" />}
+            {isTune && t.canEdit && <ToDeck order={labelOrder([built.steps.map(s => s.voicing.chord_label)])} tags={spec.tags} what="this tune’s" title={tune?.title ?? 'This tune'} />}
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -264,14 +265,23 @@ export function PracticePage() {
   );
 }
 
+/** Chord labels in the order they first come, with how many times each is played. */
+function labelOrder(runs: string[][]): [string, number][] {
+  const m = new Map<string, number>();
+  for (const run of runs) for (const l of run) m.set(l, (m.get(l) ?? 0) + 1);
+  return [...m];
+}
+
 /**
  * A tune's (or a whole playlist's) voicings into the deck, for learning a set:
- * every voicing (with the tags picked) of every chord it plays, in its
- * spelling — pairs come in together, as everywhere.
+ * all of them (with the tags picked) of every chord it plays, in its spelling,
+ * or chosen one by one in a sheet — pairs come in together, as everywhere.
  */
-function ToDeck({ labels, tags, what }: { labels: Set<string>; tags: string[]; what: string }) {
+function ToDeck({ order, tags, what, title }: { order: [string, number][]; tags: string[]; what: string; title: string }) {
   const t = useTrainer();
   const [said, setSaid] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const labels = new Set(order.map(([l]) => l));
   const all = t.voicings.filter(v => labels.has(v.chord_label) && tags.every(tag => v.tags.includes(tag)));
   const out = all.filter(v => !MODES.some(m => t.srs.has(srsKey(v.id, m))));
   if (!all.length) return null;
@@ -286,12 +296,90 @@ function ToDeck({ labels, tags, what }: { labels: Set<string>; tags: string[]; w
             setSaid(`Added ${n / 3} voicings — new in your next review.`);
           }}
         >
-          + Add {what} {out.length} voicing{out.length === 1 ? '' : 's'} to my deck
+          + Add all {what} {out.length} voicing{out.length === 1 ? '' : 's'} to my deck
         </button>
       ) : (
         <span className="vt-hint">All {all.length} of {what} voicings are in your deck.</span>
       )}
+      <button type="button" className="vt-secondary" onClick={() => setChoosing(true)}>
+        Choose voicings…{all.length > out.length && out.length ? ` (${all.length - out.length} of ${all.length} in deck)` : ''}
+      </button>
       {said && <span className="vt-hint">{said}</span>}
+      {choosing && <ChooseVoicings title={title} order={order} tags={tags} onClose={() => setChoosing(false)} />}
+    </div>
+  );
+}
+
+/**
+ * Pick a tune's voicings one at a time: its chords in the order played, each
+ * with every voicing the library has for it (tags picked), + Deck on each.
+ * A voicing's other inversion comes and goes with it. Tap a voicing to see it.
+ */
+function ChooseVoicings({ title, order, tags, onClose }: { title: string; order: [string, number][]; tags: string[]; onClose: () => void }) {
+  const t = useTrainer();
+  const { gapKeys } = useCardStats();
+  const [open, setOpen] = useState<string | null>(null);
+  const inDeck = (id: string) => MODES.some(m => t.srs.has(srsKey(id, m)));
+  const groups = order
+    .map(([label, n]) => ({ label, n, vs: t.voicings.filter(v => v.chord_label === label && tags.every(tag => v.tags.includes(tag))) }))
+    .filter(g => g.vs.length);
+  const total = groups.reduce((n, g) => n + g.vs.length, 0);
+  const have = groups.reduce((n, g) => n + g.vs.filter(v => inDeck(v.id)).length, 0);
+  const openV = open ? t.voicings.find(v => v.id === open) : null;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !open && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  return (
+    <div className="vt-modal" role="dialog" aria-modal="true" aria-label={`Choose voicings for ${title}`} onClick={onClose}>
+      <div className="vt-sheet pk-sheet" onClick={e => e.stopPropagation()}>
+        <div className="vt-sheet-head">
+          <h2>{title}</h2>
+          <span className="vt-hint">
+            {have} of {total} in your deck{tags.length ? ` · tags: ${tags.join(', ')}` : ''}
+          </span>
+          <button type="button" className="vt-x" onClick={onClose} aria-label="close">
+            ×
+          </button>
+        </div>
+        <p className="vt-hint">In the order the tune plays them. + Deck brings a voicing’s other inversion with it.</p>
+        {groups.map(g => {
+          const k = g.vs.filter(v => inDeck(v.id)).length;
+          return (
+            <section key={g.label} className="pk-chord">
+              <h3>
+                {prettyLabel(g.label)}
+                <span>
+                  {g.n > 1 ? `×${g.n} · ` : ''}
+                  {k}/{g.vs.length} in deck
+                </span>
+              </h3>
+              <div className="lb-cards">
+                {g.vs.map(v => (
+                  <VoicingCard
+                    key={v.id}
+                    v={v}
+                    inDeck={inDeck(v.id)}
+                    canEdit={t.canEdit}
+                    learned={MODES.map(m => !!t.srs.get(srsKey(v.id, m))?.learned)}
+                    gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
+                    onOpen={() => setOpen(v.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+        <button type="button" className="vt-primary" onClick={onClose}>
+          Done
+        </button>
+      </div>
+      {openV && (
+        <div onClick={e => e.stopPropagation()}>
+          <VoicingDetail v={openV} onClose={() => setOpen(null)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -336,11 +424,11 @@ function ChartsPicker({ playlists, syncedAt, value, tags, onPick }: { playlists:
   const { voicings, contexts } = t;
   // Per song, in its own key: chords played and the voicings it uses.
   const cover = useMemo(() => {
-    const m = new Map<string, { played: number; chords: number; labels: Set<string> }>();
+    const m = new Map<string, { played: number; chords: number; labels: string[] }>();
     for (const p of playlists)
       for (const s of p.songs) {
         const b = buildSet({ source: 'charts', key: s.home_key, tuneId: s.id, tags, mode: 'play', limit: 0 }, { voicings, contexts, tunes: [s] });
-        m.set(s.id, { played: b.steps.length, chords: b.chords, labels: new Set(b.steps.map(x => x.voicing.chord_label)) });
+        m.set(s.id, { played: b.steps.length, chords: b.chords, labels: b.steps.map(x => x.voicing.chord_label) });
       }
     return m;
   }, [playlists, voicings, contexts, tags]);
@@ -362,7 +450,7 @@ function ChartsPicker({ playlists, syncedAt, value, tags, onPick }: { playlists:
     <div className="vt-field">
       <span className="vt-field-lbl">Song</span>
       {playlists.map(p => {
-        const labels = new Set(p.songs.flatMap(s => [...(cover.get(s.id)?.labels ?? [])]));
+        const order = labelOrder(p.songs.map(s => cover.get(s.id)?.labels ?? []));
         return (
           <details key={p.id} className="pr-pl" open={playlists.length <= 2 || p.songs.some(s => s.id === value?.id)}>
             <summary>
@@ -388,7 +476,7 @@ function ChartsPicker({ playlists, syncedAt, value, tags, onPick }: { playlists:
                 );
               })}
             </ul>
-            {t.canEdit && labels.size > 0 && <ToDeck labels={labels} tags={tags} what={`${p.title}’s`} />}
+            {t.canEdit && order.length > 0 && <ToDeck order={order} tags={tags} what={`${p.title}’s`} title={p.title} />}
           </details>
         );
       })}
@@ -404,6 +492,7 @@ function TunePicker({ tunes, value, onPick }: { tunes: Tune[]; value: Tune | nul
   const hits = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return [];
+    // Your iFake Pro songs come first (they lead the list), then the standards.
     return tunes.filter(t => t.title.toLowerCase().includes(s) || (t.composer ?? '').toLowerCase().includes(s)).slice(0, 12);
   }, [q, tunes]);
   return (
@@ -413,7 +502,7 @@ function TunePicker({ tunes, value, onPick }: { tunes: Tune[]; value: Tune | nul
         <span className="vt-hint">No tunes on this device yet — they download with the next sync.</span>
       ) : (
         <>
-          <input className="vt-input" placeholder={value ? value.title : `Search ${tunes.length.toLocaleString()} standards`} value={q} onChange={e => setQ(e.target.value)} />
+          <input className="vt-input" placeholder={value ? value.title : `Search ${tunes.length.toLocaleString()} tunes`} value={q} onChange={e => setQ(e.target.value)} />
           {value && !q && (
             <span className="vt-hint">
               <b>{value.title}</b>
@@ -432,7 +521,7 @@ function TunePicker({ tunes, value, onPick }: { tunes: Tune[]; value: Tune | nul
                       setQ('');
                     }}
                   >
-                    <b>{t.title}</b> <span>{t.composer}</span>
+                    <b>{t.title}</b> <span>{'playlist' in t ? `iFake Pro · ${(t as ChartTune).playlist}` : t.composer}</span>
                   </button>
                 </li>
               ))}

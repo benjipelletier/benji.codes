@@ -192,7 +192,7 @@ function DeckBar({ shown }: { shown: Voicing[] }) {
   );
 }
 
-function VoicingCard({
+export function VoicingCard({
   v,
   learned,
   gap,
@@ -247,7 +247,7 @@ function VoicingCard({
   );
 }
 
-function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
+export function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
   const t = useTrainer();
   const { canEdit, srs, settings } = t;
   const { stats, gapKeys } = useCardStats();
