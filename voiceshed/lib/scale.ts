@@ -35,5 +35,4 @@ export const FAMILY_SPAN: [string, number, number][] = [
   ['right-hand rootless', 6, 8],
   ['m7b5 closed', 8, 9],
   ['drop-2 two-hand', 10, 12],
-  ['m7b5 spread', 10, 12],
 ];

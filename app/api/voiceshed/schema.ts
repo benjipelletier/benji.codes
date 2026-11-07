@@ -97,8 +97,10 @@ export const TRAINER_DDL = [
  *   2: black-key roots under both names.
  *   3: the m7♭5 spread is one voicing whose top moves 11 → ♭3: its ♭3 cards
  *      (1 ♭5 ♭7 ♭3) go, answers with them, and the 11 cards get their move.
+ *   4: the spread files under drop-2 two-hand (the closed one stays its own
+ *      type); its own tags are kept, the set's added.
  */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
@@ -109,10 +111,16 @@ async function seed(sql: Sql) {
     const rows = starterVoicings();
     if (seeded < 3) {
       await sql.query(`DELETE FROM voicings WHERE family = 'm7b5 spread' AND '1-5-7-3' = ANY(tags)`);
+    }
+    if (seeded < 4) {
+      // The spread, from its own type to drop-2 two-hand, with its move (3) — a
+      // database at 2 or 3 alike. Tags it has stay; the set's are added.
       await sql.query(
-        `UPDATE voicings v SET top_move = t.top_move, tags = t.tags, updated_at = NOW()
+        `UPDATE voicings v SET family = t.family, top_move = t.top_move,
+           tags = v.tags || ARRAY(SELECT x FROM unnest(t.tags) x WHERE NOT x = ANY(v.tags)),
+           updated_at = NOW()
          FROM jsonb_to_recordset($1::jsonb) AS t(${VOICING_COLUMNS})
-         WHERE v.chord_label = t.chord_label AND v.family = t.family AND v.notes = t.notes AND t.top_move IS NOT NULL`,
+         WHERE v.family = 'm7b5 spread' AND v.chord_label = t.chord_label AND v.notes = t.notes AND t.top_move IS NOT NULL`,
         [JSON.stringify(rows)],
       );
     }

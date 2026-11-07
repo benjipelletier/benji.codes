@@ -345,9 +345,10 @@ interface ShapeSet {
   tags: string[];
   /**
    * Per quality, each shape bottom to top, with the tag that names it, and
-   * where the top voice moves to, if it moves (an interval of the root).
+   * where the top voice moves to, if it moves (an interval of the root), and
+   * its own tags when the family's don't fit it.
    */
-  shapes: Partial<Record<Quality, { ivs: string[]; tag: string; move?: string }[]>>;
+  shapes: Partial<Record<Quality, { ivs: string[]; tag: string; move?: string; tags?: string[] }[]>>;
 }
 
 export const SHAPE_SETS: ShapeSet[] = [
@@ -369,6 +370,9 @@ export const SHAPE_SETS: ShapeSet[] = [
         { ivs: ['3', 'b7', '9', '13'], tag: '3-7-9-5' },
         { ivs: ['b7', '3', '13', '9'], tag: '7-3-5-9' },
       ],
+      // The m7♭5 of this set (the owner's call: the spread one only) has its
+      // root, and its top voice moves from the 11 down to the ♭3.
+      m7b5: [{ ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11', move: 'b3', tags: ['drop-2', 'two-handed', 'spread', '4-note', 'movement'] }],
     },
   },
   {
@@ -393,12 +397,6 @@ export const SHAPE_SETS: ShapeSet[] = [
     family: 'm7b5 closed',
     tags: ['closed', '5-note'],
     shapes: { m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }] },
-  },
-  {
-    // One voicing with a movement: the top voice steps from the 11 down to the ♭3.
-    family: 'm7b5 spread',
-    tags: ['spread', '4-note', 'movement'],
-    shapes: { m7b5: [{ ivs: ['R', 'b5', 'b7', '11'], tag: '1-5-7-11', move: 'b3' }] },
   },
 ];
 
@@ -465,7 +463,7 @@ export function starterVoicings(): VoicingSeed[] {
               top_note: notes[notes.length - 1],
               top_move: move,
               family: set.family,
-              tags: [...set.tags, shape.tag],
+              tags: [...(shape.tags ?? set.tags), shape.tag],
               lowest_register: LOWEST_NOTE,
               sort_order: si * 10000 + QUALITY_ORDER.indexOf(q) * 1000 + CYCLE_OF_FOURTHS.indexOf(rootPc) * 20 + ni * 10 + k,
             });

@@ -26,10 +26,13 @@ so Play mode never accepts one lower.
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
 | `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
-m7♭5: `m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes), and `m7b5 spread` 1 ♭5 ♭7 11
-whose top voice then moves to the ♭3 — one voicing, a **movement**, not two
-(`top_move`, the owner: "always just on the m7♭5, from 11 to ♭3"; tag
-`movement`). ♭9 and altered dominants come later. The register is the
+m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — one
+voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
+files under `drop-2 two-hand` (the owner: "only the spread one goes under
+drop 2"; it has its root, so no `rootless` tag), so a drop-2 ii–V–i plays it.
+`m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) stays its own type. Moves so far: the
+m7♭5 spread's 11 → ♭3. Next, when altered dominants come: ♯9 on top moving
+to the ♭9 — a shape's `move` in `SHAPE_SETS` takes it. ♭9 and altered dominants come later. The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
 
 Spelling: each note is spelled as its interval above the root. A black-key
@@ -51,7 +54,8 @@ stored in `voiceshed_meta`): raising it adds the voicings a database doesn't
 have yet (its own, edited or not, are left alone; a deleted one comes back),
 updates the progressions' steps, and drops progressions no longer generated.
 Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
-(answers with them) and its 11 cards got their `top_move`.
+(answers with them) and its 11 cards got their `top_move`; version 4 moved the
+spread from its own type into `drop-2 two-hand`, keeping its tags.
 
 ---
 
