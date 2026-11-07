@@ -237,13 +237,15 @@ export function parseChartChord(symbol: string): ChartChord | null {
 /**
  * The chart symbols the library plays exactly, by iReal suffix. The library's
  * voicings carry the 9 (and the dominants the 13), so a 9th or 13th chord is
- * the same chord; anything else — 6, a bare triad, sus, ♭9, alterations, ♯11,
+ * the same chord (a 6 voicing's 9 makes a 6/9 one too); anything else — a bare triad, sus, ♭9, alterations, ♯11,
  * 11, °7, m(maj7), m6 — has no voicing yet and is skipped, never stood in for.
  * In iReal "^" alone is maj7 and "h" alone is ø7. A slash chord counts as the
  * chord above the slash (the voicings are rootless; the bass is elsewhere).
  */
 const EXACT_SUFFIX: [RegExp, Quality][] = [
   [/^\^7?$|^\^9$/, 'maj7'],
+  // The 6 voicing (3 6 9 5) carries the 9: a 6/9 is the same chord.
+  [/^6$|^69$/, '6'],
   [/^-7$|^-9$/, 'm7'],
   [/^7$|^9$|^13$/, '7'],
   [/^h7?$/, 'm7b5'],
@@ -365,6 +367,8 @@ export const SHAPE_SETS: ShapeSet[] = [
         { ivs: ['3', '7', '9', '5'], tag: '3-7-9-5' },
         { ivs: ['7', '3', '5', '9'], tag: '7-3-5-9' },
       ],
+      // The 6 chord: one shape (the owner: "one inversion 3 6 9 5").
+      '6': [{ ivs: ['3', '6', '9', '5'], tag: '3-6-9-5' }],
       // Dominant: the 5 becomes the 13.
       '7': [
         { ivs: ['3', 'b7', '9', '13'], tag: '3-7-9-5' },
@@ -400,7 +404,7 @@ export const SHAPE_SETS: ShapeSet[] = [
   },
 ];
 
-const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '7', 'm7b5'];
+const QUALITY_ORDER: Quality[] = ['m7', 'maj7', '6', '7', 'm7b5'];
 
 /**
  * MIDI notes spelled as these intervals above a root named `rootName`, or
@@ -423,10 +427,11 @@ export function rootNames(pc: number): string[] {
  * charts, where the other name is in the library. Counted Nov 2026 — A♯m7 3
  * (B♭m7 1,337), C♯maj7 2 (D♭maj7 579), D♯m7 15 (E♭m7 737), C♯7 27 (D♭7 856),
  * G♯7 31 (A♭7 1,144), A♯m7♭5 2 (B♭m7♭5 33), F♯maj7 15 (G♭maj7 253), G♯m7 38
- * (A♭m7 434). Both names stay where charts use both: D♭m7 / C♯m7 30 / 70%,
+ * (A♭m7 434); 6 chords (and 6/9) C♯6 0 (D♭6 87), F♯6 2 (G♭6 24), G♯6 0
+ * (A♭6 317). Both names stay where charts use both: D♭m7 / C♯m7 30 / 70%,
  * G♭7 / F♯7 69 / 31%.
  */
-export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7']);
+export const RARE_SPELLINGS = new Set(['A#m7', 'C#maj7', 'D#m7', 'C#7', 'G#7', 'A#m7b5', 'F#maj7', 'G#m7', 'C#6', 'F#6', 'G#6']);
 
 /** A pitch class as a key is shown: "C", or "D♭/C♯" for a black key. */
 export function keyLabel(pc: number): string {

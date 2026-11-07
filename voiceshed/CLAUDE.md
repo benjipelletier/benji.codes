@@ -26,6 +26,10 @@ so Play mode never accepts one lower.
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
 | `right-hand rootless` | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
+The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
+inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
+charts).
+
 m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — one
 voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
 files under `drop-2 two-hand` (the owner: "only the spread one goes under
@@ -45,7 +49,7 @@ too (`RARE_SPELLINGS`: under 10% of that chord's appearances in the 1,460
 standards where the other name is in the library — A♯m7, C♯maj7, D♯m7, C♯7,
 G♯7, A♯m7♭5, F♯maj7, G♯m7). Both names stay only where charts use both:
 D♭m7 / C♯m7, G♭7 / F♯7. So a white key has 14 voicings, a black key 14, and
-D♭/C♯ and G♭/F♯ 18. 176 voicings in all.
+D♭/C♯ and G♭/F♯ 18, plus a 6 chord each. 188 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -62,7 +66,8 @@ updates the progressions' steps, and drops progressions no longer generated.
 Version 3 also changed what was there: the m7♭5 spread's ♭3 cards went
 (answers with them) and its 11 cards got their `top_move`; version 4 moved the
 spread from its own type into `drop-2 two-hand`, keeping its tags; version 5
-removed the rare spellings (generated ones only — a voicing added by hand stays).
+removed the rare spellings (generated ones only — a voicing added by hand stays);
+version 6 added the 6 chord (into the library, not the deck).
 
 ---
 
@@ -96,13 +101,14 @@ wide screen; a run hides both.
   that aren't are listed with "Add N to deck", never added on their own.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
-  `^9`), m7 (`-7`, `-9`), 7 (`7`, `9`, `13`; the voicings carry the 9 and 13),
-  m7♭5 (`h`, `h7`); a slash chord as the chord above the slash. Everything
+  `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
+  `9`, `13`; the voicings carry the 9 and 13), m7♭5 (`h`, `h7`); a slash chord
+  as the chord above the slash. Everything
   else is skipped, never stood in for, and the preview lists what's skipped
   with counts ("no voicing yet", or "none with these tags"). The same holds
   for progressions: a ii–V–i's 7alt and m6 are skipped until they exist.
-  Across the 1,460 standards that plays 74% of chords; the biggest gaps, by
-  chords: 6/6/9 5.3%, 7♭9 4.3%, altered 3.7%, bare major triad 2.9%, °7 2.2%,
+  Across the 1,460 standards that plays 79% of chords (151 tunes whole); the
+  biggest gaps, by chords: 7♭9 4.3%, altered 3.7%, bare major triad 2.9%, °7 2.2%,
   bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%,
   m(maj7) 0.4%, m11 0.3%.
 - `/voiceshed/voicings` — every voicing, narrowed with a stackable filter
