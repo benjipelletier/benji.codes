@@ -899,9 +899,10 @@
 /* Loading: a little piano playing an arpeggio, notes floating off it. */
 .vt-loader { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 0; color: var(--ink-3); font-size: 14px; position: relative; }
 .vt-loader svg { width: 160px; height: 70px; overflow: visible; }
-.vt-loader-w { fill: var(--card); stroke: var(--ink); stroke-width: 1.2; animation: vt-key 1.26s ease-in-out infinite; transform-box: fill-box; transform-origin: top; }
+.vt-loader-w { fill: var(--card); stroke: var(--ink); stroke-width: 1.2; transform-box: fill-box; transform-origin: top; transition: fill 0.06s, transform 0.06s; }
+/* A key of The Lick sounding: gold and pressed in. */
+.vt-loader-w.on { fill: var(--accent); transform: scaleY(0.96); transition: none; }
 .vt-loader-b { fill: var(--ink); }
-@keyframes vt-key { 0%, 30%, 100% { fill: var(--card); transform: scaleY(1); } 10% { fill: var(--accent); transform: scaleY(0.96); } }
 .vt-loader-notes { position: absolute; top: 30px; left: 50%; width: 120px; margin-left: -60px; height: 0; }
 .vt-loader-notes i { position: absolute; font-style: normal; font-size: 18px; color: var(--accent-ink); opacity: 0; animation: vt-float 2.1s ease-out infinite; }
 .vt-loader-notes i:nth-child(1) { left: 10%; }
@@ -914,6 +915,6 @@
 @keyframes vt-tapnote { 0% { transform: translate(0, 0) scale(0.6) rotate(0); opacity: 0; } 15% { opacity: 1; transform: translate(calc(var(--dx) * 0.2), -8px) scale(1.15) rotate(calc(var(--rot) * 0.3)); } 100% { transform: translate(var(--dx), -56px) scale(0.9) rotate(var(--rot)); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .vt-loader-w, .vt-loader-notes i, .cr-no9 { animation: none; }
+  .vt-loader-notes i, .cr-no9 { animation: none; }
   .vt-primary, .vt-secondary { transition: none; }
 }

@@ -301,8 +301,10 @@ history.back() is asynchronous, so pushes and backs go through one queue (a run
 ending into its summary). Tested on dev and a production build.
 
 **Little animations** (the owner: "cute jazz or piano animations on any loading
-and button clicking"): loading is a small piano playing an arpeggio with notes
-floating off it (`PianoLoader` in `TrainerShell`); a tapped button sends up a
+and button clicking"): loading is a small piano playing **The Lick** — D E F
+G E C D in eighths, the last D held, a breath, again (the owner: "the loader's
+piano should play it"; `THE_LICK` in `TrainerShell`) — with notes floating off it
+(`PianoLoader`); a tapped button sends up a
 note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; not on a run's keys or note
 pad); the big buttons press down like piano keys. Reduced motion turns them off.
 

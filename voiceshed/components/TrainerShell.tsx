@@ -8,7 +8,7 @@
 // can answer with no connection, where a client-side route change would
 // need the server.
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { TrainerProvider, useTrainer } from './TrainerProvider';
 import { groupAttempts, hasContextGap, modeStats, targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import type { Attempt } from '@voiceshed/lib/types';
@@ -70,15 +70,52 @@ const TAB_ICONS: Record<TrainerPage, React.ReactNode> = {
   voicings: <path d="M5 4v16M9 4v16M13 5l4 15" />,
 };
 
-/** A little piano playing an arpeggio up and down, for while the app loads. */
+/**
+ * The Lick — D E F G E C D, the jazz cliché (the owner: "the loader's piano
+ * should play it") — on the loader's white keys, C to C: each step a key (0 = C)
+ * and how long it sounds, in eighth notes; the last D held, then a breath.
+ */
+const THE_LICK: [key: number, eighths: number][] = [
+  [1, 1], // D
+  [2, 1], // E
+  [3, 1], // F
+  [4, 1], // G
+  [2, 1], // E
+  [0, 1], // C
+  [1, 3], // D, held
+];
+const EIGHTH_MS = 170;
+const BREATH_EIGHTHS = 3;
+
+/** A little piano playing The Lick, notes floating off it, for while the app loads. */
 export function PianoLoader({ label }: { label: string }) {
   const whites = 8;
   const blacks = [0, 1, 3, 4, 5]; // after these white keys
+  // Which step is sounding (-1 between rounds); still with reduced motion.
+  const [step, setStep] = useState(-1);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let i = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const play = () => {
+      if (i < THE_LICK.length) {
+        setStep(i);
+        timer = setTimeout(play, THE_LICK[i++][1] * EIGHTH_MS);
+      } else {
+        setStep(-1);
+        i = 0;
+        timer = setTimeout(play, BREATH_EIGHTHS * EIGHTH_MS);
+      }
+    };
+    timer = setTimeout(play, 250);
+    return () => clearTimeout(timer);
+  }, []);
+  const down = step >= 0 ? THE_LICK[step][0] : -1;
   return (
     <div className="vt-loader" role="status">
       <svg viewBox="0 0 160 70" aria-hidden="true">
         {Array.from({ length: whites }, (_, i) => (
-          <rect key={`w${i}`} className="vt-loader-w" x={i * 20 + 1} y={1} width={18} height={66} rx={2.5} style={{ animationDelay: `${(i < 5 ? i : 9 - i) * 0.14}s` } as React.CSSProperties} />
+          <rect key={`w${i}`} className={`vt-loader-w ${i === down ? 'on' : ''}`} x={i * 20 + 1} y={1} width={18} height={66} rx={2.5} />
         ))}
         {blacks.map(i => (
           <rect key={`b${i}`} className="vt-loader-b" x={i * 20 + 14} y={1} width={12} height={40} rx={2} />
