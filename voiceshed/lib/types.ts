@@ -114,6 +114,12 @@ export interface Settings {
   review_modes: Mode[];
   /** Spell mode: Ab and G# are different answers. */
   strict_spelling: boolean;
+  /** Play mode's keyboard: as many keys as fit, or keys a real piano's width (lib/scale.ts). */
+  keyboard_size: 'fit' | 'real';
+  /** CSS pixels per real inch, once checked against a ruler; null guesses from the device. */
+  px_per_inch: number | null;
+  /** Real size, scaled: 1 is a piano's own keys; less fits more of them on the screen. */
+  key_scale: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -121,6 +127,9 @@ export const DEFAULT_SETTINGS: Settings = {
   new_per_day: 15,
   review_modes: ['play', 'spell', 'name'],
   strict_spelling: false,
+  keyboard_size: 'fit',
+  px_per_inch: null,
+  key_scale: 1,
 };
 
 export const srsKey = (voicingId: string, mode: Mode) => `${voicingId}|${mode}`;

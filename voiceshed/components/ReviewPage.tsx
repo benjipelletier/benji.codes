@@ -6,7 +6,7 @@
 // spellings, due / new / ahead of schedule, length). A summary at the end:
 // accuracy, average time and the slowest cards.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
@@ -14,6 +14,7 @@ import { Keyboard, rangeAround } from './Keyboard';
 import { describe, ReviewSetup, useReviewConfig, voicingIn } from './ReviewSetup';
 import { buildQueue, newState, outcomeOf, schedule, shuffle, targetFor } from '@voiceshed/lib/srs';
 import { midisOf } from '@voiceshed/lib/practice';
+import { FAMILY_SPAN, guessPxPerInch, OCTAVE_MM, WHITE_KEY_MM, whiteKeyPx } from '@voiceshed/lib/scale';
 import { pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings } from '@voiceshed/lib/types';
 
@@ -210,11 +211,104 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
         <span className="vt-field-lbl">New cards a day</span>
         <input type="number" min={0} max={200} value={settings.new_per_day} onChange={e => onSave({ ...settings, new_per_day: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })} />
       </label>
+      <KeyboardSizeField settings={settings} onSave={onSave} />
       <label className="vt-check">
         <input type="checkbox" checked={settings.strict_spelling} onChange={e => onSave({ ...settings, strict_spelling: e.target.checked })} />
         Strict spelling (G♯ isn’t A♭ in Spell mode)
       </label>
     </div>
+  );
+}
+
+/** A bank card is 85.6 mm wide: something to hold against the screen. */
+const CARD_MM = 85.6;
+
+/**
+ * Play mode's keyboard size: as many keys as fit, or real piano size. Real
+ * size takes a one-time check — a bar a bank card wide, nudged until a card
+ * held against it matches — because a screen won't say how big its pixels are.
+ */
+function KeyboardSizeField({ settings, onSave }: { settings: Settings; onSave: (s: Settings) => void }) {
+  const [guess, setGuess] = useState(132);
+  useEffect(() => setGuess(guessPxPerInch()), []);
+  const ppi = settings.px_per_inch ?? guess;
+  const bar = (ppi / 25.4) * CARD_MM;
+  const nudge = (d: number) => onSave({ ...settings, px_per_inch: Math.round((ppi + d) * 10) / 10 });
+  return (
+    <div className="vt-field">
+      <span className="vt-field-lbl">Play keyboard</span>
+      <div className="vt-seg" role="radiogroup">
+        {(
+          [
+            ['fit', 'Fit the screen'],
+            ['real', 'Real piano size'],
+          ] as const
+        ).map(([k, label]) => (
+          <button type="button" key={k} role="radio" aria-checked={settings.keyboard_size === k} className={settings.keyboard_size === k ? 'on' : ''} onClick={() => onSave({ ...settings, keyboard_size: k })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {settings.keyboard_size === 'real' && (
+        <div className="ks">
+          <span className="vt-hint">
+            Keys a piano’s width ({WHITE_KEY_MM} mm, an octave {OCTAVE_MM / 10} cm): about ten white keys on an iPad held sideways; ‹ › and 8va move them. Check
+            the size once — hold a bank card against the bar and nudge until they match.
+          </span>
+          <div className="ks-bar" style={{ width: bar }} aria-label="a bank card's width">
+            <span>card width</span>
+          </div>
+          <div className="vt-inline">
+            <button type="button" className="vt-secondary" onClick={() => nudge(-2)} aria-label="smaller">
+              − smaller
+            </button>
+            <button type="button" className="vt-secondary" onClick={() => nudge(2)} aria-label="bigger">
+              + bigger
+            </button>
+            {settings.px_per_inch != null && (
+              <button type="button" className="vf-clear" onClick={() => onSave({ ...settings, px_per_inch: null })}>
+                Back to the device’s guess
+              </button>
+            )}
+          </div>
+          <span className="vt-hint">
+            {settings.px_per_inch == null ? 'Sized from the device.' : 'Checked on this device.'} A real white key is {Math.round(whiteKeyPx(settings.px_per_inch))} px here.
+          </span>
+          <span className="vt-field-lbl">Key size</span>
+          <div className="vt-seg" role="radiogroup">
+            {[1, 0.9, 0.8, 0.7].map(k => (
+              <button type="button" key={k} role="radio" aria-checked={settings.key_scale === k} className={settings.key_scale === k ? 'on' : ''} onClick={() => onSave({ ...settings, key_scale: k })}>
+                {k === 1 ? 'Real' : `${Math.round(k * 100)}%`}
+              </button>
+            ))}
+          </div>
+          <KeysFit settings={settings} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** How many white keys fit across this screen at the chosen size, and which voicing types then show whole. */
+function KeysFit({ settings }: { settings: Settings }) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const m = () => setWidth(Math.max(window.innerWidth, 0) - 32);
+    m();
+    window.addEventListener('resize', m);
+    return () => window.removeEventListener('resize', m);
+  }, []);
+  if (!width) return null;
+  const keys = Math.floor(width / whiteKeyPx(settings.px_per_inch, settings.key_scale));
+  const whole = FAMILY_SPAN.filter(([, , max]) => max <= keys).map(([f]) => f);
+  const some = FAMILY_SPAN.filter(([, min, max]) => min <= keys && max > keys).map(([f]) => f);
+  return (
+    <span className="vt-hint">
+      <b>{keys} white keys</b> across the screen as it’s held now.{' '}
+      {whole.length ? `Whole: ${whole.join(', ')}. ` : ''}
+      {some.length ? `Some: ${some.join(', ')}. ` : ''}
+      Wider ones need ‹ › to move along (notes already tapped stay). Two-hand drop-2 spans 10–12 white keys.
+    </span>
   );
 }
 

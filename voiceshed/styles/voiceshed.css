@@ -595,3 +595,23 @@
   .rs .vf-scroll { margin: 0; padding: 2px 0 4px; }
   .rs .vt-seg { width: fit-content; }
 }
+
+/* Real piano size: the keyboard keeps its width; nothing squeezes it. */
+.cr-kb-real .vk { max-height: none; }
+.cr-kb-move { display: inline-flex; gap: 6px; }
+.ks { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.ks-bar { height: 40px; max-width: 100%; border: 2px solid var(--ink); border-radius: 4px; background: repeating-linear-gradient(90deg, var(--accent-soft) 0 10px, var(--card) 10px 20px); display: flex; align-items: center; justify-content: center; }
+.ks-bar span { font-family: var(--mono); font-size: 11px; background: var(--card); padding: 1px 6px; border-radius: 4px; }
+
+/* An iPad on its side: the card above, the keyboard along the bottom, less
+   room for the chord so the keys keep theirs. */
+@media (orientation: landscape) and (min-width: 900px) {
+  .cr { gap: 8px; }
+  .cr-card { min-height: 0; flex-direction: row; gap: 28px; }
+  .cr-root { font-size: 92px; }
+  .cr-qual { font-size: 48px; }
+  .cr-verdict { flex-direction: column; align-items: flex-start; text-align: left; }
+  .cr-input { margin-top: auto; }
+}
+/* A run at real piano size uses the whole width: the keys are as wide as they are. */
+.vt-main:has(.cr-kb-real) { max-width: none; }

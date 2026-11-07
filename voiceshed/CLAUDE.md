@@ -109,6 +109,17 @@ Spell submit themselves at the note count. Timed from the card being painted.
 After a miss or "Don't know" the answer is shown: chord, top note, voicing
 type and notes (Name mode reveals its chord then).
 
+**Real piano size** (Review → Settings → Play keyboard; `lib/scale.ts`): Play's
+keys drawn a piano's width, 23.5 mm (an octave 16.5 cm), from CSS px per real
+inch — guessed from the device (iPads 132, iPad mini 163) and checked once
+with a bank card held against an on-screen bar (85.6 mm), nudged ± and kept on
+the device. Key size 100/90/80/70% of real. A screen shows what fits: an iPad
+sideways 8–10 real keys, but two-hand drop-2 and m7♭5 spread span 10–12, so
+‹ › move a key at a time and 8va an octave (taps stay); a voicing too wide to
+show starts at its bottom note. The answer stays on the same keys at the same
+size. Sideways on a wide screen the chord and verdict sit side by side above
+the keys.
+
 **Context gap**: a card whose isolated median (last 10 right answers) is over
 target and ≥ 25% slower than its in-context median (≥ 3 of each) is flagged:
 pulled into Review up to 2 days early, interval steps halved.

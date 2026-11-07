@@ -12,9 +12,9 @@ const BLACK = new Set([1, 3, 6, 8, 10]);
 const isBlack = (m: number) => BLACK.has(((m % 12) + 12) % 12);
 
 const WW = 24; // white key width (viewBox units)
-const WH = 100;
 const BW = 14;
-const BH = 62;
+/** Key length to width, as drawn unless a keyboard asks otherwise (a real white key is 6.4). */
+const DEFAULT_ASPECT = 100 / 24;
 
 interface Props {
   low: number;
@@ -25,9 +25,13 @@ interface Props {
   onKey?: (midi: number) => void;
   compact?: boolean;
   className?: string;
+  /** White key length over width; black keys are 62% as long. */
+  aspect?: number;
 }
 
-function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = false, className = '' }: Props) {
+function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = false, className = '', aspect = DEFAULT_ASPECT }: Props) {
+  const WH = Math.round(WW * aspect);
+  const BH = Math.round(WH * 0.62);
   const lo = isBlack(low) ? low - 1 : low;
   const hi = isBlack(high) ? high + 1 : high;
   const { whites, blacks, width } = useMemo(() => {

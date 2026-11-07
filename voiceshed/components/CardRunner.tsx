@@ -10,6 +10,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, rangeAround, type KeyMark } from './Keyboard';
 import { NotePad } from './NotePad';
+import { useTrainer } from './TrainerProvider';
+import { whiteKeyPx } from '@voiceshed/lib/scale';
 import { gradeName, gradePlay, gradeSpell, midisOf, nameOf, type NameAnswer } from '@voiceshed/lib/practice';
 import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
@@ -59,23 +61,39 @@ const ADVANCE_SLOW_MS = 1100;
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
-/** How many white keys fit, at no less than 22px a key: two octaves on a phone, up to four. */
-function useWhiteKeys(ref: React.RefObject<HTMLElement | null>) {
-  const [n, setN] = useState(15);
+/**
+ * How many white keys the Play keyboard shows, and how tall it is. Fit: as
+ * many as fit at no less than 30px a key (two octaves on a phone, up to
+ * four). Real size: keys a real piano's width (`keyPx`), as many as fit —
+ * about ten on an iPad held sideways — as long as the screen leaves room for
+ * (up to a real key's length, never under three widths).
+ */
+function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number | null) {
+  const [box, setBox] = useState({ width: 0, height: 800 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setN(Math.max(15, Math.min(29, Math.floor(e.contentRect.width / 30)))));
+    const measure = () => setBox({ width: el.getBoundingClientRect().width, height: window.innerHeight });
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, [ref]);
-  return n;
+  if (!keyPx) return { whites: box.width ? Math.max(15, Math.min(29, Math.floor(box.width / 30))) : 15, aspect: undefined, width: undefined };
+  const whites = Math.max(5, Math.floor((box.width || keyPx * 10) / keyPx));
+  // Height: what the screen spares beside the card (half of it), up to a real key's 6.4 widths.
+  const height = Math.max(keyPx * 3, Math.min(keyPx * 6.4, box.height * 0.5));
+  return { whites, aspect: height / keyPx, width: whites * keyPx };
 }
 
 const WHITE_MIDIS = Array.from({ length: 88 }, (_, i) => i + 21).filter(m => ![1, 3, 6, 8, 10].includes(m % 12));
 
-/** A window of `whites` white keys around the voicing, starting on a C or an F, moved by whole octaves. */
-export function playWindow(midis: number[], whites: number, octaves: number): [number, number] {
+/** A window of `whites` white keys around the voicing, starting on a C or an F, moved by `shift` white keys. */
+export function playWindow(midis: number[], whites: number, shift: number): [number, number] {
   const last = WHITE_MIDIS.length - 1;
   // The white keys at or just outside the voicing's lowest and highest notes.
   let lowIdx = WHITE_MIDIS.findIndex(m => m >= Math.min(...midis)) - (WHITE_MIDIS.includes(Math.min(...midis)) ? 0 : 1);
@@ -93,7 +111,10 @@ export function playWindow(midis: number[], whites: number, octaves: number): [n
   while (up < last && !isEdge(up)) up++;
   if (fits(down)) start = down;
   else if (fits(up)) start = up;
-  start = Math.max(0, Math.min(last - whites + 1, start + octaves * 7));
+  // Too wide to show whole (real-size keys): start from its bottom note, so you
+  // play up from the left hand and move right once, rather than both ends cut.
+  else if (highIdx - lowIdx + 1 > whites) start = lowIdx;
+  start = Math.max(0, Math.min(last - whites + 1, start + shift));
   return [WHITE_MIDIS[start], WHITE_MIDIS[Math.min(last, start + whites - 1)]];
 }
 
@@ -181,13 +202,17 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const [given, setGiven] = useState<Given | null>(null);
   const [result, setResult] = useState<RunnerResult | null>(null);
   const [tapped, setTapped] = useState<number[]>([]);
-  const [octaves, setOctaves] = useState(0);
+  /** White keys the Play keyboard has been moved by (an octave is 7). */
+  const [shift, setShift] = useState(0);
   const results = useRef<RunnerResult[]>([]);
   const t0 = useRef(0);
   /** The card already answered: one answer a card, however fast the taps. */
   const answered = useRef(-1);
   const kbWrap = useRef<HTMLDivElement>(null);
-  const whites = useWhiteKeys(kbWrap);
+  const { settings } = useTrainer();
+  const keyPx = settings.keyboard_size === 'real' ? whiteKeyPx(settings.px_per_inch, settings.key_scale) : null;
+  const fit = useKeyboardFit(kbWrap, keyPx);
+  const whites = fit.whites;
 
   const step = queue[index];
   const v = step?.voicing;
@@ -218,7 +243,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     setGiven(null);
     setResult(null);
     setTapped([]);
-    setOctaves(0);
+    setShift(0);
   }, [index, queue.length, finish]);
 
   /** `at`: when the answer was in (the note pad's last tap), if not now. */
@@ -278,7 +303,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   if (!step || !v) return null;
 
-  const [pLo, pHi] = playWindow(midis, whites, octaves);
+  const [pLo, pHi] = playWindow(midis, whites, shift);
   const labels = Object.fromEntries(v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]));
 
   // Feedback keyboard: the right voicing, with what was played over it.
@@ -293,6 +318,12 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       fbMarks = Object.fromEntries(midis.map(m => [m, result?.correct ? 'right' : 'missed']));
     }
   }
+
+  // Real size: Play's answer stays on the same keys, at the same size, when it fits there.
+  const shown = step.mode === 'play' && keyPx && Object.keys(fbMarks).map(Number).every(m => m >= pLo && m <= pHi);
+  if (shown) fbRange = [pLo, pHi];
+  const kbStyle = keyPx && step.mode === 'play' ? { width: fit.width, margin: '0 auto' } : undefined;
+  const kbAspect = keyPx && step.mode === 'play' && shown !== false ? fit.aspect : undefined;
 
   const pos = queue.length > 1 ? `${index + 1} / ${queue.length}` : '';
   const seq = showSequence ? sequenceAround(queue, index, step.mode === 'name' && phase === 'ask') : null;
@@ -368,24 +399,38 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
         {step.mode === 'play' &&
           (phase === 'ask' ? (
             <>
-              <div className="cr-kb">
-                <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, 'on']))} onKey={onKey} />
+              <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={kbStyle}>
+                <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, 'on']))} onKey={onKey} aspect={fit.aspect} />
               </div>
               <div className="cr-kb-shift">
-                <button type="button" onClick={() => setOctaves(o => o - 1)} aria-label="octave down">
-                  ◀ 8va
-                </button>
+                <span className="cr-kb-move">
+                  <button type="button" onClick={() => setShift(o => o - 7)} aria-label="octave down">
+                    ◀ 8va
+                  </button>
+                  {keyPx && (
+                    <button type="button" onClick={() => setShift(o => o - 1)} aria-label="one key down">
+                      ‹
+                    </button>
+                  )}
+                </span>
                 <span>
                   {tapped.length} / {v.notes.length}
                 </span>
-                <button type="button" onClick={() => setOctaves(o => o + 1)} aria-label="octave up">
-                  8va ▶
-                </button>
+                <span className="cr-kb-move">
+                  {keyPx && (
+                    <button type="button" onClick={() => setShift(o => o + 1)} aria-label="one key up">
+                      ›
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setShift(o => o + 7)} aria-label="octave up">
+                    8va ▶
+                  </button>
+                </span>
               </div>
             </>
           ) : (
-            <div className="cr-kb">
-              <Keyboard low={fbRange[0]} high={fbRange[1]} marks={fbMarks} labels={labels} />
+            <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={shown ? kbStyle : undefined}>
+              <Keyboard low={fbRange[0]} high={fbRange[1]} marks={fbMarks} labels={labels} aspect={kbAspect} />
             </div>
           ))}
         {step.mode === 'spell' && (
