@@ -857,3 +857,10 @@
 .vt-seg button.vt-later, .pm-tabs button.pm-tab-later { opacity: 0.5; border-style: dashed; cursor: default; }
 .vt-later em { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-left: 4px; }
 .vt-seg button.vt-later { border: 1px dashed var(--rule); }
+
+/* The map's tabs: two-hand's types grouped under one heading. */
+.pm-tabs { align-items: flex-end; }
+.pm-tabgroup { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+.pm-tabgroup-h { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); padding-left: 4px; }
+.pm-tabgroup-row { display: flex; gap: 6px; padding: 4px; border: 1px solid var(--rule); border-radius: 15px; }
+.pm-tabs .pm-tabgroup-row button { min-height: 44px; }

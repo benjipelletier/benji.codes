@@ -172,7 +172,7 @@ function typeCue(v: Voicing): [string, string] {
   const sub = (x: string) => [x, iii].filter(Boolean).join(' · ');
   if (v.family === 'drop-2 two-hand') return ['Drop-2', sub('two-hand')];
   if (v.family === 'right-hand rootless') return ['Right-hand', sub(iii ? '' : 'rootless')];
-  if (v.family === 'closed (block)') return ['Block', sub(`${v.notes.length} notes`)];
+  if (v.family === 'closed (block)') return ['Block', sub(`two-hand · ${v.notes.length} notes`)];
   return [v.family, sub(`${v.notes.length} notes`)];
 }
 

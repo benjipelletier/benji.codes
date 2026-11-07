@@ -29,17 +29,17 @@ const SOURCES: { id: SetSource; label: string; hint: string }[] = [
  * now (the owner: "keep this as a two-hand comping thing"); the hands-apart
  * types are placeholders until they come (LATER_FAMILIES).
  */
-const TYPES: { tag: string; label: string }[] = [{ tag: 'drop-2', label: 'Drop-2 two\u2011hand' }];
+const TYPES: { tag: string; label: string }[] = [{ tag: 'two-handed', label: 'Two\u2011hand' }];
 
 const SPEC_KEY = 'vt-practice-spec';
 
 function loadSpec(): SetSpec {
-  const fallback: SetSpec = { source: 'ii-v-i', key: null, tuneId: null, tags: ['drop-2'], mode: 'play', limit: 40 };
+  const fallback: SetSpec = { source: 'ii-v-i', key: null, tuneId: null, tags: ['two-handed'], mode: 'play', limit: 40 };
   try {
     const raw = localStorage.getItem(SPEC_KEY);
     const spec: SetSpec = raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
     // One voicing type, drop-2 unless right-hand was picked; the tag filter set is gone.
-    return { ...spec, source: spec.source === 'tags' ? 'ii-v-i' : spec.source, tags: ['drop-2'] };
+    return { ...spec, source: spec.source === 'tags' ? 'ii-v-i' : spec.source, tags: ['two-handed'] };
   } catch {
     return fallback;
   }
@@ -48,7 +48,7 @@ function loadSpec(): SetSpec {
 export function PracticePage() {
   const t = useTrainer();
   const { voicings, contexts, settings, runs } = t;
-  const [spec, setSpecState] = useState<SetSpec>(() => ({ source: 'ii-v-i', key: null, tuneId: null, tags: ['drop-2'], mode: 'play', limit: 40 }));
+  const [spec, setSpecState] = useState<SetSpec>(() => ({ source: 'ii-v-i', key: null, tuneId: null, tags: ['two-handed'], mode: 'play', limit: 40 }));
   const [tunes, setTunes] = useState<Tune[]>([]);
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
   const [steps, setSteps] = useState<RunnerStep[]>([]);
@@ -347,16 +347,16 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
       label,
       n,
       iii,
-      vs: t.voicings.filter(v => v.chord_label === label && ofType(v) && v.tags.includes('iii') === iii),
-      // Block chords, whatever the type picked (the owner: "add block chords to the sheet"): offered,
-      // not played in runs, so outside Add all — the iii's (5 ♭7 1 ♭3 5) and the m7♭5's here…
+      vs: t.voicings.filter(v => v.chord_label === label && ofType(v) && v.family !== BLOCK && v.tags.includes('iii') === iii),
+      // Block chords in a row of their own (the owner: "add block chords to the sheet"); two-hand
+      // runs play them, so Add all takes them — the iii's (5 ♭7 1 ♭3 5) and the m7♭5's here…
       block: t.voicings.filter(v => v.chord_label === label && v.family === BLOCK && v.tags.includes('iii') === iii),
       // …and another m7's iii voicings, block included, behind its toggle.
       extra: iii ? [] : t.voicings.filter(v => v.chord_label === label && v.tags.includes('iii') && (ofType(v) || v.family === BLOCK)),
     }))
-    .filter(g => g.vs.length);
-  const total = groups.reduce((n, g) => n + g.vs.length, 0);
-  const have = groups.reduce((n, g) => n + g.vs.filter(v => inDeck(v.id)).length, 0);
+    .filter(g => g.vs.length + g.block.length);
+  const total = groups.reduce((n, g) => n + g.vs.length + g.block.length, 0);
+  const have = groups.reduce((n, g) => n + [...g.vs, ...g.block].filter(v => inDeck(v.id)).length, 0);
   const openV = open ? t.voicings.find(v => v.id === open) : null;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !open && onClose();
@@ -413,7 +413,7 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
         })}
         <div className="pk-foot">
           {t.canEdit && total > have ? (
-            <button type="button" className="vt-secondary" onClick={() => void t.addToDeck(groups.flatMap(g => g.vs).filter(v => !inDeck(v.id)).map(v => v.id))}>
+            <button type="button" className="vt-secondary" onClick={() => void t.addToDeck(groups.flatMap(g => [...g.vs, ...g.block]).filter(v => !inDeck(v.id)).map(v => v.id))}>
               + Add all {total - have}
             </button>
           ) : (

@@ -472,13 +472,26 @@ export const SHAPE_SETS: ShapeSet[] = [
     // Block chords, 5 notes with the top doubled an octave down: the m7♭5 one,
     // and the iii's m7 (the owner: "or play block chords 5 7 1 3 5").
     family: 'closed (block)',
-    tags: ['closed', '5-note'],
+    // Two-handed like drop-2 (the owner: "under two hand we have drop twos … and
+    // then block chords"), so a two-hand Practice run plays them too.
+    tags: ['two-handed', 'closed', '5-note'],
     shapes: {
-      m7: [{ ivs: ['5', 'b7', 'R', 'b3', '5'], tag: '5-7-1-3-5', tags: ['closed', '5-note', 'iii'] }],
+      m7: [{ ivs: ['5', 'b7', 'R', 'b3', '5'], tag: '5-7-1-3-5', tags: ['two-handed', 'closed', '5-note', 'iii'] }],
       m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }],
     },
   },
 ];
+
+/**
+ * How a voicing type is shown: the hand grouping first (the owner: "left-hand
+ * rootless, right-hand rootless and two-hand are the main types, and under
+ * two-hand drop-2 and block chords").
+ */
+export function familyLabel(family: string): string {
+  if (family === 'drop-2 two-hand') return 'Two-hand · drop-2';
+  if (family === 'closed (block)') return 'Two-hand · block';
+  return family.replace('m7b5', 'm7♭5');
+}
 
 /** Voicing types to come: placeholders on the map and in Practice, no voicings yet. */
 export const LATER_FAMILIES = ['left-hand rootless', ...SHAPE_SETS.filter(s => s.later).map(s => s.family)];

@@ -37,6 +37,8 @@ function cardView(st: SrsState | undefined, s: ModeStats | undefined, target: nu
 }
 
 const ZOOMS = [44, 58, 76];
+/** The two-hand types, grouped under one heading on the tabs. */
+const TWO_HAND = ['drop-2 two-hand', 'closed (block)'];
 const FAMILY_KEY = 'vt-map-family';
 
 export function ProgressMap({
@@ -164,23 +166,31 @@ export function ProgressMap({
 
   const cell = ZOOMS[zoom];
   if (!all.length) return <p className="vt-empty">No voicings match.</p>;
+  const tab = (f: string, label: string) => {
+    const t = famTotals.get(f);
+    return (
+      <button type="button" key={f} role="tab" aria-selected={f === family} className={f === family ? 'on' : ''} onClick={() => pick(f)}>
+        <b>{label}</b>
+        <span>{t?.deck ? `${t.known}/${t.deck} known` : `${t?.all ?? 0} voicings`}</span>
+      </button>
+    );
+  };
 
   return (
     <div className="pm" style={{ '--pm-cell': `${cell}px` } as React.CSSProperties}>
       <div className="pm-tabs" role="tablist" aria-label="Voicing type">
-        {families.map(f => {
-          const t = famTotals.get(f);
-          return (
-            <button type="button" key={f} role="tab" aria-selected={f === family} className={f === family ? 'on' : ''} onClick={() => pick(f)}>
-              <b>{f.replace('m7b5', 'm7♭5')}</b>
-              <span>{t?.deck ? `${t.known}/${t.deck} known` : `${t?.all ?? 0} voicings`}</span>
-            </button>
-          );
-        })}
-        {/* Placeholders for the hands-apart types to come. */}
+        {/* Two-hand first, its types under it (the owner: "under two hand we have drop twos … and then
+            block chords"); then any other type; then the hands-apart ones to come. */}
+        {families.some(f => TWO_HAND.includes(f)) && (
+          <div className="pm-tabgroup" role="presentation">
+            <span className="pm-tabgroup-h">Two-hand</span>
+            <div className="pm-tabgroup-row">{families.filter(f => TWO_HAND.includes(f)).map(f => tab(f, f === 'closed (block)' ? 'Block' : 'Drop-2'))}</div>
+          </div>
+        )}
+        {families.filter(f => !TWO_HAND.includes(f)).map(f => tab(f, f.replace('m7b5', 'm7♭5')))}
         {LATER_FAMILIES.filter(f => !families.includes(f)).map(f => (
           <button type="button" key={f} role="tab" aria-selected={false} disabled className="pm-tab-later" title="Coming later">
-            <b>{f}</b>
+            <b>{f[0].toUpperCase() + f.slice(1)}</b>
             <span>later</span>
           </button>
         ))}

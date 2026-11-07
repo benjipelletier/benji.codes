@@ -26,6 +26,17 @@ so Play mode never accepts one lower.
 | `drop-2 two-hand` (rootless; LH bottom two) | ♭3 ♭7 9 5 · ♭7 ♭3 5 9 | 3 7 9 5 · 7 3 5 9 | 3 ♭7 9 13 · ♭7 3 13 9 |
 | `right-hand rootless` — **later** | ♭3 5 ♭7 9 · ♭7 9 ♭3 5 | 3 5 7 9 · 7 9 3 5 | 3 13 ♭7 9 · ♭7 9 3 13 |
 
+**The types** (the owner: "left-hand rootless, right-hand rootless and two-hand
+are the main chord types, and under two-hand we have drop-2s … and then block
+chords"): **Two-hand** = `drop-2 two-hand` + `closed (block)` (both tagged
+`two-handed`; shown "Two-hand · drop-2" / "Two-hand · block" via `familyLabel`);
+left-hand and right-hand rootless are later. The map's tabs group Drop-2 and
+Block under a Two-hand heading; Practice's switch is Two-hand (tag
+`two-handed`), so runs play block chords too (the owner: "we can do block in
+practice runs") — voice-leading picks drop-2 or block per chord (a iii, an
+m7♭5); Choose voicings keeps block chords in their own row and in Add all.
+Seed version 14 tagged the block chords `two-handed`.
+
 **Two-hand comping only, for now** (the owner: "I want to keep this as a two-hand
 comping thing … get rid of all the right-handed stuff"; left-hand rootless,
 for under a solo line or the melody, comes later too). `right-hand rootless`
@@ -135,7 +146,8 @@ version 6 added the 6 chord (into the library, not the deck); version 7 the
 7♭9s, version 8 the altered dominants, version 9 the °7s (likewise);
 version 10 ended the minor ii–V–i on m7; version 11 added the °7's other two
 inversions; version 12 the iii voicings (and the `closed (block)` rename);
-version 13 removed right-hand rootless (for now).
+version 13 removed right-hand rootless (for now); version 14 tagged block
+chords `two-handed`.
 
 ---
 
@@ -162,11 +174,11 @@ wide screen; a run hides both.
   rows. A line above Start says what the session is.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, a tune's changes in any key, or **My charts** (a
-  song from the owner's iFake Pro playlists, below). **Voicings**: Drop-2
-  two-hand, with Left-hand and Right-hand rootless as greyed "later"
+  song from the owner's iFake Pro playlists, below). **Voicings**: Two-hand
+  (drop-2 and block), with Left-hand and Right-hand rootless as greyed "later"
   placeholders (the owner first asked for a drop-2 / right-hand switch instead
   of tags, then to keep it two-hand; kept as the type's tag in `spec.tags`,
-  always `drop-2` now; the tag-filter set is gone). A chord with no voicing of that type is skipped ("none of
+  always `two-handed` now; the tag-filter set is gone). A chord with no voicing of that type is skipped ("none of
   this voicing type yet"). Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
@@ -183,10 +195,9 @@ wide screen; a run hides both.
   are offered: a iii's iii voicings, every other chord's own; another m7 has a
   collapsed "Show Dm7 as iii (8 for 9) ▾" (the owner: "a little hidden button")
   that adds its iii voicings below, outside Add all. Block chords (the owner:
-  "add block chords to the sheet"), whatever the voicing type picked, as a
-  "Block chord" row under the chord — the iii's 5 ♭7 1 ♭3 5 and the m7♭5's;
-  another m7's block sits behind its iii toggle. They're offered, not played
-  in runs, so they aren't in Add all. The sheet lists the chords in
+  "add block chords to the sheet") as a "Block chord" row under the chord — the
+  iii's 5 ♭7 1 ♭3 5 and the m7♭5's; another m7's block sits behind its iii
+  toggle. Two-hand runs play them, so Add all includes them. The sheet lists the chords in
   the order they come ("Cm7 ×2 · 2/4 in deck"),
   each with its voicings as the Voicings page's cards — + Deck on each (its
   other inversion with it), tap one for its sheet. The tune search finds the

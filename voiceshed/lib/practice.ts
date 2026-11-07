@@ -208,7 +208,7 @@ const prettyChord = (label: string) => {
 };
 
 const keyName = (k: number) => prettyLabel(PC_FLAT[k]);
-const tagLabel = (tags: string[]) => (tags.length ? ` · ${tags.join(' + ')}` : '');
+const tagLabel = (tags: string[]) => (tags.length ? ` · ${tags.map(t => (t === 'two-handed' ? 'two-hand' : t)).join(' + ')}` : '');
 
 /** The voicings' chords in the order they first come, with how many times each is played (a iii apart). */
 export function countLabels(vs: { chord_label: string; tags: string[] }[]): OrderEntry[] {

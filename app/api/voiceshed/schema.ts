@@ -115,8 +115,9 @@ export const TRAINER_DDL = [
  *  13: right-hand rootless goes, for now (the owner: "keep this as a two-hand
  *      comping thing … get rid of all the right-handed stuff"): its voicings,
  *      with their cards and answers. The shapes stay in SHAPE_SETS, marked later.
+ *  14: block chords are tagged two-handed, so two-hand Practice runs play them.
  */
-const SEED_VERSION = 13;
+const SEED_VERSION = 14;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
@@ -147,6 +148,12 @@ async function seed(sql: Sql) {
         // (a rare spelling of it was never moved, so it's still there).
         [...SHAPE_SETS.map(set => set.family), 'm7b5 spread'],
       ]);
+    }
+    if (seeded < 14) {
+      await sql.query(
+        `UPDATE voicings SET tags = array_prepend('two-handed', tags), updated_at = NOW()
+         WHERE family = 'closed (block)' AND NOT ('two-handed' = ANY(tags))`,
+      );
     }
     if (seeded < 13) {
       await sql.query(`DELETE FROM voicings WHERE family = 'right-hand rootless'`);

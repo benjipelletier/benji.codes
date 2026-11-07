@@ -15,7 +15,7 @@ import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { targetFor } from '@voiceshed/lib/srs';
-import { chordLabel, CYCLE_OF_FOURTHS, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
+import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
 const PAGE = 120;
@@ -212,7 +212,7 @@ export function VoicingCard({
           {v.top_move ? ` → ${pretty(pitchName(v.top_move))}` : ''}
         </span>
         <span className="lb-meta">
-          <span className="lb-fam">{v.family}</span>
+          <span className="lb-fam">{familyLabel(v.family)}</span>
           {v.tags.includes('iii') && <span className="lb-flag lb-flag-iii" title="For a iii: the 8 for the 9">iii</span>}
           {muddy && <span className="lb-flag">muddy</span>}
           {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
@@ -268,7 +268,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
         <div className="vt-sheet-head">
           <h2>{prettyLabel(v.chord_label)}</h2>
           <span className="vt-hint">
-            {v.family} · top {pretty(pitchName(v.top_note))}
+            {familyLabel(v.family)} · top {pretty(pitchName(v.top_note))}
             {v.tags.includes('iii') ? ' · as iii (8 for 9)' : ''}
           </span>
           <button type="button" className="vt-x" onClick={onClose} aria-label="close">
