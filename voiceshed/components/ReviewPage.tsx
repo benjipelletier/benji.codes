@@ -3,9 +3,10 @@
 // Review: today's set (lib/drill.ts). The shakiest cards in the deck, a few
 // at a time, drilled until each is right and fast three times in a row, then
 // each played once in a ii–V–I; solid cards come back for a spaced check.
-// Narrowed with the session set-up (ReviewSetup: modes, chord and voicing
-// types, keys, spellings, set size, new cards). A summary at the end: how
-// each card came out, accuracy and the slowest cards.
+// Driven by the deck alone — every card in it, all three modes; nothing to set
+// up (the owner: "review session should be driven by whatever cards are in my
+// deck. Configurable sessions is what practice is for"). A summary at the end:
+// how each card came out, accuracy and the slowest cards.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
@@ -13,12 +14,12 @@ import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } 
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { Keyboard, rangeAround } from './Keyboard';
-import { describe, ReviewSetup, useReviewConfig, voicingIn } from './ReviewSetup';
 import { targetFor } from '@voiceshed/lib/srs';
 import {
   afterAnswer,
   afterSlot,
   answerDrill,
+  demote,
   answerOf,
   chooseSet,
   contextSteps,
@@ -28,6 +29,7 @@ import {
   startDrill,
   WHY_LABEL,
   type Drill,
+  type SetCard,
   type Slot,
 } from '@voiceshed/lib/drill';
 import { midisOf } from '@voiceshed/lib/practice';
@@ -36,6 +38,9 @@ import { pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
 
 type DrillStep = RunnerStep & { repeat?: boolean; probe?: string | null };
+
+/** Cards in play at once. */
+const SET_SIZE = 6;
 
 export function ReviewPage() {
   const t = useTrainer();
@@ -47,7 +52,6 @@ export function ReviewPage() {
   const [steps, setSteps] = useState<RunnerStep[]>([]);
   const [results, setResults] = useState<RunnerResult[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [config, setConfig] = useReviewConfig();
   const [status, setStatus] = useState('');
   const [report, setReport] = useState<Slot[]>([]);
   const drill = useRef<Drill | null>(null);
@@ -56,15 +60,9 @@ export function ReviewPage() {
   const written = useRef(new Map<string, SrsState>());
 
   const targetOf = useCallback((v: Voicing, mode: Mode) => targetFor(srs.get(srsKey(v.id, mode)), mode, settings), [srs, settings]);
-  const pool = useMemo(() => voicings.filter(v => voicingIn(v, config)), [voicings, config]);
   const today = useMemo(
-    () => chooseSet({ pool, srs, grouped, gapKeys, modes: config.modes, targetOf, size: config.size, fresh: config.fresh, now: new Date() }),
-    [pool, srs, grouped, gapKeys, config.modes, config.size, config.fresh, targetOf],
-  );
-  // Waiting, all voicings and modes: the set-up's chip counts.
-  const waitingAll = useMemo(
-    () => chooseSet({ pool: voicings, srs, grouped, gapKeys, modes: [...MODES], targetOf, size: 0, fresh: config.fresh, now: new Date() }).waiting.map(c => ({ voicing: c.voicing, mode: c.mode })),
-    [voicings, srs, grouped, gapKeys, targetOf, config.fresh],
+    () => chooseSet({ pool: voicings, srs, grouped, gapKeys, modes: [...MODES], targetOf, size: SET_SIZE, fresh: true, now: new Date() }),
+    [voicings, srs, grouped, gapKeys, targetOf],
   );
   const solid = useMemo(() => [...srs.values()].filter(s => s.learned).length, [srs]);
 
@@ -78,7 +76,7 @@ export function ReviewPage() {
   };
 
   const start = () => {
-    const d = startDrill(today.set, today.incoming, config.size);
+    const d = startDrill(today.set, today.incoming, SET_SIZE);
     drill.current = d;
     stage.current = 'drill';
     written.current = new Map();
@@ -135,12 +133,24 @@ export function ReviewPage() {
         const next = answerDrill(d, key, a);
         drill.current = next;
         setStatus(statusOf(next));
-        if (!prev) return;
-        let row = afterAnswer(prev, a, now);
-        const slot = next.slots.find(s => s.key === key);
-        if (slot && slot.status !== 'active') row = afterSlot(row, slot.status, now);
-        written.current.set(key, row);
-        void t.saveSrs([row]);
+        const rows = new Map<string, SrsState>();
+        const cur = (k: string) => rows.get(k) ?? written.current.get(k) ?? t.srs.get(k);
+        if (prev) rows.set(key, afterAnswer(prev, a, now));
+        const group = next.slots.find(s => s.key === key)?.group;
+        // A slip: its inversions aren't solid either until the group graduates.
+        if (a !== 'fast')
+          for (const s of next.slots) {
+            const r = s.group === group && s.key !== key ? cur(s.key) : undefined;
+            if (r?.learned) rows.set(s.key, demote(r, now));
+          }
+        // The cards that left the set with this answer: the whole group.
+        for (const s of next.slots) {
+          const was = d.slots.find(x => x.key === s.key);
+          const r = cur(s.key);
+          if (r && was?.status === 'active' && s.status !== 'active') rows.set(s.key, afterSlot(r, s.status, now));
+        }
+        for (const [k, r] of rows) written.current.set(k, r);
+        if (rows.size) void t.saveSrs([...rows.values()]);
         return;
       }
       // In a ii–V–I: the card it checks takes its result; any deck card slow or missed here isn't solid.
@@ -168,7 +178,6 @@ export function ReviewPage() {
   }
   if (phase === 'done') return <Summary results={results} onAgain={() => setPhase('idle')} extra={<DrillReport slots={report} />} title="Set done" />;
 
-  const filtered = describe(config);
   if (!srs.size) {
     return (
       <div className="vt-page">
@@ -199,47 +208,44 @@ export function ReviewPage() {
           <span className="rv-num rv-num-2">{counts.check}</span>
           <span className="rv-lbl">checks</span>
         </div>
-        {config.fresh && (
-          <div className="rv-big">
-            <span className="rv-num rv-num-3">{counts.new}</span>
-            <span className="rv-lbl">new</span>
-          </div>
-        )}
+        <div className="rv-big">
+          <span className="rv-num rv-num-3">{counts.new}</span>
+          <span className="rv-lbl">new</span>
+        </div>
         {total > 0 && (
           <ul className="rv-set" aria-label="Today’s set">
-            {set.map(c => (
-              <li key={srsKey(c.voicing.id, c.mode)} className={`rv-card rv-${c.why}`}>
-                <b>{prettyLabel(c.voicing.chord_label)}</b>
+            {chips(set).map(g => (
+              <li key={g.group} className={`rv-card rv-${g.why}`}>
+                <b>{prettyLabel(g.label)}</b>
                 <span>
-                  {MODE_LABEL[c.mode]} · {WHY_LABEL[c.why]}
+                  {MODE_LABEL[g.mode]} · {WHY_LABEL[g.why]}
+                  {g.n > 1 ? ` · ${g.n} inv.` : ''}
                 </span>
               </li>
             ))}
-            {incoming.map((c, i) => (
-              <li key={srsKey(c.voicing.id, c.mode)} className={`rv-card rv-new ${i >= NEW_AT_ONCE ? 'rv-later' : ''}`}>
-                <b>{prettyLabel(c.voicing.chord_label)}</b>
+            {chips(incoming).map((g, i) => (
+              <li key={g.group} className={`rv-card rv-new ${i >= NEW_AT_ONCE ? 'rv-later' : ''}`}>
+                <b>{prettyLabel(g.label)}</b>
                 <span>
-                  {MODE_LABEL[c.mode]} · {i < NEW_AT_ONCE ? 'new' : 'new · joins later'}
+                  {MODE_LABEL[g.mode]} · {i < NEW_AT_ONCE ? 'new' : 'later'}
+                  {g.n > 1 ? ` · ${g.n} inv.` : ''}
                 </span>
               </li>
             ))}
           </ul>
         )}
-        {incoming.length > NEW_AT_ONCE && (
+        {chips(incoming).length > NEW_AT_ONCE && (
           <p className="rv-note rv-rolling">
-            New cards come in {NEW_AT_ONCE} at a time: the next joins when one of them is fast {FLUENT_STREAK} times in a row.
+            New chords come in {NEW_AT_ONCE} at a time, inversions together: the next joins when one has every inversion fast {FLUENT_STREAK} times in a row.
           </p>
         )}
-        <p className="rv-what">{filtered}</p>
         <button type="button" className="vt-primary" onClick={start} disabled={!total}>
-          {total ? `Start today’s set · ${total} card${total === 1 ? '' : 's'}` : 'Nothing in your deck with this set-up'}
+          {total ? `Start today’s set · ${total} card${total === 1 ? '' : 's'}` : 'Nothing to review'}
         </button>
         <p className="rv-note">
-          Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.
+          A chord’s inversions stay until each is right <em>and</em> fast {FLUENT_STREAK} times in a row, then each is played in a ii–V–I. {solid} of {srs.size} cards solid.
         </p>
       </section>
-
-      <ReviewSetup config={config} onChange={setConfig} voicings={voicings} srs={srs} due={waitingAll} />
 
       <section className="vt-panel">
         <button type="button" className="vt-panel-head" onClick={() => setShowSettings(s => !s)} aria-expanded={showSettings}>
@@ -251,6 +257,17 @@ export function ReviewPage() {
       <OfflinePanel />
     </div>
   );
+}
+
+/** A set's cards as one chip per group (a chord's inversions in one mode). */
+function chips(cards: SetCard[]): { group: string; label: string; mode: Mode; why: SetCard['why']; n: number }[] {
+  const out = new Map<string, { group: string; label: string; mode: Mode; why: SetCard['why']; n: number }>();
+  for (const c of cards) {
+    const e = out.get(c.group);
+    if (e) e.n++;
+    else out.set(c.group, { group: c.group, label: c.voicing.chord_label, mode: c.mode, why: c.why, n: 1 });
+  }
+  return [...out.values()];
 }
 
 /** How each card of the set came out. */

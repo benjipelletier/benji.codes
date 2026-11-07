@@ -169,7 +169,7 @@ wide screen; a run hides both.
   spacing useless for voicings ("seeing one voicing, getting it wrong then not
   seeing it for another day … not that useful"), so a voicing is treated as a
   motor skill:
-  1. **The set** (`chooseSet`, 4–10 cards in play, 6 by default): shaky cards
+  1. **The set** (`chooseSet`, 6 cards in play): shaky cards
      first (answered before, not solid, or flagged for the context gap; lowest
      `fluencyScore` first — each of the last 6 answers scores target ÷ time,
      capped at 1, a miss 0), then solid cards due a check; then — to fill,
@@ -178,7 +178,7 @@ wide screen; a run hides both.
      are fast enough … otherwise I need to keep grinding them"):
      `NEW_AT_ONCE` (2) being learned at a time, the next joining when one leaves
      the set, `NEW_PER_SET` (5) a session, in the order added (a voicing's modes
-     spread across sets; only with "New voicings" on). The home shows them,
+     spread across sets). The home shows them,
      the later ones faded as "joins later".
   2. **The drill** (`startDrill`, `nextSlot`, `answerDrill`): the cards mixed,
      never one twice running. A miss or slow answer comes back 2 turns later
@@ -203,12 +203,24 @@ wide screen; a run hides both.
   finished — with how it did in context and a dot per answer, then accuracy
   (first tries), average time and the slowest cards. The ✈ Offline panel and
   sign in/out.
-  **This session** (`components/ReviewSetup.tsx`), kept on the device: answer
-  modes (at least one), chord types, voicing types, keys (empty row = all),
-  black-key chords under both names / flats / sharps, cards in a set, and
-  whether new voicings join. Chips count the cards waiting (shaky, due a check,
-  new) with them, given the other rows. A line above Start says what the
-  session draws from.
+  **Nothing to set up** (the owner: "review session should be driven by
+  whatever cards are in my deck. Configurable sessions is what practice is
+  for"): every deck card in all three modes, `SET_SIZE` (6) in play; the old
+  "This session" panel (`ReviewSetup.tsx`) is gone. Settings (targets, cues,
+  keyboard size, spelling) stay below.
+  **Inversions go together** (the owner: "different inversions are different
+  cards but … they should be learned together and only graduate when both
+  do"): cards are grouped by `groupOf` — a chord's inversions in one mode, as
+  `partnersOf` pairs them (a °7's four), a found voicing alone. A group is
+  shaky if any card in it is (or one is new beside answered ones), new if all
+  are, solid only if all are, due a check with its first card. It joins whole
+  (the first even if bigger than the set), and leaves only when every card in
+  it has its streak at once — one that's there keeps coming round, further
+  apart; a slip on any card of a check makes the whole group drill again
+  (and its solid cards aren't solid till it graduates); MAX_ASKS on one card
+  sends the group out stuck. New-card limits count groups (2 new chords at a
+  time, 5 a session). The home shows one chip per group ("Dm7 · Play · shaky ·
+  2 inv."); the counts are groups.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, **One root** (every chord type on one root — Cm7,
   C7, C7♭9, C7alt, C°7, Cmaj7, C6, Cm7♭5 — both names of a black key, shuffled;

@@ -11,10 +11,10 @@
 //     NEW_AT_ONCE in play at a time, the next joining when one gets fast,
 //     NEW_PER_SET in a session, in the order added.
 //  2. The drill: the set's cards, mixed. A miss or a slow answer comes back
-//     two cards later; a fast one a little later each time. A card leaves the
-//     set after FLUENT_STREAK right-and-fast answers in a row — a solid
-//     card's check after one, unless it misses — or after MAX_ASKS, still
-//     shaky.
+//     two cards later; a fast one a little later each time. A chord's
+//     inversions (a group, `groupOf`) leave the set together, once each has
+//     FLUENT_STREAK right-and-fast answers in a row — a solid group's check
+//     after one each, unless one slips — or after MAX_ASKS, still shaky.
 //  3. In context: each card that came out fluent is played once in a ii–V–I
 //     that has its chord. Slow or wrong there, it isn't solid yet.
 //  4. The schedule: solid cards come back for a check after 1 day, 3, then
@@ -35,9 +35,9 @@ export const MAX_ASKS = 10;
 export const MAX_INTERVAL = 120;
 /** Answers that make a card's fluency score. */
 const RECENT = 6;
-/** New cards being learned at once; the next joins when one of them leaves the set. */
+/** New groups (a chord's inversions) being learned at once; the next joins when one of them leaves the set. */
 export const NEW_AT_ONCE = 2;
-/** New cards a session brings in at most. */
+/** New groups a session brings in at most. */
 export const NEW_PER_SET = 5;
 /** The family the drill never takes into a ii–V–I: heard in the wild, its own thing. */
 const NO_CONTEXT_FAMILIES = new Set(['found']);
@@ -51,6 +51,18 @@ export interface SetCard {
   why: Why;
   /** 0–1, from recent answers; null with none. */
   score: number | null;
+  /** Its inversions in this mode (`groupOf`): they join, drill and graduate together. */
+  group: string;
+}
+
+/**
+ * A chord's inversions in one mode — same label, family and iii-ness, as
+ * `partnersOf` pairs them; a found voicing alone. The owner: "different
+ * inversions are different cards but … they should be learned together and
+ * only graduate when both do".
+ */
+export function groupOf(v: Voicing, mode: Mode): string {
+  return v.family === 'found' ? `${v.id}|${mode}` : `${v.chord_label}|${v.family}|${isIii(v)}|${mode}`;
 }
 
 /**
@@ -70,7 +82,13 @@ export interface SetCounts {
   solid: number;
 }
 
-/** Today's set, and what's waiting. `pool`: the voicings the set-up allows. */
+/**
+ * Today's set, and what's waiting. `pool`: the voicings the set-up allows.
+ * Cards go by group (a chord's inversions in one mode): a group is shaky if
+ * any of its cards is (or one is still new beside answered ones), new if all
+ * are, solid only if all are — due a check when the first of them is. Counts
+ * are groups.
+ */
 export function chooseSet(o: {
   pool: Voicing[];
   srs: Map<string, SrsState>;
@@ -85,60 +103,78 @@ export function chooseSet(o: {
   const { pool, srs, grouped, gapKeys, modes, targetOf, size, fresh, now } = o;
   const byId = new Map(pool.map(v => [v.id, v]));
   const t = now.getTime();
-  const shaky: SetCard[] = [];
-  const check: { c: SetCard; at: number }[] = [];
-  const ahead: { c: SetCard; at: number }[] = [];
-  const news: SrsState[] = [];
-  let solid = 0;
+  type Member = { v: Voicing; s: SrsState; score: number | null; state: 'new' | 'shaky' | 'solid'; at: number };
+  const groups = new Map<string, Member[]>();
   for (const s of srs.values()) {
     const v = byId.get(s.voicing_id);
     if (!v || !modes.includes(s.mode)) continue;
     const key = srsKey(v.id, s.mode);
-    if (s.reps === 0) {
-      news.push(s);
-      continue;
-    }
-    const score = fluencyScore(grouped.get(key), targetOf(v, s.mode));
-    const card = (why: Why): SetCard => ({ voicing: v, mode: s.mode, why, score });
-    const at = new Date(s.due_at).getTime();
-    // Fast in a progression but slow on its own (the context gap) counts as shaky.
-    if (!s.learned || gapKeys.has(key)) shaky.push(card('shaky'));
-    else {
+    const state = s.reps === 0 ? 'new' : !s.learned || gapKeys.has(key) ? 'shaky' : 'solid';
+    const m: Member = { v, s, score: s.reps ? fluencyScore(grouped.get(key), targetOf(v, s.mode)) : null, state, at: new Date(s.due_at).getTime() };
+    const g = groupOf(v, s.mode);
+    groups.set(g, [...(groups.get(g) ?? []), m]);
+  }
+  const cardsOf = (g: string, ms: Member[], why: Why): SetCard[] =>
+    [...ms].sort((a, b) => a.v.sort_order - b.v.sort_order).map(m => ({ voicing: m.v, mode: m.s.mode, why, score: m.score, group: g }));
+
+  const shaky: { cards: SetCard[]; score: number }[] = [];
+  const check: { cards: SetCard[]; at: number }[] = [];
+  const ahead: { cards: SetCard[]; at: number }[] = [];
+  const news: { g: string; ms: Member[]; at: string }[] = [];
+  let solid = 0;
+  for (const [g, ms] of groups) {
+    if (ms.every(m => m.state === 'new')) {
+      news.push({ g, ms, at: ms.reduce((x, m) => (m.s.created_at < x ? m.s.created_at : x), ms[0].s.created_at) });
+    } else if (ms.some(m => m.state !== 'solid')) {
+      const scores = ms.map(m => m.score).filter((x): x is number => x != null);
+      shaky.push({ cards: cardsOf(g, ms, 'shaky'), score: scores.length ? Math.min(...scores) : 0 });
+    } else {
       solid++;
-      if (at <= t) check.push({ c: card('check'), at });
-      else ahead.push({ c: card('early'), at });
+      const at = Math.min(...ms.map(m => m.at));
+      if (at <= t) check.push({ cards: cardsOf(g, ms, 'check'), at });
+      else ahead.push({ cards: cardsOf(g, ms, 'early'), at });
     }
   }
-  shaky.sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+  shaky.sort((a, b) => a.score - b.score);
   check.sort((a, b) => a.at - b.at);
   ahead.sort((a, b) => a.at - b.at);
 
-  // New: in the order added; round by round each voicing's next mode, so one
-  // voicing's three cards don't all land in the same set.
-  const added = new Map<string, { v: Voicing; at: string; modes: Mode[] }>();
-  for (const s of news) {
-    const e = added.get(s.voicing_id);
-    if (e) {
-      e.modes.push(s.mode);
-      if (s.created_at < e.at) e.at = s.created_at;
-    } else added.set(s.voicing_id, { v: byId.get(s.voicing_id)!, at: s.created_at, modes: [s.mode] });
+  // New: in the order added; round by round each chord's next mode, so one
+  // chord's modes don't all land in the same set.
+  const chord = (g: string) => g.slice(0, g.lastIndexOf('|'));
+  const byChord = new Map<string, { at: string; order: number; list: { g: string; ms: Member[] }[] }>();
+  for (const n of news) {
+    const k = chord(n.g);
+    const e = byChord.get(k) ?? { at: n.at, order: Math.min(...n.ms.map(m => m.v.sort_order)), list: [] };
+    if (n.at < e.at) e.at = n.at;
+    e.list.push(n);
+    byChord.set(k, e);
   }
-  const order = [...added.values()].sort((a, b) => a.at.localeCompare(b.at) || a.v.sort_order - b.v.sort_order);
-  const rounds: SetCard[][] = [[], [], []];
-  order.forEach((e, i) => {
-    const rot = [...modes.slice(i % modes.length), ...modes.slice(0, i % modes.length)].filter(m => e.modes.includes(m));
-    rot.forEach((m, r) => rounds[r].push({ voicing: e.v, mode: m, why: 'new', score: null }));
+  const ordered = [...byChord.values()].sort((a, b) => a.at.localeCompare(b.at) || a.order - b.order);
+  const rounds: SetCard[][][] = [[], [], []];
+  ordered.forEach((e, i) => {
+    const rot = [...modes.slice(i % modes.length), ...modes.slice(0, i % modes.length)];
+    let r = 0;
+    for (const m of rot) {
+      const n = e.list.find(x => x.ms[0].s.mode === m);
+      if (n) rounds[r++].push(cardsOf(n.g, n.ms, 'new'));
+    }
   });
-  const newCards = rounds.flat();
+  const newGroups = rounds.flat();
 
-  const waiting = [...shaky, ...check.map(x => x.c), ...(fresh ? newCards : [])];
-  // Shaky and checks take the set; new cards roll in behind (startDrill, refill),
-  // with room kept for the first of them; early checks only fill what's left.
-  const set = [...shaky, ...check.map(x => x.c)].slice(0, size);
-  const incoming = fresh ? newCards.slice(0, NEW_PER_SET) : [];
-  const room = size - set.length - Math.min(NEW_AT_ONCE, incoming.length);
-  if (room > 0) set.push(...ahead.slice(0, room).map(x => x.c));
-  return { set, incoming, counts: { shaky: shaky.length, check: check.length, new: newCards.length, solid }, waiting };
+  // Shaky and checks take the set, whole groups, the first even if it's bigger;
+  // new groups roll in behind (startDrill, refill), with room kept for the
+  // first of them; early checks only fill what's left.
+  const set: SetCard[] = [];
+  const take = (cards: SetCard[], cap: number) => {
+    if (!set.length || set.length + cards.length <= cap) set.push(...cards);
+  };
+  for (const x of [...shaky, ...check]) take(x.cards, size);
+  const incoming = fresh ? newGroups.slice(0, NEW_PER_SET) : [];
+  const keep = incoming.slice(0, NEW_AT_ONCE).reduce((n, g) => n + g.length, 0);
+  for (const x of ahead) if (set.length + x.cards.length <= size - keep) set.push(...x.cards);
+  const waiting = [...shaky, ...check].flatMap(x => x.cards).concat(fresh ? newGroups.flat() : []);
+  return { set, incoming: incoming.flat(), counts: { shaky: shaky.length, check: check.length, new: newGroups.length, solid }, waiting };
 }
 
 // ── the drill ───────────────────────────────────────────────────────────
@@ -149,6 +185,7 @@ export type SlotStatus = 'active' | 'fluent' | 'checked' | 'stuck';
 export interface Slot {
   key: string;
   card: SetCard;
+  group: string;
   /** Right-and-fast answers in a row it needs: 1 for a solid card's check, until it slips. */
   need: number;
   streak: number;
@@ -176,6 +213,7 @@ export interface Drill {
 const slotOf = (card: SetCard, nextTurn: number): Slot => ({
   key: srsKey(card.voicing.id, card.mode),
   card,
+  group: card.group,
   need: card.why === 'check' || card.why === 'early' ? 1 : FLUENT_STREAK,
   streak: 0,
   asked: 0,
@@ -187,13 +225,20 @@ const slotOf = (card: SetCard, nextTurn: number): Slot => ({
   context: null,
 });
 
-/** New cards join while there's room and fewer than NEW_AT_ONCE are still being learned. */
+/** New groups join, whole, while there's room and fewer than NEW_AT_ONCE are still being learned. */
 function refill(d: Drill): Drill {
   const slots = [...d.slots];
   const incoming = [...d.incoming];
   const active = () => slots.filter(s => s.status === 'active');
-  while (incoming.length && active().length < d.size && active().filter(s => s.card.why === 'new').length < NEW_AT_ONCE) {
-    slots.push(slotOf(incoming.shift()!, d.turn));
+  for (;;) {
+    if (!incoming.length) break;
+    const g = incoming[0].group;
+    const next = incoming.filter(c => c.group === g);
+    const live = active();
+    const newGroups = new Set(live.filter(s => s.card.why === 'new').map(s => s.group)).size;
+    if (newGroups >= NEW_AT_ONCE || (live.length && live.length + next.length > d.size)) break;
+    for (const c of next) slots.push(slotOf(c, d.turn));
+    incoming.splice(0, incoming.length, ...incoming.filter(c => c.group !== g));
   }
   return { ...d, slots, incoming };
 }
@@ -214,11 +259,19 @@ export function answerOf(correct: boolean, ms: number, target: number): Answer {
   return !correct ? 'miss' : ms > target ? 'slow' : 'fast';
 }
 
-/** The drill after one answer to slot `key` (a new object; the slot's status says if it left). */
+/**
+ * The drill after one answer to slot `key` (a new object; slots' statuses say
+ * which left). A group leaves together: when every card in it has its streak
+ * at once — one that's there keeps coming round, further apart, until its
+ * partners are — or, still shaky, when one of them has had MAX_ASKS. A slip on
+ * any card of a check turns the whole group back into a drill.
+ */
 export function answerDrill(d: Drill, key: string, a: Answer): Drill {
   const turn = d.turn + 1;
-  const slots = d.slots.map(s => {
-    if (s.key !== key) return s;
+  const answered = d.slots.find(s => s.key === key);
+  const group = answered?.group;
+  let slots = d.slots.map(s => {
+    if (s.key !== key) return a !== 'fast' && s.group === group && s.status === 'active' ? { ...s, need: FLUENT_STREAK } : s;
     const n: Slot = { ...s, asked: s.asked + 1, first: s.first ?? a };
     if (a === 'fast') {
       n.streak = s.streak + 1;
@@ -230,10 +283,14 @@ export function answerDrill(d: Drill, key: string, a: Answer): Drill {
       if (a === 'miss') n.misses++;
       else n.slows++;
     }
-    if (n.streak >= n.need) n.status = n.need === 1 ? 'checked' : 'fluent';
-    else if (n.asked >= MAX_ASKS) n.status = 'stuck';
     return n;
   });
+  const mates = slots.filter(s => s.group === group && s.status === 'active');
+  const me = mates.find(s => s.key === key);
+  let leave: SlotStatus | null = null;
+  if (mates.length && mates.every(s => s.streak >= s.need)) leave = mates.every(s => s.need === 1) ? 'checked' : 'fluent';
+  else if (me && me.streak < me.need && me.asked >= MAX_ASKS) leave = 'stuck';
+  if (leave) slots = slots.map(s => (s.group === group && s.status === 'active' ? { ...s, status: leave! } : s));
   return refill({ ...d, slots, turn, last: key });
 }
 
