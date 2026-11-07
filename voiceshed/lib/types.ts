@@ -141,6 +141,8 @@ export interface Settings {
   px_per_inch: number | null;
   /** Real size, scaled: 1 is a piano's own keys; less fits more of them on the screen. */
   key_scale: number;
+  /** Which notes a Play or Spell card gives besides the voicing type: bottom, top, or both. */
+  cues: 'both' | 'bottom' | 'top';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -151,6 +153,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keyboard_size: 'fit',
   px_per_inch: null,
   key_scale: 1,
+  cues: 'both',
 };
 
 export const srsKey = (voicingId: string, mode: Mode) => `${voicingId}|${mode}`;

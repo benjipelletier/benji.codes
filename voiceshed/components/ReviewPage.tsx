@@ -224,6 +224,23 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
         </div>
         <span className="vt-hint">Each card can have its own, set on the Voicings page.</span>
       </div>
+      <div className="vt-field">
+        <span className="vt-field-lbl">Play and Spell cards show</span>
+        <div className="vt-seg" role="radiogroup" aria-label="Notes a card shows">
+          {(
+            [
+              ['both', 'Bottom & top'],
+              ['bottom', 'Bottom'],
+              ['top', 'Top'],
+            ] as const
+          ).map(([c, label]) => (
+            <button type="button" key={c} role="radio" aria-checked={(settings.cues ?? 'both') === c} className={(settings.cues ?? 'both') === c ? 'on' : ''} onClick={() => onSave({ ...settings, cues: c })}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="vt-hint">Always with the voicing type. The answer shows both.</span>
+      </div>
       <KeyboardSizeField settings={settings} onSave={onSave} />
       <label className="vt-check">
         <input type="checkbox" checked={settings.strict_spelling} onChange={e => onSave({ ...settings, strict_spelling: e.target.checked })} />

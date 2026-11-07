@@ -252,6 +252,14 @@ wide screen; a run hides both.
   `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
   Practice.
 
+**The card** (Play and Spell; the owner: "the bottom note, what kind of voicing,
+and then the top note … three big headers", since they build from the bottom up):
+the chord, then three boxes — **Bottom** (note and interval), **Voicing**
+(Drop-2 / Right-hand / Block, with two-hand / rootless / as iii), **Top** (note,
+interval, and "→ ♭3" for a move). Review → Settings → "Play and Spell cards
+show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
+always shows, and the answer shows both.
+
 **Answer modes**: Play (tap keys; whole octaves away is fine, never with the
 bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
 the note before it, as it's said — A then ♭ is A♭, ♭ again A𝄫, a third time A;

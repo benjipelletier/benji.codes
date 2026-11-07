@@ -142,34 +142,60 @@ function MoveText({ v, reveal }: { v: Voicing; reveal: boolean }) {
   );
 }
 
+/** A voicing type as a card's header: a short name and what qualifies it. */
+function typeCue(v: Voicing): [string, string] {
+  const iii = v.tags.includes('iii') ? 'as iii' : '';
+  const sub = (x: string) => [x, iii].filter(Boolean).join(' · ');
+  if (v.family === 'drop-2 two-hand') return ['Drop-2', sub('two-hand')];
+  if (v.family === 'right-hand rootless') return ['Right-hand', sub(iii ? '' : 'rootless')];
+  if (v.family === 'closed (block)') return ['Block', sub(`${v.notes.length} notes`)];
+  return [v.family, sub(`${v.notes.length} notes`)];
+}
+
+/**
+ * The chord, then three headers, easy to see (the owner: "bottom note, what
+ * kind of voicing, and then the top note … three big headers"): the bottom
+ * note (it's built from the bottom up), the voicing type, the top note and
+ * where it moves. Settings choose which notes show (`cues`).
+ */
 function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }) {
+  const { settings } = useTrainer();
   const v = step.voicing;
   const p = parseChordLabel(v.chord_label);
   const d = p ? chordDisplay(p.rootName, p.quality) : { root: v.chord_label, quality: '' };
-  const top = mod12(midisOf(v)[v.notes.length - 1] - v.root);
+  const m = midisOf(v);
+  const iv = (midi: number) => intervalDisplay(intervalName(v.quality, mod12(midi - v.root)));
+  const cues = reveal ? 'both' : (settings.cues ?? 'both');
+  const [type, typeSub] = typeCue(v);
   return (
     <div className="cr-prompt">
       <div className="cr-chord">
         <span className="cr-root">{d.root}</span>
         <span className="cr-qual">{d.quality}</span>
       </div>
-      <div className="cr-sub">
-        <span>
-          top <b>{pretty(pitchName(v.top_note))}</b> <span className="cr-iv">({intervalDisplay(intervalName(v.quality, top))})</span>
-          {v.top_move && <MoveText v={v} reveal={reveal} />}
-        </span>
-        <span className="cr-dot">·</span>
-        <span className="cr-family">{v.family}</span>
-        {v.tags.includes('iii') && (
-          <>
-            <span className="cr-dot">·</span>
-            <span className="cr-iii" title="As the iii of a major key: the 8 for the 9">as iii</span>
-          </>
+      <div className="cr-cues">
+        {cues !== 'top' && (
+          <div className="cr-cue">
+            <span className="cr-cue-lbl">Bottom</span>
+            <b>{pretty(pitchName(v.notes[0]))}</b>
+            <span className="cr-iv">{iv(m[0])}</span>
+          </div>
         )}
-        <span className="cr-dot">·</span>
-        <span>
-          {v.notes.length} notes{v.top_move ? ' + move' : ''}
-        </span>
+        <div className="cr-cue cr-cue-type">
+          <span className="cr-cue-lbl">Voicing</span>
+          <b>{type}</b>
+          <span className="cr-iv">{typeSub}</span>
+        </div>
+        {cues !== 'bottom' && (
+          <div className="cr-cue">
+            <span className="cr-cue-lbl">Top</span>
+            <b>{pretty(pitchName(v.top_note))}</b>
+            <span className="cr-iv">
+              {iv(m[m.length - 1])}
+              {v.top_move && <MoveText v={v} reveal={reveal} />}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
