@@ -260,6 +260,15 @@ interval, and "→ ♭3" for a move). Review → Settings → "Play and Spell ca
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
 always shows, and the answer shows both.
 
+**Sideways on a phone, only in a run** (the owner: "allow me to play in
+landscape mode on my phone but only … when I'm reviewing cards"): the installed
+app is portrait (manifest `orientation`); `useRunOrientation` in `CardRunner`
+calls `screen.orientation.lock('any')` while a run is on screen and `unlock()`
+(back to portrait) when it ends, and sets `html.vt-running`. A browser tab can't
+lock, so on a sideways phone (landscape, height ≤ 500px, touch) outside a run a
+cover asks to turn it upright (`.vt-rotate` in `TrainerShell`). In a run the
+card packs into one row (chord and the three boxes) above full-width keys.
+
 **Answer modes**: Play (tap keys; whole octaves away is fine, never with the
 bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
 the note before it, as it's said — A then ♭ is A♭, ♭ again A𝄫, a third time A;

@@ -74,6 +74,14 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
   const { ready, error, voicings, status } = useTrainer();
   return (
     <div className="vt">
+      {/* A phone on its side outside a run (CSS decides; a run sets html.vt-running). */}
+      <div className="vt-rotate" role="status">
+        <span className="vt-rotate-icon" aria-hidden>
+          ↻
+        </span>
+        <b>Turn your phone upright</b>
+        <span>Sideways is for playing cards: start a review or a practice run.</span>
+      </div>
       <header className="vt-bar">
         <a href="/voiceshed" className="vt-brand" aria-label="Voiceshed home">
           Voice<em>shed</em>

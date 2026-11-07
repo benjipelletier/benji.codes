@@ -142,6 +142,30 @@ function MoveText({ v, reveal }: { v: Voicing; reveal: boolean }) {
   );
 }
 
+/**
+ * Sideways only while cards run (the owner: "allow me to play in landscape
+ * mode on my phone but only … when I'm reviewing cards"). The installed app is
+ * portrait (its manifest); a run unlocks it, and leaving the run locks it back.
+ * In a browser tab, where a page can't lock, `vt-running` lets the "turn it
+ * upright" cover (TrainerShell) stand aside during the run.
+ */
+function useRunOrientation() {
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('vt-running');
+    const o = typeof screen !== 'undefined' ? (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }) : null;
+    o?.lock?.('any').catch(() => undefined);
+    return () => {
+      root.classList.remove('vt-running');
+      try {
+        o?.unlock?.();
+      } catch {
+        // Not locked: nothing to undo.
+      }
+    };
+  }, []);
+}
+
 /** A voicing type as a card's header: a short name and what qualifies it. */
 function typeCue(v: Voicing): [string, string] {
   const iii = v.tags.includes('iii') ? 'as iii' : '';
@@ -265,6 +289,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const [shift, setShift] = useState(0);
   const results = useRef<RunnerResult[]>([]);
   const t0 = useRef(0);
+  useRunOrientation();
   /** The card already answered: one answer a card, however fast the taps. */
   const answered = useRef(-1);
   const kbWrap = useRef<HTMLDivElement>(null);
