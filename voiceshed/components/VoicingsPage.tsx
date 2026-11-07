@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
-import { ProgressMap } from './ProgressMap';
+import { ProgressMap, TWO_HAND } from './ProgressMap';
 import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
@@ -62,7 +62,10 @@ export function VoicingsPage() {
   const [chart, setChart] = useState<string | null>(null);
   // A map tile tapped: its voicings in a sheet.
   const [cell, setCell] = useState<{ ids: string[]; title: string } | null>(null);
-  const deckShown = useMemo(() => (view === 'map' && chart ? filtered.filter(v => v.family === chart) : filtered), [view, chart, filtered]);
+  const deckShown = useMemo(
+    () => (view === 'map' && chart ? filtered.filter(v => (chart === 'two-hand' ? TWO_HAND.includes(v.family) : v.family === chart)) : filtered),
+    [view, chart, filtered],
+  );
   const changeFilter = (f: FilterState) => {
     setFilter(f);
     setShown(PAGE);

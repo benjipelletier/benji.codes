@@ -30,8 +30,8 @@ so Play mode never accepts one lower.
 are the main chord types, and under two-hand we have drop-2s … and then block
 chords"): **Two-hand** = `drop-2 two-hand` + `closed (block)` (both tagged
 `two-handed`; shown "Two-hand · drop-2" / "Two-hand · block" via `familyLabel`);
-left-hand and right-hand rootless are later. The map's tabs group Drop-2 and
-Block under a Two-hand heading; Practice's switch is Two-hand (tag
+left-hand and right-hand rootless are later. The map shows Drop-2 and Block
+on one Two-hand chart (split tiles where a chord has both); Practice's switch is Two-hand (tag
 `two-handed`), so runs play block chords too (the owner: "we can do block in
 practice runs") — voice-leading picks drop-2 or block per chord (a iii, an
 m7♭5); Choose voicings keeps block chords in their own row and in Add all.
@@ -230,8 +230,9 @@ wide screen; a run hides both.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
   voicing type** (the owner: "separate charts for the different rootless
-  types"): tabs above it — drop-2 two-hand, closed (block), and the later
-  types as greyed placeholders —
+  types"; then "see drop-2 and block at the same time, not a toggle"): tabs
+  above it — **Two-hand** (drop-2 and block on one chart, `TWO_HAND`/`chartOf`),
+  and the later types as greyed placeholders —
   each with "known/in deck", the pick kept on the device; everything below
   (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
   **Phone first** (the owner: "I can't scroll the map easily on mobile … see
@@ -242,7 +243,9 @@ wide screen; a run hides both.
   chord row sticks under the top bar). Each key × chord is one square tile of
   three stripes (Play, Spell, Name), each summing that chord's voicings there
   (`sumCards`): not in deck (dashed), new (outlined), learning (amber), learned
-  (green, deeper the faster), a red dot for due. Tap a tile for a sheet of its
+  (green, deeper the faster), a red dot for due. Where a chord has both drop-2
+  and block (the iii, ø7) its tile splits down the middle: drop-2's stripes on
+  the left, block's on the right. Tap a tile for a sheet of its
   voicings (`CellSheet` in `VoicingsPage`: both names of a black key, pairs on
   their rails, + Deck). Above it a circle of fifths shaded by the share of each
   key's deck cards learned (tap a key to light its row), voicings known (all

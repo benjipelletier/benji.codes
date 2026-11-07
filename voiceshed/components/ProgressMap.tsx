@@ -53,8 +53,10 @@ function sumCards(cards: CardView[]): CardView {
   }
   return { state: 'new', due, strength: 0, avgMs: null };
 }
-/** The two-hand types, grouped under one heading on the tabs. */
-const TWO_HAND = ['drop-2 two-hand', 'closed (block)'];
+/** The two-hand types, on one chart (the owner: "see drop-2 and block at the same time, not a toggle"). */
+export const TWO_HAND = ['drop-2 two-hand', 'closed (block)'];
+/** Which chart a voicing is on: two-hand (drop-2 and block together), else its own type. */
+const chartOf = (v: Voicing) => (TWO_HAND.includes(v.family) ? 'two-hand' : v.family);
 const FAMILY_KEY = 'vt-map-family';
 
 export function ProgressMap({
@@ -74,8 +76,8 @@ export function ProgressMap({
   onOpen: (id: string) => void;
   /** A tile tapped: its voicings (both names of a black key), and a title for them. */
   onOpenCell: (ids: string[], title: string) => void;
-  /** Told which voicing type's chart is showing, so the page's deck bar acts on it. */
-  onChart?: (family: string | null) => void;
+  /** Told which chart is showing ('two-hand', or a type), so the page's deck bar acts on it. */
+  onChart?: (chart: string | null) => void;
 }) {
   const now = Date.now();
   /** A key tapped on the circle: its row, lit for a moment. */
@@ -83,9 +85,9 @@ export function ProgressMap({
 
   // One chart per voicing type, picked above the map and kept on the device.
   const families = useMemo(() => {
-    const famOrder = SHAPE_SETS.map(s => s.family);
+    const famOrder = ['two-hand', ...SHAPE_SETS.map(s => s.family)];
     const rank = (f: string) => (famOrder.includes(f) ? famOrder.indexOf(f) : famOrder.length);
-    return [...new Set(all.map(v => v.family))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    return [...new Set(all.map(chartOf))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }, [all]);
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
@@ -104,7 +106,7 @@ export function ProgressMap({
     }
   };
   const family = picked && families.includes(picked) ? picked : families[0];
-  const voicings = useMemo(() => all.filter(v => v.family === family), [all, family]);
+  const voicings = useMemo(() => all.filter(v => chartOf(v) === family), [all, family]);
   useEffect(() => {
     onChart?.(family ?? null);
   }, [family, onChart]);
@@ -112,12 +114,12 @@ export function ProgressMap({
   const famTotals = useMemo(() => {
     const out = new Map<string, { known: number; deck: number; all: number }>();
     for (const v of all) {
-      const t = out.get(v.family) ?? { known: 0, deck: 0, all: 0 };
+      const t = out.get(chartOf(v)) ?? { known: 0, deck: 0, all: 0 };
       t.all++;
       const sts = MODES.map(m => srs.get(srsKey(v.id, m)));
       if (sts.some(Boolean)) t.deck++;
       if (sts.every(st => st?.learned)) t.known++;
-      out.set(v.family, t);
+      out.set(chartOf(v), t);
     }
     return out;
   }, [all, srs]);
@@ -137,10 +139,11 @@ export function ProgressMap({
     const famOrder = SHAPE_SETS.map(s => s.family);
     // Chords as a ii–V–I runs, then the rest.
     const qOrder = ['m7', '7', '7b9', 'dim7', '7alt', 'maj7', '6', 'm7b5', ...QUALITIES.map(q => q.id)];
-    const seen = new Map<string, { family: string; quality: Voicing['quality']; iii: boolean }>();
-    for (const v of voicings) seen.set(`${v.family}|${v.quality}|${v.tags.includes('iii')}`, { family: v.family, quality: v.quality, iii: v.tags.includes('iii') });
-    const rank = (f: string) => (famOrder.includes(f) ? famOrder.indexOf(f) : famOrder.length);
-    return [...seen.values()].sort((a, b) => rank(a.family) - rank(b.family) || a.family.localeCompare(b.family) || qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || Number(a.iii) - Number(b.iii));
+    // One column per chord (drop-2 and block share it: a split tile).
+    void famOrder;
+    const seen = new Map<string, { quality: Voicing['quality']; iii: boolean }>();
+    for (const v of voicings) seen.set(`${v.quality}|${v.tags.includes('iii')}`, { quality: v.quality, iii: v.tags.includes('iii') });
+    return [...seen.values()].sort((a, b) => qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || Number(a.iii) - Number(b.iii));
   }, [voicings]);
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
@@ -200,14 +203,8 @@ export function ProgressMap({
       <div className="pm-tabs" role="tablist" aria-label="Voicing type">
         {/* Two-hand first, its types under it (the owner: "under two hand we have drop twos … and then
             block chords"); then any other type; then the hands-apart ones to come. */}
-        {families.some(f => TWO_HAND.includes(f)) && (
-          <div className="pm-tabgroup" role="presentation">
-            <span className="pm-tabgroup-h">Two-hand</span>
-            <div className="pm-tabgroup-row">{families.filter(f => TWO_HAND.includes(f)).map(f => tab(f, f === 'closed (block)' ? 'Block' : 'Drop-2'))}</div>
-          </div>
-        )}
-        {families.filter(f => !TWO_HAND.includes(f)).map(f => tab(f, f.replace('m7b5', 'm7♭5')))}
-        {LATER_FAMILIES.filter(f => !families.includes(f)).map(f => (
+        {families.map(f => tab(f, f === 'two-hand' ? 'Two-hand' : f.replace('m7b5', 'm7♭5')))}
+        {LATER_FAMILIES.filter(f => !all.some(v => v.family === f)).map(f => (
           <button type="button" key={f} role="tab" aria-selected={false} disabled className="pm-tab-later" title="Coming later">
             <b>{f[0].toUpperCase() + f.slice(1)}</b>
             <span>later</span>
@@ -282,6 +279,9 @@ export function ProgressMap({
               {rows.map(r => {
                 const here = voicings.filter(v => v.root === k && v.quality === r.quality && v.tags.includes('iii') === r.iii);
                 if (!here.length) return <span key={`${r.quality}|${r.iii}`} className="pm-bc pm-bc-none" role="gridcell" aria-label="none" />;
+                // Drop-2 and block in one tile, split down the middle where a chord has both.
+                const fams = [...new Set(here.map(v => v.family))].sort((a, b) => TWO_HAND.indexOf(a) - TWO_HAND.indexOf(b));
+                const parts = fams.map(f => MODES.map(m => sumCards(here.filter(v => v.family === f).map(v => view.get(srsKey(v.id, m))!))));
                 const bands = MODES.map(m => sumCards(here.map(v => view.get(srsKey(v.id, m))!)));
                 const inDeck = bands.some(b => b.state !== 'out');
                 const name = `${rootNames(k).map(n => pretty(n)).join('/')}${QUALITY[r.quality].display}${r.iii ? ' as iii' : ''}`;
@@ -290,14 +290,18 @@ export function ProgressMap({
                   <button
                     type="button"
                     key={`${r.quality}|${r.iii}`}
-                    className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''}`}
+                    className={`pm-bc ${inDeck ? '' : 'pm-out'} ${lit === k ? 'lit' : ''} ${parts.length > 1 ? 'split' : ''}`}
                     role="gridcell"
                     aria-label={label}
                     title={label}
                     onClick={() => onOpenCell(here.map(v => v.id), name)}
                   >
-                    {bands.map((c, i) => (
-                      <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
+                    {parts.map((part, pi) => (
+                      <span key={fams[pi]} className={`pm-part ${fams[pi] === 'closed (block)' && parts.length > 1 ? 'pm-part-block' : ''}`}>
+                        {part.map((c, i) => (
+                          <span key={i} className={`pm-band pm-${c.state}`} style={c.state === 'learning' || c.state === 'learned' ? ({ '--s': c.strength } as React.CSSProperties) : undefined} />
+                        ))}
+                      </span>
                     ))}
                     {bands.some(b => b.due) && <i className="pm-due" />}
                   </button>
@@ -331,6 +335,13 @@ function Legend() {
         <i className="pm-due pm-due-key" /> due
       </span>
       <span className="pm-legend-modes">stripes: Play · Spell · Name</span>
+      <span className="pm-legend-split">
+        <i>
+          <b />
+          <b />
+        </i>{' '}
+        split: drop-2 | block
+      </span>
     </div>
   );
 }
