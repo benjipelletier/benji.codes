@@ -112,6 +112,7 @@ export interface Tune {
 export interface Settings {
   /** Default target per mode, ms. */
   target_ms: Record<Mode, number>;
+  /** No longer used: new cards are only what the owner adds on the Voicings page. */
   new_per_day: number;
   review_modes: Mode[];
   /** Spell mode: Ab and G# are different answers. */

@@ -12,7 +12,7 @@ import { fmtPct, fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
-import { newState, targetFor } from '@voiceshed/lib/srs';
+import { targetFor } from '@voiceshed/lib/srs';
 import { chordLabel, CYCLE_OF_FOURTHS, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
 
@@ -31,6 +31,7 @@ export function VoicingsPage() {
     () => ({
       gap: v => MODES.some(m => gapKeys.has(srsKey(v.id, m))),
       learned: v => MODES.every(m => !!srs.get(srsKey(v.id, m))?.learned),
+      inDeck: v => MODES.some(m => srs.has(srsKey(v.id, m))),
     }),
     [gapKeys, srs],
   );
@@ -60,6 +61,7 @@ export function VoicingsPage() {
   return (
     <div className="vt-page">
       <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} />
+      {canEdit && <DeckBar shown={filtered} />}
       {canEdit && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing
@@ -74,7 +76,15 @@ export function VoicingsPage() {
             </h3>
             <div className="lb-cards">
               {vs.map(v => (
-                <VoicingCard key={v.id} v={v} learned={MODES.map(m => !!srs.get(srsKey(v.id, m))?.learned)} gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))} onOpen={() => setOpen(v.id)} />
+                <VoicingCard
+                  key={v.id}
+                  v={v}
+                  inDeck={tests.inDeck(v)}
+                  canEdit={canEdit}
+                  learned={MODES.map(m => !!srs.get(srsKey(v.id, m))?.learned)}
+                  gap={MODES.some(m => gapKeys.has(srsKey(v.id, m)))}
+                  onOpen={() => setOpen(v.id)}
+                />
               ))}
             </div>
           </section>
@@ -100,29 +110,106 @@ export function VoicingsPage() {
   );
 }
 
-function VoicingCard({ v, learned, gap, onOpen }: { v: Voicing; learned: boolean[]; gap: boolean; onOpen: () => void }) {
+/**
+ * The deck, for what the filter shows: how much of it is in, add the rest in
+ * one go (each voicing's Play, Spell and Name cards), or take it all out.
+ */
+function DeckBar({ shown }: { shown: Voicing[] }) {
+  const t = useTrainer();
+  const inDeck = shown.filter(v => MODES.some(m => t.srs.has(srsKey(v.id, m))));
+  const out = shown.filter(v => !inDeck.includes(v));
+  const [said, setSaid] = useState<string | null>(null);
+  if (!shown.length) return null;
+  return (
+    <section className="db" aria-label="Your deck">
+      <span className="db-what">
+        <b>{inDeck.length}</b> of {shown.length} shown in your deck
+      </span>
+      <div className="db-actions">
+        {out.length > 0 && (
+          <button
+            type="button"
+            className="vt-primary db-add"
+            onClick={async () => {
+              const n = await t.addToDeck(out.map(v => v.id));
+              setSaid(`Added ${out.length} voicing${out.length === 1 ? '' : 's'} — ${n} cards, new in your next review.`);
+            }}
+          >
+            Add {out.length === shown.length ? 'all ' : ''}
+            {out.length} to deck
+          </button>
+        )}
+        {inDeck.length > 0 && (
+          <button
+            type="button"
+            className="vt-secondary"
+            onClick={async () => {
+              if (!confirm(`Take ${inDeck.length} voicing${inDeck.length === 1 ? '' : 's'} out of your deck? Their schedules go; your answers stay.`)) return;
+              const n = await t.removeFromDeck(inDeck.map(v => v.id));
+              setSaid(`Took ${n} out of your deck.`);
+            }}
+          >
+            Remove {inDeck.length === shown.length ? 'all' : inDeck.length}
+          </button>
+        )}
+      </div>
+      {said && <span className="vt-hint db-said">{said}</span>}
+    </section>
+  );
+}
+
+function VoicingCard({
+  v,
+  learned,
+  gap,
+  inDeck,
+  canEdit,
+  onOpen,
+}: {
+  v: Voicing;
+  learned: boolean[];
+  gap: boolean;
+  inDeck: boolean;
+  canEdit: boolean;
+  onOpen: () => void;
+}) {
+  const t = useTrainer();
   const m = midisOf(v);
   const mv = v.top_move ? noteMidi(v.top_move) : null;
   const [lo, hi] = rangeAround(mv != null ? [...m, mv] : m, 10);
   const muddy = v.tags.includes('muddy');
   return (
-    <button type="button" className={`lb-card ${muddy ? 'lb-muddy' : ''}`} onClick={onOpen}>
-      <Keyboard compact low={lo} high={hi} marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }} />
-      <span className="lb-notes">
-        {v.notes.map(n => pretty(pitchName(n))).join(' ')}
-        {v.top_move ? ` → ${pretty(pitchName(v.top_move))}` : ''}
-      </span>
-      <span className="lb-meta">
-        <span className="lb-fam">{v.family}</span>
-        {muddy && <span className="lb-flag">muddy</span>}
-        {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
-        <span className="lb-learned" title={MODES.map((md, i) => `${MODE_LABEL[md]}: ${learned[i] ? 'learned' : 'not yet'}`).join(' · ')}>
-          {learned.map((l, i) => (
-            <i key={i} className={l ? 'on' : ''} />
-          ))}
+    <div className={`lb-card ${muddy ? 'lb-muddy' : ''} ${inDeck ? 'lb-in' : ''}`}>
+      <button type="button" className="lb-open" onClick={onOpen}>
+        <Keyboard compact low={lo} high={hi} marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }} />
+        <span className="lb-notes">
+          {v.notes.map(n => pretty(pitchName(n))).join(' ')}
+          {v.top_move ? ` → ${pretty(pitchName(v.top_move))}` : ''}
         </span>
-      </span>
-    </button>
+        <span className="lb-meta">
+          <span className="lb-fam">{v.family}</span>
+          {muddy && <span className="lb-flag">muddy</span>}
+          {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
+          {inDeck && (
+            <span className="lb-learned" title={MODES.map((md, i) => `${MODE_LABEL[md]}: ${learned[i] ? 'learned' : 'not yet'}`).join(' · ')}>
+              {learned.map((l, i) => (
+                <i key={i} className={l ? 'on' : ''} />
+              ))}
+            </span>
+          )}
+        </span>
+      </button>
+      {canEdit && (
+        <button
+          type="button"
+          className={`lb-deck ${inDeck ? 'on' : ''}`}
+          aria-pressed={inDeck}
+          onClick={() => void (inDeck ? t.removeFromDeck([v.id]) : t.addToDeck([v.id]))}
+        >
+          {inDeck ? '✓ In deck' : '+ Deck'}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -130,6 +217,7 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
   const t = useTrainer();
   const { canEdit, srs, settings } = t;
   const { stats, gapKeys } = useCardStats();
+  const deckIn = MODES.some(m => srs.has(srsKey(v.id, m)));
   const [tagDraft, setTagDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState(v.notes_text ?? '');
   const m = midisOf(v);
@@ -223,6 +311,26 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
           <textarea className="vt-input" rows={2} disabled={!canEdit} value={notesDraft} onChange={e => setNotesDraft(e.target.value)} onBlur={() => notesDraft !== (v.notes_text ?? '') && save({ notes_text: notesDraft || null })} />
         </label>
 
+        <div className="dt-deck">
+          {deckIn ? (
+            <span>
+              <b>In your deck</b> — Play, Spell and Name cards.
+            </span>
+          ) : (
+            <span>Not in your deck: it won’t come up in Review.</span>
+          )}
+          {canEdit &&
+            (deckIn ? (
+              <button type="button" className="vt-secondary" onClick={() => confirm('Take this voicing out of your deck? Its schedules go; your answers stay.') && void t.removeFromDeck([v.id])}>
+                Remove from deck
+              </button>
+            ) : (
+              <button type="button" className="vt-primary dt-add" onClick={() => void t.addToDeck([v.id])}>
+                Add to deck
+              </button>
+            ))}
+        </div>
+
         <table className="vt-table dt-stats">
           <thead>
             <tr>
@@ -260,18 +368,18 @@ function VoicingDetail({ v, onClose }: { v: Voicing; onClose: () => void }) {
                       min={0.5}
                       max={20}
                       step={0.1}
-                      disabled={!canEdit}
+                      disabled={!canEdit || !st}
+                      title={st ? undefined : 'Add it to your deck to set its target'}
                       value={target / 1000}
                       onChange={e => {
                         const ms = Math.round(Number(e.target.value) * 1000);
-                        if (ms < 500) return;
-                        const base = st ?? newState(v.id, md, new Date());
-                        void t.saveSrs([{ ...base, target_ms: ms === settings.target_ms[md] ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
+                        if (ms < 500 || !st) return;
+                        void t.saveSrs([{ ...st, target_ms: ms === settings.target_ms[md] ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
                       }}
                     />
                     s
                   </td>
-                  <td>{st ? relTime(st.due_at) : 'new'}</td>
+                  <td>{!st ? '—' : st.reps === 0 ? 'new' : relTime(st.due_at)}</td>
                 </tr>
               );
             })}

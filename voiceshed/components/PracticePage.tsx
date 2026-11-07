@@ -12,7 +12,7 @@ import { Summary } from './ReviewPage';
 import { fmtPct, fmtSecs, relTime } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, filterTags, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
-import { dueNow, newState, targetFor } from '@voiceshed/lib/srs';
+import { dueNow, targetFor } from '@voiceshed/lib/srs';
 import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
 
@@ -130,13 +130,15 @@ export function PracticePage() {
         slow: right.filter(r => r.slow).length,
       };
       void t.saveRun(saved);
-      // Right but slow, and missed: into the next review.
+      // Right but slow, and missed: into the next review — cards in the deck
+      // only. One that isn't is offered in the results, never added on its own.
       const now = new Date();
       const rows = new Map<string, SrsState>();
       for (const r of rs) {
         if (r.correct && !r.slow) continue;
         const key = srsKey(r.step.voicing.id, r.step.mode);
-        const prev = rows.get(key) ?? t.srs.get(key) ?? newState(r.step.voicing.id, r.step.mode, now);
+        const prev = rows.get(key) ?? t.srs.get(key);
+        if (!prev) continue;
         rows.set(key, { ...dueNow(prev, now), dirty: true });
       }
       void t.saveSrs([...rows.values()]).then(() => t.sync());
@@ -329,6 +331,9 @@ function TunePicker({ tunes, value, onPick }: { tunes: Tune[]; value: Tune | nul
 }
 
 function RunResults({ results, label, prev }: { results: RunnerResult[]; label: string; prev?: Run }) {
+  const t = useTrainer();
+  const [added, setAdded] = useState(false);
+  const inDeck = (r: RunnerResult) => MODES.some(m => t.srs.has(srsKey(r.step.voicing.id, m)));
   const right = results.filter(r => r.correct);
   const avg = right.length ? Math.round(right.reduce((s, r) => s + r.ms, 0) / right.length) : null;
   const slow = results.filter(r => r.correct && r.slow);
@@ -342,24 +347,37 @@ function RunResults({ results, label, prev }: { results: RunnerResult[]; label: 
           {delta <= 0 ? '▼' : '▲'} {fmtSecs(Math.abs(delta))} {delta <= 0 ? 'faster' : 'slower'} than last run ({relTime(prev!.finished_at)}, {fmtSecs(prev!.avg_ms)} avg)
         </p>
       )}
-      {(slow.length > 0 || missed.length > 0) && (
-        <>
-          <h3 className="sm-h">Added to your next review</h3>
-          <div className="pr-slow">
-            {slow.map((r, i) => (
-              <span key={`s${i}`} className="pr-card slow" title="right but slow">
-                {prettyLabel(r.step.voicing.chord_label)} <em>{fmtSecs(r.ms)}</em>
-              </span>
-            ))}
-            {missed.map((r, i) => (
-              <span key={`m${i}`} className="pr-card fail" title="missed">
-                {prettyLabel(r.step.voicing.chord_label)} <em>✗</em>
-              </span>
-            ))}
+      {[
+        { title: 'Into your next review', list: [...slow, ...missed].filter(r => inDeck(r)), out: false },
+        { title: 'Not in your deck', list: [...slow, ...missed].filter(r => !inDeck(r)), out: true },
+      ].map(g =>
+        g.list.length ? (
+          <div key={g.title} className="pr-group">
+            <h3 className="sm-h">{g.title}</h3>
+            <div className="pr-slow">
+              {g.list.map((r, i) => (
+                <span key={i} className={`pr-card ${r.correct ? 'slow' : 'fail'}`} title={r.correct ? 'right but slow' : 'missed'}>
+                  {prettyLabel(r.step.voicing.chord_label)} <em>{r.correct ? fmtSecs(r.ms) : '✗'}</em>
+                </span>
+              ))}
+            </div>
+            {g.out && t.canEdit && (
+              <button
+                type="button"
+                className="vt-secondary pr-add"
+                disabled={added}
+                onClick={async () => {
+                  await t.addToDeck([...new Set(g.list.map(r => r.step.voicing.id))]);
+                  setAdded(true);
+                }}
+              >
+                {added ? 'Added to your deck' : `Add ${new Set(g.list.map(r => r.step.voicing.id)).size} to deck`}
+              </button>
+            )}
           </div>
-          <p className="vt-hint">Right but slow in amber, missed in red.</p>
-        </>
+        ) : null,
       )}
+      {(slow.length > 0 || missed.length > 0) && <p className="vt-hint">Right but slow in amber, missed in red.</p>}
     </div>
   );
 }

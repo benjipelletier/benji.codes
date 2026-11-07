@@ -72,8 +72,12 @@ Links between them are plain `<a>`, so the service worker can serve each one
 with no connection. Tabs sit along the bottom on a phone, in the top bar on a
 wide screen; a run hides both.
 
-- `/voiceshed` — SRS Review: cards due, then new cards (15 a day; each
-  voicing starts on a different mode, one new mode per voicing a day). A miss
+- `/voiceshed` — SRS Review, from **the deck**: only the voicings the owner
+  added on the Voicings page (the owner: "only what I add"; nothing joins on its
+  own). Adding a voicing brings its Play, Spell and Name cards (an `srs_state`
+  row each, `reps` 0 = new, due now); new ones come in the order added, a
+  voicing's three modes spread through the session. An empty deck sends you to
+  the Voicings page. A miss
   comes round again 4 cards later, once. Summary: accuracy, average time,
   slowest cards. The ✈ Offline panel and sign in/out.
   **This session** (`components/ReviewSetup.tsx`) tailors the run, kept on the
@@ -88,7 +92,8 @@ wide screen; a run hides both.
   also choose which voicings a progression uses. Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
-  Right-but-slow and missed cards become due now.
+  Right-but-slow and missed cards become due now — if they're in the deck; any
+  that aren't are listed with "Add N to deck", never added on their own.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), m7 (`-7`, `-9`), 7 (`7`, `9`, `13`; the voicings carry the 9 and 13),
@@ -110,7 +115,12 @@ wide screen; a run hides both.
   (`?key=F,Bb&chord=m7&type=drop-2+two-hand&only=new&q=`). Results grouped by
   chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
   register, notes, per-card target, per-mode stats (accuracy, average,
-  isolated vs in-context). Add and delete voicings. Shape tags (`3-7-9-5`,
+  isolated vs in-context; target editable once it's in the deck). Add and
+  delete voicings. **The deck from here**: a "+ Deck / ✓ In deck" button on
+  each voicing, "Add N to deck" / "Remove" for everything the filter shows, the
+  sheet's Add / Remove, and "in my deck" / "not in my deck" in the Only row.
+  Removing takes the cards' schedules out (`srsDeletes` in sync; the outbox
+  holds them offline); answers stay, for the stats. Shape tags (`3-7-9-5`,
   `1-5-7-11`…) stay on the voicings but aren't offered as filters, here or in
   Practice.
 

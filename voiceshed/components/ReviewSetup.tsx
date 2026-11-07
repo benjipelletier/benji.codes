@@ -21,7 +21,7 @@ export interface ReviewConfig {
   keys: number[];
   /** Black-key chords under which name. */
   spelling: Spelling;
-  /** Cards due now (and context-gap ones), new cards, cards not due yet (soonest first). */
+  /** Cards due now (and context-gap ones), new cards (added to the deck, never answered), cards not due yet (soonest first). */
   include: { due: boolean; fresh: boolean; ahead: boolean };
   /** Most cards in the session; 0 = no limit. */
   length: number;
@@ -242,7 +242,7 @@ export function ReviewSetup({
           {(
             [
               ['due', 'Due now', 'what the schedule says, and context-gap cards'],
-              ['fresh', 'New', 'up to the day’s new-card limit'],
+              ['fresh', 'New', 'in your deck, not answered yet'],
               ['ahead', 'Not due yet', 'soonest first: extra rounds before a flight'],
             ] as [keyof ReviewConfig['include'], string, string][]
           ).map(([k, label, hint]) => (

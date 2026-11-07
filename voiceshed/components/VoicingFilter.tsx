@@ -16,7 +16,7 @@ import { midisOf } from '@voiceshed/lib/practice';
 import { CYCLE_OF_FOURTHS, keyLabel, namePc, PC_FLAT, pretty, QUALITIES, QUALITY, rootNames, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import type { Voicing } from '@voiceshed/lib/types';
 
-export type Flag = 'muddy' | 'gap' | 'new';
+export type Flag = 'deck' | 'out' | 'new' | 'muddy' | 'gap';
 
 export interface FilterState {
   keys: number[];
@@ -28,7 +28,7 @@ export interface FilterState {
 
 export const EMPTY_FILTER: FilterState = { keys: [], qualities: [], families: [], flags: [], q: '' };
 
-const FLAG_LABEL: Record<Flag, string> = { muddy: 'muddy', gap: 'context gap', new: 'not learned yet' };
+const FLAG_LABEL: Record<Flag, string> = { deck: 'in my deck', out: 'not in my deck', new: 'not learned yet', muddy: 'muddy', gap: 'context gap' };
 
 type Facet = 'keys' | 'qualities' | 'families' | 'flags' | 'q';
 
@@ -37,6 +37,8 @@ export interface FilterTests {
   gap: (v: Voicing) => boolean;
   /** Learned in every mode. */
   learned: (v: Voicing) => boolean;
+  /** In the deck (any of its cards). */
+  inDeck: (v: Voicing) => boolean;
 }
 
 function matches(v: Voicing, f: FilterState, t: FilterTests, skip?: Facet): boolean {
@@ -48,6 +50,8 @@ function matches(v: Voicing, f: FilterState, t: FilterTests, skip?: Facet): bool
       if (fl === 'muddy' && !v.tags.includes('muddy')) return false;
       if (fl === 'gap' && !t.gap(v)) return false;
       if (fl === 'new' && t.learned(v)) return false;
+      if (fl === 'deck' && !t.inDeck(v)) return false;
+      if (fl === 'out' && t.inDeck(v)) return false;
     }
   }
   if (skip !== 'q' && f.q.trim()) {
@@ -145,6 +149,7 @@ export function VoicingFilter({
         if (v.tags.includes('muddy')) flagN.set('muddy', (flagN.get('muddy') ?? 0) + 1);
         if (tests.gap(v)) flagN.set('gap', (flagN.get('gap') ?? 0) + 1);
         if (!tests.learned(v)) flagN.set('new', (flagN.get('new') ?? 0) + 1);
+        flagN.set(tests.inDeck(v) ? 'deck' : 'out', (flagN.get(tests.inDeck(v) ? 'deck' : 'out') ?? 0) + 1);
       }
     }
     return { keyN, qualN, famN, flagN };

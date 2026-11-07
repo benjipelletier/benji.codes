@@ -17,10 +17,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteMany, getAll, getMeta, putMany, replaceAll, setMeta } from '@voiceshed/lib/idb';
 import type { Attempt, Context, Run, Settings, SrsState, Tune, Voicing } from '@voiceshed/lib/types';
-import { DEFAULT_SETTINGS, srsKey } from '@voiceshed/lib/types';
+import { DEFAULT_SETTINGS, MODES, srsKey, type Mode } from '@voiceshed/lib/types';
+import { newState } from '@voiceshed/lib/srs';
 
 type StoredSrs = SrsState & { key: string };
-type OutboxEntry = { seq?: number; kind: 'upsert'; voicing: Voicing } | { seq?: number; kind: 'delete'; id: string };
+type OutboxEntry =
+  | { seq?: number; kind: 'upsert'; voicing: Voicing }
+  | { seq?: number; kind: 'delete'; id: string }
+  /** A card taken out of the deck: its schedule goes, its answers stay. */
+  | { seq?: number; kind: 'unschedule'; voicing_id: string; mode: Mode };
 
 export interface Viewer {
   isOwner: boolean;
@@ -62,6 +67,10 @@ interface TrainerApi extends TrainerState {
   saveVoicing: (v: Voicing) => Promise<void>;
   deleteVoicing: (id: string) => Promise<void>;
   saveSettings: (s: Settings) => Promise<void>;
+  /** Voicings into the deck (all three modes); returns the cards added. */
+  addToDeck: (voicingIds: string[]) => Promise<number>;
+  /** Voicings out of the deck; returns how many came out. */
+  removeFromDeck: (voicingIds: string[]) => Promise<number>;
   sync: (opts?: { tunes?: boolean }) => Promise<void>;
   loadTunes: () => Promise<Tune[]>;
 }
@@ -213,15 +222,18 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     // The latest edit of each voicing; a delete after an edit wins.
     const upserts = new Map<string, Voicing>();
     const deletes = new Set<string>();
+    const unschedule = new Map<string, { voicing_id: string; mode: Mode }>();
     for (const e of outbox) {
       if (e.kind === 'upsert') {
         upserts.set(e.voicing.id, e.voicing);
         deletes.delete(e.voicing.id);
-      } else {
+      } else if (e.kind === 'delete') {
         upserts.delete(e.id);
         deletes.add(e.id);
-      }
+      } else unschedule.set(srsKey(e.voicing_id, e.mode), { voicing_id: e.voicing_id, mode: e.mode });
     }
+    // Taken out and put back since: the schedule now on the device is what's sent.
+    for (const r of srs) unschedule.delete(srsKey(r.voicing_id, r.mode));
     const wire = <T extends object>(r: T) => {
       const { synced: _s, local_only: _l, dirty: _d, ...rest } = r as T & { synced?: boolean; local_only?: boolean; dirty?: boolean };
       return rest;
@@ -234,6 +246,7 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           voicingUpserts: first ? [...upserts.values()] : [],
           voicingDeletes: first ? [...deletes] : [],
+          srsDeletes: first ? [...unschedule.values()] : [],
           attempts: attempts.slice(i, i + PUSH_CHUNK).map(wire),
           srs: first ? srs.map(wire) : [],
           runs: first ? runs.map(wire) : [],
@@ -281,9 +294,11 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     const outbox = await getAll<OutboxEntry>('outbox');
     const pendingUp = new Map<string, Voicing>();
     const pendingDel = new Set<string>();
+    const pendingUnsched = new Set<string>();
     for (const e of outbox) {
       if (e.kind === 'upsert') pendingUp.set(e.voicing.id, e.voicing);
-      else pendingDel.add(e.id);
+      else if (e.kind === 'delete') pendingDel.add(e.id);
+      else pendingUnsched.add(srsKey(e.voicing_id, e.mode));
     }
     const toIso = (x: unknown) => (typeof x === 'string' ? new Date(x).toISOString() : x instanceof Date ? x.toISOString() : String(x));
 
@@ -296,7 +311,8 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     const srs = new Map<string, SrsState>();
     for (const r of b.srs) {
       const s: SrsState = { ...r, ease: Number(r.ease), interval_days: Number(r.interval_days), due_at: toIso(r.due_at), created_at: toIso(r.created_at), updated_at: toIso(r.updated_at), dirty: false };
-      srs.set(srsKey(s.voicing_id, s.mode), s);
+      // Taken out of the deck here and not yet sent: stays out.
+      if (!pendingUnsched.has(srsKey(s.voicing_id, s.mode))) srs.set(srsKey(s.voicing_id, s.mode), s);
     }
     for (const [k, r] of cur.srs) if (r.dirty) srs.set(k, r);
 
@@ -472,6 +488,42 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     [patch],
   );
 
+  /** Into the deck: each voicing's Play, Spell and Name cards, new and due now (any already there stay as they are). */
+  const addToDeck = useCallback(
+    async (voicingIds: string[]) => {
+      const now = new Date();
+      const rows: SrsState[] = [];
+      for (const id of voicingIds) for (const m of MODES) if (!ref.current.srs.has(srsKey(id, m))) rows.push({ ...newState(id, m, now), dirty: true });
+      if (rows.length) await saveSrs(rows);
+      return rows.length;
+    },
+    [saveSrs],
+  );
+
+  /** Out of the deck: the voicings' cards leave the schedule; their answers stay, for the stats. */
+  const removeFromDeck = useCallback(
+    async (voicingIds: string[]) => {
+      const keys = voicingIds.flatMap(id => MODES.map(m => srsKey(id, m))).filter(k => ref.current.srs.has(k));
+      if (!keys.length) return 0;
+      outboxCount.current += keys.length;
+      patch(s => {
+        const srs = new Map(s.srs);
+        for (const k of keys) srs.delete(k);
+        return { srs };
+      });
+      await deleteMany('srs', keys);
+      await putMany<OutboxEntry>(
+        'outbox',
+        keys.map(k => {
+          const [voicing_id, mode] = k.split('|') as [string, Mode];
+          return { kind: 'unschedule', voicing_id, mode };
+        }),
+      );
+      return keys.length / MODES.length;
+    },
+    [patch],
+  );
+
   const saveSettings = useCallback(
     async (settings: Settings) => {
       await setMeta('settings', settings);
@@ -495,10 +547,12 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
       saveVoicing,
       deleteVoicing,
       saveSettings,
+      addToDeck,
+      removeFromDeck,
       sync,
       loadTunes,
     }),
-    [state, recordAttempts, saveSrs, saveRun, saveVoicing, deleteVoicing, saveSettings, sync, loadTunes],
+    [state, recordAttempts, saveSrs, saveRun, saveVoicing, deleteVoicing, saveSettings, addToDeck, removeFromDeck, sync, loadTunes],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;

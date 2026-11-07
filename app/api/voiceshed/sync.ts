@@ -51,6 +51,11 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
     }));
   const deletes = (Array.isArray(body.voicingDeletes) ? body.voicingDeletes : []).filter(isId).slice(0, MAX_ROWS);
 
+  // Cards taken out of the deck: their schedules go (answers stay).
+  const srsDeletes = list(body.srsDeletes)
+    .filter(d => isId(d.voicing_id) && MODES.has(d.mode as string))
+    .map(d => ({ voicing_id: d.voicing_id, mode: d.mode }));
+
   const attempts = list(body.attempts)
     .filter(a => isId(a.id) && isId(a.voicing_id) && MODES.has(a.mode as string) && CONTEXT_TYPES.has(a.context_type as string) && typeof a.correct === 'boolean' && num(a.response_ms, 0, 3_600_000) && isTime(a.created_at))
     .map(a => ({
@@ -123,6 +128,14 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
   if (deletes.length) {
     await sql.query(`DELETE FROM voicings WHERE id = ANY($1::uuid[])`, [deletes]);
   }
+  // Before the schedules below: a card taken out then put back arrives as a schedule and wins.
+  if (srsDeletes.length) {
+    await sql.query(
+      `DELETE FROM srs_state s USING jsonb_to_recordset($1::jsonb) AS t(voicing_id uuid, mode text)
+       WHERE s.user_id = $2 AND s.voicing_id = t.voicing_id AND s.mode = t.mode`,
+      [JSON.stringify(srsDeletes), userId],
+    );
+  }
   if (attempts.length) {
     await sql.query(
       `INSERT INTO attempts (id, user_id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at)
@@ -160,5 +173,5 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
     );
   }
 
-  return { voicings: upserts.length, deleted: deletes.length, attempts: attempts.length, srs: srs.length, runs: runs.length };
+  return { voicings: upserts.length, deleted: deletes.length, unscheduled: srsDeletes.length, attempts: attempts.length, srs: srs.length, runs: runs.length };
 }

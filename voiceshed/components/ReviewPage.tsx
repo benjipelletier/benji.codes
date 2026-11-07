@@ -128,6 +128,23 @@ export function ReviewPage() {
 
   const total = deal.length;
   const filtered = describe(config);
+  if (!srs.size) {
+    return (
+      <div className="vt-page">
+        <section className="rv-hero rv-empty">
+          <h2 className="sm-title">Your deck is empty</h2>
+          <p className="rv-note">
+            Review deals only the voicings you put in your deck. Pick some on the Voicings page — a key, a chord, a voicing type — and add them; each brings its
+            Play, Spell and Name cards.
+          </p>
+          <a className="vt-primary rv-go" href="/voiceshed/voicings">
+            Choose voicings
+          </a>
+        </section>
+        <OfflinePanel />
+      </div>
+    );
+  }
   return (
     <div className="vt-page">
       <section className="rv-hero">
@@ -137,7 +154,7 @@ export function ReviewPage() {
         </div>
         <div className="rv-big">
           <span className="rv-num rv-num-2">{queue.fresh.length}</span>
-          <span className="rv-lbl">new today</span>
+          <span className="rv-lbl">new</span>
         </div>
         {queue.gap.length > 0 && (
           <div className="rv-big" title="Fast in a progression, slow on its own: shown more often here">
@@ -207,10 +224,6 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
         </div>
         <span className="vt-hint">Each card can have its own, set on the Voicings page.</span>
       </div>
-      <label className="vt-field">
-        <span className="vt-field-lbl">New cards a day</span>
-        <input type="number" min={0} max={200} value={settings.new_per_day} onChange={e => onSave({ ...settings, new_per_day: Math.max(0, Math.min(200, Number(e.target.value) || 0)) })} />
-      </label>
       <KeyboardSizeField settings={settings} onSave={onSave} />
       <label className="vt-check">
         <input type="checkbox" checked={settings.strict_spelling} onChange={e => onSave({ ...settings, strict_spelling: e.target.checked })} />

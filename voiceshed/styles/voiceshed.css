@@ -627,3 +627,22 @@
 .cr-moving { color: var(--accent-ink); font-weight: 600; }
 .np-slot-wrap { display: inline-flex; align-items: center; gap: 8px; }
 .np-arrow { font-size: 22px; color: var(--accent-ink); }
+
+/* The deck: on the Voicings page, and in practice results */
+.db { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); }
+.db-what { font-size: 14px; color: var(--ink-2); }
+.db-what b { font-family: var(--mono); color: var(--ink); }
+.db-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.db-add { width: auto; min-height: 44px; font-size: 15px; }
+.db-said { flex-basis: 100%; }
+.lb-card { position: relative; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.lb-open { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 6px; text-align: left; width: 100%; }
+.lb-deck { margin: 0 8px 8px; min-height: 34px; border-radius: 9px; border: 1px dashed var(--ink-4); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.lb-deck.on { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--ink); }
+.lb-in { border-color: var(--accent) !important; }
+.dt-deck { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--rule); font-size: 14px; }
+.dt-add { width: auto; min-height: 42px; font-size: 15px; }
+.pr-group { display: flex; flex-direction: column; gap: 8px; }
+.pr-add { align-self: flex-start; }
+.rv-empty { flex-direction: column; align-items: stretch; }
+.rv-go { display: flex; align-items: center; justify-content: center; text-decoration: none; }
