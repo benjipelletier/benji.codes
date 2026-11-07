@@ -34,7 +34,7 @@ import {
 } from '@voiceshed/lib/drill';
 import { midisOf } from '@voiceshed/lib/practice';
 import { FAMILY_SPAN, guessPxPerInch, OCTAVE_MM, WHITE_KEY_MM, whiteKeyPx } from '@voiceshed/lib/scale';
-import { pretty, prettyLabel } from '@voiceshed/lib/theory';
+import { chordDisplay, parseChordLabel, pretty, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
 
 type DrillStep = RunnerStep & { repeat?: boolean; probe?: string | null };
@@ -213,37 +213,41 @@ export function ReviewPage() {
           <span className="rv-lbl">new</span>
         </div>
         {total > 0 && (
-          <ul className="rv-set" aria-label="Today’s set">
-            {chips(set).map(g => (
-              <li key={g.group} className={`rv-card rv-${g.why}`}>
-                <b>{prettyLabel(g.label)}</b>
+          <>
+            <ul className="rv-set" aria-label="Today’s set">
+              {chips(set).map(g => (
+                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} />
+              ))}
+              {chips(incoming).map((g, i) => (
+                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} />
+              ))}
+            </ul>
+            <p className="rv-legend">
+              <span>
+                <i className="rv-k rv-k-stack" /> a stack is a chord’s inversions, learned together
+              </span>
+              <span>
+                <i className="rv-k rv-k-shaky" /> shaky
+              </span>
+              <span>
+                <i className="rv-k rv-k-check" /> check
+              </span>
+              <span>
+                <i className="rv-k rv-k-new" /> new
+              </span>
+              {chips(incoming).length > NEW_AT_ONCE && (
                 <span>
-                  {MODE_LABEL[g.mode]} · {WHY_LABEL[g.why]}
-                  {g.n > 1 ? ` · ${g.n} inv.` : ''}
+                  <i className="rv-k rv-k-later" /> joins when a new one is fast
                 </span>
-              </li>
-            ))}
-            {chips(incoming).map((g, i) => (
-              <li key={g.group} className={`rv-card rv-new ${i >= NEW_AT_ONCE ? 'rv-later' : ''}`}>
-                <b>{prettyLabel(g.label)}</b>
-                <span>
-                  {MODE_LABEL[g.mode]} · {i < NEW_AT_ONCE ? 'new' : 'later'}
-                  {g.n > 1 ? ` · ${g.n} inv.` : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {chips(incoming).length > NEW_AT_ONCE && (
-          <p className="rv-note rv-rolling">
-            New chords come in {NEW_AT_ONCE} at a time, inversions together: the next joins when one has every inversion fast {FLUENT_STREAK} times in a row.
-          </p>
+              )}
+            </p>
+          </>
         )}
         <button type="button" className="vt-primary" onClick={start} disabled={!total}>
           {total ? `Start today’s set · ${total} card${total === 1 ? '' : 's'}` : 'Nothing to review'}
         </button>
         <p className="rv-note">
-          A chord’s inversions stay until each is right <em>and</em> fast {FLUENT_STREAK} times in a row, then each is played in a ii–V–I. {solid} of {srs.size} cards solid.
+          Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.
         </p>
       </section>
 
@@ -259,9 +263,33 @@ export function ReviewPage() {
   );
 }
 
+/** A group as a playing card: the chord big, the mode in the corners, its inversions as the cards stacked behind. */
+function PlayingCard({ g, status, label }: { g: Chip; status: string; label: string }) {
+  const p = parseChordLabel(g.label);
+  const d = p ? chordDisplay(p.rootName, p.quality) : { root: g.label, quality: '' };
+  const corner = MODE_LABEL[g.mode];
+  return (
+    <li className={`rv-pc rv-pc-${status}`} aria-label={`${prettyLabel(g.label)}, ${corner}, ${label}${g.n > 1 ? `, ${g.n} inversions` : ''}`}>
+      {Array.from({ length: Math.min(3, g.n - 1) }, (_, i) => (
+        <span key={i} className="rv-pc-back" style={{ ['--i' as string]: i + 1 }} aria-hidden />
+      ))}
+      <span className="rv-pc-face" aria-hidden>
+        <span className="rv-pc-corner">{corner}</span>
+        <span className="rv-pc-chord">
+          {d.root}
+          <small>{d.quality}</small>
+        </span>
+        <span className="rv-pc-foot">{label}</span>
+      </span>
+    </li>
+  );
+}
+
+type Chip = { group: string; label: string; mode: Mode; why: SetCard['why']; n: number };
+
 /** A set's cards as one chip per group (a chord's inversions in one mode). */
-function chips(cards: SetCard[]): { group: string; label: string; mode: Mode; why: SetCard['why']; n: number }[] {
-  const out = new Map<string, { group: string; label: string; mode: Mode; why: SetCard['why']; n: number }>();
+function chips(cards: SetCard[]): Chip[] {
+  const out = new Map<string, Chip>();
   for (const c of cards) {
     const e = out.get(c.group);
     if (e) e.n++;

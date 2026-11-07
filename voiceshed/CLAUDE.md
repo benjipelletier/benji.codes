@@ -219,8 +219,12 @@ wide screen; a run hides both.
   apart; a slip on any card of a check makes the whole group drill again
   (and its solid cards aren't solid till it graduates); MAX_ASKS on one card
   sends the group out stuck. New-card limits count groups (2 new chords at a
-  time, 5 a session). The home shows one chip per group ("Dm7 · Play · shaky ·
-  2 inv."); the counts are groups.
+  time, 5 a session). The home shows the set as **playing cards** (the owner:
+  "a less detail actual card shape like a playing card shape"), one per group:
+  the chord big in the middle, the mode in the corner, the status at the foot
+  and in the border (red shaky, amber check, dashed new, faded joins later),
+  and the group's other inversions as cards fanned behind it (up to three); a
+  legend underneath. The counts are groups.
 - `/voiceshed/listen` — **Listen** (`components/ListenPage.tsx`; the owner:
   "play a bass note (bass guitar) and then one of the chords in my deck on
   piano. I need to click which type of chord it is … just go through the whole

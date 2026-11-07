@@ -1152,3 +1152,35 @@ button.pm-bg span { color: var(--accent-ink); }
 .ls-sum-n { font-family: var(--mono); font-size: 12px; text-align: right; }
 .ls-mixed li { font-size: 14px; }
 .ls-mixed b { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 17px; }
+
+/* Today's set as playing cards: a chord per card, its inversions stacked
+   behind it, the mode in the corner, the status in the border. */
+.rv-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 14px 16px; padding: 6px 10px 2px 2px; }
+.rv-pc { position: relative; aspect-ratio: 5 / 7; list-style: none; }
+.rv-pc-face, .rv-pc-back { position: absolute; inset: 0; border-radius: 9px; border: 1.5px solid var(--rule); background: var(--card); }
+.rv-pc-back { transform: translate(calc(var(--i) * 3px), calc(var(--i) * -2px)) rotate(calc(var(--i) * 3deg)); transform-origin: 50% 100%; background: var(--paper); z-index: 0; }
+.rv-pc-back:nth-of-type(2) { z-index: -1; }
+.rv-pc-back:nth-of-type(3) { z-index: -2; }
+.rv-pc-face { z-index: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 5px 5px; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08); }
+.rv-pc-corner { font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.rv-pc-chord { align-self: center; font-family: var(--serif); font-size: 21px; line-height: 1; text-align: center; white-space: nowrap; }
+.rv-pc-chord small { font-style: italic; font-size: 14px; margin-left: 1px; }
+.rv-pc-foot { align-self: flex-end; font-family: var(--mono); font-size: 8.5px; color: var(--ink-3); white-space: nowrap; }
+.rv-pc-shaky .rv-pc-face { border-color: var(--fail); border-width: 2px; }
+.rv-pc-shaky .rv-pc-foot { color: var(--fail); }
+.rv-pc-check .rv-pc-face, .rv-pc-early .rv-pc-face { border-color: var(--accent); border-width: 2px; }
+.rv-pc-check .rv-pc-foot, .rv-pc-early .rv-pc-foot { color: var(--accent-ink); }
+.rv-pc-new .rv-pc-face { border-style: dashed; border-color: var(--ink-3); }
+.rv-pc-later { opacity: 0.45; }
+.rv-pc-later .rv-pc-face { border-style: dashed; }
+.rv-pc-new .rv-pc-back, .rv-pc-later .rv-pc-back { border-style: dashed; }
+.rv-pc-shaky .rv-pc-back { border-color: color-mix(in srgb, var(--fail) 55%, var(--rule)); }
+.rv-pc-check .rv-pc-back, .rv-pc-early .rv-pc-back { border-color: color-mix(in srgb, var(--accent) 55%, var(--rule)); }
+.rv-legend { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-3); }
+.rv-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.rv-k { display: inline-block; width: 10px; height: 13px; border-radius: 2px; border: 1.5px solid var(--rule); background: var(--card); }
+.rv-k-stack { box-shadow: 2px -2px 0 -0.5px var(--paper), 2px -2px 0 1px var(--rule); }
+.rv-k-shaky { border-color: var(--fail); }
+.rv-k-check { border-color: var(--accent); }
+.rv-k-new { border-style: dashed; border-color: var(--ink-3); }
+.rv-k-later { border-style: dashed; border-color: var(--ink-3); opacity: 0.6; }
