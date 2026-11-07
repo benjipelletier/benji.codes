@@ -107,7 +107,8 @@ wide screen; a run hides both.
   (10–60 or all). Chips count the cards due now with them, given the other
   rows. A line above Start says what the session is.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
-  diatonic chords of a key, a tune's changes in any key, or a tag filter; tags
+  diatonic chords of a key, a tune's changes in any key, **My charts** (a song
+  from the owner's iFake Pro playlists, below), or a tag filter; tags
   also choose which voicings a progression uses. Progressions and tunes step in
   order, each chord voiced by the voicing that moves least from the last.
   Runs are saved (`voicing_runs`) and compared with the last run of the set.
@@ -116,6 +117,17 @@ wide screen; a run hides both.
   A tune's preview has "+ Add this tune's N voicings to my deck" (every voicing
   of every chord it plays, in its spelling, with the tags picked) — for
   learning a set.
+  **My charts** (the owner: "see the tunes I have in ifakepro and add chord
+  charts from there"): every playlist the owner owns or edits in iFake Pro
+  (`app/api/voiceshed/charts.ts`, matched by email through `ifp_profiles`;
+  spectators get the public ones), each song with its written key, "x/y
+  chords" the library plays (exact chords, tags picked) and ↗ to the chart in
+  iFake Pro. Picking a song runs it like a standard; each playlist has
+  "+ Add <playlist>'s N voicings to my deck" — a show's set in one go.
+  Chords are read in chart order, a 1- or 2-bar repeat sign playing the bars
+  it stands for, a chord held into the next bar written once; repeats and
+  endings aren't unfolded (as with the standards). Read-only: charts are
+  edited in iFake Pro.
   **Exact chords only** (`exactChartChord` in `lib/theory.ts`): a chart chord
   is played only when the library has its chord type — maj7 (`^`, `^7`,
   `^9`), 6 (`6`, `69`; the voicing carries the 9), m7 (`-7`, `-9`), 7 (`7`,
@@ -205,7 +217,7 @@ pulled into Review up to 2 days early, interval steps halved.
   sets, voice leading), `idb.ts` (IndexedDB), `session.ts` (owner check).
 - `components/`: `TrainerProvider` (state + sync), `TrainerShell` (frame),
   `Keyboard`, `NotePad`, `CardRunner` (shared by all pages), the three pages.
-- `app/api/voiceshed/`: `bundle`, `tunes`, `sync`, `viewer`; `schema.ts`
+- `app/api/voiceshed/`: `bundle`, `tunes`, `charts` (+ `charts.ts`), `sync`, `viewer`; `schema.ts`
   (`ensureTrainer`), `sync.ts` (`applySync`), `db.ts`.
 - `public/voiceshed-sw.js`, `public/voiceshed/` (manifest, icons),
   `styles/voiceshed.css` (light/dark by system), `db/schema.sql`.
@@ -213,7 +225,9 @@ pulled into Review up to 2 days early, interval steps halved.
 ## Data
 
 `VOICESHED_DATABASE_URL` if set, else the jazz database (`JAZZ_DATABASE_URL`).
-Tunes are always read from the jazz app's `standards` (via its `getDb`).
+Tunes are always read from the jazz app's `standards` (via its `getDb`), and
+My charts from iFake Pro's database (`IFAKEPRO_DATABASE_URL`, its `getDb`;
+read only; none set or no tables = no charts).
 Tables (made on first use by `ensureTrainer`, also in `db/schema.sql`):
 `voicings` (global; `notes` spelled bottom to top with octave), `contexts`
 (ii–V–I and ii–V–i, black keys under both names; the minor one's 7alt and m6
@@ -221,7 +235,8 @@ are skipped until those exist), `attempts`, `srs_state` (owner × voicing × mod
 `interval_days`), `voicing_runs`, `voiceshed_meta` (seed version). `user_id` is the owner's email.
 
 API: `GET bundle` (library, progressions, the owner's schedules, last 20k
-answers, last 500 runs), `GET tunes`, `POST sync` (owner only; voicing
+answers, last 500 runs), `GET tunes`, `GET charts` (the owner's iFake Pro
+playlists as tunes), `POST sync` (owner only; voicing
 upserts/deletes, attempts, srs, runs; idempotent, newer schedule wins),
 `GET viewer`.
 
@@ -230,7 +245,9 @@ upserts/deletes, attempts, srs, runs; idempotent, newer schedule wins),
 Everything lives in IndexedDB (`voiceshed`). Answers are saved with
 `synced = false`; schedules changed on the device are `dirty`. Sync runs on
 open, on `online`, after a session and every 2 min while anything waits:
-push, pull (dirty schedules keep the device copy), tunes weekly, then the pages
+push, pull (dirty schedules keep the device copy), tunes weekly, My charts
+every time (kept in IndexedDB `meta` as `charts`; a failed fetch keeps the
+device copy), then the pages
 and their `/_next/static` code (fonts included, via next/font) through the
 service worker (production only). Tested on a production build: opened online,
 cut off, reloaded all three pages, reviewed, ran a tune, reconnected, uploaded.

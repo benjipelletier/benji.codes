@@ -368,6 +368,18 @@
 .pr-hits { list-style: none; border: 1px solid var(--rule); border-radius: 12px; background: var(--card); max-height: 300px; overflow: auto; }
 .pr-hits button { width: 100%; text-align: left; min-height: 48px; padding: 8px 12px; border-bottom: 1px solid var(--rule); font-size: 15px; }
 .pr-hits span { color: var(--ink-3); font-size: 12px; margin-left: 6px; }
+.pr-pl { border: 1px solid var(--rule); border-radius: 12px; background: var(--card); overflow: hidden; }
+.pr-pl > summary { cursor: pointer; min-height: 48px; padding: 10px 12px; display: flex; align-items: baseline; gap: 8px; font-size: 15px; }
+.pr-pl > summary span { color: var(--ink-3); font-size: 12px; }
+.pr-pl .pr-tunedeck { margin: 8px 12px 12px; }
+.pr-songs { list-style: none; border-top: 1px solid var(--rule); max-height: 360px; overflow: auto; }
+.pr-songs li { display: flex; align-items: stretch; border-bottom: 1px solid var(--rule); }
+.pr-songs li:last-child { border-bottom: 0; }
+.pr-songs li.on { background: var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent)); }
+.pr-songs button { flex: 1; min-width: 0; text-align: left; min-height: 48px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.pr-songs button b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-songs button span { color: var(--ink-3); font-size: 12px; font-family: var(--mono); }
+.pr-open { display: grid; place-items: center; width: 48px; color: var(--ink-3); text-decoration: none; border-left: 1px solid var(--rule); }
 .pr-results { display: flex; flex-direction: column; gap: 8px; }
 .pr-set { font-size: 15px; font-weight: 600; }
 .pr-delta { font-family: var(--mono); font-size: 13px; }

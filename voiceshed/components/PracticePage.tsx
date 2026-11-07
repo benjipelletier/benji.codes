@@ -14,12 +14,13 @@ import { newId, useTrainer } from './TrainerProvider';
 import { buildSet, filterTags, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { dueNow, targetFor } from '@voiceshed/lib/srs';
 import { keyLabel, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
-import { MODES, MODE_LABEL, srsKey, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
+import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mode, type Run, type SrsState, type Tune } from '@voiceshed/lib/types';
 
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
   { id: 'ii-v-i', label: 'ii–V–Is', hint: 'Major and minor, in one key or all twelve.' },
   { id: 'key', label: 'One key', hint: 'The diatonic chords of a major key, shuffled.' },
   { id: 'tune', label: 'A tune', hint: 'The changes of a standard, in order, in any key.' },
+  { id: 'charts', label: 'My charts', hint: 'A song from your iFake Pro playlists, in order, in any key.' },
   { id: 'tags', label: 'Tag filter', hint: 'Any voicings with the tags you pick, shuffled.' },
 ];
 
@@ -63,14 +64,18 @@ export function PracticePage() {
       return next;
     });
 
-  const built = useMemo(() => buildSet(spec, { voicings, contexts, tunes }), [spec, voicings, contexts, tunes]);
+  // Standards and the owner's iFake Pro songs, looked up the same way.
+  const chartTunes = useMemo(() => t.charts.flatMap(p => p.songs), [t.charts]);
+  const allTunes = useMemo<Tune[]>(() => [...chartTunes, ...tunes], [chartTunes, tunes]);
+  const built = useMemo(() => buildSet(spec, { voicings, contexts, tunes: allTunes }), [spec, voicings, contexts, allTunes]);
+  const isTune = spec.source === 'tune' || spec.source === 'charts';
   const skippedN = built.skipped.reduce((n, x) => n + x.count, 0);
   const history = useMemo(() => runs.filter(r => r.set_key === built.setKey).slice(-12), [runs, built.setKey]);
 
   const tagCounts = useMemo(() => filterTags(voicings), [voicings]);
 
   const start = () => {
-    const fresh = buildSet(spec, { voicings, contexts, tunes });
+    const fresh = buildSet(spec, { voicings, contexts, tunes: allTunes });
     runRef.current = { id: newId(), started: new Date().toISOString(), setKey: fresh.setKey, label: fresh.label, contextType: fresh.context_type };
     setRanSet({ label: fresh.label, setKey: fresh.setKey });
     setSteps(
@@ -163,7 +168,7 @@ export function PracticePage() {
     return <Summary results={results} onAgain={() => setPhase('idle')} extra={<RunResults results={results} label={ranSet?.label ?? ''} prev={prev} />} />;
   }
 
-  const tune = tunes.find(x => x.id === spec.tuneId) ?? null;
+  const tune = allTunes.find(x => x.id === spec.tuneId) ?? null;
   return (
     <div className="vt-page">
       <section className="vt-panel pr-builder">
@@ -179,12 +184,15 @@ export function PracticePage() {
           <span className="vt-hint">{SOURCES.find(s => s.id === spec.source)?.hint}</span>
         </div>
 
-        {spec.source === 'tune' && <TunePicker tunes={tunes} value={tune} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />}
+        {spec.source === 'tune' && <TunePicker tunes={tunes} value={tune?.id.startsWith('ifp-') ? null : tune} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />}
+        {spec.source === 'charts' && (
+          <ChartsPicker playlists={t.charts} syncedAt={t.chartsAt} value={tune?.id.startsWith('ifp-') ? (tune as ChartTune) : null} tags={spec.tags} onPick={x => setSpec({ tuneId: x.id, key: x.home_key })} />
+        )}
 
         <div className="vt-field">
           <span className="vt-field-lbl">Key</span>
           <div className="vt-keys">
-            {spec.source !== 'key' && spec.source !== 'tune' && (
+            {spec.source !== 'key' && !isTune && (
               <button type="button" className={spec.key == null ? 'on' : ''} onClick={() => setSpec({ key: null })}>
                 {spec.source === 'tags' ? 'any root' : 'all'}
               </button>
@@ -192,7 +200,7 @@ export function PracticePage() {
             {PC_FLAT.map((_, pc) => (
               <button type="button" key={pc} className={spec.key === pc ? 'on' : ''} onClick={() => setSpec({ key: pc })}>
                 {keyLabel(pc)}
-                {spec.source === 'tune' && tune?.home_key === pc ? '•' : ''}
+                {isTune && tune?.home_key === pc ? '•' : ''}
               </button>
             ))}
           </div>
@@ -200,7 +208,7 @@ export function PracticePage() {
         </div>
 
         <div className="vt-field">
-          <span className="vt-field-lbl">Tags {spec.source === 'ii-v-i' || spec.source === 'tune' ? '(which voicings to use)' : ''}</span>
+          <span className="vt-field-lbl">Tags {spec.source === 'ii-v-i' || isTune ? '(which voicings to use)' : ''}</span>
           <div className="vt-chips">
             {tagCounts.map(([tag, n]) => (
               <button type="button" key={tag} className={spec.tags.includes(tag) ? 'vt-chip on' : 'vt-chip'} onClick={() => setSpec({ tags: spec.tags.includes(tag) ? spec.tags.filter(x => x !== tag) : [...spec.tags, tag] })}>
@@ -243,7 +251,7 @@ export function PracticePage() {
               {built.chords > 0 && skippedN > 0 ? ` · ${skippedN} of ${built.chords} chords skipped` : ''}
             </span>
             <SkippedList skipped={built.skipped} />
-            {spec.source === 'tune' && t.canEdit && <TuneToDeck built={built} tags={spec.tags} />}
+            {isTune && t.canEdit && <ToDeck labels={new Set(built.steps.map(s => s.voicing.chord_label))} tags={spec.tags} what="this tune’s" />}
           </div>
           <button type="button" className="vt-primary" onClick={start} disabled={!built.steps.length}>
             Start run
@@ -257,14 +265,13 @@ export function PracticePage() {
 }
 
 /**
- * A tune's voicings into the deck, for learning a set: every voicing (with
- * the tags picked) of every chord the tune plays, in its spelling — pairs come
- * in together, as everywhere.
+ * A tune's (or a whole playlist's) voicings into the deck, for learning a set:
+ * every voicing (with the tags picked) of every chord it plays, in its
+ * spelling — pairs come in together, as everywhere.
  */
-function TuneToDeck({ built, tags }: { built: ReturnType<typeof buildSet>; tags: string[] }) {
+function ToDeck({ labels, tags, what }: { labels: Set<string>; tags: string[]; what: string }) {
   const t = useTrainer();
   const [said, setSaid] = useState<string | null>(null);
-  const labels = new Set(built.steps.map(s => s.voicing.chord_label));
   const all = t.voicings.filter(v => labels.has(v.chord_label) && tags.every(tag => v.tags.includes(tag)));
   const out = all.filter(v => !MODES.some(m => t.srs.has(srsKey(v.id, m))));
   if (!all.length) return null;
@@ -276,13 +283,13 @@ function TuneToDeck({ built, tags }: { built: ReturnType<typeof buildSet>; tags:
           className="vt-secondary"
           onClick={async () => {
             const n = await t.addToDeck(out.map(v => v.id));
-            setSaid(`Added ${n / 3} voicings for this tune — new in your next review.`);
+            setSaid(`Added ${n / 3} voicings — new in your next review.`);
           }}
         >
-          + Add this tune’s {out.length} voicing{out.length === 1 ? '' : 's'} to my deck
+          + Add {what} {out.length} voicing{out.length === 1 ? '' : 's'} to my deck
         </button>
       ) : (
-        <span className="vt-hint">All {all.length} of this tune’s voicings are in your deck.</span>
+        <span className="vt-hint">All {all.length} of {what} voicings are in your deck.</span>
       )}
       {said && <span className="vt-hint">{said}</span>}
     </div>
@@ -315,6 +322,79 @@ function SkippedList({ skipped }: { skipped: Skipped[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The owner's iFake Pro playlists, each song with how many of its chords the
+ * library plays (exact chords only, in its written key), a link to the chart,
+ * and the playlist's voicings into the deck in one go — for a show's set.
+ */
+function ChartsPicker({ playlists, syncedAt, value, tags, onPick }: { playlists: ChartPlaylist[]; syncedAt: string | null; value: ChartTune | null; tags: string[]; onPick: (t: ChartTune) => void }) {
+  const t = useTrainer();
+  const { voicings, contexts } = t;
+  // Per song, in its own key: chords played and the voicings it uses.
+  const cover = useMemo(() => {
+    const m = new Map<string, { played: number; chords: number; labels: Set<string> }>();
+    for (const p of playlists)
+      for (const s of p.songs) {
+        const b = buildSet({ source: 'charts', key: s.home_key, tuneId: s.id, tags, mode: 'play', limit: 0 }, { voicings, contexts, tunes: [s] });
+        m.set(s.id, { played: b.steps.length, chords: b.chords, labels: new Set(b.steps.map(x => x.voicing.chord_label)) });
+      }
+    return m;
+  }, [playlists, voicings, contexts, tags]);
+  if (!playlists.length) {
+    return (
+      <div className="vt-field">
+        <span className="vt-field-lbl">Song</span>
+        <span className="vt-hint">
+          {syncedAt
+            ? t.canEdit
+              ? 'No iFake Pro playlists of yours yet — songs in playlists you own or edit show up here.'
+              : 'Sign in to see your iFake Pro playlists.'
+            : 'Your iFake Pro charts download with the next sync.'}
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="vt-field">
+      <span className="vt-field-lbl">Song</span>
+      {playlists.map(p => {
+        const labels = new Set(p.songs.flatMap(s => [...(cover.get(s.id)?.labels ?? [])]));
+        return (
+          <details key={p.id} className="pr-pl" open={playlists.length <= 2 || p.songs.some(s => s.id === value?.id)}>
+            <summary>
+              <b>{p.title}</b> <span>{p.songs.length} song{p.songs.length === 1 ? '' : 's'}</span>
+            </summary>
+            <ul className="pr-songs">
+              {p.songs.map(s => {
+                const c = cover.get(s.id);
+                return (
+                  <li key={s.id} className={value?.id === s.id ? 'on' : ''}>
+                    <button type="button" onClick={() => onPick(s)} aria-pressed={value?.id === s.id}>
+                      <b>{s.title}</b>
+                      <span>
+                        {pretty(s.key_name ?? '') || keyLabel(s.home_key)}
+                        {s.is_minor ? 'm' : ''}
+                        {c && c.chords ? ` · ${c.played}/${c.chords} chords` : ' · no chords'}
+                      </span>
+                    </button>
+                    <a href={s.href} className="pr-open" aria-label={`Open ${s.title} in iFake Pro`} title="Open in iFake Pro">
+                      ↗
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            {t.canEdit && labels.size > 0 && <ToDeck labels={labels} tags={tags} what={`${p.title}’s`} />}
+          </details>
+        );
+      })}
+      <span className="vt-hint">
+        Read from iFake Pro{syncedAt ? `, ${relTime(syncedAt)}` : ''}; edit charts there. “x/y chords”: how many the library plays.
+      </span>
     </div>
   );
 }

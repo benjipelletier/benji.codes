@@ -109,6 +109,24 @@ export interface Tune {
   chords: string[];
 }
 
+/** A song from one of the owner's iFake Pro playlists, as a tune. */
+export interface ChartTune extends Tune {
+  /** The playlist's title. */
+  playlist: string;
+  /** The key as the chart writes it ("Bb", "F#"). */
+  key_name: string;
+  /** The song in iFake Pro. */
+  href: string;
+  updated_at: string;
+}
+
+export interface ChartPlaylist {
+  id: string;
+  slug: string;
+  title: string;
+  songs: ChartTune[];
+}
+
 export interface Settings {
   /** Default target per mode, ms. */
   target_ms: Record<Mode, number>;

@@ -85,7 +85,8 @@ export function gradeName(v: Voicing, answer: NameAnswer, library: Voicing[]): b
 
 // ── sets ────────────────────────────────────────────────────────────────
 
-export type SetSource = 'ii-v-i' | 'key' | 'tune' | 'tags';
+/** 'charts' is a tune from the owner's iFake Pro playlists: the same as 'tune' from here on. */
+export type SetSource = 'ii-v-i' | 'key' | 'tune' | 'charts' | 'tags';
 
 export interface SetSpec {
   source: SetSource;
@@ -236,7 +237,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     };
   }
 
-  if (spec.source === 'tune') {
+  if (spec.source === 'tune' || spec.source === 'charts') {
     const tune = tunes.find(t => t.id === spec.tuneId);
     if (!tune) return { steps: [], label: 'Tune', setKey: 'tune:none', context_type: 'tune', skipped: [], chords: 0 };
     const key = spec.key ?? tune.home_key;

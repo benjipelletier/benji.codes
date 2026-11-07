@@ -96,6 +96,8 @@ on the landing page. All seven current projects are enabled.
 - **voiceshed** reads the jazz project's `standards` (from `JAZZ_DATABASE_URL`)
   for its tune drills, and keeps its own tables there too unless
   `VOICESHED_DATABASE_URL` is set.
+- **voiceshed** also reads (never writes) the owner's **ifakepro** playlists
+  (`IFAKEPRO_DATABASE_URL`) for its My charts practice.
 
 ## 龙库 and 重复习 share a database
 

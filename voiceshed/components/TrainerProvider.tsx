@@ -10,13 +10,13 @@
 //   2. pull  — the library, progressions, schedules, answers and runs; a
 //              schedule changed here and not yet sent keeps the device's copy
 //   3. tunes — every standard's changes, when the device has none or they
-//              are a week old
+//              are a week old; and the owner's iFake Pro charts, every time
 //   4. the app's pages and code fetched through the service worker, so
 //      they open offline too
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteMany, getAll, getMeta, putMany, replaceAll, setMeta } from '@voiceshed/lib/idb';
-import type { Attempt, Context, Run, Settings, SrsState, Tune, Voicing } from '@voiceshed/lib/types';
+import type { Attempt, ChartPlaylist, Context, Run, Settings, SrsState, Tune, Voicing } from '@voiceshed/lib/types';
 import { DEFAULT_SETTINGS, MODES, srsKey, type Mode } from '@voiceshed/lib/types';
 import { newState } from '@voiceshed/lib/srs';
 
@@ -57,6 +57,9 @@ interface TrainerState {
   pending: number;
   lastSyncAt: string | null;
   offline: OfflineInfo;
+  /** The owner's iFake Pro playlists, as tunes; kept on the device. */
+  charts: ChartPlaylist[];
+  chartsAt: string | null;
 }
 
 interface TrainerApi extends TrainerState {
@@ -183,6 +186,8 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     pending: 0,
     lastSyncAt: null,
     offline: { appSavedAt: null, dataAt: null, tunesAt: null, tunes: 0 },
+    charts: [],
+    chartsAt: null,
   });
   const ref = useRef(state);
   ref.current = state;
@@ -204,7 +209,7 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
 
   // ── load from the device ──────────────────────────────────────────────
   const loadLocal = useCallback(async () => {
-    const [voicings, contexts, srsRows, attempts, runs, outbox, settings, viewer, lastSyncAt, offline] = await Promise.all([
+    const [voicings, contexts, srsRows, attempts, runs, outbox, settings, viewer, lastSyncAt, offline, charts] = await Promise.all([
       getAll<Voicing>('voicings'),
       getAll<Context>('contexts'),
       getAll<StoredSrs>('srs'),
@@ -215,6 +220,7 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
       getMeta<Viewer>('viewer'),
       getMeta<string>('lastSyncAt'),
       getMeta<OfflineInfo>('offline'),
+      getMeta<{ at: string; playlists: ChartPlaylist[] }>('charts'),
     ]);
     outboxCount.current = outbox.length;
     patch({
@@ -228,6 +234,8 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
       viewer: viewer ?? null,
       lastSyncAt: lastSyncAt ?? null,
       offline: offline ?? { appSavedAt: null, dataAt: null, tunesAt: null, tunes: 0 },
+      charts: charts?.playlists ?? [],
+      chartsAt: charts?.at ?? null,
     });
   }, [patch]);
 
@@ -379,6 +387,18 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
     [patch],
   );
 
+  // The owner's iFake Pro charts: small, and they change between rehearsals,
+  // so every sync. A failure keeps the device's copy and doesn't fail the sync.
+  const pullCharts = useCallback(async () => {
+    try {
+      const c = await fetch('/api/voiceshed/charts', { cache: 'no-store' }).then(r => json<{ at: string; playlists: ChartPlaylist[] }>(r));
+      await setMeta('charts', c);
+      patch({ charts: c.playlists, chartsAt: c.at });
+    } catch {
+      /* keep what the device has */
+    }
+  }, [patch]);
+
   const sync = useCallback(
     async (opts?: { tunes?: boolean }) => {
       if (syncing.current) {
@@ -400,6 +420,7 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
           }
           await pull();
           await pullTunes(!!opts?.tunes);
+          await pullCharts();
           patch({ status: 'synced' });
           void warmAppCache().then(ok => {
             if (!ok) return;
@@ -422,7 +443,7 @@ export function TrainerProvider({ children }: { children: React.ReactNode }) {
       syncing.current = run;
       return run;
     },
-    [patch, push, pull, pullTunes],
+    [patch, push, pull, pullTunes, pullCharts],
   );
   syncRef.current = sync;
 
