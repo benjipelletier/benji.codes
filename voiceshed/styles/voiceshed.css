@@ -423,6 +423,8 @@
 .lb-fam { color: var(--accent-ink); }
 .lb-flag { padding: 1px 5px; border: 1px solid var(--ink-3); border-radius: 4px; }
 .lb-flag-gap { border-color: var(--slow); color: var(--slow); margin-left: 4px; }
+.lb-flag-iii { border-color: var(--accent); color: var(--accent-ink); }
+.cr-iii { font-family: var(--mono); color: var(--accent-ink); }
 .lb-learned { margin-left: auto; display: inline-flex; gap: 3px; }
 .lb-learned i { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--ink-3); display: inline-block; }
 .lb-learned i.on { background: var(--good); border-color: var(--good); }

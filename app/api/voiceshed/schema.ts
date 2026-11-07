@@ -109,8 +109,11 @@ export const TRAINER_DDL = [
  *   9: °7 joins (drop-2 two-hand, R ♭5 𝄫7 ♭3 and ♭5 R ♭3 𝄫7: the 7♭9 shapes).
  *  10: the minor ii–V–i ends on m7 instead of m6 (progressions only).
  *  11: °7 gets all four drop-2 inversions (♭3 𝄫7 R ♭5 and 𝄫7 ♭3 ♭5 R join).
+ *  12: the iii's m7 voicings join (8 for 9: drop-2 ♭3 ♭7 1 5 · ♭7 ♭3 5 1,
+ *      right-hand 5 ♭7 1 ♭3, block 5 ♭7 1 ♭3 5, tagged iii); "m7b5 closed"
+ *      becomes "closed (block)", holding both block chords.
  */
-const SEED_VERSION = 11;
+const SEED_VERSION = 12;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 
@@ -141,6 +144,10 @@ async function seed(sql: Sql) {
         // (a rare spelling of it was never moved, so it's still there).
         [...SHAPE_SETS.map(set => set.family), 'm7b5 spread'],
       ]);
+    }
+    if (seeded < 12) {
+      // The m7♭5's block chord's type takes the iii's m7 block too, under a wider name.
+      await sql.query(`UPDATE voicings SET family = 'closed (block)', updated_at = NOW() WHERE family = 'm7b5 closed'`);
     }
     await sql.query(
       `INSERT INTO voicings (chord_label, root, quality, notes, top_note, top_move, family, tags, lowest_register, sort_order)

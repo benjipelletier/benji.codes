@@ -116,10 +116,10 @@ export function ProgressMap({
     const famOrder = SHAPE_SETS.map(s => s.family);
     // Chords as a ii–V–I runs, then the rest.
     const qOrder = ['m7', '7', '7b9', 'dim7', '7alt', 'maj7', '6', 'm7b5', ...QUALITIES.map(q => q.id)];
-    const seen = new Map<string, { family: string; quality: Voicing['quality'] }>();
-    for (const v of voicings) seen.set(`${v.family}|${v.quality}`, { family: v.family, quality: v.quality });
+    const seen = new Map<string, { family: string; quality: Voicing['quality']; iii: boolean }>();
+    for (const v of voicings) seen.set(`${v.family}|${v.quality}|${v.tags.includes('iii')}`, { family: v.family, quality: v.quality, iii: v.tags.includes('iii') });
     const rank = (f: string) => (famOrder.includes(f) ? famOrder.indexOf(f) : famOrder.length);
-    return [...seen.values()].sort((a, b) => rank(a.family) - rank(b.family) || a.family.localeCompare(b.family) || qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality));
+    return [...seen.values()].sort((a, b) => rank(a.family) - rank(b.family) || a.family.localeCompare(b.family) || qOrder.indexOf(a.quality) - qOrder.indexOf(b.quality) || Number(a.iii) - Number(b.iii));
   }, [voicings]);
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
@@ -256,12 +256,13 @@ export function ProgressMap({
           </thead>
           <tbody>
             {rows.map(r => (
-              <tr key={`${r.family}|${r.quality}`}>
+              <tr key={`${r.family}|${r.quality}|${r.iii}`}>
                 <th className="pm-row">
                   <span className="pm-row-q">{QUALITY[r.quality].display}</span>
+                  {r.iii && <span className="pm-row-f">as iii</span>}
                 </th>
                 {cols.map(k => {
-                  const here = voicings.filter(v => v.root === k && v.family === r.family && v.quality === r.quality);
+                  const here = voicings.filter(v => v.root === k && v.family === r.family && v.quality === r.quality && v.tags.includes('iii') === r.iii);
                   // A black key's two spellings side by side, each with its inversions.
                   const names = [...new Set(here.map(v => v.chord_label))];
                   return (

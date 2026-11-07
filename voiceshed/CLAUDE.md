@@ -59,6 +59,18 @@ added on its own unless the family button is used. Name mode already counts
 any library voicing on the same keys, so E°7 is a right answer for C7♭9's
 3 ♭7 ♭9 5 and vice versa.
 
+**The iii** (the owner: "for the 3 chord of a key … we don't wanna play the 9
+bc it's not in the key, instead we play the 8, or play block chords 5 7 1 3 5"):
+every m7 also has voicings tagged `iii` (`isIii`) — drop-2 two-hand ♭3 ♭7 1 5 ·
+♭7 ♭3 5 1 (a pair of their own: `partnersOf` keeps iii and 9 pairs apart),
+right-hand 5 ♭7 1 ♭3 (one shape: "I don't want the bunch at the top"), and the
+block chord 5 ♭7 1 ♭3 5 in `closed (block)` (the type that was "m7b5 closed",
+renamed in seed version 12; it holds the m7♭5's block too). Em7: G D E B ·
+D G B E, B D E G, B D E G B. Practice uses them (and only them) for One key's
+iii and for a m7 that's the iii of a tune's home major key, in whatever key
+it's played (`candidatesFor(…, iii)`); everywhere else a m7 keeps its 9. Cards,
+sheets and prompts say "as iii"; the map gives them their own row (m7 as iii).
+
 The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
 inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
 charts).
@@ -67,7 +79,7 @@ m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — on
 voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
 files under `drop-2 two-hand` (the owner: "only the spread one goes under
 drop 2"; it has its root, so no `rootless` tag), so a drop-2 ii–V–i plays it.
-`m7b5 closed` ♭5 ♭7 1 ♭3 ♭5 (5 notes) stays its own type. Moves so far: the
+The m7♭5 block chord ♭5 ♭7 1 ♭3 ♭5 (5 notes) is its own type, `closed (block)`. Moves so far: the
 m7♭5 spread's 11 → ♭3, the altered ♭7 3 ♭13 ♯9's ♯9 → ♭9 (a shape's `move`
 in `SHAPE_SETS`). The register is the
 owner's call and is settled: bottom note E♭3 to D4 for every family.
@@ -90,8 +102,8 @@ G♯7, A♯m7♭5, F♯maj7, G♯m7, C♯6, F♯6, G♯6, D♯7♭9, G♭7♭9, 
 D♯7alt, A♯7alt). Both names stay only where charts use both: D♭m7 / C♯m7,
 G♭7 / F♯7, D♭7♭9 / C♯7♭9, D♭/C♯, G♭/F♯ and A♭/G♯7alt. So a white key has 14
 voicings, a black key 14, and D♭/C♯ and G♭/F♯ 18, plus a 6 chord each, two
-7♭9s per name (13 names), two 7alts per name (15) and four °7s per name (17).
-312 voicings in all.
+7♭9s per name (13 names), two 7alts per name (15), four °7s per name (17) and
+four iii voicings per m7 name (13). 364 voicings in all.
 
 Everywhere a root is picked (Name mode, the Key filter, Practice's keys) a
 black key shows both names and either counts. Progressions and tunes keep one
@@ -113,7 +125,7 @@ removed the rare spellings (generated ones only — a voicing added by hand stay
 version 6 added the 6 chord (into the library, not the deck); version 7 the
 7♭9s, version 8 the altered dominants, version 9 the °7s (likewise);
 version 10 ended the minor ii–V–i on m7; version 11 added the °7's other two
-inversions.
+inversions; version 12 the iii voicings (and the `closed (block)` rename).
 
 ---
 
@@ -188,7 +200,7 @@ wide screen; a run hides both.
 - `/voiceshed/voicings` — **Map** (default) or **List**, kept on the device.
   The map (`components/ProgressMap.tsx`) is the progress view, **one chart per
   voicing type** (the owner: "separate charts for the different rootless
-  types"): tabs above it — drop-2 two-hand, right-hand rootless, m7♭5 closed —
+  types"): tabs above it — drop-2 two-hand, right-hand rootless, closed (block) —
   each with "known/in deck", the pick kept on the device; everything below
   (circle, totals, slowest, grid, and the page's deck bar) is that chart's.
   Keys as columns round the cycle of fourths, chords as rows (m7, 7, 7♭9, °7,

@@ -1,7 +1,7 @@
 // Grading answers, and building the practice sets: timed runs through
 // ii–V–Is, a key's chords, a tune's changes or a tag filter.
 
-import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
+import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, isIii, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
 import type { Context, ContextType, Mode, Tune, Voicing } from './types';
 import { shuffle } from './srs';
 
@@ -186,9 +186,10 @@ function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
  * as the chart spells it (C♯m7 for a C♯m7), so a progression keeps one
  * spelling. Any spelling when the chart's has none.
  */
-function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string): Voicing[] {
+/** `iii`: the chord is a m7 as the iii of a major key — its iii voicings (8 for 9) only; otherwise never them. */
+function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string, iii = false): Voicing[] {
   for (const q of qualities) {
-    const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags));
+    const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags) && isIii(v) === iii);
     if (!c.length) continue;
     const spelled = rootName ? c.filter(v => parseChordLabel(v.chord_label)?.rootName === rootName) : [];
     return spelled.length ? spelled : c;
@@ -271,7 +272,9 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
         skipped.push({ symbol: chartDisplay(moved), why: 'no-voicing' });
         continue;
       }
-      const cands = candidatesFor(voicings, chord.root, [chord.quality], spec.tags, chord.rootName);
+      // A m7 that's the iii of the tune's home major key (in the key it's played in) takes the iii voicings.
+      const iii = chord.quality === 'm7' && !tune.is_minor && chord.root === mod12(key + 4);
+      const cands = candidatesFor(voicings, chord.root, [chord.quality], spec.tags, chord.rootName, iii);
       if (!cands.length) {
         skipped.push({ symbol: chartDisplay(moved), why: why(chord.root, chord.quality) });
         continue;
@@ -296,7 +299,7 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
   if (spec.source === 'key') {
     const key = spec.key ?? 0;
     // Each chord in the key's spelling; a name the library doesn't use (G♭ major's C♭maj7) takes the other.
-    pool = diatonicChords(key).flatMap(c => candidatesFor(voicings, c.root, [c.quality], spec.tags, c.rootName));
+    pool = diatonicChords(key).flatMap(c => candidatesFor(voicings, c.root, [c.quality], spec.tags, c.rootName, c.iii));
     label = `The chords of ${keyName(key)} major${tagLabel(spec.tags)}`;
   } else {
     pool = voicings.filter(v => matchesTags(v, spec.tags) && (spec.key == null || v.root === spec.key));

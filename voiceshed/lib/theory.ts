@@ -393,6 +393,10 @@ export const SHAPE_SETS: ShapeSet[] = [
       m7: [
         { ivs: ['b3', 'b7', '9', '5'], tag: '3-7-9-5' },
         { ivs: ['b7', 'b3', '5', '9'], tag: '7-3-5-9' },
+        // As the iii of a major key the 9 isn't in the key (Em7's F♯ in C): the
+        // 8 takes its place (the owner's rule). Tagged `iii`; a pair of their own.
+        { ivs: ['b3', 'b7', 'R', '5'], tag: '3-7-8-5', tags: ['drop-2', 'two-handed', '4-note', 'iii'] },
+        { ivs: ['b7', 'b3', '5', 'R'], tag: '7-3-5-8', tags: ['drop-2', 'two-handed', '4-note', 'iii'] },
       ],
       maj7: [
         { ivs: ['3', '7', '9', '5'], tag: '3-7-9-5' },
@@ -442,6 +446,9 @@ export const SHAPE_SETS: ShapeSet[] = [
       m7: [
         { ivs: ['b3', '5', 'b7', '9'], tag: '3-5-7-9' },
         { ivs: ['b7', '9', 'b3', '5'], tag: '7-9-3-5' },
+        // The iii (no 9): one shape, 5 ♭7 1 ♭3 — the owner: "I don't want the
+        // bunch at the top" (♭3 5 ♭7 1's ♭7–1).
+        { ivs: ['5', 'b7', 'R', 'b3'], tag: '5-7-8-3', tags: ['right-hand', '4-note', 'iii'] },
       ],
       maj7: [
         { ivs: ['3', '5', '7', '9'], tag: '3-5-7-9' },
@@ -454,9 +461,14 @@ export const SHAPE_SETS: ShapeSet[] = [
     },
   },
   {
-    family: 'm7b5 closed',
+    // Block chords, 5 notes with the top doubled an octave down: the m7♭5 one,
+    // and the iii's m7 (the owner: "or play block chords 5 7 1 3 5").
+    family: 'closed (block)',
     tags: ['closed', '5-note'],
-    shapes: { m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }] },
+    shapes: {
+      m7: [{ ivs: ['5', 'b7', 'R', 'b3', '5'], tag: '5-7-1-3-5', tags: ['closed', '5-note', 'iii'] }],
+      m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }],
+    },
   },
 ];
 
@@ -633,8 +645,11 @@ export function starterProgressions(): ProgressionSeed[] {
   return out;
 }
 
-/** The diatonic seventh chords of a major key: Imaj7 ii-7 iii-7 IVmaj7 V7 vi-7 viiø7. */
-export function diatonicChords(key: number): { root: number; quality: Quality; rootName: string }[] {
+/** A voicing for a m7 as the iii of a major key: the 8 for the 9 (or a block chord). */
+export const isIii = (v: { tags: string[] }) => v.tags.includes('iii');
+
+/** The diatonic seventh chords of a major key: Imaj7 ii-7 iii-7 IVmaj7 V7 vi-7 viiø7 (the iii marked). */
+export function diatonicChords(key: number): { root: number; quality: Quality; rootName: string; iii: boolean }[] {
   // Spelled from the key's name, flats for a black key (D♭ major: E♭m7, never D♯m7).
   const keyName = ROOTS_MAJOR[key];
   const steps: [string, Quality][] = [
@@ -648,6 +663,6 @@ export function diatonicChords(key: number): { root: number; quality: Quality; r
   ];
   return steps.map(([iv, q]) => {
     const root = mod12(key + INTERVALS[iv][0]);
-    return { root, quality: q, rootName: pitchName(spellInterval(keyName, iv, 60 + root)) };
+    return { root, quality: q, rootName: pitchName(spellInterval(keyName, iv, 60 + root)), iii: iv === '3' };
   });
 }

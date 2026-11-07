@@ -213,6 +213,7 @@ export function VoicingCard({
         </span>
         <span className="lb-meta">
           <span className="lb-fam">{v.family}</span>
+          {v.tags.includes('iii') && <span className="lb-flag lb-flag-iii" title="For a iii: the 8 for the 9">iii</span>}
           {muddy && <span className="lb-flag">muddy</span>}
           {gap && <span className="lb-flag lb-flag-gap" title="Fast in context, slow on its own">gap</span>}
           {inDeck && (
@@ -268,6 +269,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
           <h2>{prettyLabel(v.chord_label)}</h2>
           <span className="vt-hint">
             {v.family} · top {pretty(pitchName(v.top_note))}
+            {v.tags.includes('iii') ? ' · as iii (8 for 9)' : ''}
           </span>
           <button type="button" className="vt-x" onClick={onClose} aria-label="close">
             ×
@@ -646,7 +648,7 @@ export function VoicingGrid({ voicings, onOpen }: { voicings: Voicing[]; onOpen:
   const groups: Voicing[][] = [];
   const at = new Map<string, number>();
   for (const v of voicings) {
-    const k = `${v.chord_label}|${v.family}`;
+    const k = `${v.chord_label}|${v.family}|${v.tags.includes('iii')}`;
     if (!at.has(k)) {
       at.set(k, groups.length);
       groups.push([]);

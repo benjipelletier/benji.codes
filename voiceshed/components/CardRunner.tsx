@@ -160,6 +160,12 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
         </span>
         <span className="cr-dot">·</span>
         <span className="cr-family">{v.family}</span>
+        {v.tags.includes('iii') && (
+          <>
+            <span className="cr-dot">·</span>
+            <span className="cr-iii" title="As the iii of a major key: the 8 for the 9">as iii</span>
+          </>
+        )}
         <span className="cr-dot">·</span>
         <span>
           {v.notes.length} notes{v.top_move ? ' + move' : ''}
