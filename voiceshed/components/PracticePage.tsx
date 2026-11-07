@@ -325,6 +325,8 @@ function ToDeck({ order, tags, what, title }: { order: OrderEntry[]; tags: strin
  * with every voicing the library has for it (tags picked), + Deck on each.
  * A voicing's other inversion comes and goes with it. Tap a voicing to see it.
  */
+const BLOCK = 'closed (block)';
+
 function ChooseVoicings({ title, order, tags, onClose }: { title: string; order: OrderEntry[]; tags: string[]; onClose: () => void }) {
   const t = useTrainer();
   const [open, setOpen] = useState<string | null>(null);
@@ -340,7 +342,11 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
       n,
       iii,
       vs: t.voicings.filter(v => v.chord_label === label && ofType(v) && v.tags.includes('iii') === iii),
-      extra: iii ? [] : t.voicings.filter(v => v.chord_label === label && ofType(v) && v.tags.includes('iii')),
+      // Block chords, whatever the type picked (the owner: "add block chords to the sheet"): offered,
+      // not played in runs, so outside Add all — the iii's (5 ♭7 1 ♭3 5) and the m7♭5's here…
+      block: t.voicings.filter(v => v.chord_label === label && v.family === BLOCK && v.tags.includes('iii') === iii),
+      // …and another m7's iii voicings, block included, behind its toggle.
+      extra: iii ? [] : t.voicings.filter(v => v.chord_label === label && v.tags.includes('iii') && (ofType(v) || v.family === BLOCK)),
     }))
     .filter(g => g.vs.length);
   const total = groups.reduce((n, g) => n + g.vs.length, 0);
@@ -377,6 +383,12 @@ function ChooseVoicings({ title, order, tags, onClose }: { title: string; order:
                 </span>
               </h3>
               <VoicingGrid voicings={g.vs} onOpen={setOpen} />
+              {g.block.length > 0 && (
+                <div className="pk-extra">
+                  <span className="pk-sub">Block chord</span>
+                  <VoicingGrid voicings={g.block} onOpen={setOpen} />
+                </div>
+              )}
               {g.extra.length > 0 &&
                 (asIii.has(g.label) ? (
                   <div className="pk-extra">

@@ -705,6 +705,7 @@
 .pk-iii { font-family: var(--mono); font-style: normal; font-size: 12px; color: var(--accent-ink); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; }
 .pk-more { align-self: flex-start; font-size: 13px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; padding: 6px 0; }
 .pk-extra { display: flex; flex-direction: column; gap: 8px; }
+.pk-sub { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
 
 /* ── Voicings: the progress map ─────────────────────────────────── */
 .lb-view { width: 100%; }

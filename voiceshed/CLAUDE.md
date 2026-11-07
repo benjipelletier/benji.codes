@@ -172,7 +172,11 @@ wide screen; a run hides both.
   "+ Add all N" and Done pinned at the bottom. Only the voicings the set plays
   are offered: a iii's iii voicings, every other chord's own; another m7 has a
   collapsed "Show Dm7 as iii (8 for 9) ▾" (the owner: "a little hidden button")
-  that adds its iii voicings below, outside Add all. The sheet lists the chords in
+  that adds its iii voicings below, outside Add all. Block chords (the owner:
+  "add block chords to the sheet"), whatever the voicing type picked, as a
+  "Block chord" row under the chord — the iii's 5 ♭7 1 ♭3 5 and the m7♭5's;
+  another m7's block sits behind its iii toggle. They're offered, not played
+  in runs, so they aren't in Add all. The sheet lists the chords in
   the order they come ("Cm7 ×2 · 2/4 in deck"),
   each with its voicings as the Voicings page's cards — + Deck on each (its
   other inversion with it), tap one for its sheet. The tune search finds the
