@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CYCLE_OF_FOURTHS, parseChordLabel, pretty, QUALITIES, QUALITY, rootNames, type Quality } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, type Mode, type SrsState, type Voicing } from '@voiceshed/lib/types';
-import { FLUENT_STREAK } from '@voiceshed/lib/drill';
+import { FLUENT_STREAK, NEW_AT_ONCE, NEW_PER_SET } from '@voiceshed/lib/drill';
 
 export type Spelling = 'both' | 'flats' | 'sharps';
 
@@ -25,7 +25,7 @@ export interface ReviewConfig {
   spelling: Spelling;
   /** Cards drilled at once (lib/drill.ts). */
   size: number;
-  /** New cards (in the deck, never answered) may join the set once nothing shakier is waiting. */
+  /** New cards (in the deck, never answered) roll into the set, NEW_AT_ONCE at a time (lib/drill.ts). */
   fresh: boolean;
 }
 
@@ -261,7 +261,7 @@ export function ReviewSetup({
       <label className="vt-check rs-check">
         <input type="checkbox" checked={c.fresh} onChange={e => set({ fresh: e.target.checked })} />
         <span>
-          New voicings <em>join once nothing shakier is waiting</em>
+          New voicings <em>up to {NEW_PER_SET} a session, {NEW_AT_ONCE} at a time — the next joins once one is fast</em>
         </span>
       </label>
     </section>

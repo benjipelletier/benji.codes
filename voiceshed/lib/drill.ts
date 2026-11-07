@@ -5,9 +5,11 @@
 // ii–V–I, and only then spaced out.
 //
 //  1. The set: the shakiest cards first (in the deck, answered before, not
-//     solid — lowest fluency first), then solid cards due a check, then new
-//     ones in the order added; if that's not enough, solid cards ahead of
-//     their check, soonest first.
+//     solid — lowest fluency first), then solid cards due a check; if that's
+//     not enough, solid cards ahead of their check, soonest first. New cards
+//     roll in (the owner: "only show new cards once those are fast enough"):
+//     NEW_AT_ONCE in play at a time, the next joining when one gets fast,
+//     NEW_PER_SET in a session, in the order added.
 //  2. The drill: the set's cards, mixed. A miss or a slow answer comes back
 //     two cards later; a fast one a little later each time. A card leaves the
 //     set after FLUENT_STREAK right-and-fast answers in a row — a solid
@@ -33,6 +35,10 @@ export const MAX_ASKS = 10;
 export const MAX_INTERVAL = 120;
 /** Answers that make a card's fluency score. */
 const RECENT = 6;
+/** New cards being learned at once; the next joins when one of them leaves the set. */
+export const NEW_AT_ONCE = 2;
+/** New cards a session brings in at most. */
+export const NEW_PER_SET = 5;
 /** The family the drill never takes into a ii–V–I: heard in the wild, its own thing. */
 const NO_CONTEXT_FAMILIES = new Set(['found']);
 
@@ -75,7 +81,7 @@ export function chooseSet(o: {
   size: number;
   fresh: boolean;
   now: Date;
-}): { set: SetCard[]; counts: SetCounts; waiting: SetCard[] } {
+}): { set: SetCard[]; incoming: SetCard[]; counts: SetCounts; waiting: SetCard[] } {
   const { pool, srs, grouped, gapKeys, modes, targetOf, size, fresh, now } = o;
   const byId = new Map(pool.map(v => [v.id, v]));
   const t = now.getTime();
@@ -126,8 +132,13 @@ export function chooseSet(o: {
   const newCards = rounds.flat();
 
   const waiting = [...shaky, ...check.map(x => x.c), ...(fresh ? newCards : [])];
-  const set = [...waiting, ...ahead.map(x => x.c)].slice(0, size);
-  return { set, counts: { shaky: shaky.length, check: check.length, new: newCards.length, solid }, waiting };
+  // Shaky and checks take the set; new cards roll in behind (startDrill, refill),
+  // with room kept for the first of them; early checks only fill what's left.
+  const set = [...shaky, ...check.map(x => x.c)].slice(0, size);
+  const incoming = fresh ? newCards.slice(0, NEW_PER_SET) : [];
+  const room = size - set.length - Math.min(NEW_AT_ONCE, incoming.length);
+  if (room > 0) set.push(...ahead.slice(0, room).map(x => x.c));
+  return { set, incoming, counts: { shaky: shaky.length, check: check.length, new: newCards.length, solid }, waiting };
 }
 
 // ── the drill ───────────────────────────────────────────────────────────
@@ -156,26 +167,39 @@ export interface Drill {
   slots: Slot[];
   turn: number;
   last: string | null;
+  /** New cards still to join, in order. */
+  incoming: SetCard[];
+  /** Most cards in play at once. */
+  size: number;
 }
 
-export function startDrill(set: SetCard[]): Drill {
-  return {
-    slots: set.map((card, i) => ({
-      key: srsKey(card.voicing.id, card.mode),
-      card,
-      need: card.why === 'check' || card.why === 'early' ? 1 : FLUENT_STREAK,
-      streak: 0,
-      asked: 0,
-      misses: 0,
-      slows: 0,
-      nextTurn: i,
-      status: 'active',
-      first: null,
-      context: null,
-    })),
-    turn: 0,
-    last: null,
-  };
+const slotOf = (card: SetCard, nextTurn: number): Slot => ({
+  key: srsKey(card.voicing.id, card.mode),
+  card,
+  need: card.why === 'check' || card.why === 'early' ? 1 : FLUENT_STREAK,
+  streak: 0,
+  asked: 0,
+  misses: 0,
+  slows: 0,
+  nextTurn,
+  status: 'active',
+  first: null,
+  context: null,
+});
+
+/** New cards join while there's room and fewer than NEW_AT_ONCE are still being learned. */
+function refill(d: Drill): Drill {
+  const slots = [...d.slots];
+  const incoming = [...d.incoming];
+  const active = () => slots.filter(s => s.status === 'active');
+  while (incoming.length && active().length < d.size && active().filter(s => s.card.why === 'new').length < NEW_AT_ONCE) {
+    slots.push(slotOf(incoming.shift()!, d.turn));
+  }
+  return { ...d, slots, incoming };
+}
+
+export function startDrill(set: SetCard[], incoming: SetCard[] = [], size = set.length + Math.min(NEW_AT_ONCE, incoming.length)): Drill {
+  return refill({ slots: set.map((card, i) => slotOf(card, i)), turn: 0, last: null, incoming, size });
 }
 
 /** The card to ask next: the one waiting longest, never the same twice running if another is left. */
@@ -210,7 +234,7 @@ export function answerDrill(d: Drill, key: string, a: Answer): Drill {
     else if (n.asked >= MAX_ASKS) n.status = 'stuck';
     return n;
   });
-  return { slots, turn, last: key };
+  return refill({ ...d, slots, turn, last: key });
 }
 
 // ── in context ──────────────────────────────────────────────────────────
@@ -229,24 +253,35 @@ export interface ContextStep {
  * A ii–V–I for each card that came out of the drill solid: the first
  * progression with its chord (the same root, quality and spelling), the card's
  * own voicing on that chord and the library's of the same family, voice-led,
- * on the others. Cards of one progression and mode share it. A iii voicing, a
+ * on the others. Cards of one progression and mode share it; a second
+ * inversion of a chord takes the next progression with it (or a repeat). A iii voicing, a
  * found one, or a chord no progression has stays out.
  */
 export function contextSteps(slots: Slot[], contexts: Context[], library: Voicing[]): ContextStep[] {
   const progs = contexts.filter(c => c.type === 'progression').sort((a, b) => a.sort_order - b.sort_order);
   const rootName = (label: string) => parseChordLabel(label)?.rootName;
   const symbolRoot = (symbol: string) => symbol.match(/^[A-G][b#]?/)?.[0];
-  const groups = new Map<string, { c: Context; mode: Mode; probes: Slot[] }>();
+  const groups = new Map<string, { c: Context; mode: Mode; probes: Slot[]; chords: Set<string> }>();
   for (const s of slots) {
     if (s.status !== 'fluent' && s.status !== 'checked') continue;
     const v = s.card.voicing;
     if (isIii(v) || NO_CONTEXT_FAMILIES.has(v.family)) continue;
-    const c = progs.find(p => p.steps.some(st => st.root === v.root && st.quality === v.quality && symbolRoot(st.symbol) === rootName(v.chord_label)));
-    if (!c) continue;
-    const k = `${c.id}|${s.card.mode}`;
-    const g = groups.get(k) ?? { c, mode: s.card.mode, probes: [] };
-    g.probes.push(s);
-    groups.set(k, g);
+    const matches = progs.filter(p => p.steps.some(st => st.root === v.root && st.quality === v.quality && symbolRoot(st.symbol) === rootName(v.chord_label)));
+    if (!matches.length) continue;
+    // One probe per chord in a progression: another inversion of the same chord
+    // takes the next progression with it, or the same one played again.
+    const chord = `${v.root}|${v.quality}|${rootName(v.chord_label)}`;
+    placed: for (let n = 0; ; n++) {
+      for (const c of matches) {
+        const k = `${c.id}|${s.card.mode}|${n}`;
+        const g = groups.get(k) ?? { c, mode: s.card.mode, probes: [], chords: new Set<string>() };
+        if (g.chords.has(chord)) continue;
+        g.probes.push(s);
+        g.chords.add(chord);
+        groups.set(k, g);
+        break placed;
+      }
+    }
   }
   const out: ContextStep[] = [];
   for (const { c, mode, probes } of groups.values()) {

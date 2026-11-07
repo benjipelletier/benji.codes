@@ -23,6 +23,7 @@ import {
   chooseSet,
   contextSteps,
   FLUENT_STREAK,
+  NEW_AT_ONCE,
   nextSlot,
   startDrill,
   WHY_LABEL,
@@ -73,11 +74,11 @@ export function ReviewPage() {
   );
   const statusOf = (d: Drill) => {
     const out = d.slots.filter(s => s.status !== 'active').length;
-    return `${out} / ${d.slots.length} fluent`;
+    return `${out} / ${d.slots.length + d.incoming.length} fluent`;
   };
 
   const start = () => {
-    const d = startDrill(today.set);
+    const d = startDrill(today.set, today.incoming, config.size);
     drill.current = d;
     stage.current = 'drill';
     written.current = new Map();
@@ -185,7 +186,8 @@ export function ReviewPage() {
       </div>
     );
   }
-  const { set, counts } = today;
+  const { set, incoming, counts } = today;
+  const total = set.length + incoming.length;
   return (
     <div className="vt-page">
       <section className="rv-hero">
@@ -203,7 +205,7 @@ export function ReviewPage() {
             <span className="rv-lbl">new</span>
           </div>
         )}
-        {set.length > 0 && (
+        {total > 0 && (
           <ul className="rv-set" aria-label="Today’s set">
             {set.map(c => (
               <li key={srsKey(c.voicing.id, c.mode)} className={`rv-card rv-${c.why}`}>
@@ -213,11 +215,24 @@ export function ReviewPage() {
                 </span>
               </li>
             ))}
+            {incoming.map((c, i) => (
+              <li key={srsKey(c.voicing.id, c.mode)} className={`rv-card rv-new ${i >= NEW_AT_ONCE ? 'rv-later' : ''}`}>
+                <b>{prettyLabel(c.voicing.chord_label)}</b>
+                <span>
+                  {MODE_LABEL[c.mode]} · {i < NEW_AT_ONCE ? 'new' : 'new · joins later'}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
+        {incoming.length > NEW_AT_ONCE && (
+          <p className="rv-note rv-rolling">
+            New cards come in {NEW_AT_ONCE} at a time: the next joins when one of them is fast {FLUENT_STREAK} times in a row.
+          </p>
+        )}
         <p className="rv-what">{filtered}</p>
-        <button type="button" className="vt-primary" onClick={start} disabled={!set.length}>
-          {set.length ? `Start today’s set · ${set.length} card${set.length === 1 ? '' : 's'}` : 'Nothing in your deck with this set-up'}
+        <button type="button" className="vt-primary" onClick={start} disabled={!total}>
+          {total ? `Start today’s set · ${total} card${total === 1 ? '' : 's'}` : 'Nothing in your deck with this set-up'}
         </button>
         <p className="rv-note">
           Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.

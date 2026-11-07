@@ -169,12 +169,17 @@ wide screen; a run hides both.
   spacing useless for voicings ("seeing one voicing, getting it wrong then not
   seeing it for another day … not that useful"), so a voicing is treated as a
   motor skill:
-  1. **The set** (`chooseSet`, 4–10 cards, 6 by default): shaky cards first
-     (answered before, not solid, or flagged for the context gap; lowest
+  1. **The set** (`chooseSet`, 4–10 cards in play, 6 by default): shaky cards
+     first (answered before, not solid, or flagged for the context gap; lowest
      `fluencyScore` first — each of the last 6 answers scores target ÷ time,
-     capped at 1, a miss 0), then solid cards due a check, then new ones in the
-     order added (a voicing's modes spread across sets; only with "New voicings"
-     on), then — to fill — solid cards ahead of their check, soonest first.
+     capped at 1, a miss 0), then solid cards due a check; then — to fill,
+     leaving room for new ones — solid cards ahead of their check, soonest
+     first. **New cards roll in** (the owner: "only show new cards once those
+     are fast enough … otherwise I need to keep grinding them"):
+     `NEW_AT_ONCE` (2) being learned at a time, the next joining when one leaves
+     the set, `NEW_PER_SET` (5) a session, in the order added (a voicing's modes
+     spread across sets; only with "New voicings" on). The home shows them,
+     the later ones faded as "joins later".
   2. **The drill** (`startDrill`, `nextSlot`, `answerDrill`): the cards mixed,
      never one twice running. A miss or slow answer comes back 2 turns later
      and resets the streak; a fast one later each time. A card leaves after
@@ -185,7 +190,8 @@ wide screen; a run hides both.
      once in the first stored progression with its chord (same root, quality,
      spelling), its own voicing there and the library's of the same family,
      voice-led, on the other chords; cards of one progression and mode share
-     it. iii voicings, found ones and chords no progression has skip it.
+     it, and another inversion of the same chord takes the next progression
+     with it (Dm7: ii of C, then i of D minor) or a repeat. iii voicings, found ones and chords no progression has skip it.
   4. **The schedule**: every answer counts a rep; a solid card that's slow or
      missed (in the drill, the ii–V–I, or a Practice run) is demoted —
      `learned` false, due now — so it leads the next set (`demote`,
