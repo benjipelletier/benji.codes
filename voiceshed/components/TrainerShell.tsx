@@ -87,15 +87,21 @@ const THE_LICK: [key: number, eighths: number][] = [
 const EIGHTH_MS = 170;
 const BREATH_EIGHTHS = 3;
 
-/** A little piano playing The Lick, notes floating off it, for while the app loads. */
-export function PianoLoader({ label }: { label: string }) {
+/**
+ * A little piano playing The Lick, notes floating off it: the loader (round and
+ * round), and a run's summary (`rounds`: the owner noticed loading never takes
+ * long enough to see it, so it plays at the end of every run too).
+ */
+export function PianoLoader({ label, rounds = Infinity, small = false }: { label?: string; rounds?: number; small?: boolean }) {
   const whites = 8;
   const blacks = [0, 1, 3, 4, 5]; // after these white keys
   // Which step is sounding (-1 between rounds); still with reduced motion.
   const [step, setStep] = useState(-1);
+  const [done, setDone] = useState(false);
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     let i = 0;
+    let played = 0;
     let timer: ReturnType<typeof setTimeout>;
     const play = () => {
       if (i < THE_LICK.length) {
@@ -104,15 +110,16 @@ export function PianoLoader({ label }: { label: string }) {
       } else {
         setStep(-1);
         i = 0;
-        timer = setTimeout(play, BREATH_EIGHTHS * EIGHTH_MS);
+        if (++played < rounds) timer = setTimeout(play, BREATH_EIGHTHS * EIGHTH_MS);
+        else setDone(true);
       }
     };
     timer = setTimeout(play, 250);
     return () => clearTimeout(timer);
-  }, []);
+  }, [rounds]);
   const down = step >= 0 ? THE_LICK[step][0] : -1;
   return (
-    <div className="vt-loader" role="status">
+    <div className={`vt-loader ${small ? 'vt-loader-small' : ''}`} role={label ? 'status' : undefined}>
       <svg viewBox="0 0 160 70" aria-hidden="true">
         {Array.from({ length: whites }, (_, i) => (
           <rect key={`w${i}`} className={`vt-loader-w ${i === down ? 'on' : ''}`} x={i * 20 + 1} y={1} width={18} height={66} rx={2.5} />
@@ -121,12 +128,12 @@ export function PianoLoader({ label }: { label: string }) {
           <rect key={`b${i}`} className="vt-loader-b" x={i * 20 + 14} y={1} width={12} height={40} rx={2} />
         ))}
       </svg>
-      <span className="vt-loader-notes" aria-hidden="true">
+      <span className={`vt-loader-notes ${done ? 'off' : ''}`} aria-hidden="true">
         <i>♪</i>
         <i>♫</i>
         <i>♪</i>
       </span>
-      <span>{label}</span>
+      {label && <span>{label}</span>}
     </div>
   );
 }

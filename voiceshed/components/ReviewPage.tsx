@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
-import { fmtPct, fmtSecs, relTime, signIn, signOut, useCardStats } from './TrainerShell';
+import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { Keyboard, rangeAround } from './Keyboard';
@@ -354,6 +354,7 @@ export function Summary({ results, onAgain, extra }: { results: RunnerResult[]; 
   return (
     <div className="vt-page">
       <section className="sm">
+        <PianoLoader rounds={2} small />
         <h2 className="sm-title">Session done</h2>
         <div className="sm-stats">
           <div>

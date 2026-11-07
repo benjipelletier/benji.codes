@@ -918,3 +918,9 @@
   .vt-loader-notes i, .cr-no9 { animation: none; }
   .vt-primary, .vt-secondary { transition: none; }
 }
+
+/* The Lick at the top of a run's summary: smaller, no label. */
+.vt-loader-small { padding: 18px 0 4px; }
+.vt-loader-small svg { width: 120px; height: 52px; }
+.vt-loader-small .vt-loader-notes { top: 6px; }
+.vt-loader-notes.off i { animation-iteration-count: 1; }

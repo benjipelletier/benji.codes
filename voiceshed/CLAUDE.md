@@ -304,7 +304,8 @@ ending into its summary). Tested on dev and a production build.
 and button clicking"): loading is a small piano playing **The Lick** — D E F
 G E C D in eighths, the last D held, a breath, again (the owner: "the loader's
 piano should play it"; `THE_LICK` in `TrainerShell`) — with notes floating off it
-(`PianoLoader`); a tapped button sends up a
+(`PianoLoader`). Loading rarely lasts long enough to see it (the owner noticed),
+so the piano also opens every run's summary, playing it twice (`rounds`); a tapped button sends up a
 note — ♪ ♫ ♩ ♬ — from the finger (`useTapNotes`; not on a run's keys or note
 pad); the big buttons press down like piano keys. Reduced motion turns them off.
 
