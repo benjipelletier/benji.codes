@@ -471,7 +471,11 @@ line), **Top** (number, and "→ ♭3" for a move). Notes only come with the
 answer (the owner: "only show the number … showing the note is giving too
 much away"). Review → Settings → "Play and Spell cards
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
-always shows, and the answer shows both.
+always shows, and the answer shows both. Spell's pad writes each line's
+degree under it, bottom to top, then the moved-to one after the arrow ("♭7 ♭3 5
+9", "1 ♭5 ♭7 11 → ♭3"; `degreesOf` in CardRunner, `degrees` on NotePad; the
+owner: "under the lines put out the degree it should be"), the next one in
+amber.
 
 **The iii and the root, said loud**: a iii card has a "No 9!" sticker under the
 chord — a 9 in a circle struck through, "it's the iii · play the 8", tilted,

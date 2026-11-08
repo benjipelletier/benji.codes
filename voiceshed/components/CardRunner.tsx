@@ -64,6 +64,15 @@ const REQUEUE_GAP = 4;
 const ADVANCE_RIGHT_MS = 550;
 const ADVANCE_SLOW_MS = 1100;
 
+/** Each note's chord degree, bottom to top, then where the top moves: "♭7 ♭3 5 9", the root as "1". */
+function degreesOf(v: Voicing): string[] {
+  const tone = (midi: number) => {
+    const semis = mod12(midi - v.root);
+    return semis === 0 ? '1' : intervalDisplay(intervalName(v.quality, semis));
+  };
+  return [...v.notes.map(n => tone(noteMidi(n))), ...(v.top_move ? [tone(noteMidi(v.top_move))] : [])];
+}
+
 /** The answer as notes: "C G♭ B♭ F → E♭" for a voicing whose top moves. */
 const answerText = (v: Voicing) => {
   const names = spellNames(v).map(pretty);
@@ -564,7 +573,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                 <Keyboard low={fbRange[0]} high={fbRange[1]} marks={fbMarks} labels={labels} />
               </div>
             )}
-            {phase === 'ask' && <NotePad key={index} count={spellNames(v).length} moveSlot={!!v.top_move} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
+            {phase === 'ask' && <NotePad key={index} count={spellNames(v).length} moveSlot={!!v.top_move} degrees={degreesOf(v)} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
           </>
         )}
         {step.mode === 'name' && phase === 'ask' && <NamePicker key={index} qualities={qualities} onAnswer={answer => submit({ kind: 'name', answer })} disabled={false} />}

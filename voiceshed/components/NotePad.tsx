@@ -19,12 +19,14 @@ interface Props {
   count: number;
   /** The last slot is where the top voice moves to: an arrow before it. */
   moveSlot?: boolean;
+  /** The chord degree each slot should be, written under it ("♭7", "9"; the owner: "under the lines put out the degree it should be"). */
+  degrees?: string[];
   /** The names, and when the last of them was tapped (performance.now()). */
   onSubmit: (names: string[], at: number) => void;
   disabled?: boolean;
 }
 
-export function NotePad({ count, moveSlot = false, onSubmit, disabled = false }: Props) {
+export function NotePad({ count, moveSlot = false, degrees, onSubmit, disabled = false }: Props) {
   const [names, setNames] = useState<string[]>([]);
   const namesRef = useRef(names);
   namesRef.current = names;
@@ -124,8 +126,11 @@ export function NotePad({ count, moveSlot = false, onSubmit, disabled = false }:
         {Array.from({ length: count }, (_, i) => (
           <span key={i} className="np-slot-wrap">
             {moveSlot && i === count - 1 && <span className="np-arrow" aria-label="moves to">→</span>}
-            <span className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''} ${full && i === count - 1 ? 'np-slot-wait' : ''}`}>
-              {names[i] ? pretty(names[i]) : ''}
+            <span className="np-col">
+              <span className={`np-slot ${names[i] ? 'np-slot-on' : ''} ${i === names.length ? 'np-slot-next' : ''} ${full && i === count - 1 ? 'np-slot-wait' : ''}`}>
+                {names[i] ? pretty(names[i]) : ''}
+              </span>
+              {degrees?.[i] && <span className={`np-deg ${i === names.length ? 'np-deg-next' : ''}`}>{degrees[i]}</span>}
             </span>
           </span>
         ))}
