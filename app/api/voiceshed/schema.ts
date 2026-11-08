@@ -232,10 +232,32 @@ async function seed(sql: Sql) {
 let ready: Promise<void> | null = null;
 
 /** Tables made and starter data seeded: once per server instance. */
+/** This build's version (counted in next.config.ts), as the app running it shows it. */
+export const APP_VERSION = { version: process.env.NEXT_PUBLIC_VOICESHED_VERSION ?? '0.1', commit: process.env.NEXT_PUBLIC_VOICESHED_COMMIT ?? '' };
+
+/**
+ * The version deployed, written to `voiceshed_meta` ('app_version') the first time a
+ * production build starts (the owner: "whenever we push write something to the database so
+ * that it checks" against the app that's open). Only ever forward — never back to a lower
+ * count — and only from production, so a preview or a dev server can't claim to be latest.
+ * `at` is when that version first ran.
+ */
+async function recordVersion(sql: Sql) {
+  const { version, commit } = APP_VERSION;
+  if (process.env.VERCEL_ENV !== 'production' || !/^\d+\.\d+\.\d+$/.test(version)) return;
+  await sql.query(
+    `INSERT INTO voiceshed_meta (key, value) VALUES ('app_version', $1)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+     WHERE split_part(voiceshed_meta.value::jsonb->>'version', '.', 3)::int < split_part(EXCLUDED.value::jsonb->>'version', '.', 3)::int`,
+    [JSON.stringify({ version, commit, at: new Date().toISOString() })],
+  );
+}
+
 export function ensureTrainer(sql: Sql): Promise<void> {
   ready ??= (async () => {
     for (const ddl of TRAINER_DDL) await sql.query(ddl);
     await seed(sql);
+    await recordVersion(sql);
   })().catch(err => {
     ready = null;
     throw err;

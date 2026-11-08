@@ -1318,3 +1318,12 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-keys-banner small { font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cr-midi-idle { font-family: var(--mono); font-size: 11px; color: var(--ink-3); border: 1px dashed var(--good); border-radius: 999px; padding: 1px 7px; }
 @media (prefers-reduced-motion: reduce) { .vt-midi-badge i.hit, .cr-keys-banner i.hit, .vt-midi-toast { animation: none; } }
+
+/* Which version is running (TrainerShell's VersionLine), and the bar when there's a newer one. */
+.vt-brand-wrap { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.vt-ver { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; color: var(--ink-3); white-space: nowrap; }
+.vt-ver.ok { color: var(--good); }
+.vt-ver.behind { color: var(--accent-ink); font-weight: 600; }
+.vt-update { position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 19; width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 10px; padding: 9px 16px; border: 0; border-bottom: 1px solid var(--accent); background: var(--accent); color: var(--paper); font: inherit; font-size: 14px; cursor: pointer; }
+.vt-update span { font-size: 12px; opacity: 0.85; }
+.vt:has(.cr) .vt-update, .vt:has(.ls-run) .vt-update { display: none; }
