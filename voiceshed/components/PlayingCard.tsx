@@ -1,8 +1,8 @@
 'use client';
 
 // A chord in the deck as a playing card (the owner: "a less detail actual card
-// shape like a playing card shape"): the chord big, its other inversions as
-// cards stacked behind, and its three modes as tabs on the top edge, each a
+// shape like a playing card shape"): the chord big, how many inversions it has
+// ("×2", learned together), and its three modes as tabs on the top edge, each a
 // symbol coloured by that mode's status (the owner: "B but not with the full
 // name written out, let's make symbols for each"). The card's border and foot
 // are its most urgent mode. Tap: the voicing's page. On Review's home and the
@@ -86,9 +86,6 @@ export function PlayingCard({ c, foot, onOpen }: { c: ChordCard; foot?: string; 
     <li className={`rv-pc rv-pc-${worst}`}>
       {/* Tap: the voicing's own page (the owner: "clicking the card in review to open its card page"). */}
       <button type="button" className="rv-pc-open" onClick={() => onOpen(c.first)} aria-label={`${prettyLabel(c.label)}: ${said}${c.n > 1 ? `; ${c.n} inversions` : ''} — open`} />
-      {Array.from({ length: Math.min(3, c.n - 1) }, (_, i) => (
-        <span key={i} className="rv-pc-back" style={{ ['--i' as string]: i + 1 }} aria-hidden />
-      ))}
       <span className="rv-pc-tabs" aria-hidden>
         {MODES.map(m => (
           <span key={m} className={`rv-pc-tab rv-tab-${c.modes[m] ?? 'none'}`}>
@@ -101,7 +98,11 @@ export function PlayingCard({ c, foot, onOpen }: { c: ChordCard; foot?: string; 
           {d.root}
           <small>{d.quality}</small>
         </span>
-        <span className="rv-pc-foot">{foot ?? STATE_WORD[worst]}</span>
+        <span className="rv-pc-foot">
+          {/* Its inversions, learned together: a count, not a stack (the owner: "I actually don't like the stacking, it's too confusing"). */}
+          {c.n > 1 && <span className="rv-pc-inv">×{c.n}</span>}
+          {foot ?? STATE_WORD[worst]}
+        </span>
       </span>
     </li>
   );

@@ -222,8 +222,9 @@ wide screen; a run hides both.
   time, 5 a session). The home shows the set as **playing cards** (the owner:
   "a less detail actual card shape like a playing card shape"),
   `components/PlayingCard.tsx`, **one per chord** (`chordCards` folds the
-  mode groups together): the chord big in the middle, its other inversions as
-  cards fanned behind it (up to three), and its three modes as **tabs** on the
+  mode groups together): the chord big in the middle, how many inversions it
+  has as "×2" in the foot (no stack behind it any more — the owner: "I actually
+  don't like the stacking, it's too confusing"), and its three modes as **tabs** on the
   top edge, a symbol each (the owner: "B but not with the full name written
   out, let's make symbols for each"): Play a little keyboard, Spell a note,
   Name a name tag (`ModeIcon`), each tinted by that mode's state — red shaky,

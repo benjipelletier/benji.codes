@@ -235,7 +235,7 @@ export function ReviewPage() {
             </p>
             <p className="rv-legend">
               <span>
-                <i className="rv-k rv-k-stack" /> a stack is a chord’s inversions, learned together
+                <b className="rv-k-inv">×2</b> its inversions, learned together
               </span>
               <span>
                 <i className="rv-k rv-k-shaky" /> shaky

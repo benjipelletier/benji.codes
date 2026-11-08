@@ -1236,3 +1236,8 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-mk { display: inline-flex; align-items: center; gap: 4px; }
 .rv-mk .mi { width: 14px; height: 14px; }
 .dk-key { flex-basis: 100%; }
+
+/* No stack behind a card: its inversions are a count in the foot. */
+.rv-pc-foot { align-self: stretch; display: flex; justify-content: flex-end; gap: 6px; }
+.rv-pc-inv { margin-right: auto; color: var(--ink-3); }
+.rv-k-inv { font: 600 11px var(--mono); color: var(--ink-3); }
