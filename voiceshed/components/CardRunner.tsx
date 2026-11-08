@@ -18,6 +18,7 @@ import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pi
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
 import { useMidi, useMidiNotes } from '@voiceshed/lib/midi';
+import { midiTarget } from '@voiceshed/lib/srs';
 
 export interface RunnerStep {
   voicing: Voicing;
@@ -37,6 +38,8 @@ export interface RunnerResult {
   /** A missed card asked again later in the same session. */
   repeat: boolean;
   at: string;
+  /** Played on a MIDI keyboard: `slow` was judged against its keyboard target (`midiTarget`). */
+  input: 'midi' | null;
 }
 
 interface Props {
@@ -56,7 +59,7 @@ interface Props {
 }
 
 type Given =
-  | { kind: 'play'; midis: number[]; moveTo: number | null }
+  | { kind: 'play'; midis: number[]; moveTo: number | null; midi?: boolean }
   | { kind: 'spell'; names: string[]; enharmonic: boolean }
   | { kind: 'name'; answer: NameAnswer }
   | { kind: 'skip' };
@@ -455,7 +458,10 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       if (g.kind === 'play') correct = gradePlay(step.voicing, g.midis, g.moveTo);
       else if (g.kind === 'spell') correct = gradeSpell(step.voicing, g.names, strictSpelling).correct;
       else if (g.kind === 'name') correct = gradeName(step.voicing, g.answer, library);
-      const r: RunnerResult = { step, correct, slow: correct && ms > step.target, ms, repeat: !!step.repeat, at: new Date().toISOString() };
+      // A chord played on a MIDI keyboard is judged against the keyboard's target.
+      const input = g.kind === 'play' && g.midi ? 'midi' : null;
+      const target = input ? midiTarget(step.target, step.voicing, step.mode) : step.target;
+      const r: RunnerResult = { step, correct, slow: correct && ms > target, ms, repeat: !!step.repeat, at: new Date().toISOString(), input };
       results.current.push(r);
       setGiven(g);
       setResult(r);
@@ -575,7 +581,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       slideBack(0);
     }
     if (v.top_move && cur.length >= v.notes.length) {
-      if (!cur.includes(m)) submit({ kind: 'play', midis: cur, moveTo: m });
+      if (!cur.includes(m)) submit({ kind: 'play', midis: cur, moveTo: m, midi: true });
       return;
     }
     if (cur.includes(m)) return;
@@ -583,10 +589,13 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     tappedRef.current = nextSet; // a chord's keys arrive in one go, before a render
     setTapped(nextSet);
     setOrder(o => (restart ? [m] : [...o, m]));
-    if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
+    if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null, midi: true });
   });
 
   if (!step || !v) return null;
+  // The clock runs to the keyboard's target while a keyboard is plugged in (or the answer came from one).
+  const keysOn = step.mode === 'play' && midi.status === 'on' && midi.inputs.length > 0;
+  const clockTarget = (phase === 'feedback' ? result?.input === 'midi' : keysOn) ? midiTarget(step.target, v, step.mode) : step.target;
 
   // Big keys starts showing the bottom two; the others centre on the voicing.
   const bigLo = WHITE_MIDIS[Math.max(0, Math.min(WHITE_MIDIS.length - whites, bigBase + shift))];
@@ -649,9 +658,9 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
       <div className="cr-clock" key={`${index}-${phase}`}>
         {phase === 'ask' ? (
-          <span className="cr-clock-bar" style={{ animationDuration: `${step.target}ms` }} />
+          <span className="cr-clock-bar" style={{ animationDuration: `${clockTarget}ms` }} />
         ) : (
-          <span className={`cr-clock-done ${result?.correct ? (result.slow ? 'slow' : 'good') : 'fail'}`} style={{ width: `${Math.min(100, (result!.ms / step.target) * 100)}%` }} />
+          <span className={`cr-clock-done ${result?.correct ? (result.slow ? 'slow' : 'good') : 'fail'}`} style={{ width: `${Math.min(100, (result!.ms / clockTarget) * 100)}%` }} />
         )}
       </div>
 
@@ -675,7 +684,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
           <div className={`cr-verdict ${result.correct ? (result.slow ? 'slow' : 'good') : 'fail'}`} role="status">
             <span className="cr-verdict-mark">{result.correct ? '✓' : '✗'}</span>
             <span className="cr-verdict-time">{given?.kind === 'skip' ? 'skipped' : secs(result.ms)}</span>
-            {result.slow && <span className="cr-verdict-note">slow · target {secs(step.target)}</span>}
+            {result.slow && <span className="cr-verdict-note">slow · target {secs(clockTarget)}</span>}
             {given?.kind === 'spell' && given.enharmonic && (
               <span className="cr-verdict-note">
                 {result.correct ? 'right notes, ' : ''}written {answerText(v)}

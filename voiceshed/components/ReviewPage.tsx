@@ -17,13 +17,13 @@ import { useBackClose } from './useBackClose';
 import { VoicingDetail } from './VoicingsPage';
 import { chips, PlayingCard } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
-import { TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
+import { MIDI_CHORD_MS, MIDI_MOVE_MS, midiShift, TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
 import {
   afterAnswer,
   afterSlot,
   answerDrill,
   demote,
-  answerOf,
+  type Answer,
   chooseSet,
   contextSteps,
   FLUENT_STREAK,
@@ -151,11 +151,13 @@ export function ReviewPage() {
           slow: r.slow,
           response_ms: r.ms,
           created_at: r.at,
+          input: r.input,
         },
       ]);
       const key = srsKey(voicing.id, mode);
       const now = new Date(r.at);
-      const a = answerOf(r.correct, r.ms, target);
+      // As the runner judged it: a keyboard answer against the keyboard's target.
+      const a: Answer = !r.correct ? 'miss' : r.slow ? 'slow' : 'fast';
       const prev = written.current.get(key) ?? t.srs.get(key);
       const d = drill.current;
       if (step.context_type === 'isolated' && d) {
@@ -372,7 +374,7 @@ function SpeedCheck({ settings, onSave }: { settings: Settings; onSave: (s: Sett
         const from = solid.length >= SPEED_MIN ? solid : right;
         const think = from
           .slice(-SPEED_RECENT)
-          .map(a => Math.max(0, a.response_ms - tapsFor(byId.get(a.voicing_id)!, m) * TAP_MS[m]))
+          .map(a => Math.max(0, a.response_ms - tapsFor(byId.get(a.voicing_id)!, m) * TAP_MS[m] + (a.input === 'midi' ? midiShift(byId.get(a.voicing_id)!, m) : 0)))
           .sort((x, y) => x - y);
         const at = (q: number) => think[Math.min(think.length - 1, Math.floor(q * think.length))];
         const base = settings.target_ms[m];
@@ -450,7 +452,7 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
           ))}
         </div>
         <span className="vt-hint">
-          How fast you should know it. Each card adds its typing: {TAP_MS.play / 1000}s a key (Play), {TAP_MS.spell / 1000}s a letter or accidental (Spell), {TAP_MS.name / 1000}s a pick (Name). A card can have its own target, on the Voicings page.
+          How fast you should know it. Each card adds its typing: {TAP_MS.play / 1000}s a key (Play), {TAP_MS.spell / 1000}s a letter or accidental (Spell), {TAP_MS.name / 1000}s a pick (Name). Played on a MIDI keyboard, a Play card adds {MIDI_CHORD_MS / 1000}s for the whole chord ({MIDI_MOVE_MS / 1000}s more for a move) instead. A card can have its own target, on the Voicings page.
         </span>
         <SpeedCheck settings={settings} onSave={onSave} />
       </div>

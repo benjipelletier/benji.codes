@@ -628,8 +628,21 @@ doesn't count twice, and letting go takes nothing back. Let go of every key for
 over — a fumble needs no Undo. Any octave counts, as with taps (never below
 E♭3). After a move's chord, the next new key is where the top goes. The sustain
 pedal goes on to the next card once one is answered. The keys on screen still
-work. Targets stay the phone's (per tap), so a chord played at once comes in
-well under them.
+work. **Its own target** (the owner: "I'll be able to play the voicings a lot
+faster … our threshold … might have to change"; their pick of three): the
+thinking time plus `MIDI_CHORD_MS` (0.5 s) for the whole chord, `MIDI_MOVE_MS`
+(0.3 s) more for a move — Am7 drop-2 at 2 s thinking is 2.5 s on the keyboard,
+3.4 s tapped (`midiTarget`; a card's own target keeps its thinking time the
+same way). Each answer is saved with `input` ('midi', or null for tapped; an
+`attempts` column added by `TRAINER_DDL`, synced and in the bundle) and judged
+against its own: the runner's slow, the drill, and the clock bar (the keyboard's
+target while one is plugged in). For the stats, `groupAttempts` puts a keyboard
+answer on the phone's clock — its time plus the typing it saved (`midiShift`,
+0.9 s for four notes) — so fluency, medians, streaks and the context gap judge
+it the same with the card's one target; its time as played stays in
+`played_ms`, which the sheet's answer dots show ("1.24s on the keyboard").
+How fast you think takes the keyboard's allowance off its answers. Cards and
+schedules are shared: solid is solid whichever way it was played.
 
 **Sideways on a phone, in a run** (the owner: "support for landscape mode so
 the keyboard can be quite a bit bigger when reviewing cards"): the keys'

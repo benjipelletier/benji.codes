@@ -65,6 +65,8 @@ export const TRAINER_DDL = [
   // the chord type, 2 drop-2 or block, 3 which inversion. A table made before
   // has the old mode check: swapped, once, whichever instance gets there first.
   `ALTER TABLE attempts ADD COLUMN IF NOT EXISTS listen_level SMALLINT`,
+  // 'midi' when played on a MIDI keyboard (judged on its own target), else null: tapped.
+  `ALTER TABLE attempts ADD COLUMN IF NOT EXISTS input TEXT`,
   `DO $$ BEGIN
      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'attempts_mode_check' AND pg_get_constraintdef(oid) LIKE '%listen%') THEN
        ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_mode_check;

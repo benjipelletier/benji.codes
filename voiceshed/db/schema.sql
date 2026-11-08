@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS attempts (
   response_ms   INT NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL,
   -- Listen's answers (mode 'listen'): 1 chord type, 2 drop-2 or block, 3 inversion.
-  listen_level  SMALLINT
+  listen_level  SMALLINT,
+  input         TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attempts_user_created ON attempts(user_id, created_at DESC);

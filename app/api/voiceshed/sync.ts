@@ -78,6 +78,7 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
       response_ms: Math.round(a.response_ms as number),
       created_at: a.created_at,
       listen_level: a.mode === 'listen' && [1, 2, 3].includes(a.listen_level as number) ? a.listen_level : null,
+      input: a.input === 'midi' ? 'midi' : null,
     }));
 
   const srs = list(body.srs)
@@ -153,10 +154,10 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
   }
   if (attempts.length) {
     await sql.query(
-      `INSERT INTO attempts (id, user_id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at, listen_level)
-       SELECT t.id, $2, t.voicing_id, t.mode, t.context_type, t.context_id, t.run_id, t.correct, t.slow, t.response_ms, t.created_at, t.listen_level
+      `INSERT INTO attempts (id, user_id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at, listen_level, input)
+       SELECT t.id, $2, t.voicing_id, t.mode, t.context_type, t.context_id, t.run_id, t.correct, t.slow, t.response_ms, t.created_at, t.listen_level, t.input
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, voicing_id uuid, mode text, context_type text, context_id uuid,
-         run_id uuid, correct boolean, slow boolean, response_ms int, created_at timestamptz, listen_level smallint)
+         run_id uuid, correct boolean, slow boolean, response_ms int, created_at timestamptz, listen_level smallint, input text)
        WHERE EXISTS (SELECT 1 FROM voicings v WHERE v.id = t.voicing_id)
        ON CONFLICT (id) DO NOTHING`,
       [JSON.stringify(attempts), userId],

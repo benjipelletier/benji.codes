@@ -241,7 +241,7 @@ export function useCardStats(): { stats: Map<string, ModeStats>; gapKeys: Set<st
   const { attempts, srs, settings, voicings } = useTrainer();
   return useMemo(() => {
     const byId = new Map(voicings.map(v => [v.id, v]));
-    const grouped = groupAttempts(attempts);
+    const grouped = groupAttempts(attempts, byId);
     const stats = new Map<string, ModeStats>();
     const gapKeys = new Set<string>();
     for (const [k, list] of grouped) {

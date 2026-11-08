@@ -120,6 +120,7 @@ export function PracticePage() {
           slow: r.slow,
           response_ms: r.ms,
           created_at: r.at,
+          input: r.input,
         },
       ]);
     },

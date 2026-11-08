@@ -26,6 +26,29 @@ export function tapsFor(v: { notes: string[]; top_move: string | null }, mode: M
  * time (Settings) plus its taps at TAP_MS — so a 5-note voicing, or one spelled
  * with flats, gets the time its typing takes, and slow means not knowing it.
  */
+/**
+ * A MIDI keyboard (lib/midi.ts) plays a chord at once (the owner: "when connected to a midi
+ * keyboard I'll be able to play the voicings a lot faster"): a Play card answered on one is
+ * allowed the thinking time plus `MIDI_CHORD_MS` for the whole chord, and `MIDI_MOVE_MS` more
+ * for a move, rather than `TAP_MS` a key. Am7 drop-2 at a 2 s thinking time: 2.5 s, not 3.4 s.
+ */
+export const MIDI_CHORD_MS = 500;
+export const MIDI_MOVE_MS = 300;
+
+/** How much less typing a Play card takes on a MIDI keyboard than tapped on a phone (0 for Spell and Name). */
+export function midiShift(v: { notes: string[]; top_move: string | null }, mode: Mode): number {
+  if (mode !== 'play') return 0;
+  return tapsFor(v, 'play') * TAP_MS.play - (MIDI_CHORD_MS + (v.top_move ? MIDI_MOVE_MS : 0));
+}
+
+/**
+ * A card's target for an answer on a MIDI keyboard: its usual target less the typing it
+ * saves. A card's own target keeps its thinking time the same way.
+ */
+export function midiTarget(target: number, v: { notes: string[]; top_move: string | null }, mode: Mode): number {
+  return Math.max(MIDI_CHORD_MS, target - midiShift(v, mode));
+}
+
 export function targetFor(state: SrsState | undefined, mode: Mode, settings: Settings, v?: { notes: string[]; top_move: string | null }): number {
   if (state?.target_ms != null) return state.target_ms;
   return settings.target_ms[mode] + (v ? tapsFor(v, mode) * TAP_MS[mode] : 0);
@@ -73,12 +96,20 @@ const RECENT = 10;
 const MIN_FOR_GAP = 3;
 
 /** Attempts grouped by card (voicing + mode), oldest first. Listen's answers aren't a card's: left out. */
-export function groupAttempts(attempts: Attempt[]): Map<string, Attempt[]> {
+/**
+ * Answers by card, oldest first. An answer played on a MIDI keyboard is put on the phone's
+ * clock — its time plus the typing it saved (`midiShift`) — so fast and slow, fluency, medians
+ * and the context gap all judge it against its own target with the card's one target. Its
+ * time as played stays in `played_ms`.
+ */
+export function groupAttempts(attempts: Attempt[], byId?: Map<string, { notes: string[]; top_move: string | null }>): Map<string, Attempt[]> {
   const out = new Map<string, Attempt[]>();
   const sorted = [...attempts].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  for (const a of sorted) {
-    if (a.mode === 'listen') continue;
-    const k = srsKey(a.voicing_id, a.mode);
+  for (const raw of sorted) {
+    if (raw.mode === 'listen') continue;
+    const v = raw.input === 'midi' ? byId?.get(raw.voicing_id) : undefined;
+    const a = v ? { ...raw, response_ms: raw.response_ms + midiShift(v, raw.mode as Mode), played_ms: raw.response_ms } : raw;
+    const k = srsKey(raw.voicing_id, raw.mode);
     let list = out.get(k);
     if (!list) out.set(k, (list = []));
     list.push(a);

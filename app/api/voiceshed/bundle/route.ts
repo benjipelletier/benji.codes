@@ -37,7 +37,7 @@ export async function GET() {
       SELECT voicing_id, mode, ease, interval_days, due_at, target_ms, learned, reps, lapses, created_at, updated_at
       FROM srs_state WHERE user_id = ${uid}`,
     sql`
-      SELECT id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at, listen_level
+      SELECT id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at, listen_level, input
       FROM attempts WHERE user_id = ${uid}
       ORDER BY created_at DESC LIMIT ${ATTEMPTS_KEPT}`,
     sql`

@@ -62,6 +62,10 @@ export interface Attempt {
   mode: AttemptMode;
   /** Listen only: 1 the chord type, 2 drop-2 or block, 3 which inversion. */
   listen_level?: 1 | 2 | 3 | null;
+  /** Played on a MIDI keyboard (lib/midi.ts), judged on its own, faster target; else tapped. */
+  input?: 'midi' | null;
+  /** On the device only: a keyboard answer's time as played, where `response_ms` is put on the phone's clock (`groupAttempts`). */
+  played_ms?: number;
   context_type: ContextType;
   context_id: string | null;
   run_id: string | null;
