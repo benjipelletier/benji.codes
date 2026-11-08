@@ -1233,3 +1233,12 @@ button.pm-bg span { color: var(--accent-ink); }
 .ls-right:not(.ls-hold) .ls-actions-right .vt-primary::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--good); transform-origin: left; animation: ls-wait 2.8s linear both; }
 @keyframes ls-wait { from { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .ls-actions-right .vt-primary::after { animation: none; } }
+
+/* Settings: how fast your right answers are, against the target. */
+.sp { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); }
+.sp-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.sp-nums { display: flex; flex-direction: column; gap: 2px; color: var(--ink-2); }
+.sp-nums em { font-style: normal; font-size: 12px; color: var(--good); }
+.sp-nums em.sp-low { color: var(--fail); }
+.sp-none { color: var(--ink-3); }
+.sp-use { min-height: 36px; padding: 0 12px; font-size: 13px; white-space: nowrap; }

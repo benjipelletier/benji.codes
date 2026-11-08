@@ -219,6 +219,12 @@ wide screen; a run hides both.
   finished — with how it did in context and a dot per answer, then accuracy
   (first tries), average time and the slowest cards. The ✈ Offline panel and
   sign in/out.
+  **Your speed** (Settings, under Target time; the owner: "check my recent
+  reviews I feel like 2 seconds is way too short"): per mode, over the last 60
+  right answers (Review and Practice, not Listen) — typical (median), "3 in 4
+  under" (75th percentile), how many beat the target now (red under half) —
+  and "Use 4.5s": a target at that 75th percentile, rounded up to the half
+  second (at least 1 s), set in a tap. Under 8 answers it says so.
   **Nothing to set up** (the owner: "review session should be driven by
   whatever cards are in my deck. Configurable sessions is what practice is
   for"): every deck card in all three modes, `SET_SIZE` (6) in play; the old

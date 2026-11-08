@@ -313,6 +313,68 @@ function DrillReport({ slots }: { slots: Slot[] }) {
   );
 }
 
+/** Recent right answers looked at per mode, for the speed check. */
+const SPEED_RECENT = 60;
+const SPEED_MIN = 8;
+
+/**
+ * How fast your right answers actually are, per mode, against the target (the
+ * owner: "check my recent reviews I feel like 2 seconds is way too short"):
+ * the median and the time three in four come in under, over the last 60 right
+ * answers (Review and Practice), how many beat the target now, and a target
+ * at that three-in-four time, rounded up to the half second, to use in a tap.
+ */
+function SpeedCheck({ settings, onSave }: { settings: Settings; onSave: (s: Settings) => void }) {
+  const { attempts } = useTrainer();
+  const rows = useMemo(
+    () =>
+      MODES.map(m => {
+        const ms = attempts
+          .filter(a => a.mode === m && a.correct)
+          .slice(-SPEED_RECENT)
+          .map(a => a.response_ms)
+          .sort((a, b) => a - b);
+        const at = (q: number) => ms[Math.min(ms.length - 1, Math.floor(q * ms.length))];
+        const target = settings.target_ms[m];
+        return {
+          m,
+          n: ms.length,
+          median: ms.length ? at(0.5) : null,
+          p75: ms.length ? at(0.75) : null,
+          within: ms.length ? ms.filter(x => x <= target).length / ms.length : null,
+          suggest: ms.length ? Math.max(1000, Math.ceil(at(0.75) / 500) * 500) : null,
+        };
+      }),
+    [attempts, settings.target_ms],
+  );
+  return (
+    <div className="sp" aria-label="Your speed">
+      <span className="vt-field-lbl">Your speed · last {SPEED_RECENT} right answers</span>
+      {rows.map(r => (
+        <div key={r.m} className="sp-row">
+          <b>{MODE_LABEL[r.m]}</b>
+          {r.n < SPEED_MIN ? (
+            <span className="sp-none">not enough answers yet ({r.n})</span>
+          ) : (
+            <>
+              <span className="sp-nums">
+                typical {fmtSecs(r.median)} · 3 in 4 under {fmtSecs(r.p75)}
+                <em className={r.within! < 0.5 ? 'sp-low' : ''}>{Math.round(r.within! * 100)}% beat {fmtSecs(settings.target_ms[r.m])}</em>
+              </span>
+              {r.suggest !== settings.target_ms[r.m] && (
+                <button type="button" className="vt-secondary sp-use" onClick={() => onSave({ ...settings, target_ms: { ...settings.target_ms, [r.m]: r.suggest! } })}>
+                  Use {(r.suggest! / 1000).toFixed(1)}s
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ))}
+      <span className="vt-hint">A target should be fast but reachable: about three in four right answers under it. Lower it as you speed up.</span>
+    </div>
+  );
+}
+
 function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Settings) => void }) {
   return (
     <div className="vt-form">
@@ -338,6 +400,7 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
           ))}
         </div>
         <span className="vt-hint">Each card can have its own, set on the Voicings page.</span>
+        <SpeedCheck settings={settings} onSave={onSave} />
       </div>
       <div className="vt-field">
         <span className="vt-field-lbl">Play and Spell cards show</span>
