@@ -15,7 +15,7 @@ import { Keyboard, rangeAround } from './Keyboard';
 import { PianoLoader, fmtPct } from './TrainerShell';
 import { midisOf } from '@voiceshed/lib/practice';
 import { shuffle } from '@voiceshed/lib/srs';
-import { audio, playCue } from '@voiceshed/lib/sound';
+import { audio, loadSounds, playCue, soundsReady } from '@voiceshed/lib/sound';
 import { isIii, parseChordLabel, prettyLabel, pretty, QUALITIES, QUALITY, type Quality } from '@voiceshed/lib/theory';
 import type { Voicing } from '@voiceshed/lib/types';
 
@@ -44,6 +44,15 @@ export function ListenPage() {
   const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle');
   const [answers, setAnswers] = useState<Answer[]>([]);
   useBackClose(phase === 'done', () => setPhase('idle'));
+  // The piano and bass samples: fetched and decoded before the first chord.
+  const [sounds, setSounds] = useState<'loading' | 'ready' | 'failed'>(soundsReady() ? 'ready' : 'loading');
+  const load = useCallback(() => {
+    setSounds('loading');
+    void loadSounds().then(ok => setSounds(ok ? 'ready' : 'failed'));
+  }, []);
+  useEffect(() => {
+    if (!soundsReady()) load();
+  }, [load]);
 
   if (phase === 'running') return <ListenRun deck={deck} types={types} onFinish={a => (setAnswers(a), setPhase('done'))} />;
   if (phase === 'done') return <ListenSummary answers={answers} onDone={() => setPhase('idle')} />;
@@ -63,15 +72,27 @@ export function ListenPage() {
         <button
           type="button"
           className="vt-primary"
-          disabled={!deck.length}
+          disabled={!deck.length || sounds !== 'ready'}
           onClick={() => {
             audio(); // woken on this tap, so the first chord sounds
             setPhase('running');
           }}
         >
-          {deck.length ? `Start · ${deck.length} chord${deck.length === 1 ? '' : 's'}` : 'Your deck is empty'}
+          {!deck.length ? 'Your deck is empty' : sounds === 'loading' ? 'Loading the piano and bass…' : sounds === 'failed' ? 'Sounds didn’t load' : `Start · ${deck.length} chord${deck.length === 1 ? '' : 's'}`}
         </button>
+        {sounds === 'failed' && (
+          <button type="button" className="vt-secondary" onClick={load}>
+            Try again
+          </button>
+        )}
         <p className="rv-note">Turn your sound on. Nothing here changes your Review schedule.</p>
+        <p className="rv-note ls-credit">
+          Piano: Salamander Grand Piano by Alexander Holm. Bass: FluidR3 by Frank Wen. Both{' '}
+          <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">
+            CC BY 3.0
+          </a>
+          .
+        </p>
       </section>
     </div>
   );

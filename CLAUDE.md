@@ -96,6 +96,12 @@ on the landing page. All seven current projects are enabled.
 - **voiceshed** reads the jazz project's `standards` (from `JAZZ_DATABASE_URL`)
   for its tune drills, and keeps its own tables there too unless
   `VOICESHED_DATABASE_URL` is set.
+- **voiceshed**'s Listen page plays samples shipped in `public/voiceshed/sounds/`:
+  [Salamander Grand Piano](https://github.com/Tonejs/audio) by Alexander Holm and
+  FluidR3_GM's finger bass by Frank Wen (via
+  [midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts)), both
+  [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/); credited on the page
+  and in `CREDITS.txt` there.
 - **voiceshed** also reads (never writes) the owner's **ifakepro** playlists
   (`IFAKEPRO_DATABASE_URL`) for its My charts practice.
 

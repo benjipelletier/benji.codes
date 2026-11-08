@@ -1,0 +1,13 @@
+Sounds for Voiceshed's Listen page.
+
+piano/  Salamander Grand Piano V2 (Yamaha C5), by Alexander Holm.
+        Licence: Creative Commons Attribution 3.0 — https://creativecommons.org/licenses/by/3.0/
+        Taken from the Tone.js audio collection (github.com/Tonejs/audio, salamander/),
+        sampled every minor third; here A2–C7, mono, trimmed to 4 s with a fade-out.
+
+bass/   Electric Bass (finger) from the FluidR3_GM SoundFont, by Frank Wen, as rendered
+        to MP3 by github.com/gleitz/midi-js-soundfonts.
+        Licence: Creative Commons Attribution 3.0 — https://creativecommons.org/licenses/by/3.0/
+        Here E1–E♭2, every semitone, mono, trimmed to 3 s with a fade-out.
+
+Files are named by MIDI note number (60 = middle C).

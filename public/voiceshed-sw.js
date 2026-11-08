@@ -85,7 +85,7 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(networkFirst(req, url.pathname, false));
     return;
   }
-  if (url.pathname.startsWith("/_next/static/") || (url.pathname.startsWith("/voiceshed/") && /\.(png|ico|svg)$/.test(url.pathname))) {
+  if (url.pathname.startsWith("/_next/static/") || (url.pathname.startsWith("/voiceshed/") && /\.(png|ico|svg|mp3)$/.test(url.pathname))) {
     e.respondWith(cacheFirst(req));
   }
 });

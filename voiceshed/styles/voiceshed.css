@@ -1184,3 +1184,4 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-k-check { border-color: var(--accent); }
 .rv-k-new { border-style: dashed; border-color: var(--ink-3); }
 .rv-k-later { border-style: dashed; border-color: var(--ink-3); opacity: 0.6; }
+.ls-credit { font-size: 11px; } .ls-credit a { color: inherit; }

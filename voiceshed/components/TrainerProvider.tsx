@@ -19,6 +19,7 @@ import { deleteMany, getAll, getMeta, putMany, replaceAll, setMeta } from '@voic
 import type { Attempt, ChartPlaylist, Context, Run, Settings, SrsState, Tune, Voicing } from '@voiceshed/lib/types';
 import { DEFAULT_SETTINGS, MODES, srsKey, type Mode } from '@voiceshed/lib/types';
 import { newState } from '@voiceshed/lib/srs';
+import { SOUND_URLS } from '@voiceshed/lib/sound';
 
 type StoredSrs = SrsState & { key: string };
 type OutboxEntry =
@@ -119,7 +120,7 @@ function withPartners(voicings: Voicing[], ids: string[]): string[] {
 
 const TUNES_MAX_AGE = 7 * 86_400_000;
 const PUSH_CHUNK = 2000;
-export const TRAINER_ROUTES = ['/voiceshed', '/voiceshed/practice', '/voiceshed/voicings'];
+export const TRAINER_ROUTES = ['/voiceshed', '/voiceshed/practice', '/voiceshed/listen', '/voiceshed/voicings'];
 
 const strip = ({ key: _k, ...s }: StoredSrs): SrsState => s;
 
@@ -167,6 +168,8 @@ async function warmAppCache(): Promise<boolean> {
       const html = await fetch(route, { cache: 'no-store' }).then(r => r.text());
       for (const m of html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)) assets.add(`${location.origin}${m[1]}`);
     }
+    // Listen's samples too, so it works on the flight.
+    for (const u of SOUND_URLS) assets.add(`${location.origin}${u}`);
     await Promise.all([...assets].map(u => fetch(u, u.startsWith(location.origin) ? undefined : { mode: 'no-cors' }).catch(() => undefined)));
     return true;
   } catch {

@@ -237,13 +237,19 @@ wide screen; a run hides both.
   request, and **Hear yours** plays the type picked on the same root (the
   deck's voicing of it, else the library's) to compare; a miss comes back
   once, 4 chords later. Summary: first-time accuracy, each type, and "7♭9
-  heard as 7". Nothing is recorded or scheduled. Sound (`lib/sound.ts`) is
-  synthesized with Web Audio, no samples, so it works offline: the bass a
-  Karplus–Strong pluck through a closing low-pass, the piano stretched partials
-  each decaying at its own rate plus a soft hammer knock, through a gentle
-  compressor. Gains are anchored at the release (`setValueAtTime` then
-  `setTargetAtTime`): not every engine holds a ramp's end value until the next
-  event. The context is woken on the Start tap. The bars hide during a run.
+  heard as 7". Nothing is recorded or scheduled. Sound (`lib/sound.ts`) is **recorded
+  instruments** (the owner, of a first synthesized version: "the audio sounds
+  are all some shitty guitar"), shipped in `public/voiceshed/sounds/` (870 KB,
+  `CREDITS.txt` there), named by MIDI number: Salamander Grand Piano (CC BY
+  3.0) every minor third A2–C7, a note playing its nearest sample shifted ≤ 1½
+  semitones; FluidR3's finger electric bass (CC BY 3.0) every semitone
+  E1–E♭2, never shifted. Mono, trimmed (piano 4 s, bass 3 s). `loadSounds`
+  fetches and decodes them on the Listen page (Start waits; "Try again" if they
+  fail); the service worker keeps `/voiceshed/**.mp3` cache first, and saving
+  the app for offline fetches them all (`SOUND_URLS`). The page credits both.
+  Gains are anchored at the release (`setValueAtTime` then `setTargetAtTime`):
+  not every engine holds a value until the next event. The context is woken on
+  the Start tap. The bars hide during a run.
 - `/voiceshed/practice` — Practice in Context: ii–V–Is (one key or all), the
   diatonic chords of a key, **One root** (every chord type on one root — Cm7,
   C7, C7♭9, C7alt, C°7, Cmaj7, C6, Cm7♭5 — both names of a black key, shuffled;
