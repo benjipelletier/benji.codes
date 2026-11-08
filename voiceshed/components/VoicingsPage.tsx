@@ -13,8 +13,8 @@ import { ProgressMap, TWO_HAND } from './ProgressMap';
 import { relTime, useCardStats } from './TrainerShell';
 import { targetFor } from '@voiceshed/lib/srs';
 import { Retention } from './Retention';
-import { chips, PlayingCard } from './PlayingCard';
-import { deckGroups, type DeckGroup } from '@voiceshed/lib/drill';
+import { chordCards, ModeKey, PlayingCard, worstOf, type ModeState } from './PlayingCard';
+import { deckGroups } from '@voiceshed/lib/drill';
 import { cardStatus, type CardStatus } from '@voiceshed/lib/drill';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
@@ -902,10 +902,10 @@ function FoundView({ onLog, onOpen }: { onLog: () => void; onOpen: (id: string) 
 
 /**
  * The deck to look through (the owner: "a way to explore all the cards in my
- * deck"): its groups as playing cards — a chord's inversions in one mode —
- * under Shaky (weakest first), Due a check, Solid (next check soonest first)
- * and New (in the order added), narrowed by the filter above and a mode. Tap
- * one for its page.
+ * deck"): a playing card per chord — its inversions stacked, its modes as
+ * tabs — under its most urgent mode's status: Shaky (weakest first), Due a
+ * check, New (in the order added), Solid (next check soonest first), narrowed
+ * by the filter above and a mode. Tap one for its page.
  */
 function DeckView({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: string) => void }) {
   const t = useTrainer();
@@ -924,18 +924,36 @@ function DeckView({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: stri
     [voicings, t.srs, t.settings, grouped, gapKeys, mode],
   );
   const now = Date.now();
-  const sections: { key: string; title: string; hint: string; list: DeckGroup[]; status: string; label: (g: DeckGroup) => string }[] = [
-    { key: 'shaky', title: 'Shaky', hint: 'lead your next sets, weakest first', list: groups.filter(g => g.status === 'shaky').sort((a, b) => a.score - b.score), status: 'shaky', label: () => 'shaky' },
-    { key: 'check', title: 'Due a check', hint: 'in your next set', list: groups.filter(g => g.status === 'solid' && g.at <= now).sort((a, b) => a.at - b.at), status: 'check', label: () => 'check' },
-    { key: 'solid', title: 'Solid', hint: 'next check soonest first', list: groups.filter(g => g.status === 'solid' && g.at > now).sort((a, b) => a.at - b.at), status: 'solid', label: g => relTime(new Date(g.at).toISOString()).replace(/ days?/, 'd').replace(/ hours?/, 'h').replace(/ minutes?/, 'm') },
-    { key: 'new', title: 'New', hint: 'join two at a time', list: groups.filter(g => g.status === 'new').sort((a, b) => a.added.localeCompare(b.added)), status: 'new', label: () => 'new' },
+  // One card per chord, each mode a tab: shaky, due a check, new, or solid (with its next check).
+  const chords = useMemo(() => {
+    const score = new Map<string, number>();
+    const added = new Map<string, string>();
+    const entries = groups.flatMap(g => {
+      const k = g.group.slice(0, g.group.lastIndexOf('|'));
+      score.set(k, Math.min(score.get(k) ?? 1, g.status === 'shaky' ? g.score : 1));
+      if (!added.has(k) || g.added < added.get(k)!) added.set(k, g.added);
+      const state: ModeState = g.status === 'solid' ? (g.at <= now ? 'check' : 'solid') : g.status;
+      return g.cards.map(card => ({ card, state, at: g.at }));
+    });
+    return chordCards(entries).map(c => ({ c, score: score.get(c.key) ?? 1, added: added.get(c.key) ?? '' }));
+  }, [groups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const short = (at: number) => relTime(new Date(at).toISOString()).replace(/ days?/, 'd').replace(/ hours?/, 'h').replace(/ minutes?/, 'm');
+  type Row = (typeof chords)[number];
+  const sections: { key: string; title: string; hint: string; list: Row[]; foot?: (r: Row) => string }[] = [
+    { key: 'shaky', title: 'Shaky', hint: 'lead your next sets, weakest first', list: chords.filter(r => worstOf(r.c) === 'shaky').sort((a, b) => a.score - b.score) },
+    { key: 'check', title: 'Due a check', hint: 'in your next set', list: chords.filter(r => worstOf(r.c) === 'check') },
+    { key: 'new', title: 'New', hint: 'join two at a time', list: chords.filter(r => worstOf(r.c) === 'new').sort((a, b) => a.added.localeCompare(b.added)) },
+    { key: 'solid', title: 'Solid', hint: 'next check soonest first', list: chords.filter(r => worstOf(r.c) === 'solid').sort((a, b) => (a.c.at ?? 0) - (b.c.at ?? 0)), foot: r => (r.c.at ? short(r.c.at) : 'solid') },
   ];
   const cards = groups.reduce((n, g) => n + g.cards.length, 0);
   return (
     <div className="dk">
       <div className="dk-head">
         <p className="dk-count">
-          <b>{groups.length}</b> chord{groups.length === 1 ? '' : 's'} · {cards} card{cards === 1 ? '' : 's'}
+          <b>{chords.length}</b> chord{chords.length === 1 ? '' : 's'} · {cards} card{cards === 1 ? '' : 's'}
+        </p>
+        <p className="rv-legend dk-key">
+          <ModeKey />
         </p>
         <div className="vt-seg dk-modes" role="radiogroup" aria-label="Mode">
           {(['all', ...MODES] as const).map(m => (
@@ -957,8 +975,8 @@ function DeckView({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: stri
                 <em>{sec.hint}</em>
               </h3>
               <ul className="rv-set">
-                {sec.list.map(g => (
-                  <PlayingCard key={g.group} g={chips(g.cards)[0]} status={sec.status} label={sec.label(g)} onOpen={onOpen} />
+                {sec.list.map(r => (
+                  <PlayingCard key={r.c.key} c={r.c} foot={sec.foot?.(r)} onOpen={onOpen} />
                 ))}
               </ul>
             </section>

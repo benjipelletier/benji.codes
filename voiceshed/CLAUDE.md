@@ -220,11 +220,16 @@ wide screen; a run hides both.
   (and its solid cards aren't solid till it graduates); MAX_ASKS on one card
   sends the group out stuck. New-card limits count groups (2 new chords at a
   time, 5 a session). The home shows the set as **playing cards** (the owner:
-  "a less detail actual card shape like a playing card shape"), one per group:
-  the chord big in the middle, the mode in the corner, the status at the foot
-  and in the border (red shaky, amber check, dashed new, faded joins later),
-  and the group's other inversions as cards fanned behind it (up to three); a
-  legend underneath. The counts are groups. Tapping a card opens that
+  "a less detail actual card shape like a playing card shape"),
+  `components/PlayingCard.tsx`, **one per chord** (`chordCards` folds the
+  mode groups together): the chord big in the middle, its other inversions as
+  cards fanned behind it (up to three), and its three modes as **tabs** on the
+  top edge, a symbol each (the owner: "B but not with the full name written
+  out, let's make symbols for each"): Play a little keyboard, Spell a note,
+  Name a name tag (`ModeIcon`), each tinted by that mode's state — red shaky,
+  amber check, green solid, dashed new, faded joining later, faint not in the
+  set. The card's border and foot are its most urgent mode (`worstOf`). A
+  legend underneath keys the symbols and the colours. The counts are groups. Tapping a card opens that
   voicing's sheet over the set (the owner: "clicking the card in review to open
   its card page"); "Your whole deck ›" goes to the Deck view.
 - `/voiceshed/listen` — **Listen** (`components/ListenPage.tsx`; the owner:
@@ -326,11 +331,12 @@ wide screen; a run hides both.
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default), **List**, **Deck** or **Found**, kept on the
   device (`?view=deck` wins: Review's link). **Deck** (the owner: "a way to
-  explore all the cards in my deck"): the deck's groups (`deckGroups`, the
-  same grouping today's set uses) as playing cards under Shaky (weakest
-  first), Due a check, Solid (next check soonest first, "in 3d" at the foot,
-  green) and New (in the order added), with a count, an All / Play / Spell /
-  Name switch, and the filter above narrowing it; tap a card for its sheet.
+  explore all the cards in my deck"): the deck (`deckGroups`, the same
+  grouping today's set uses) as the same chord cards with mode tabs, each under
+  its most urgent mode's status: Shaky (weakest first), Due a check, New (in
+  the order added), Solid (next check soonest first, "in 3d" at the foot,
+  green), with a count, the symbols' key, an All / Play / Spell / Name switch,
+  and the filter above narrowing it; tap a card for its sheet.
   **Found** (the owner: "log extra voicings I hear in the wild … linked to a
   certain time in a YouTube video or a Spotify song, so I always have that
   reference"): "Log a voicing you heard" opens the New voicing form in `found`

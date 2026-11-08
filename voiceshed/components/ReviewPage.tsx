@@ -14,7 +14,7 @@ import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } 
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { VoicingDetail } from './VoicingsPage';
-import { chips, PlayingCard } from './PlayingCard';
+import { chordCards, ModeKey, PlayingCard, type ModeState } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
 import { targetFor } from '@voiceshed/lib/srs';
 import {
@@ -201,6 +201,12 @@ export function ReviewPage() {
     );
   }
   const { set, incoming, counts } = today;
+  // One card per chord: its modes as tabs (new groups beyond the first NEW_AT_ONCE join later).
+  const incomingGroups = [...new Set(incoming.map(c => c.group))];
+  const setCards = chordCards([
+    ...set.map(c => ({ card: c, state: c.why as ModeState })),
+    ...incoming.map(c => ({ card: c, state: (incomingGroups.indexOf(c.group) < NEW_AT_ONCE ? 'new' : 'later') as ModeState })),
+  ]);
   const total = set.length + incoming.length;
   return (
     <div className="vt-page">
@@ -220,13 +226,13 @@ export function ReviewPage() {
         {total > 0 && (
           <>
             <ul className="rv-set" aria-label="Today’s set">
-              {chips(set).map(g => (
-                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} onOpen={setOpen} />
-              ))}
-              {chips(incoming).map((g, i) => (
-                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} onOpen={setOpen} />
+              {setCards.map(c => (
+                <PlayingCard key={c.key} c={c} onOpen={setOpen} />
               ))}
             </ul>
+            <p className="rv-legend">
+              <ModeKey />
+            </p>
             <p className="rv-legend">
               <span>
                 <i className="rv-k rv-k-stack" /> a stack is a chord’s inversions, learned together
@@ -240,7 +246,7 @@ export function ReviewPage() {
               <span>
                 <i className="rv-k rv-k-new" /> new
               </span>
-              {chips(incoming).length > NEW_AT_ONCE && (
+              {setCards.some(c => Object.values(c.modes).includes('later')) && (
                 <span>
                   <i className="rv-k rv-k-later" /> joins when a new one is fast
                 </span>
