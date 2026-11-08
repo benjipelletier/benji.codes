@@ -929,7 +929,7 @@ function DeckView({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: stri
         grouped,
         gapKeys,
         modes: mode === 'all' ? [...MODES] : [mode],
-        targetOf: (v, m) => targetFor(t.srs.get(srsKey(v.id, m)), m, t.settings),
+        targetOf: (v, m) => targetFor(t.srs.get(srsKey(v.id, m)), m, t.settings, v),
       }),
     [voicings, t.srs, t.settings, grouped, gapKeys, mode],
   );

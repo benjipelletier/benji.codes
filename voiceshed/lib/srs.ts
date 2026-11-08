@@ -6,8 +6,29 @@
 import type { Attempt, Mode, Settings, SrsState } from './types';
 import { srsKey } from './types';
 
-export function targetFor(state: SrsState | undefined, mode: Mode, settings: Settings): number {
-  return state?.target_ms ?? settings.target_ms[mode];
+/**
+ * Time allowed per tap, always on a phone (the owner: "that's 2 seconds to
+ * click all the notes … here I'm clicking them in sequence"; no calibration:
+ * "we're always going to assume I'm typing it on a phone").
+ */
+export const TAP_MS: Record<Mode, number> = { play: 350, spell: 300, name: 300 };
+
+/** Taps a card takes: Play a key a note (and the move), Spell a letter a note plus one per accidental, Name root and quality. */
+export function tapsFor(v: { notes: string[]; top_move: string | null }, mode: Mode): number {
+  const notes = [...v.notes, ...(v.top_move ? [v.top_move] : [])];
+  if (mode === 'play') return notes.length;
+  if (mode === 'spell') return notes.reduce((n, s) => n + 1 + (s.slice(1).match(/[b#]/g)?.length ?? 0), 0);
+  return 2;
+}
+
+/**
+ * A card's target: its own, if set on its sheet; else the mode's thinking
+ * time (Settings) plus its taps at TAP_MS — so a 5-note voicing, or one spelled
+ * with flats, gets the time its typing takes, and slow means not knowing it.
+ */
+export function targetFor(state: SrsState | undefined, mode: Mode, settings: Settings, v?: { notes: string[]; top_move: string | null }): number {
+  if (state?.target_ms != null) return state.target_ms;
+  return settings.target_ms[mode] + (v ? tapsFor(v, mode) * TAP_MS[mode] : 0);
 }
 
 export function newState(voicingId: string, mode: Mode, now: Date): SrsState {

@@ -1248,3 +1248,4 @@ button.pm-bg span { color: var(--accent-ink); }
 .np-deg { font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1; color: var(--ink-3); }
 .np-deg-next { color: var(--accent-ink); }
 .rv-only { width: 100%; }
+.sp-ok { font-size: 12px; color: var(--ink-3); white-space: nowrap; }

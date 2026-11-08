@@ -16,7 +16,7 @@ import { useBackClose } from './useBackClose';
 import { VoicingDetail } from './VoicingsPage';
 import { chips, PlayingCard } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
-import { targetFor } from '@voiceshed/lib/srs';
+import { TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
 import {
   afterAnswer,
   afterSlot,
@@ -66,7 +66,7 @@ export function ReviewPage() {
   /** Schedules written this session, ahead of the provider's state catching up. */
   const written = useRef(new Map<string, SrsState>());
 
-  const targetOf = useCallback((v: Voicing, mode: Mode) => targetFor(srs.get(srsKey(v.id, mode)), mode, settings), [srs, settings]);
+  const targetOf = useCallback((v: Voicing, mode: Mode) => targetFor(srs.get(srsKey(v.id, mode)), mode, settings, v), [srs, settings]);
   // One mode at a time, or all (the owner: "I want a way to only play one mode at a time"), kept on this device.
   const [only, setOnlyState] = useState<Mode | 'all'>('all');
   useEffect(() => {
@@ -346,40 +346,52 @@ function DrillReport({ slots }: { slots: Slot[] }) {
 /** Recent right answers looked at per mode, for the speed check. */
 const SPEED_RECENT = 60;
 const SPEED_MIN = 8;
+/** Where the thinking time is headed: about a bar at ♩=120. */
+const THINK_GOAL = 2000;
 
 /**
- * How fast your right answers actually are, per mode, against the target (the
- * owner: "check my recent reviews I feel like 2 seconds is way too short"):
- * the median and the time three in four come in under, over the last 60 right
- * answers (Review and Practice), how many beat the target now, and a target
- * at that three-in-four time, rounded up to the half second, to use in a tap.
+ * How fast you think, per mode (the owner: "how do we know the target
+ * suggester is suggesting an actual appropriate target and not based on my
+ * shitty answers"): each recent right answer less its taps (`tapsFor` ×
+ * `TAP_MS`), on solid cards (all right answers while there are too few), so
+ * slow typing and cards still being learned don't count. Then a step toward
+ * the goal, not a level set by the answers: when under half beat the
+ * thinking time, ease it to where three in four do (rounded up to the half
+ * second); tighten it 10% (to the tenth, never past the goal) once three in
+ * four already beat that tighter time; otherwise it's right where it is.
  */
 function SpeedCheck({ settings, onSave }: { settings: Settings; onSave: (s: Settings) => void }) {
-  const { attempts } = useTrainer();
+  const { attempts, voicings, srs } = useTrainer();
+  const byId = useMemo(() => new Map(voicings.map(v => [v.id, v])), [voicings]);
   const rows = useMemo(
     () =>
       MODES.map(m => {
-        const ms = attempts
-          .filter(a => a.mode === m && a.correct)
+        const right = attempts.filter(a => a.mode === m && a.correct && byId.has(a.voicing_id));
+        const solid = right.filter(a => srs.get(srsKey(a.voicing_id, m))?.learned);
+        const from = solid.length >= SPEED_MIN ? solid : right;
+        const think = from
           .slice(-SPEED_RECENT)
-          .map(a => a.response_ms)
-          .sort((a, b) => a - b);
-        const at = (q: number) => ms[Math.min(ms.length - 1, Math.floor(q * ms.length))];
-        const target = settings.target_ms[m];
-        return {
-          m,
-          n: ms.length,
-          median: ms.length ? at(0.5) : null,
-          p75: ms.length ? at(0.75) : null,
-          within: ms.length ? ms.filter(x => x <= target).length / ms.length : null,
-          suggest: ms.length ? Math.max(1000, Math.ceil(at(0.75) / 500) * 500) : null,
-        };
+          .map(a => Math.max(0, a.response_ms - tapsFor(byId.get(a.voicing_id)!, m) * TAP_MS[m]))
+          .sort((x, y) => x - y);
+        const at = (q: number) => think[Math.min(think.length - 1, Math.floor(q * think.length))];
+        const base = settings.target_ms[m];
+        const within = think.length ? think.filter(x => x <= base).length / think.length : 0;
+        let suggest: number | null = null;
+        if (think.length >= SPEED_MIN) {
+          if (within < 0.5) suggest = Math.max(500, Math.ceil(at(0.75) / 500) * 500);
+          else if (base > THINK_GOAL) {
+            // Tighten only to a time three in four already beat, so it never bounces back.
+            const next = Math.max(THINK_GOAL, Math.round((base * 0.9) / 100) * 100);
+            if (think.filter(x => x <= next).length / think.length >= 0.75) suggest = next;
+          }
+        }
+        return { m, n: think.length, solidOnly: from === solid, median: think.length ? at(0.5) : null, p75: think.length ? at(0.75) : null, within, base, suggest };
       }),
-    [attempts, settings.target_ms],
+    [attempts, byId, srs, settings.target_ms],
   );
   return (
-    <div className="sp" aria-label="Your speed">
-      <span className="vt-field-lbl">Your speed · last {SPEED_RECENT} right answers</span>
+    <div className="sp" aria-label="How fast you think">
+      <span className="vt-field-lbl">How fast you think · last {SPEED_RECENT} right answers, less the tapping</span>
       {rows.map(r => (
         <div key={r.m} className="sp-row">
           <b>{MODE_LABEL[r.m]}</b>
@@ -389,18 +401,25 @@ function SpeedCheck({ settings, onSave }: { settings: Settings; onSave: (s: Sett
             <>
               <span className="sp-nums">
                 typical {fmtSecs(r.median)} · 3 in 4 under {fmtSecs(r.p75)}
-                <em className={r.within! < 0.5 ? 'sp-low' : ''}>{Math.round(r.within! * 100)}% beat {fmtSecs(settings.target_ms[r.m])}</em>
+                <em className={r.within < 0.5 ? 'sp-low' : ''}>
+                  {Math.round(r.within * 100)}% beat {fmtSecs(r.base)}
+                  {r.solidOnly ? ' · solid cards' : ' · all cards'}
+                </em>
               </span>
-              {r.suggest !== settings.target_ms[r.m] && (
+              {r.suggest != null && r.suggest !== r.base ? (
                 <button type="button" className="vt-secondary sp-use" onClick={() => onSave({ ...settings, target_ms: { ...settings.target_ms, [r.m]: r.suggest! } })}>
-                  Use {(r.suggest! / 1000).toFixed(1)}s
+                  {r.suggest > r.base ? 'Ease to' : 'Tighten to'} {(r.suggest / 1000).toFixed(1)}s
                 </button>
+              ) : (
+                <span className="sp-ok">{r.base <= THINK_GOAL && r.within >= 0.75 ? 'at the goal' : 'about right'}</span>
               )}
             </>
           )}
         </div>
       ))}
-      <span className="vt-hint">A target should be fast but reachable: about three in four right answers under it. Lower it as you speed up.</span>
+      <span className="vt-hint">
+        The goal is {fmtSecs(THINK_GOAL)}, about a bar at ♩=120: ease off while most answers miss, tighten as three in four beat it.
+      </span>
     </div>
   );
 }
@@ -409,7 +428,7 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
   return (
     <div className="vt-form">
       <div className="vt-field">
-        <span className="vt-field-lbl">Target time</span>
+        <span className="vt-field-lbl">Thinking time</span>
         <div className="vt-inline">
           {MODES.map(m => (
             <label key={m} className="vt-mini">
@@ -429,7 +448,9 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
             </label>
           ))}
         </div>
-        <span className="vt-hint">Each card can have its own, set on the Voicings page.</span>
+        <span className="vt-hint">
+          How fast you should know it. Each card adds its typing: {TAP_MS.play / 1000}s a key (Play), {TAP_MS.spell / 1000}s a letter or accidental (Spell), {TAP_MS.name / 1000}s a pick (Name). A card can have its own target, on the Voicings page.
+        </span>
         <SpeedCheck settings={settings} onSave={onSave} />
       </div>
       <div className="vt-field">

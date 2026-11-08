@@ -36,7 +36,8 @@ export function Retention({ v }: { v: Voicing }) {
         const key = srsKey(v.id, md);
         const st = t.srs.get(key);
         const list = grouped.get(key) ?? [];
-        const target = targetFor(st, md, t.settings);
+        const target = targetFor(st, md, t.settings, v);
+        const usual = targetFor(undefined, md, t.settings, v);
         const s = stats.get(key);
         const gap = gapKeys.has(key);
         const status = cardStatus(st, gap);
@@ -127,7 +128,7 @@ export function Retention({ v }: { v: Voicing }) {
                 onChange={e => {
                   const ms = Math.round(Number(e.target.value) * 1000);
                   if (ms < 500 || !st) return;
-                  void t.saveSrs([{ ...st, target_ms: ms === t.settings.target_ms[md] ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
+                  void t.saveSrs([{ ...st, target_ms: ms === usual ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
                 }}
               />
               s

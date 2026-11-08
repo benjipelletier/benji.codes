@@ -238,8 +238,9 @@ export function TrainerShell({ page, children }: { page: TrainerPage; children: 
 
 /** Per-card stats and the context-gap flags, from every answer on the device. */
 export function useCardStats(): { stats: Map<string, ModeStats>; gapKeys: Set<string>; grouped: Map<string, Attempt[]> } {
-  const { attempts, srs, settings } = useTrainer();
+  const { attempts, srs, settings, voicings } = useTrainer();
   return useMemo(() => {
+    const byId = new Map(voicings.map(v => [v.id, v]));
     const grouped = groupAttempts(attempts);
     const stats = new Map<string, ModeStats>();
     const gapKeys = new Set<string>();
@@ -247,10 +248,10 @@ export function useCardStats(): { stats: Map<string, ModeStats>; gapKeys: Set<st
       const s = modeStats(list);
       stats.set(k, s);
       const mode = list[0].mode as Mode;
-      if (hasContextGap(s, targetFor(srs.get(k), mode, settings))) gapKeys.add(k);
+      if (hasContextGap(s, targetFor(srs.get(k), mode, settings, byId.get(list[0].voicing_id)))) gapKeys.add(k);
     }
     return { stats, gapKeys, grouped };
-  }, [attempts, srs, settings]);
+  }, [attempts, srs, settings, voicings]);
 }
 
 export const fmtSecs = (ms: number | null | undefined) => (ms == null ? '—' : `${(ms / 1000).toFixed(2)}s`);

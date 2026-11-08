@@ -139,7 +139,7 @@ export function ProgressMap({
     for (const v of voicings)
       for (const m of MODES) {
         const k = srsKey(v.id, m);
-        out.set(k, cardView(srs.get(k), stats.get(k), targetFor(srs.get(k), m, settings), now));
+        out.set(k, cardView(srs.get(k), stats.get(k), targetFor(srs.get(k), m, settings, v), now));
       }
     return out;
   }, [voicings, srs, stats, settings, now]);
@@ -215,7 +215,7 @@ export function ProgressMap({
     const slow = voicings
       .flatMap(v => MODES.map(m => ({ v, m, s: stats.get(srsKey(v.id, m)), st: srs.get(srsKey(v.id, m)) })))
       .filter(x => x.st && x.s && x.s.correct >= 2 && x.s.avgMs != null)
-      .map(x => ({ ...x, ratio: x.s!.avgMs! / targetFor(x.st, x.m, settings) }))
+      .map(x => ({ ...x, ratio: x.s!.avgMs! / targetFor(x.st, x.m, settings, x.v) }))
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 5);
     return { deckV, known, partly, perMode, perKey, slow };

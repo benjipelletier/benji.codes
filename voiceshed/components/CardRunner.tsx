@@ -3,7 +3,7 @@
 // Shows a card in any mode, times it and records the attempt. The clock
 // starts when the card is on screen and stops when the answer is in: Play
 // and Spell submit themselves once as many notes are in as the voicing has,
-// Name once chord, quality and top tone are all picked. A right answer moves
+// Name once root and quality are picked. A right answer moves
 // on by itself; a wrong one stays up, with the right voicing on the
 // keyboard, until you tap Next (or press Enter / Space).
 
@@ -261,20 +261,19 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
 function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; onAnswer: (a: NameAnswer) => void; disabled: boolean }) {
   const [root, setRoot] = useState<number | null>(null);
   const [quality, setQuality] = useState<Quality | null>(null);
-  const [top, setTop] = useState<number | null>(null);
   const sent = useRef(false);
+  // The root and the quality: that's the answer (no top note any more).
   useEffect(() => {
-    if (sent.current || root == null || quality == null || top == null) return;
+    if (sent.current || root == null || quality == null) return;
     sent.current = true;
-    onAnswer({ root, quality, top });
-  }, [root, quality, top, onAnswer]);
+    onAnswer({ root, quality });
+  }, [root, quality, onAnswer]);
   const pick =
     <T,>(set: (x: T) => void, x: T) =>
     (e: React.PointerEvent) => {
       e.preventDefault();
       if (!disabled && !sent.current) set(x);
     };
-  const q = quality ?? 'maj7';
   return (
     <div className="nm">
       <div className="nm-row nm-roots" role="group" aria-label="root">
@@ -294,21 +293,13 @@ function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; o
           </button>
         ))}
       </div>
-      <div className="nm-label">on top</div>
-      <div className="nm-row nm-tops" role="group" aria-label="chord tone on top">
-        {Array.from({ length: 12 }, (_, semis) => (
-          <button type="button" key={semis} className={`nm-btn ${top === semis ? 'nm-on' : ''}`} onPointerDown={pick(setTop, semis)} aria-pressed={top === semis}>
-            {intervalDisplay(intervalName(q, semis))}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
 function nameText(a: NameAnswer, rootName?: string): string {
   const root = rootName ? pretty(rootName) : rootNames(a.root).map(pretty).join('/');
-  return `${root}${QUALITY[a.quality].display}, ${intervalDisplay(intervalName(a.quality, a.top))} on top`;
+  return `${root}${QUALITY[a.quality].display}`;
 }
 
 export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, more, status, onAttempt, onFinish }: Props) {

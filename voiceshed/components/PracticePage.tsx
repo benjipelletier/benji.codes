@@ -95,7 +95,7 @@ export function PracticePage() {
       fresh.steps.map(s => ({
         voicing: s.voicing,
         mode: spec.mode,
-        target: targetFor(t.srs.get(srsKey(s.voicing.id, spec.mode)), spec.mode, settings),
+        target: targetFor(t.srs.get(srsKey(s.voicing.id, spec.mode)), spec.mode, settings, s.voicing),
         context_type: s.context_type,
         context_id: s.context_id,
         symbol: s.symbol,

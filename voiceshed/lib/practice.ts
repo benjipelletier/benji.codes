@@ -60,11 +60,10 @@ export function gradeSpell(v: Voicing, names: string[], strict: boolean): { corr
   return { correct: false, enharmonic: false };
 }
 
+/** Name's answer: the chord, root and quality (no longer the top note — the owner: "remove the top note from name"). */
 export interface NameAnswer {
   root: number;
   quality: Quality;
-  /** Semitones from the root up to the top note. */
-  top: number;
 }
 
 /** Whether the voicing has its root in it (the m7♭5 spread, the iii's, °7, block chords) or is rootless. */
@@ -73,16 +72,15 @@ export function hasRoot(v: Voicing): boolean {
 }
 
 export function nameOf(v: Voicing): NameAnswer {
-  const m = midisOf(v);
-  return { root: v.root, quality: v.quality, top: mod12(m[m.length - 1] - v.root) };
+  return { root: v.root, quality: v.quality };
 }
 
 /**
- * Name: the chord and the chord tone on top. Any reading the library gives
- * the same keys counts (a drop-2 C6 is also an Am7).
+ * Name: the chord, root and quality. Any reading the library gives the same
+ * keys counts (a drop-2 C6 is also an Am7).
  */
 export function gradeName(v: Voicing, answer: NameAnswer, library: Voicing[]): boolean {
-  const same = (a: NameAnswer, b: NameAnswer) => a.root === b.root && a.quality === b.quality && a.top === b.top;
+  const same = (a: NameAnswer, b: NameAnswer) => a.root === b.root && a.quality === b.quality;
   if (same(nameOf(v), answer)) return true;
   const key = midisOf(v).join(',');
   return library.some(o => o.id !== v.id && midisOf(o).join(',') === key && same(nameOf(o), answer));

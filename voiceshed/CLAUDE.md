@@ -3,8 +3,15 @@
 Flashcards and timed drills for jazz piano voicings, at `benji.codes/voiceshed`.
 Built from the owner's "Voicing Trainer v1" spec. Speed is the measure: a card
 counts as **solid** (`learned`) only when it's answered right *and* under its
-target time (default 2 s, set per mode in Review → Settings and per card on the
-Voicings page) several times in a row, and then in a ii–V–I. Review drills,
+target time several times in a row: the mode's **thinking time** (default 2 s,
+Review → Settings) plus its typing at a fixed allowance per tap — always a
+phone, no calibration (the owner: "we're always going to assume I'm typing it
+on a phone") — 0.35 s a key in Play (notes, and a move), 0.3 s a letter or
+accidental in Spell (A♭ is two), 0.3 s a pick in Name (root, quality):
+`TAP_MS`, `tapsFor`, `targetFor(state, mode, settings, voicing)` in `srs.ts`.
+Am7 drop-2 is 3.4 s to play, a So What 3.75 s, E♭m7 (G♭ D♭ F B♭) 4.1 s to
+spell. A card's own target, set on its sheet, replaces the sum. Solid also
+needs the card right and fast in a ii–V–I. Review drills,
 rather than spacing one answer a day (below). Phone first, and works
 fully offline (it was built for a 20-hour flight).
 
@@ -225,12 +232,18 @@ wide screen; a run hides both.
   (`chooseSet` with `modes: [mode]`): its shaky, its checks, its new ones (still
   2 at a time, 5 a session), early checks to fill; the other modes' schedules
   wait. The counts, cards and "x of y Play cards solid" follow the switch.
-  **Your speed** (Settings, under Target time; the owner: "check my recent
-  reviews I feel like 2 seconds is way too short"): per mode, over the last 60
-  right answers (Review and Practice, not Listen) — typical (median), "3 in 4
-  under" (75th percentile), how many beat the target now (red under half) —
-  and "Use 4.5s": a target at that 75th percentile, rounded up to the half
-  second (at least 1 s), set in a tap. Under 8 answers it says so.
+  **How fast you think** (Settings, under Thinking time; the owner: "check my
+  recent reviews I feel like 2 seconds is way too short", then "how do we know
+  the target suggester is suggesting an actual appropriate target and not
+  based on my shitty answers"): per mode, the last 60 right answers (Review
+  and Practice, not Listen) less their taps, on solid cards (all cards while
+  there are under 8) — typical, "3 in 4 under", how many beat the thinking
+  time. It steps toward a goal (`THINK_GOAL`, 2 s, about a bar at ♩=120)
+  rather than setting a level from the answers: "Ease to" where three in four
+  come in (rounded up to the half second) when under half beat it; "Tighten
+  to" 10% less (to the tenth, never past the goal) once three in four already
+  beat that tighter time, so it never bounces; else "about right" / "at the
+  goal".
   **Nothing to set up** (the owner: "review session should be driven by
   whatever cards are in my deck. Configurable sessions is what practice is
   for"): every deck card in all three modes, `SET_SIZE` (6) in play; the old
@@ -523,8 +536,9 @@ bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
 the note before it, as it's said — A then ♭ is A♭, ♭ again A𝄫, a third time A;
 a full pad waits 650 ms for
 an accidental on its last note, timed from the last tap; enharmonics accepted
-unless strict spelling is on), Name (root + quality +
-chord tone on top; any library voicing with the same keys counts). Play and
+unless strict spelling is on), Name (root + quality, no longer the top note —
+the owner: "remove the top note from name"; any library voicing with the same
+keys counts). Play and
 Spell submit themselves at the note count. Timed from the card being painted.
 After a miss or "Don't know" the answer is shown: chord, top note, voicing
 type and notes (Name mode reveals its chord then).
