@@ -500,6 +500,7 @@ function KeyboardSizeField({ settings, onSave }: { settings: Settings; onSave: (
         {(
           [
             ['fit', 'Fit the screen'],
+            ['big', 'Big keys'],
             ['real', 'Real piano size'],
           ] as const
         ).map(([k, label]) => (
@@ -508,6 +509,12 @@ function KeyboardSizeField({ settings, onSave }: { settings: Settings; onSave: (
           </button>
         ))}
       </div>
+      {settings.keyboard_size === 'big' && (
+        <span className="vt-hint">
+          About an octave of big keys, for two thumbs: it starts at the voicing’s bottom note, and once you’ve played two notes it slides up for the rest. ‹ › and 8va move
+          it too. Turn the phone sideways for more, bigger keys.
+        </span>
+      )}
       {settings.keyboard_size === 'real' && (
         <div className="ks">
           <span className="vt-hint">

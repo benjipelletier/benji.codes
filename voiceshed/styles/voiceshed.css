@@ -873,7 +873,8 @@
   .cr-verdict-mark { font-size: 22px; }
   .cr-verdict-time { font-size: 17px; }
   .cr-input { margin-top: auto; }
-  .cr-kb .vk { max-height: 44vh; }
+  /* The keys' height comes from the screen now (useKeyboardFit), not a cap. */
+  .cr-kb .vk { max-height: none; }
   .cr-kb-shift { margin-top: 4px; }
   .cr-kb-shift button { min-height: 32px; }
   .cr-actions { min-height: 36px; }
@@ -1254,3 +1255,9 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-name-root { align-self: center; flex: 0 0 auto; min-width: 110px; }
 .cr-name-root .cr-cue-lbl, .cr-name-root > :last-child { margin-bottom: 0; }
 .cr-name-root b { font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1.1; }
+
+/* Big keys (CardRunner's BigKeys): a long keyboard slid inside a window about an octave wide. */
+.cr-kb-big { overflow: hidden; border-radius: 6px; }
+.cr-kb-big-track { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
+.cr-kb-big .vk { width: 100%; max-height: none; }
+@media (prefers-reduced-motion: reduce) { .cr-kb-big-track { transition: none; } }

@@ -148,7 +148,8 @@ export interface Settings {
   /** Spell mode: Ab and G# are different answers. */
   strict_spelling: boolean;
   /** Play mode's keyboard: as many keys as fit, or keys a real piano's width (lib/scale.ts). */
-  keyboard_size: 'fit' | 'real';
+  /** Play's keyboard: as many keys as fit; a real piano's width; or big keys, about an octave, that follow your taps up the keyboard. */
+  keyboard_size: 'fit' | 'real' | 'big';
   /** CSS pixels per real inch, once checked against a ruler; null guesses from the device. */
   px_per_inch: number | null;
   /** Real size, scaled: 1 is a piano's own keys; less fits more of them on the screen. */

@@ -88,7 +88,20 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
  * about ten on an iPad held sideways — as long as the screen leaves room for
  * (up to a real key's length, never under three widths).
  */
-function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number | null) {
+/** Big keys: about this wide, in CSS px, sideways; upright, an octave across. */
+const BIG_KEY_PX = 72;
+/** White keys a hand needs above the left hand's notes; fewer than this on screen, the keys slide up. */
+const BIG_REACH = 6;
+
+/**
+ * How many white keys show and how tall they are. Fit: as many as fit
+ * (fewer and wider on a phone held sideways). Real: a piano's width. Big:
+ * about an octave upright, ~72px keys sideways (the owner: "a scrolling thing
+ * where the keyboard is a lot bigger but less keys are showed"). Sideways,
+ * the height comes from the screen, not a fixed cap (the owner: "support for
+ * landscape mode so the keyboard can be quite a bit bigger").
+ */
+function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number | null, big = false) {
   const [box, setBox] = useState({ width: 0, height: 800 });
   useLayoutEffect(() => {
     const el = ref.current;
@@ -103,7 +116,21 @@ function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number 
       window.removeEventListener('resize', measure);
     };
   }, [ref]);
-  if (!keyPx) return { whites: box.width ? Math.max(15, Math.min(29, Math.floor(box.width / 30))) : 15, aspect: undefined, width: undefined };
+  const sideways = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+  // Room for the keys' height: what the screen spares beside the card.
+  const room = box.height * (sideways ? 0.46 : 0.4);
+  if (big) {
+    const whites = box.width ? (sideways ? Math.max(8, Math.round(box.width / BIG_KEY_PX)) : 7) : 7;
+    const w = (box.width || 380) / whites;
+    return { whites, aspect: Math.min(100 / 24, room / w), width: undefined };
+  }
+  if (!keyPx) {
+    if (sideways && box.width) {
+      const whites = Math.max(15, Math.min(22, Math.floor(box.width / 40)));
+      return { whites, aspect: Math.min(100 / 24, room / (box.width / whites)), width: undefined };
+    }
+    return { whites: box.width ? Math.max(15, Math.min(29, Math.floor(box.width / 30))) : 15, aspect: undefined, width: undefined };
+  }
   const whites = Math.max(5, Math.floor((box.width || keyPx * 10) / keyPx));
   // Height: what the screen spares beside the card (half of it), up to a real key's 6.4 widths.
   const height = Math.max(keyPx * 3, Math.min(keyPx * 6.4, box.height * 0.5));
@@ -111,6 +138,12 @@ function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number 
 }
 
 const WHITE_MIDIS = Array.from({ length: 88 }, (_, i) => i + 21).filter(m => ![1, 3, 6, 8, 10].includes(m % 12));
+/** The white key at or just below `m`, as an index into WHITE_MIDIS. */
+const whiteIdx = (m: number) => {
+  let i = WHITE_MIDIS.findIndex(w => w > m) - 1;
+  if (i < 0) i = m < WHITE_MIDIS[0] ? 0 : WHITE_MIDIS.length - 1;
+  return i;
+};
 
 /** A window of `whites` white keys around the voicing, starting on a C or an F, moved by `shift` white keys. */
 export function playWindow(midis: number[], whites: number, shift: number): [number, number] {
@@ -291,6 +324,29 @@ function nameText(a: NameAnswer, rootName?: string): string {
   return `${root}${QUALITY[a.quality].display}`;
 }
 
+/**
+ * Big keys: a long keyboard in a window `whites` keys wide, slid (not
+ * redrawn) so it glides when the window moves — the window starting at `lo`.
+ * No swipe to scroll: keys sound where a finger lands, so a swipe would play
+ * one; ‹ › 8va and the slide after two taps move it.
+ */
+function BigKeys({ lo, whites, marks, onKey, aspect }: { lo: number; whites: number; marks: Record<number, KeyMark>; onKey: (m: number) => void; aspect?: number }) {
+  // Three octaves either side of where it starts, drawn once per card.
+  const [range] = useState(() => {
+    const at = whiteIdx(lo);
+    return [Math.max(0, at - 21), Math.min(WHITE_MIDIS.length - 1, at + whites + 21)] as const;
+  });
+  const total = range[1] - range[0] + 1;
+  const start = Math.max(range[0], Math.min(range[1] - whites + 1, whiteIdx(lo)));
+  return (
+    <div className="cr-kb cr-kb-big">
+      <div className="cr-kb-big-track" style={{ width: `${(total / whites) * 100}%`, transform: `translateX(-${((start - range[0]) / total) * 100}%)` }}>
+        <Keyboard low={WHITE_MIDIS[range[0]]} high={WHITE_MIDIS[range[1]]} marks={marks} onKey={onKey} aspect={aspect} />
+      </div>
+    </div>
+  );
+}
+
 export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, more, status, onAttempt, onFinish }: Props) {
   const [queue, setQueue] = useState<(RunnerStep & { repeat?: boolean })[]>(steps);
   const [index, setIndex] = useState(0);
@@ -308,7 +364,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const kbWrap = useRef<HTMLDivElement>(null);
   const { settings } = useTrainer();
   const keyPx = settings.keyboard_size === 'real' ? whiteKeyPx(settings.px_per_inch, settings.key_scale) : null;
-  const fit = useKeyboardFit(kbWrap, keyPx);
+  const big = settings.keyboard_size === 'big';
+  const fit = useKeyboardFit(kbWrap, keyPx, big);
   const whites = fit.whites;
 
   const step = queue[index];
@@ -405,9 +462,20 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       }
       const nextSet = tapped.includes(m) ? tapped.filter(x => x !== m) : [...tapped, m].sort((a, b) => a - b);
       setTapped(nextSet);
+      // Big keys: the left hand's two notes in, slide up so the right hand's come into reach
+      // (the owner: "we click the first two … then it's close to the right and let me click
+      // the next two") — from where you tapped, so it gives nothing away. Only ever up.
+      // Only when the room to its right is short of a hand's reach (sideways it usually isn't).
+      if (big && nextSet.length === 2 && v.notes.length > 2) {
+        const base = whiteIdx(playWindow(midis, whites, 0)[0]);
+        const top = whiteIdx(Math.max(...nextSet));
+        const right = base + shift + whites - 1 - top;
+        const want = top - 1;
+        if (right < BIG_REACH && want > base + shift) setShift(want - base);
+      }
       if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
     },
-    [phase, v, tapped, submit],
+    [phase, v, tapped, submit, big, midis, whites, shift],
   );
 
   if (!step || !v) return null;
@@ -521,15 +589,19 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
         {step.mode === 'play' &&
           (phase === 'ask' ? (
             <>
-              <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={kbStyle}>
-                <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
-              </div>
+              {big ? (
+                <BigKeys key={index} lo={pLo} whites={whites} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
+              ) : (
+                <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={kbStyle}>
+                  <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
+                </div>
+              )}
               <div className="cr-kb-shift">
                 <span className="cr-kb-move">
                   <button type="button" onClick={() => setShift(o => o - 7)} aria-label="octave down">
                     ◀ 8va
                   </button>
-                  {keyPx && (
+                  {(keyPx || big) && (
                     <button type="button" onClick={() => setShift(o => o - 1)} aria-label="one key down">
                       ‹
                     </button>
@@ -537,7 +609,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                 </span>
                 <span className={moving ? 'cr-moving' : ''}>{moving ? 'now move the top' : `${tapped.length} / ${v.notes.length}`}</span>
                 <span className="cr-kb-move">
-                  {keyPx && (
+                  {(keyPx || big) && (
                     <button type="button" onClick={() => setShift(o => o + 1)} aria-label="one key up">
                       ›
                     </button>

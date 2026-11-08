@@ -563,6 +563,24 @@ show starts at its bottom note. The answer stays on the same keys at the same
 size. Sideways on a wide screen the chord and verdict sit side by side above
 the keys.
 
+**Big keys** (Play keyboard's third size, `keyboard_size: 'big'`; the owner:
+"clicking two thumbs at once one for the three and seven and then the other
+one for the other tones … a scrolling thing where the keyboard is a lot bigger
+but less keys are showed"): about an octave of keys upright (7 on a phone,
+~52 px), sideways ~72 px each (12 on a phone). `BigKeys` draws three octaves
+either side once per card and slides that inside the window (a transform, so
+it glides); the window starts at the voicing's bottom note (`playWindow`).
+When two notes are in and fewer than `BIG_REACH` (6) white keys are left to
+the right of the higher one, it slides up so that note sits second from the
+left — from where you tapped, so it gives nothing away; it only ever moves
+up. ‹ › and 8va move it too; no swipe to scroll, since keys sound where a
+finger lands.
+
+**Sideways on a phone, in a run** (the owner: "support for landscape mode so
+the keyboard can be quite a bit bigger when reviewing cards"): the keys'
+height comes from the screen — `useKeyboardFit` aims for 46% of it — not a
+fixed cap; Fit the screen shows 15–22 wider keys (40 px) rather than up to 29.
+
 **Context gap**: a card whose isolated median (last 10 right answers) is over
 target and ≥ 25% slower than its in-context median (≥ 3 of each) is flagged:
 it counts as shaky in Review until it's fast alone. The other way round —
