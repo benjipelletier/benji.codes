@@ -1219,25 +1219,3 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-pc-solid .rv-pc-foot { color: var(--good); }
 .rv-pc-solid .rv-pc-back { border-color: color-mix(in srgb, var(--good) 55%, var(--rule)); }
 .rv-deck-link { align-self: flex-start; font-size: 14px; font-weight: 600; color: var(--accent-ink); text-decoration: none; }
-
-/* A chord's modes as tabs on its card's top edge: a symbol each, coloured by that mode's state. */
-.rv-set { row-gap: 28px; padding-top: 18px; }
-.rv-pc-tabs { position: absolute; left: 5px; right: 5px; top: -15px; height: 15px; display: flex; gap: 3px; z-index: 2; }
-.rv-pc-tab { flex: 1; display: flex; align-items: center; justify-content: center; border: 1.5px solid var(--rule); border-bottom: 0; border-radius: 5px 5px 0 0; background: var(--card); color: var(--ink-3); }
-.rv-pc-tab .mi { width: 11px; height: 11px; }
-.rv-tab-shaky { color: var(--fail); border-color: var(--fail); background: color-mix(in srgb, var(--fail) 22%, var(--card)); }
-.rv-tab-check, .rv-tab-early { color: var(--accent-ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--card)); }
-.rv-tab-solid { color: var(--good); border-color: var(--good); background: color-mix(in srgb, var(--good) 18%, var(--card)); }
-.rv-tab-new { border-style: dashed; border-color: var(--ink-3); color: var(--ink); }
-.rv-tab-later { border-style: dashed; opacity: 0.5; }
-.rv-tab-none { opacity: 0.22; }
-.rv-pc-chord { margin: auto 0; }
-.rv-pc-face { justify-content: flex-end; }
-.rv-mk { display: inline-flex; align-items: center; gap: 4px; }
-.rv-mk .mi { width: 14px; height: 14px; }
-.dk-key { flex-basis: 100%; }
-
-/* No stack behind a card: its inversions are a count in the foot. */
-.rv-pc-foot { align-self: stretch; display: flex; justify-content: flex-end; gap: 6px; }
-.rv-pc-inv { margin-right: auto; color: var(--ink-3); }
-.rv-k-inv { font: 600 11px var(--mono); color: var(--ink-3); }
