@@ -100,6 +100,8 @@ const BIG_REACH = 6;
  */
 const BIG_START = 50;
 const BIG_UPRIGHT = 8;
+/** Big keys waits this long after your last tap before sliding, so two thumbs can land together. */
+const BIG_SETTLE_MS = 260;
 
 /**
  * How many white keys show and how tall they are. Fit: as many as fit
@@ -364,10 +366,16 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const [tapped, setTapped] = useState<number[]>([]);
   /** The same keys in the order they were played, for Undo (the owner: "what if that was an accidental press how do I undo it"). */
   const [order, setOrder] = useState<number[]>([]);
-  /** Big keys: where the window was before it slid up after two notes, to slide back to. */
-  const slidFrom = useRef<number | null>(null);
+  /** Big keys: each slide up — where the window was, and how many notes were in — to slide back through. */
+  const slides = useRef<{ from: number; notes: number }[]>([]);
+  const follow = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The latest taps and window, for the follow timer.
+  const tappedRef = useRef(tapped);
+  tappedRef.current = tapped;
   /** White keys the Play keyboard has been moved by (an octave is 7). */
   const [shift, setShift] = useState(0);
+  const shiftRef = useRef(shift);
+  shiftRef.current = shift;
   const results = useRef<RunnerResult[]>([]);
   const t0 = useRef(0);
   useRunOrientation();
@@ -416,7 +424,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     setResult(null);
     setTapped([]);
     setOrder([]);
-    slidFrom.current = null;
+    slides.current = [];
+    if (follow.current) clearTimeout(follow.current);
     setShift(0);
   }, [index, queue.length, finish, more]);
 
@@ -465,6 +474,14 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     return () => window.removeEventListener('keydown', onKey);
   }, [phase, next]);
 
+  /** Undo or a re-tap: back through the slides made with more notes in than there are now. */
+  const slideBack = (notes: number) => {
+    if (follow.current) clearTimeout(follow.current);
+    let back: number | null = null;
+    while (slides.current.length && slides.current[slides.current.length - 1].notes > notes) back = slides.current.pop()!.from;
+    if (back != null) setShift(back);
+  };
+
   const onKey = useCallback(
     (m: number) => {
       if (phase !== 'ask' || !v) return;
@@ -478,28 +495,28 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       const nextSet = off ? tapped.filter(x => x !== m) : [...tapped, m].sort((a, b) => a - b);
       setTapped(nextSet);
       setOrder(o => (off ? o.filter(x => x !== m) : [...o, m]));
-      // Taken back below two notes: slide back to where it was, to replay the left hand.
-      if (off && nextSet.length < 2 && slidFrom.current != null) {
-        setShift(slidFrom.current);
-        slidFrom.current = null;
-      }
-      // Big keys: the left hand's two notes in, slide up so the right hand's come into reach
-      // (the owner: "we click the first two … then it's close to the right and let me click
-      // the next two") — from where you tapped, so it gives nothing away. Only ever up.
-      // Only when the room to its right is short of a hand's reach (sideways it usually isn't).
-      if (big && nextSet.length === 2 && v.notes.length > 2) {
-        const base = whiteIdx(BIG_START);
-        const top = whiteIdx(Math.max(...nextSet));
-        const right = base + shift + whites - 1 - top;
-        const want = top - 1;
-        if (right < BIG_REACH && want > base + shift) {
-          slidFrom.current = shift;
-          setShift(want - base);
-        }
+      if (off) slideBack(nextSet.length);
+      // Big keys follow your notes up (the owner: "we click the first two … then it's close to
+      // the right and let me click the next two"): once you pause, if a hand's reach isn't left
+      // to the right of your highest note, it slides so that note sits second from the left.
+      // From where you tapped, so it gives nothing away; only ever up. The pause lets two
+      // thumbs land together before anything moves.
+      if (big && !off) {
+        if (follow.current) clearTimeout(follow.current);
+        follow.current = setTimeout(() => {
+          const now = tappedRef.current;
+          if (!now.length) return;
+          const base = whiteIdx(BIG_START);
+          const start = base + shiftRef.current;
+          const top = whiteIdx(Math.max(...now));
+          if (start + whites - 1 - top >= BIG_REACH || top - 1 <= start) return;
+          slides.current.push({ from: shiftRef.current, notes: now.length });
+          setShift(top - 1 - base);
+        }, BIG_SETTLE_MS);
       }
       if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
     },
-    [phase, v, tapped, submit, big, midis, whites, shift],
+    [phase, v, tapped, submit, big, whites], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   /** Take back the last key played, wherever it is now (and slide back if that leaves under two). */
@@ -509,10 +526,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     const nextSet = tapped.filter(x => x !== last);
     setTapped(nextSet);
     setOrder(order.slice(0, -1));
-    if (nextSet.length < 2 && slidFrom.current != null) {
-      setShift(slidFrom.current);
-      slidFrom.current = null;
-    }
+    slideBack(nextSet.length);
   };
 
   if (!step || !v) return null;

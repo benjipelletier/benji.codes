@@ -7,11 +7,12 @@
 // drill, Review's ii–V–I, a Practice run, a tune — and tap one for its detail.
 
 import { useMemo, useState } from 'react';
-import { useTrainer } from './TrainerProvider';
+import { partnersOf, useTrainer } from './TrainerProvider';
 import { fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { targetFor } from '@voiceshed/lib/srs';
 import { cardStatus, fastStreak, FLUENT_STREAK, fluencyScore, SOURCE_NAME, sourceOf, type Source } from '@voiceshed/lib/drill';
 import { MODES, MODE_LABEL, srsKey, type Attempt, type Mode, type Voicing } from '@voiceshed/lib/types';
+import { pitchName, pretty } from '@voiceshed/lib/theory';
 import { LEVEL_NAME, type Level } from './ListenPage';
 
 const SHOWN = 12;
@@ -29,6 +30,10 @@ export function Retention({ v }: { v: Voicing }) {
     const s = src(a);
     return `${SOURCE_NAME[s.src]}${s.what ? ` · ${s.what}` : ''}`;
   };
+
+  // Its other inversions in the deck: they graduate together, so a fast card waits on them.
+  const mates = useMemo(() => partnersOf(t.voicings, v).filter(o => o.id !== v.id), [t.voicings, v]);
+  const spelled = (o: Voicing) => o.notes.map(n => pretty(pitchName(n))).join(' ');
 
   return (
     <section className="rt" aria-label="How it’s holding up">
@@ -63,7 +68,20 @@ export function Retention({ v }: { v: Voicing }) {
               ? 'Fast in a progression but slow on its own.'
               : slip && streak === 0
                 ? `Last slip: ${VERDICT[verdict(slip)].toLowerCase()} in ${where(slip)}, ${relTime(slip.created_at)}.`
-                : `${streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`;
+                : streak < FLUENT_STREAK
+                  ? `${streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`
+                  : (() => {
+                      // Fast enough itself: solid once a Review set sees its whole group through.
+                      const behind = mates
+                        .filter(o => t.srs.has(srsKey(o.id, md)))
+                        .map(o => ({ o, n: fastStreak(grouped.get(srsKey(o.id, md))) }))
+                        .filter(x => x.n < FLUENT_STREAK);
+                      return behind.length
+                        ? `Fast enough (${streak} in a row) — waiting on its other inversion${behind.length > 1 ? 's' : ''}, ${behind
+                            .map(x => `${spelled(x.o)} (${x.n} of ${FLUENT_STREAK})`)
+                            .join(', ')}. Inversions go solid together, in Review.`
+                        : `Fast enough (${streak} in a row) — goes solid when a Review set sees it and its inversions through: ${FLUENT_STREAK} fast in a row there.`;
+                    })();
         const sel = picked?.mode === md ? recent.find(a => a.id === picked.id) : undefined;
         return (
           <div key={md} className={`rt-mode rt-${status}`}>

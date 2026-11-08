@@ -457,7 +457,10 @@ wide screen; a run hides both.
   its retention?"): per mode, solid / shaky / new / not in deck (`cardStatus`)
   with what it means (next check, leads your next set), for a shaky one why —
   "Last slip: right but slow in Practice · ii–V–Is in F, 20 hours ago", the
-  context gap, or "2 of 3 fast in a row so far" — its fluency score as a bar,
+  context gap, or "2 of 3 fast in a row so far"; a card fast enough itself
+  names what it waits on — "waiting on its other inversion, C F A E (1 of
+  3)", since inversions go solid together, or a Review set to see it through
+  — its fluency score as a bar,
   its last 12 answers as dots (fast, slow, missed) marked by source (`sourceOf`:
   R Review's drill, ii–V Review's ii–V–I, P a Practice run, T a tune; tap one
   for time, set and when), medians alone and in context, and its target
@@ -574,16 +577,21 @@ whatever the voicing — the left hand's whole range, since every bottom note is
 E♭3–D4 — so neither edge gives anything away (the owner: "the big keys always
 start on the first note so it's a dead giveaway"; it used to start at the
 bottom note).
-When two notes are in and fewer than `BIG_REACH` (6) white keys are left to
-the right of the higher one, it slides up so that note sits second from the
-left — from where you tapped, so it gives nothing away; it only ever moves
-up. It follows the keys you tap, right or wrong (it can't know). ‹ › and 8va
-move it too; no swipe to scroll, since keys sound where a finger lands.
+It **follows each tap** (the owner, of Am7 C G B E: the G above the C was off
+screen): after any tap, if fewer than `BIG_REACH` (6) white keys are left to
+the right of the highest note played, it slides up so that note sits second
+from the left — from where you tapped, so it gives nothing away; it only ever
+moves up. It waits for a pause, `BIG_SETTLE_MS` (260 ms) after the last tap,
+so two thumbs landing together count as one move and a key never slides out
+from under the second thumb. It follows the keys you tap, right or wrong (it
+can't know). ‹ › and 8va move it too; no swipe to scroll, since keys sound
+where a finger lands.
 **Undo** (every Play keyboard, beside the count; the owner: "what if that was
 an accidental press how do I undo it"): takes back the last key played,
 wherever it is now (`order` keeps the tap order); tapping a played key again
-still takes it back. When either leaves fewer than two notes, Big keys slides
-back to where it was before its slide (`slidFrom`). The last note of a
+still takes it back. Either walks Big keys' slides back (`slides` keeps where
+each started and how many notes were in), so it sits where it was when that
+many notes were down. The last note of a
 voicing submits it, so that one can't be undone.
 
 **Sideways on a phone, in a run** (the owner: "support for landscape mode so
