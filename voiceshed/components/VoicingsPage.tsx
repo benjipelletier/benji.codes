@@ -7,13 +7,12 @@
 // target time, and see its stats per mode — accuracy, average time, and
 // isolated against in-context speed.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { ProgressMap, TWO_HAND } from './ProgressMap';
 import { relTime, useCardStats } from './TrainerShell';
 import { targetFor } from '@voiceshed/lib/srs';
 import { Retention } from './Retention';
-import { Carousel } from './Carousel';
 import { chips, PlayingCard } from './PlayingCard';
 import { deckGroups, type DeckGroup } from '@voiceshed/lib/drill';
 import { cardStatus, type CardStatus } from '@voiceshed/lib/drill';
@@ -28,8 +27,6 @@ import { MODES, MODE_LABEL, srsKey, type Mode, type Voicing } from '@voiceshed/l
 const PAGE = 120;
 
 type View = 'map' | 'list' | 'found' | 'deck';
-/** The carousel's order. */
-const VIEWS: View[] = ['map', 'list', 'deck', 'found'];
 
 export function VoicingsPage() {
   const t = useTrainer();
@@ -57,7 +54,6 @@ export function VoicingsPage() {
       // Not remembered.
     }
   };
-  const segRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useFilterState();
   const [shown, setShown] = useState(PAGE);
   const [open, setOpen] = useState<string | null>(null);
@@ -78,6 +74,10 @@ export function VoicingsPage() {
   const [logging, setLogging] = useState(false);
   // A map tile tapped: its voicings in a sheet.
   const [cell, setCell] = useState<{ ids: string[]; title: string } | null>(null);
+  const deckShown = useMemo(
+    () => (view === 'map' && chart ? filtered.filter(v => (chart === 'two-hand' ? TWO_HAND.includes(v.family) : v.family === chart)) : filtered),
+    [view, chart, filtered],
+  );
   const changeFilter = (f: FilterState) => {
     setFilter(f);
     setShown(PAGE);
@@ -111,10 +111,8 @@ export function VoicingsPage() {
         shown={filtered.length}
         collapsible={view !== 'list'}
         below={
-          <div className="vt-seg lb-view" role="radiogroup" aria-label="View" ref={segRef} style={{ ['--pos' as string]: VIEWS.indexOf(view) }}>
-            {/* The highlight slides with the swipe. */}
-            <span className="lb-view-pill" aria-hidden />
-            {VIEWS.map(m => (
+          <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
+            {(['map', 'list', 'deck', 'found'] as const).map(m => (
               <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
                 {m === 'map' ? 'Map' : m === 'list' ? 'List' : m === 'deck' ? 'Deck' : 'Found'}
               </button>
@@ -123,62 +121,42 @@ export function VoicingsPage() {
         }
       />
 
-      {/* The views as a carousel, swiped between (the owner: "make map list deck found a proper carousel"). */}
-      <Carousel
-        index={VIEWS.indexOf(view)}
-        onIndex={i => setView(VIEWS[i])}
-        onPos={(pos, dragging) => {
-          const seg = segRef.current;
-          if (!seg) return;
-          seg.style.setProperty('--pos', String(pos));
-          seg.classList.toggle('lb-view-drag', dragging);
-        }}
-        panels={[
-          // The map first, the deck's buttons after it (on the chart showing).
-          () => (
-            <>
-              <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />
-              {canEdit && <DeckBar shown={chart ? filtered.filter(v => (chart === 'two-hand' ? TWO_HAND.includes(v.family) : v.family === chart)) : filtered} />}
-            </>
-          ),
-          // The list keeps them on top, with New voicing.
-          () => (
-            <>
-              {canEdit && <DeckBar shown={filtered} />}
-              {canEdit && (
-                <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
-                  + New voicing
-                </button>
-              )}
-              <div className="lb-groups">
-                {groups.map(([label, vs]) => (
-                  <section key={label} className="lb-group">
-                    <h3 className="lb-group-h">
-                      {prettyLabel(label)} <span>{vs.length}</span>
-                    </h3>
-                    <VoicingGrid voicings={vs} onOpen={setOpen} />
-                  </section>
-                ))}
-                {filtered.length > shown && (
-                  <button type="button" className="vt-secondary lb-more" onClick={() => setShown(s => s + PAGE * 2)}>
-                    Show more ({filtered.length - shown} left)
-                  </button>
-                )}
-                {!filtered.length && (
-                  <p className="vt-empty">
-                    Nothing fits all of that.{' '}
-                    <button type="button" className="vf-inline" onClick={() => changeFilter(EMPTY_FILTER)}>
-                      Clear the filter
-                    </button>
-                  </p>
-                )}
-              </div>
-            </>
-          ),
-          () => <DeckView voicings={filtered} onOpen={setOpen} />,
-          () => <FoundView onLog={() => setLogging(true)} onOpen={setOpen} />,
-        ]}
-      />
+      {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
+      {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}
+      {view !== 'found' && view !== 'deck' && canEdit && <DeckBar shown={deckShown} />}
+      {view === 'deck' && <DeckView voicings={filtered} onOpen={setOpen} />}
+      {canEdit && view === 'list' && (
+        <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
+          + New voicing
+        </button>
+      )}
+
+      {view === 'found' && <FoundView onLog={() => setLogging(true)} onOpen={setOpen} />}
+      {view !== 'list' ? null : (
+        <div className="lb-groups">
+          {groups.map(([label, vs]) => (
+            <section key={label} className="lb-group">
+              <h3 className="lb-group-h">
+                {prettyLabel(label)} <span>{vs.length}</span>
+              </h3>
+              <VoicingGrid voicings={vs} onOpen={setOpen} />
+            </section>
+          ))}
+          {filtered.length > shown && (
+            <button type="button" className="vt-secondary lb-more" onClick={() => setShown(s => s + PAGE * 2)}>
+              Show more ({filtered.length - shown} left)
+            </button>
+          )}
+          {!filtered.length && (
+            <p className="vt-empty">
+              Nothing fits all of that.{' '}
+              <button type="button" className="vf-inline" onClick={() => changeFilter(EMPTY_FILTER)}>
+                Clear the filter
+              </button>
+            </p>
+          )}
+        </div>
+      )}
 
       {cell && <CellSheet ids={cell.ids} title={cell.title} onClose={() => setCell(null)} onOpen={setOpen} />}
       {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
