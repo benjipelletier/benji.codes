@@ -13,7 +13,7 @@ import { NotePad } from './NotePad';
 import { useBackClose } from './useBackClose';
 import { useTrainer } from './TrainerProvider';
 import { whiteKeyPx } from '@voiceshed/lib/scale';
-import { gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
+import { degreesOf, gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
 import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
@@ -64,14 +64,6 @@ const REQUEUE_GAP = 4;
 const ADVANCE_RIGHT_MS = 550;
 const ADVANCE_SLOW_MS = 1100;
 
-/** Each note's chord degree, bottom to top, then where the top moves: "♭7 ♭3 5 9", the root as "1". */
-function degreesOf(v: Voicing): string[] {
-  const tone = (midi: number) => {
-    const semis = mod12(midi - v.root);
-    return semis === 0 ? '1' : intervalDisplay(intervalName(v.quality, semis));
-  };
-  return [...v.notes.map(n => tone(noteMidi(n))), ...(v.top_move ? [tone(noteMidi(v.top_move))] : [])];
-}
 
 /** The answer as notes: "C G♭ B♭ F → E♭" for a voicing whose top moves. */
 const answerText = (v: Voicing) => {

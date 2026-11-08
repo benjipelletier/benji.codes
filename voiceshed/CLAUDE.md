@@ -264,7 +264,10 @@ wide screen; a run hides both.
   "a less detail actual card shape like a playing card shape"), one per group:
   the chord big in the middle, the mode in the corner, the status at the foot
   and in the border (red shaky, amber check, dashed new, faded joins later),
-  and the group's other inversions as cards fanned behind it (up to three); a
+  and the group's other inversions as cards fanned behind it (up to three),
+  plus a mark per inversion under the chord — its bottom tone (♭3, ♭7; a °7's
+  four), filled green when solid, red when shaky, dashed when new (the owner:
+  "on the card if we could indicate the different inversions too"); a
   legend underneath. The counts are groups. Tapping a card opens that
   voicing's sheet over the set (the owner: "clicking the card in review to open
   its card page"); "Your whole deck ›" goes to the Deck view.
@@ -454,7 +457,14 @@ wide screen; a run hides both.
   chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
   register, notes, and **how it's holding up** (`components/Retention.tsx`;
   the owner: "is it clear how all the different review types are affecting
-  its retention?"): per mode, solid / shaky / new / not in deck (`cardStatus`)
+  its retention?"): **a chord's inversions side by side** in each mode (the
+  owner: "I would like to see the inversions side by side on the sheet"; a
+  °7's four as 2 × 2), each column headed by its bottom tone and notes, the
+  one opened outlined, the mode's status the group's (as Review groups them),
+  and when one is fast enough and another isn't, "♭3 on the bottom is fast
+  enough — waiting on ♭7 on the bottom"; a column shows its status, a short
+  why, fluency, its last 6 answers, medians and target. A mode not in the deck
+  is one line. Per mode, solid / shaky / new / not in deck (`cardStatus`)
   with what it means (next check, leads your next set), for a shaky one why —
   "Last slip: right but slow in Practice · ii–V–Is in F, 20 hours ago", the
   context gap, or "2 of 3 fast in a row so far"; a card fast enough itself
@@ -495,7 +505,7 @@ much away"). Review → Settings → "Play and Spell cards
 show": Bottom & top (default), Bottom, or Top (`settings.cues`); the voicing type
 always shows, and the answer shows both. Spell's pad writes each line's
 degree under it, bottom to top, then the moved-to one after the arrow ("♭7 ♭3 5
-9", "1 ♭5 ♭7 11 → ♭3"; `degreesOf` in CardRunner, `degrees` on NotePad; the
+9", "1 ♭5 ♭7 11 → ♭3"; `degreesOf` in `lib/practice.ts`, `degrees` on NotePad; the
 owner: "under the lines put out the degree it should be"), the next one in
 amber.
 

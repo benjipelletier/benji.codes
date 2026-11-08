@@ -1266,3 +1266,35 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-kb-count { display: inline-flex; align-items: center; gap: 10px; }
 .cr-undo { min-height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .cr-undo:disabled { opacity: 0.35; }
+
+/* A voicing's sheet: the chord's inversions side by side in each mode (2, or a °7's 4 as 2 × 2). */
+.rt-invs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rt-inv { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--rule); border-left-width: 3px; border-radius: 10px; }
+.rt-inv.rt-solid { border-left-color: var(--good); }
+.rt-inv.rt-shaky { border-left-color: var(--fail); }
+.rt-inv.rt-new, .rt-inv.rt-out { border-left-style: dashed; border-left-color: var(--ink-3); }
+.rt-inv.on { background: var(--paper); box-shadow: inset 0 0 0 1px var(--accent); }
+.rt-inv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 5px; }
+.rt-inv-head b { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1; }
+.rt-inv-lbl { font-size: 11px; color: var(--ink-3); }
+.rt-inv-head .rt-pill { margin-left: auto; font-size: 9px; padding: 1px 5px; }
+.rt-inv-notes { flex-basis: 100%; font-size: 12px; color: var(--ink-3); }
+.rt-inv-why { font-size: 12px; color: var(--ink); }
+.rt-inv-why.ready { color: var(--good); }
+.rt-inv .rt-fluency { grid-template-columns: 1fr 26px; gap: 6px; }
+.rt-inv .rt-fluency .rt-lbl { display: none; }
+.rt-inv .rt-dot { width: 20px; }
+.rt-inv .rt-dot i { width: 12px; height: 12px; }
+.rt-inv .rt-foot { flex-direction: column; align-items: flex-start; gap: 2px; }
+.rt-inv .rt-target { margin-left: 0; }
+.rt-inv .rt-pick { font-size: 12px; }
+
+/* A playing card's inversions: a mark each under the chord, its bottom tone in its own status. */
+.rv-pc-invs { align-self: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%; }
+.rv-pc-inv { font-style: normal; font-family: var(--mono); font-size: 8px; line-height: 1; padding: 2px 3px; border-radius: 4px; border: 1px solid var(--ink-3); color: var(--ink-3); white-space: nowrap; }
+.rv-pc-inv-solid { border-color: var(--good); background: var(--good); color: var(--card); }
+.rv-pc-inv-shaky { border-color: var(--fail); color: var(--fail); }
+.rv-pc-inv-new, .rv-pc-inv-out { border-style: dashed; }
+.rt-mode .rt-inv .rt-pill { color: var(--ink-3); }
+.rt-mode .rt-inv.rt-solid .rt-pill { color: var(--good); }
+.rt-mode .rt-inv.rt-shaky .rt-pill { color: var(--fail); }

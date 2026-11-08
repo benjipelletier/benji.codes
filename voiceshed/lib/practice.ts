@@ -1,7 +1,7 @@
 // Grading answers, and building the practice sets: timed runs through
 // ii–V–Is, a key's chords, a tune's changes or a tag filter.
 
-import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, isIii, servesIii, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
+import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, intervalDisplay, intervalName, isIii, servesIii, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
 import type { Context, ContextType, Mode, Tune, Voicing } from './types';
 import { shuffle } from './srs';
 
@@ -339,4 +339,13 @@ export function buildSet(spec: SetSpec, data: { voicings: Voicing[]; contexts: C
     skipped: [],
     chords: 0,
   };
+}
+
+/** Each note's chord degree, bottom to top, then where the top moves: "♭7 ♭3 5 9", the root as "1". */
+export function degreesOf(v: Voicing): string[] {
+  const tone = (midi: number) => {
+    const semis = mod12(midi - v.root);
+    return semis === 0 ? '1' : intervalDisplay(intervalName(v.quality, semis));
+  };
+  return [...v.notes.map(n => tone(noteMidi(n))), ...(v.top_move ? [tone(noteMidi(v.top_move))] : [])];
 }

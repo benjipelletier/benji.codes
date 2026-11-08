@@ -12,12 +12,20 @@ import { fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { targetFor } from '@voiceshed/lib/srs';
 import { cardStatus, fastStreak, FLUENT_STREAK, fluencyScore, SOURCE_NAME, sourceOf, type Source } from '@voiceshed/lib/drill';
 import { MODES, MODE_LABEL, srsKey, type Attempt, type Mode, type Voicing } from '@voiceshed/lib/types';
+import { degreesOf } from '@voiceshed/lib/practice';
 import { pitchName, pretty } from '@voiceshed/lib/theory';
 import { LEVEL_NAME, type Level } from './ListenPage';
 
 const SHOWN = 12;
+/** Answers shown in an inversion's column, beside the others. */
+const SHOWN_SHORT = 6;
 const verdict = (a: Attempt) => (!a.correct ? 'miss' : a.slow ? 'slow' : 'fast');
 const VERDICT: Record<string, string> = { fast: 'Right, in time', slow: 'Right but slow', miss: 'Missed' };
+
+type Status = ReturnType<typeof cardStatus>;
+
+/** An inversion named by its bottom chord tone: "♭3", "♭7", "1". */
+const bottomOf = (o: Voicing) => degreesOf(o)[0];
 
 export function Retention({ v }: { v: Voicing }) {
   const t = useTrainer();
@@ -25,136 +33,190 @@ export function Retention({ v }: { v: Voicing }) {
   const runs = useMemo(() => new Map(t.runs.map(r => [r.id, r])), [t.runs]);
   const progs = useMemo(() => new Map(t.contexts.map(c => [c.id, c])), [t.contexts]);
   const src = (a: Attempt) => sourceOf(a, runs, progs);
-  const [picked, setPicked] = useState<{ mode: Mode; id: string } | null>(null);
+  const [picked, setPicked] = useState<{ key: string; id: string } | null>(null);
   const where = (a: Attempt) => {
     const s = src(a);
     return `${SOURCE_NAME[s.src]}${s.what ? ` · ${s.what}` : ''}`;
   };
-
-  // Its other inversions in the deck: they graduate together, so a fast card waits on them.
-  const mates = useMemo(() => partnersOf(t.voicings, v).filter(o => o.id !== v.id), [t.voicings, v]);
+  // The chord's inversions side by side in each mode (the owner: "I would like to see the
+  // inversions side by side on the sheet"): Review drills them together and they go solid
+  // together, so one alone doesn't say where the chord stands. The one opened is outlined.
+  const invs = useMemo(() => {
+    const ps = partnersOf(t.voicings, v);
+    return ps.length > 1 ? ps : [v];
+  }, [t.voicings, v]);
+  const many = invs.length > 1;
   const spelled = (o: Voicing) => o.notes.map(n => pretty(pitchName(n))).join(' ');
+
+  const cellOf = (o: Voicing, md: Mode) => {
+    const key = srsKey(o.id, md);
+    const st = t.srs.get(key);
+    const list = grouped.get(key) ?? [];
+    const target = targetFor(st, md, t.settings, o);
+    const gap = gapKeys.has(key);
+    return {
+      o,
+      key,
+      st,
+      list,
+      target,
+      usual: targetFor(undefined, md, t.settings, o),
+      gap,
+      status: cardStatus(st, gap),
+      s: stats.get(key),
+      score: fluencyScore(list, target),
+      streak: fastStreak(list),
+    };
+  };
+  type Cell = ReturnType<typeof cellOf>;
+
+  /** As Review groups them: shaky if any is (or one is new beside answered ones), solid only if all are. */
+  const groupStatus = (cells: Cell[]): Status => {
+    const inDeck = cells.filter(c => c.status !== 'out');
+    if (!inDeck.length) return 'out';
+    if (inDeck.every(c => c.status === 'new')) return 'new';
+    if (inDeck.every(c => c.status === 'solid')) return 'solid';
+    return 'shaky';
+  };
+  const subOf = (status: Status, cells: Cell[]) => {
+    if (status === 'out') return 'Not in your deck — answers still count';
+    if (status === 'new') return 'Not answered yet — joins a set when nothing shakier waits';
+    if (status === 'shaky') return many ? 'Leads your next set · its inversions go solid together' : 'Leads your next set';
+    const due = cells.map(c => c.st!.due_at).sort()[0];
+    return new Date(due).getTime() <= Date.now() ? 'Check due — in your next set' : `Next check ${relTime(due)}`;
+  };
+  /** Why one card is shaky, in full (one inversion) or in a few words (a column). */
+  const whyOf = (c: Cell, cells: Cell[], short: boolean): string | null => {
+    if (c.status !== 'shaky') return null;
+    if (c.gap) return short ? 'Slow alone' : 'Fast in a progression but slow on its own.';
+    const slip = [...c.list].reverse().find(a => verdict(a) !== 'fast');
+    if (slip && c.streak === 0) {
+      return short
+        ? `Last: ${VERDICT[verdict(slip)].toLowerCase()} · ${relTime(slip.created_at)}`
+        : `Last slip: ${VERDICT[verdict(slip)].toLowerCase()} in ${where(slip)}, ${relTime(slip.created_at)}.`;
+    }
+    if (!c.list.length) return null;
+    if (c.streak < FLUENT_STREAK) return short ? `${c.streak} of ${FLUENT_STREAK} fast in a row` : `${c.streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`;
+    if (short) return `Fast enough · ${c.streak} in a row`;
+    return `Fast enough (${c.streak} in a row) — goes solid when a Review set sees it through: ${FLUENT_STREAK} fast in a row there.`;
+  };
+  /** A chord whose inversions stand apart: who's ready and who it waits on. */
+  const groupWhy = (cells: Cell[]): string | null => {
+    const inDeck = cells.filter(c => c.status !== 'out');
+    const ready = inDeck.filter(c => c.status === 'shaky' && !c.gap && c.streak >= FLUENT_STREAK);
+    const behind = inDeck.filter(c => c.status === 'new' || (c.status === 'shaky' && (c.gap || c.streak < FLUENT_STREAK)));
+    if (!ready.length || !behind.length) return null;
+    const names = (xs: Cell[]) => xs.map(c => `${bottomOf(c.o)} on the bottom`).join(' and ');
+    return `${names(ready)} ${ready.length > 1 ? 'are' : 'is'} fast enough — waiting on ${names(behind)}. They go solid together, in Review.`;
+  };
+
+  const body = (c: Cell, cells: Cell[], short: boolean) => {
+    const recent = c.list.slice(short ? -SHOWN_SHORT : -SHOWN);
+    const sel = picked?.key === c.key ? recent.find(a => a.id === picked.id) : undefined;
+    const why = whyOf(c, cells, short);
+    return (
+      <>
+        {why && <p className={short ? `rt-inv-why ${c.streak >= FLUENT_STREAK ? 'ready' : ''}` : 'rt-why'}>{why}</p>}
+        {c.score != null && (
+          <div className="rt-fluency" title="Each of the last 6 answers scores target ÷ time (1 if in time), a miss 0">
+            <span className="rt-lbl">Fluency</span>
+            <span className={`rt-bar ${c.score < 0.5 ? 'low' : c.score < 0.8 ? 'mid' : ''}`}>
+              <i style={{ width: `${Math.round(c.score * 100)}%` }} />
+            </span>
+            <span className="rt-num">{Math.round(c.score * 100)}</span>
+          </div>
+        )}
+        {recent.length > 0 ? (
+          <>
+            <div className="rt-strip" role="list" aria-label={`Last ${recent.length} answers, oldest first`}>
+              {recent.map(a => {
+                const s2 = src(a);
+                return (
+                  <button
+                    type="button"
+                    role="listitem"
+                    key={a.id}
+                    className={`rt-dot rt-${verdict(a)} ${sel?.id === a.id ? 'on' : ''}`}
+                    onClick={() => setPicked(sel?.id === a.id ? null : { key: c.key, id: a.id })}
+                    aria-label={`${VERDICT[verdict(a)]}, ${fmtSecs(a.response_ms)}, ${where(a)}, ${relTime(a.created_at)}`}
+                  >
+                    <i />
+                    <span>{s2.src === 'C' ? 'ii–V' : s2.src}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {sel && (
+              <p className="rt-pick">
+                <b className={`rt-${verdict(sel)}-ink`}>{VERDICT[verdict(sel)]}</b> · {fmtSecs(sel.response_ms)} · {where(sel)} · {relTime(sel.created_at)}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="rt-none">No answers yet.</p>
+        )}
+        <div className="rt-foot">
+          <span>Alone {fmtSecs(c.s?.isolatedMs)}</span>
+          <span>In context {fmtSecs(c.s?.contextMs)}</span>
+          <label className="rt-target">
+            Target
+            <input
+              className="dt-target"
+              type="number"
+              min={0.5}
+              max={20}
+              step={0.1}
+              disabled={!t.canEdit || !c.st}
+              title={c.st ? undefined : 'Add it to your deck to set its target'}
+              value={c.target / 1000}
+              onChange={e => {
+                const ms = Math.round(Number(e.target.value) * 1000);
+                if (ms < 500 || !c.st) return;
+                void t.saveSrs([{ ...c.st, target_ms: ms === c.usual ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
+              }}
+            />
+            s
+          </label>
+        </div>
+      </>
+    );
+  };
 
   return (
     <section className="rt" aria-label="How it’s holding up">
       {MODES.map(md => {
-        const key = srsKey(v.id, md);
-        const st = t.srs.get(key);
-        const list = grouped.get(key) ?? [];
-        const target = targetFor(st, md, t.settings, v);
-        const usual = targetFor(undefined, md, t.settings, v);
-        const s = stats.get(key);
-        const gap = gapKeys.has(key);
-        const status = cardStatus(st, gap);
-        const score = fluencyScore(list, target);
-        const streak = fastStreak(list);
-        const recent = list.slice(-SHOWN);
-        const slip = [...list].reverse().find(a => verdict(a) !== 'fast');
-        const check = st && status === 'solid' ? new Date(st.due_at).getTime() <= Date.now() : false;
-        const sub =
-          status === 'out'
-            ? 'Not in your deck — answers still count'
-            : status === 'new'
-              ? 'Not answered yet — joins a set when nothing shakier waits'
-              : status === 'solid'
-                ? check
-                  ? 'Check due — in your next set'
-                  : `Next check ${relTime(st!.due_at)}`
-                : 'Leads your next set';
-        const why =
-          status !== 'shaky'
-            ? null
-            : gap
-              ? 'Fast in a progression but slow on its own.'
-              : slip && streak === 0
-                ? `Last slip: ${VERDICT[verdict(slip)].toLowerCase()} in ${where(slip)}, ${relTime(slip.created_at)}.`
-                : streak < FLUENT_STREAK
-                  ? `${streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`
-                  : (() => {
-                      // Fast enough itself: solid once a Review set sees its whole group through.
-                      const behind = mates
-                        .filter(o => t.srs.has(srsKey(o.id, md)))
-                        .map(o => ({ o, n: fastStreak(grouped.get(srsKey(o.id, md))) }))
-                        .filter(x => x.n < FLUENT_STREAK);
-                      return behind.length
-                        ? `Fast enough (${streak} in a row) — waiting on its other inversion${behind.length > 1 ? 's' : ''}, ${behind
-                            .map(x => `${spelled(x.o)} (${x.n} of ${FLUENT_STREAK})`)
-                            .join(', ')}. Inversions go solid together, in Review.`
-                        : `Fast enough (${streak} in a row) — goes solid when a Review set sees it and its inversions through: ${FLUENT_STREAK} fast in a row there.`;
-                    })();
-        const sel = picked?.mode === md ? recent.find(a => a.id === picked.id) : undefined;
+        const cells = invs.map(o => cellOf(o, md));
+        const status = groupStatus(cells);
+        const gw = many ? groupWhy(cells) : null;
         return (
           <div key={md} className={`rt-mode rt-${status}`}>
             <div className="rt-head">
               <b>{MODE_LABEL[md]}</b>
               <span className="rt-pill">{status === 'out' ? 'not in deck' : status}</span>
-              <span className="rt-sub">{sub}</span>
+              <span className="rt-sub">{subOf(status, cells)}</span>
             </div>
-            {why && <p className="rt-why">{why}</p>}
-            {score != null && (
-              <div className="rt-fluency" title="Each of the last 6 answers scores target ÷ time (1 if in time), a miss 0">
-                <span className="rt-lbl">Fluency</span>
-                <span className={`rt-bar ${score < 0.5 ? 'low' : score < 0.8 ? 'mid' : ''}`}>
-                  <i style={{ width: `${Math.round(score * 100)}%` }} />
-                </span>
-                <span className="rt-num">{Math.round(score * 100)}</span>
-              </div>
-            )}
-            {recent.length > 0 ? (
-              <>
-                <div className="rt-strip" role="list" aria-label={`Last ${recent.length} answers, oldest first`}>
-                  {recent.map(a => {
-                    const s2 = src(a);
-                    return (
-                      <button
-                        type="button"
-                        role="listitem"
-                        key={a.id}
-                        className={`rt-dot rt-${verdict(a)} ${sel?.id === a.id ? 'on' : ''}`}
-                        onClick={() => setPicked(sel?.id === a.id ? null : { mode: md, id: a.id })}
-                        aria-label={`${VERDICT[verdict(a)]}, ${fmtSecs(a.response_ms)}, ${where(a)}, ${relTime(a.created_at)}`}
-                      >
-                        <i />
-                        <span>{s2.src === 'C' ? 'ii–V' : s2.src}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {sel && (
-                  <p className="rt-pick">
-                    <b className={`rt-${verdict(sel)}-ink`}>{VERDICT[verdict(sel)]}</b> · {fmtSecs(sel.response_ms)} · {where(sel)} · {relTime(sel.created_at)}
-                  </p>
-                )}
-              </>
+            {status === 'out' && many ? null : !many ? (
+              body(cells[0], cells, false)
             ) : (
-              <p className="rt-none">No answers yet.</p>
+              <>
+                {gw && <p className="rt-why">{gw}</p>}
+                <div className={`rt-invs ${cells.length > 2 ? 'rt-invs-4' : ''}`}>
+                  {cells.map(c => (
+                    <div key={c.key} className={`rt-inv rt-${c.status} ${c.o.id === v.id ? 'on' : ''}`} aria-label={`${bottomOf(c.o)} on the bottom: ${spelled(c.o)}`}>
+                      <div className="rt-inv-head">
+                        <b>{bottomOf(c.o)}</b>
+                        <span className="rt-inv-lbl">bottom</span>
+                        <span className="rt-pill">{c.status === 'out' ? 'out' : c.status}</span>
+                        <span className="rt-inv-notes">{spelled(c.o)}</span>
+                      </div>
+                      {body(c, cells, true)}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
-            <div className="rt-foot">
-              <span>Alone {fmtSecs(s?.isolatedMs)}</span>
-              <span>In context {fmtSecs(s?.contextMs)}</span>
-              <label className="rt-target">
-              Target
-              <input
-                className="dt-target"
-                type="number"
-                min={0.5}
-                max={20}
-                step={0.1}
-                disabled={!t.canEdit || !st}
-                title={st ? undefined : 'Add it to your deck to set its target'}
-                value={target / 1000}
-                onChange={e => {
-                  const ms = Math.round(Number(e.target.value) * 1000);
-                  if (ms < 500 || !st) return;
-                  void t.saveSrs([{ ...st, target_ms: ms === usual ? null : ms, updated_at: new Date().toISOString(), dirty: true }]);
-                }}
-              />
-              s
-            </label>
-            </div>
           </div>
         );
-
       })}
       <ListenBlock v={v} />
       <p className="vt-hint rt-key">
