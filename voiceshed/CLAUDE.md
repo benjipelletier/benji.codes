@@ -219,6 +219,12 @@ wide screen; a run hides both.
   finished — with how it did in context and a dot per answer, then accuracy
   (first tries), average time and the slowest cards. The ✈ Offline panel and
   sign in/out.
+  **One mode at a time** (the owner: "I want a way to only play one mode at a
+  time"): an All · Play · Spell · Name switch above the set, kept on the device
+  (`vs-review-mode`). One mode runs the same rules on its cards only
+  (`chooseSet` with `modes: [mode]`): its shaky, its checks, its new ones (still
+  2 at a time, 5 a session), early checks to fill; the other modes' schedules
+  wait. The counts, cards and "x of y Play cards solid" follow the switch.
   **Your speed** (Settings, under Target time; the owner: "check my recent
   reviews I feel like 2 seconds is way too short"): per mode, over the last 60
   right answers (Review and Practice, not Listen) — typical (median), "3 in 4

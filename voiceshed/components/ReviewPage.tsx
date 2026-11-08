@@ -41,6 +41,8 @@ import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, typ
 
 type DrillStep = RunnerStep & { repeat?: boolean; probe?: string | null };
 
+const MODE_KEY = 'vs-review-mode';
+
 /** Cards in play at once. */
 const SET_SIZE = 6;
 
@@ -65,11 +67,32 @@ export function ReviewPage() {
   const written = useRef(new Map<string, SrsState>());
 
   const targetOf = useCallback((v: Voicing, mode: Mode) => targetFor(srs.get(srsKey(v.id, mode)), mode, settings), [srs, settings]);
+  // One mode at a time, or all (the owner: "I want a way to only play one mode at a time"), kept on this device.
+  const [only, setOnlyState] = useState<Mode | 'all'>('all');
+  useEffect(() => {
+    try {
+      const m = localStorage.getItem(MODE_KEY);
+      if (m === 'all' || (MODES as string[]).includes(m ?? '')) setOnlyState(m as Mode | 'all');
+    } catch {
+      // All, then.
+    }
+  }, []);
+  const setOnly = (m: Mode | 'all') => {
+    setOnlyState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      // Not remembered.
+    }
+  };
+  const modes = useMemo(() => (only === 'all' ? [...MODES] : [only]), [only]);
+  // The same rules on just that mode's cards: its shaky, its checks, its new ones; the other modes wait.
   const today = useMemo(
-    () => chooseSet({ pool: voicings, srs, grouped, gapKeys, modes: [...MODES], targetOf, size: SET_SIZE, fresh: true, now: new Date() }),
-    [voicings, srs, grouped, gapKeys, targetOf],
+    () => chooseSet({ pool: voicings, srs, grouped, gapKeys, modes, targetOf, size: SET_SIZE, fresh: true, now: new Date() }),
+    [voicings, srs, grouped, gapKeys, targetOf, modes],
   );
-  const solid = useMemo(() => [...srs.values()].filter(s => s.learned).length, [srs]);
+  const inModes = useMemo(() => [...srs.values()].filter(s => modes.includes(s.mode)), [srs, modes]);
+  const solid = inModes.filter(s => s.learned).length;
 
   const stepOf = useCallback(
     (s: Slot): DrillStep => ({ voicing: s.card.voicing, mode: s.card.mode, target: targetOf(s.card.voicing, s.card.mode), context_type: 'isolated', context_id: null, repeat: s.asked > 0 }),
@@ -204,6 +227,13 @@ export function ReviewPage() {
   const total = set.length + incoming.length;
   return (
     <div className="vt-page">
+      <div className="vt-seg rv-only" role="radiogroup" aria-label="Which cards">
+        {(['all', ...MODES] as const).map(m => (
+          <button type="button" key={m} role="radio" aria-checked={only === m} className={only === m ? 'on' : ''} onClick={() => setOnly(m)}>
+            {m === 'all' ? 'All' : MODE_LABEL[m]}
+          </button>
+        ))}
+      </div>
       <section className="rv-hero">
         <div className="rv-big">
           <span className="rv-num">{counts.shaky}</span>
@@ -252,7 +282,7 @@ export function ReviewPage() {
           {total ? `Start today’s set · ${total} card${total === 1 ? '' : 's'}` : 'Nothing to review'}
         </button>
         <p className="rv-note">
-          Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.
+          Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {inModes.length} {only === 'all' ? '' : `${MODE_LABEL[only]} `}cards solid.
         </p>
         <a className="rv-deck-link" href="/voiceshed/voicings?view=deck">
           Your whole deck · {srs.size} cards ›

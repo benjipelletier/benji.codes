@@ -1247,3 +1247,4 @@ button.pm-bg span { color: var(--accent-ink); }
 .np-col { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
 .np-deg { font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1; color: var(--ink-3); }
 .np-deg-next { color: var(--accent-ink); }
+.rv-only { width: 100%; }
