@@ -21,8 +21,6 @@ const SHOWN = 12;
 const SHOWN_ROW = 6;
 const verdict = (a: Attempt) => (!a.correct ? 'miss' : a.slow ? 'slow' : 'fast');
 const VERDICT: Record<string, string> = { fast: 'Right, in time', slow: 'Right but slow', miss: 'Missed' };
-/** An answer's time as played: a MIDI keyboard's own (its `response_ms` is on the phone's clock for the stats). */
-const played = (a: Attempt) => (a.played_ms != null ? `${fmtSecs(a.played_ms)} on the keyboard` : fmtSecs(a.response_ms));
 
 type Status = ReturnType<typeof cardStatus>;
 
@@ -144,7 +142,7 @@ export function Retention({ v }: { v: Voicing }) {
                     key={a.id}
                     className={`rt-dot rt-${verdict(a)} ${sel?.id === a.id ? 'on' : ''}`}
                     onClick={() => setPicked(sel?.id === a.id ? null : { key: c.key, id: a.id })}
-                    aria-label={`${VERDICT[verdict(a)]}, ${played(a)}, ${where(a)}, ${relTime(a.created_at)}`}
+                    aria-label={`${VERDICT[verdict(a)]}, ${fmtSecs(a.response_ms)}, ${where(a)}, ${relTime(a.created_at)}`}
                   >
                     <i />
                     <span>{s2.src === 'C' ? 'ii–V' : s2.src}</span>
@@ -154,7 +152,7 @@ export function Retention({ v }: { v: Voicing }) {
             </div>
             {sel && (
               <p className="rt-pick">
-                <b className={`rt-${verdict(sel)}-ink`}>{VERDICT[verdict(sel)]}</b> · {played(sel)} · {where(sel)} · {relTime(sel.created_at)}
+                <b className={`rt-${verdict(sel)}-ink`}>{VERDICT[verdict(sel)]}</b> · {fmtSecs(sel.response_ms)} · {where(sel)} · {relTime(sel.created_at)}
               </p>
             )}
           </>

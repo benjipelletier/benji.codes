@@ -619,14 +619,23 @@ by playing the keyboard"): Web MIDI, so Chrome on Android or a computer
 MIDI keyboard" asks the browser once, then lists the keyboards plugged in
 ("🎹 LEKATO 88"); it's kept on the device (`vs-midi`) and reconnects on open
 without a prompt when the browser already allowed it, and follows keyboards
-plugged in or out. Any class-compliant USB keyboard works. **Said loud** (the
+plugged in or out. Any class-compliant USB keyboard works. **Practice only**
+(the owner: "I don't think the midi reviews should be done as part of the main
+review … I'm worried about polluting the normal manual hand answered cards"):
+CardRunner takes keys only with `keyboard` (Practice passes it; Review
+doesn't, so its cards stay tapped and a plugged-in keyboard shows "🎹 keyboard:
+Practice only"), and keyboard answers never touch the cards — Practice's
+demotions skip them, `groupAttempts` leaves them out of fluency, streaks,
+medians and the context gap, and How fast you think ignores them. They're still
+saved, tagged `input` 'midi', for a keyboard view later (voice-leading paths
+played on the keys: the owner's next big idea). **Said loud** (the
 owner: "make it super obvious when midi is connected"): a green badge in the
 app's top bar on every page — "🎹 LEKATO 88", its light flashing with every key
 (`MidiBadge` in `TrainerShell`; "🎹 plug in", dashed, when on with nothing
 plugged in); a green note sliding down from the top for 4 s when a keyboard is
-plugged in ("… connected — Play cards take your keys") or pulled out ("…
+plugged in ("… connected — for Practice runs") or pulled out ("…
 unplugged — back to tapping"), shown in a run too (`MidiToast`, outside the
-bar); and in a Play card a green edge along the top and a green banner over the
+bar); and in a Practice run's Play card a green edge along the top and a green banner over the
 keys — "Play it on your keyboard", the keyboard's name and its target, a light
 flashing with each key (`cr-keys-banner`); Spell and Name cards say "🎹
 keyboard: Play cards". In a Play card (Review, Practice, tunes) each new key
@@ -644,14 +653,9 @@ thinking time plus `MIDI_CHORD_MS` (0.5 s) for the whole chord, `MIDI_MOVE_MS`
 3.4 s tapped (`midiTarget`; a card's own target keeps its thinking time the
 same way). Each answer is saved with `input` ('midi', or null for tapped; an
 `attempts` column added by `TRAINER_DDL`, synced and in the bundle) and judged
-against its own: the runner's slow, the drill, and the clock bar (the keyboard's
-target while one is plugged in). For the stats, `groupAttempts` puts a keyboard
-answer on the phone's clock — its time plus the typing it saved (`midiShift`,
-0.9 s for four notes) — so fluency, medians, streaks and the context gap judge
-it the same with the card's one target; its time as played stays in
-`played_ms`, which the sheet's answer dots show ("1.24s on the keyboard").
-How fast you think takes the keyboard's allowance off its answers. Cards and
-schedules are shared: solid is solid whichever way it was played.
+against its own: the runner's slow and the clock bar (the keyboard's target
+while one is plugged in), shown in the run's summary. Keyboard answers are kept
+out of card stats and schedules (above).
 
 **Sideways on a phone, in a run** (the owner: "support for landscape mode so
 the keyboard can be quite a bit bigger when reviewing cards"): the keys'

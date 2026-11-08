@@ -54,6 +54,12 @@ interface Props {
   more?: () => (RunnerStep & { repeat?: boolean })[];
   /** In place of "3 / 12" at the top. */
   status?: string;
+  /**
+   * Take answers from a MIDI keyboard: Practice only. Review's cards stay tapped (the owner:
+   * "I don't think the midi reviews should be done as part of the main review … I'm worried
+   * about polluting the normal manual hand answered cards"), so there the keyboard is ignored.
+   */
+  keyboard?: boolean;
   onAttempt: (r: RunnerResult) => void;
   onFinish: (results: RunnerResult[]) => void;
 }
@@ -368,7 +374,7 @@ function BigKeys({ lo, whites, marks, onKey, aspect }: { lo: number; whites: num
   );
 }
 
-export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, more, status, onAttempt, onFinish }: Props) {
+export function CardRunner({ steps, library, strictSpelling, requeueMisses = false, showSequence = false, more, status, keyboard = false, onAttempt, onFinish }: Props) {
   const [queue, setQueue] = useState<(RunnerStep & { repeat?: boolean })[]>(steps);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<'ask' | 'feedback'>('ask');
@@ -563,6 +569,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const held = useRef(new Set<number>());
   const allUpAt = useRef(0);
   useMidiNotes(n => {
+    if (!keyboard) return;
     if (n.kind === 'pedal') {
       if (n.down && phase === 'feedback') next();
       return;
@@ -597,7 +604,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   if (!step || !v) return null;
   // The clock runs to the keyboard's target while a keyboard is plugged in (or the answer came from one).
-  const keysOn = step.mode === 'play' && midi.status === 'on' && midi.inputs.length > 0;
+  const plugged = midi.status === 'on' && midi.inputs.length > 0;
+  const keysOn = keyboard && step.mode === 'play' && plugged;
   const clockTarget = (phase === 'feedback' ? result?.input === 'midi' : keysOn) ? midiTarget(step.target, v, step.mode) : step.target;
 
   // Big keys starts showing the bottom two; the others centre on the voicing.
@@ -638,7 +646,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       <div className="cr-top">
         <span className="cr-mode">{MODE_LABEL[step.mode]}</span>
         {/* Spell and Name take taps: say the keyboard is there but not for these. */}
-        {step.mode !== 'play' && midi.status === 'on' && midi.inputs.length > 0 && <span className="cr-midi-idle">🎹 keyboard: Play cards</span>}
+        {plugged && !keysOn && <span className="cr-midi-idle">{keyboard ? '🎹 keyboard: Play cards' : '🎹 keyboard: Practice only'}</span>}
         {step.group && <span className="cr-group">{step.group}</span>}
         <span className="cr-pos">{pos}</span>
         <button type="button" className="cr-end" onClick={finish}>

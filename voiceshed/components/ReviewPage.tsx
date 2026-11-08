@@ -17,7 +17,7 @@ import { useBackClose } from './useBackClose';
 import { VoicingDetail } from './VoicingsPage';
 import { chips, PlayingCard } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
-import { MIDI_CHORD_MS, MIDI_MOVE_MS, midiShift, TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
+import { MIDI_CHORD_MS, MIDI_MOVE_MS, TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
 import {
   afterAnswer,
   afterSlot,
@@ -369,12 +369,13 @@ function SpeedCheck({ settings, onSave }: { settings: Settings; onSave: (s: Sett
   const rows = useMemo(
     () =>
       MODES.map(m => {
-        const right = attempts.filter(a => a.mode === m && a.correct && byId.has(a.voicing_id));
+        // Tapped answers only: the keyboard is Practice's, and kept out of the cards.
+        const right = attempts.filter(a => a.mode === m && a.correct && a.input !== 'midi' && byId.has(a.voicing_id));
         const solid = right.filter(a => srs.get(srsKey(a.voicing_id, m))?.learned);
         const from = solid.length >= SPEED_MIN ? solid : right;
         const think = from
           .slice(-SPEED_RECENT)
-          .map(a => Math.max(0, a.response_ms - tapsFor(byId.get(a.voicing_id)!, m) * TAP_MS[m] + (a.input === 'midi' ? midiShift(byId.get(a.voicing_id)!, m) : 0)))
+          .map(a => Math.max(0, a.response_ms - tapsFor(byId.get(a.voicing_id)!, m) * TAP_MS[m]))
           .sort((x, y) => x - y);
         const at = (q: number) => think[Math.min(think.length - 1, Math.floor(q * think.length))];
         const base = settings.target_ms[m];
@@ -452,7 +453,7 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
           ))}
         </div>
         <span className="vt-hint">
-          How fast you should know it. Each card adds its typing: {TAP_MS.play / 1000}s a key (Play), {TAP_MS.spell / 1000}s a letter or accidental (Spell), {TAP_MS.name / 1000}s a pick (Name). Played on a MIDI keyboard, a Play card adds {MIDI_CHORD_MS / 1000}s for the whole chord ({MIDI_MOVE_MS / 1000}s more for a move) instead. A card can have its own target, on the Voicings page.
+          How fast you should know it. Each card adds its typing: {TAP_MS.play / 1000}s a key (Play), {TAP_MS.spell / 1000}s a letter or accidental (Spell), {TAP_MS.name / 1000}s a pick (Name). In a Practice run on a MIDI keyboard, a Play card adds {MIDI_CHORD_MS / 1000}s for the whole chord ({MIDI_MOVE_MS / 1000}s more for a move) instead. A card can have its own target, on the Voicings page.
         </span>
         <SpeedCheck settings={settings} onSave={onSave} />
       </div>
@@ -523,8 +524,8 @@ function MidiField() {
             </span>
           </div>
           <span className="vt-hint">
-            Play cards take the keys you press: play the voicing, in any octave (not below E♭3). Let go of every key for a moment to start a chord over. The sustain pedal moves on to the next card. The
-            keys on screen still work.
+            For Practice runs (ii–V–Is, tunes, your charts): Play cards take the keys you press — play the voicing, in any octave (not below E♭3). Let go of every key for a moment to start a chord over;
+            the sustain pedal moves on. Review stays tapped, and keyboard answers never change your cards’ schedules or stats.
           </span>
         </>
       )}

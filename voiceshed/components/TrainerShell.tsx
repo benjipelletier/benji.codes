@@ -204,7 +204,7 @@ function MidiToast() {
     const added = names.filter(x => !was.includes(x));
     const gone = was.filter(x => !names.includes(x));
     before.current = names;
-    if (added.length) setToast({ text: `${added.join(', ')} connected — Play cards take your keys`, ok: true, id: Date.now() });
+    if (added.length) setToast({ text: `${added.join(', ')} connected — for Practice runs`, ok: true, id: Date.now() });
     else if (gone.length) setToast({ text: `${gone.join(', ')} unplugged — back to tapping`, ok: false, id: Date.now() });
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -404,7 +404,7 @@ export function useCardStats(): { stats: Map<string, ModeStats>; gapKeys: Set<st
   const { attempts, srs, settings, voicings } = useTrainer();
   return useMemo(() => {
     const byId = new Map(voicings.map(v => [v.id, v]));
-    const grouped = groupAttempts(attempts, byId);
+    const grouped = groupAttempts(attempts);
     const stats = new Map<string, ModeStats>();
     const gapKeys = new Set<string>();
     for (const [k, list] of grouped) {

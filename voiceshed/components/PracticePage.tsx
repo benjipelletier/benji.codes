@@ -156,6 +156,8 @@ export function PracticePage() {
       const rows = new Map<string, SrsState>();
       for (const r of rs) {
         if (r.correct && !r.slow) continue;
+        // Played on the keyboard: a different skill, kept off the cards' schedules.
+        if (r.input === 'midi') continue;
         const key = srsKey(r.step.voicing.id, r.step.mode);
         const prev = rows.get(key) ?? t.srs.get(key);
         if (!prev) continue;
@@ -173,6 +175,7 @@ export function PracticePage() {
         library={voicings}
         strictSpelling={settings.strict_spelling}
         showSequence={steps[0]?.context_type !== 'isolated'}
+        keyboard
         onAttempt={onAttempt}
         onFinish={onFinish}
       />

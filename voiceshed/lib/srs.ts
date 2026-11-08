@@ -97,19 +97,17 @@ const MIN_FOR_GAP = 3;
 
 /** Attempts grouped by card (voicing + mode), oldest first. Listen's answers aren't a card's: left out. */
 /**
- * Answers by card, oldest first. An answer played on a MIDI keyboard is put on the phone's
- * clock — its time plus the typing it saved (`midiShift`) — so fast and slow, fluency, medians
- * and the context gap all judge it against its own target with the card's one target. Its
- * time as played stays in `played_ms`.
+ * Answers by card, oldest first — tapped ones only. An answer played on a MIDI keyboard
+ * (`input` 'midi', Practice only) is a different skill and stays out of the cards' stats:
+ * fluency, streaks, medians, the context gap (the owner: "I'm worried about polluting the
+ * normal manual hand answered cards").
  */
-export function groupAttempts(attempts: Attempt[], byId?: Map<string, { notes: string[]; top_move: string | null }>): Map<string, Attempt[]> {
+export function groupAttempts(attempts: Attempt[]): Map<string, Attempt[]> {
   const out = new Map<string, Attempt[]>();
   const sorted = [...attempts].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  for (const raw of sorted) {
-    if (raw.mode === 'listen') continue;
-    const v = raw.input === 'midi' ? byId?.get(raw.voicing_id) : undefined;
-    const a = v ? { ...raw, response_ms: raw.response_ms + midiShift(v, raw.mode as Mode), played_ms: raw.response_ms } : raw;
-    const k = srsKey(raw.voicing_id, raw.mode);
+  for (const a of sorted) {
+    if (a.mode === 'listen' || a.input === 'midi') continue;
+    const k = srsKey(a.voicing_id, a.mode);
     let list = out.get(k);
     if (!list) out.set(k, (list = []));
     list.push(a);
