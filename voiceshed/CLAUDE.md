@@ -293,10 +293,11 @@ wide screen; a run hides both.
   we need … a button to play the chord melodically"): `playArpeggio`, the bass
   then the notes bottom to top 0.42 s apart, each held so they build into the
   chord — the first after the bass is the bottom note the inversion level asks
-  for. Right goes on to the next level; after the last, the answer stays 2.8 s
-  (the owner: "doesn't show the success screen for that long") with Again, Note
-  by note and Next (a bar on Next fills as it waits; replaying holds it until
-  Next, Enter too); a wrong answer ends the sound:
+  for. Right goes on to the next level; after the last, right or wrong, the
+  answer stays until Next (or Enter) is pressed (the owner: "we should pause
+  on the correct or incorrect answer and I should manually have to click
+  next"; it used to move on by itself after 2.8 s), with Again, Note by note
+  and Next; a wrong answer ends the sound:
   the chord, its type, bottom tone and keys, the right option marked, the
   answer again on request, and **Hear yours** playing what was picked (another
   type on the same root, the same chord as the other type, or the other

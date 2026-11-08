@@ -1231,8 +1231,6 @@ button.pm-bg span { color: var(--accent-ink); }
 .ls-arp { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--accent); background: var(--card); color: var(--accent-ink); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
 .ls-arp span { letter-spacing: -2px; }
 .ls-actions-right .vt-primary { position: relative; overflow: hidden; }
-.ls-right:not(.ls-hold) .ls-actions-right .vt-primary::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--good); transform-origin: left; animation: ls-wait 2.8s linear both; }
-@keyframes ls-wait { from { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .ls-actions-right .vt-primary::after { animation: none; } }
 
 /* Settings: how fast your right answers are, against the target. */
