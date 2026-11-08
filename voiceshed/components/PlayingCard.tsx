@@ -47,8 +47,11 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
   const start = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
   const flashT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The card just swiped away, flying off the way the finger went (the owner: "it doesn't look like anything changes"). */
+  const [leaving, setLeaving] = useState<{ status: string; up: boolean; id: number } | null>(null);
   const turn = (by: number) => {
     if (n < 2) return;
+    setLeaving({ status: order[0].status, up: by > 0, id: turns + 1 });
     setFront(f => (f + by + n) % n);
     setTurns(x => x + 1);
     setFlash(true);
@@ -101,8 +104,31 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
           {d.root}
           <small>{d.quality}</small>
         </span>
-        <span className="rv-pc-foot">{flash && n > 1 ? `${order[0].bottom} bottom` : label}</span>
+        {/* Which inversion is in front, as page dots. */}
+        {n > 1 && (
+          <span className="rv-pc-dots">
+            {invs.map((x, i) => (
+              <i key={x.id} className={i === front ? 'on' : ''} />
+            ))}
+          </span>
+        )}
+        <span className={`rv-pc-foot ${flash && n > 1 ? 'rv-pc-flash' : ''}`}>{flash && n > 1 ? `${order[0].bottom} bottom` : label}</span>
       </span>
+      {leaving && (
+        <span
+          key={`leave-${leaving.id}`}
+          className={`rv-pc-face rv-pc-leave ${leaving.up ? 'up' : 'down'} ${apart ? `rv-pc-own-${leaving.status}` : ''}`}
+          onAnimationEnd={() => setLeaving(l => (l?.id === leaving.id ? null : l))}
+          aria-hidden
+        >
+          <span className="rv-pc-corner">{corner}</span>
+          <span className="rv-pc-chord">
+            {d.root}
+            <small>{d.quality}</small>
+          </span>
+          <span className="rv-pc-foot">{label}</span>
+        </span>
+      )}
     </li>
   );
 }

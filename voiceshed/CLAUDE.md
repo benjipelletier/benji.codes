@@ -269,7 +269,10 @@ wide screen; a run hides both.
   each card behind take their own inversion's colour (green solid, red shaky,
   dashed new); the foot keeps the chord's status. **Swipe up or down** on a
   card (or ↑ ↓ on a focused one) to bring the next inversion to the front —
-  the foot shows its bottom tone ("♭7 bottom") for a moment — and a tap opens
+  the front card flies off the way the finger went and the next rises from the
+  stack (the owner: "it doesn't look like anything changes"), page dots under
+  the chord (● ○, a °7's four) say which is in front, and the foot shows its
+  bottom tone in amber ("♭7 bottom") for a moment — and a tap opens
   the front one (the owner: "colour the cards behind and allow me to switch
   between them by swiping up or down"; labels on the card were "too messy").
   A card with inversions takes only sideways pans (`touch-action: pan-x`), so

@@ -1278,9 +1278,19 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-pc .rv-pc-own-solid { border-color: var(--good); border-style: solid; }
 .rv-pc .rv-pc-own-shaky { border-color: var(--fail); border-style: solid; }
 .rv-pc .rv-pc-own-new { border-color: var(--ink-3); border-style: dashed; }
-.rv-pc-dealt { animation: rv-pc-deal 0.22s ease-out; }
-@keyframes rv-pc-deal { from { transform: translateY(-6px) rotate(-2deg); opacity: 0.6; } }
-@media (prefers-reduced-motion: reduce) { .rv-pc-dealt { animation: none; } }
+/* A swipe: the front card flies off the way the finger went, the next rises from the stack. */
+.rv-pc-dealt { animation: rv-pc-deal 0.32s cubic-bezier(0.2, 0.8, 0.3, 1.2); }
+@keyframes rv-pc-deal { from { transform: translate(6px, -4px) rotate(6deg) scale(0.92); opacity: 0.5; } }
+.rv-pc-leave { z-index: 2; pointer-events: none; animation: rv-pc-leave-up 0.32s ease-in forwards; }
+.rv-pc-leave.down { animation-name: rv-pc-leave-down; }
+@keyframes rv-pc-leave-up { to { transform: translateY(-70%) rotate(-12deg); opacity: 0; } }
+@keyframes rv-pc-leave-down { to { transform: translateY(55%) rotate(10deg); opacity: 0; } }
+/* Page dots: which inversion is in front. */
+.rv-pc-dots { align-self: center; display: flex; gap: 3px; }
+.rv-pc-dots i { width: 5px; height: 5px; border-radius: 50%; border: 1px solid var(--ink-3); }
+.rv-pc-dots i.on { background: var(--ink); border-color: var(--ink); }
+.rv-pc-foot.rv-pc-flash { color: var(--accent-ink) !important; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .rv-pc-dealt, .rv-pc-leave { animation: none; } .rv-pc-leave { display: none; } }
 
 /* A USB MIDI keyboard: Settings, and the chip in a Play run's top bar. */
 .vt-midi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
