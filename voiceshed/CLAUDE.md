@@ -348,7 +348,10 @@ wide screen; a run hides both.
   biggest gaps, by chords: bare major triad 2.9%, bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
 - `/voiceshed/voicings` — **Map** (default), **List**, **Deck** or **Found**, kept on the
-  device (`?view=deck` wins: Review's link). **Deck** (the owner: "a way to
+  device (`?view=deck` wins: Review's link). The switch stays at the top with
+  the filter's bar (the owner: "keep map list deck found on the top"):
+  VoicingFilter's `below`, in its sticky `.vf-top`, whose height it keeps in
+  `--vf-h` for the map's sticky board labels. **Deck** (the owner: "a way to
   explore all the cards in my deck"): the deck's groups (`deckGroups`, the
   same grouping today's set uses) as playing cards under Shaky (weakest
   first), Due a check, Solid (next check soonest first, "in 3d" at the foot,

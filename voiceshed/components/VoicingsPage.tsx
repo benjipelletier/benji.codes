@@ -102,14 +102,24 @@ export function VoicingsPage() {
 
   return (
     <div className="vt-page">
-      <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} collapsible={view !== 'list'} />
-      <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
-        {(['map', 'list', 'deck', 'found'] as const).map(m => (
-          <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
-            {m === 'map' ? 'Map' : m === 'list' ? 'List' : m === 'deck' ? 'Deck' : 'Found'}
-          </button>
-        ))}
-      </div>
+      <VoicingFilter
+        voicings={voicings}
+        value={filter}
+        onChange={changeFilter}
+        tests={tests}
+        total={voicings.length}
+        shown={filtered.length}
+        collapsible={view !== 'list'}
+        below={
+          <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
+            {(['map', 'list', 'deck', 'found'] as const).map(m => (
+              <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
+                {m === 'map' ? 'Map' : m === 'list' ? 'List' : m === 'deck' ? 'Deck' : 'Found'}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
       {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}

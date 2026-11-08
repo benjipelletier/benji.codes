@@ -502,18 +502,23 @@
 
 /* ── the stackable filter (Voicings) ────────────────────────────── */
 /* What's picked: stays at the top while the voicings scroll under it. */
-.vf-bar {
+/* With the page's view switch under it (Map · List · Deck · Found), kept at the top too. */
+.vf-top {
   position: sticky;
   top: calc(var(--bar-h) + env(safe-area-inset-top));
   z-index: 15;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin: -16px calc(-1 * max(16px, env(safe-area-inset-left))) 0;
-  padding: 10px max(16px, env(safe-area-inset-left));
   background: var(--paper);
   border-bottom: 1px solid var(--rule);
 }
+.vf-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px max(16px, env(safe-area-inset-left));
+}
+.vf-views { padding: 0 max(16px, env(safe-area-inset-left)) 10px; }
+.vf-views .lb-view { margin: 0; }
 .vf-tokens { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-right: 14px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent); }
 .vf-tokens::-webkit-scrollbar { display: none; }
 .vf-token {
@@ -585,7 +590,7 @@
 .lb-new { align-self: flex-end; }
 
 @media (min-width: 720px) {
-  .vf-bar { margin-top: -24px; }
+  .vf-top { margin-top: -24px; }
   /* Room for every chip: the rows wrap instead of scrolling. */
   .vf-scroll { flex-wrap: wrap; overflow: visible; margin: 0; padding: 2px 0 4px; -webkit-mask-image: none; mask-image: none; }
 }
@@ -942,7 +947,7 @@
 
 /* The map, phone first: keys down, chords across, the whole chart the screen's width. */
 .pm-board { --pm-track: minmax(0, 1fr); display: grid; gap: 4px; max-width: 680px; width: 100%; margin: 0 auto; }
-.pm-bh { position: sticky; top: calc(var(--bar-h, 56px) + env(safe-area-inset-top)); z-index: 2; background: var(--paper); padding: 6px 0 4px; text-align: center; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.pm-bh { position: sticky; top: calc(var(--bar-h, 56px) + env(safe-area-inset-top) + var(--vf-h, 0px)); z-index: 2; background: var(--paper); padding: 6px 0 4px; text-align: center; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1; color: var(--ink); white-space: nowrap; overflow: hidden; }
 .pm-bh-corner { background: var(--paper); }
 .pm-bk { display: flex; flex-direction: column; justify-content: center; padding-right: 4px; border-radius: 8px; transition: background-color 0.3s; }
 .pm-bk b { font-family: var(--serif); font-weight: 400; font-size: 16px; line-height: 1.05; white-space: nowrap; }

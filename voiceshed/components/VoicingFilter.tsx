@@ -10,7 +10,7 @@
 // the address keeps it too, so a reload or the back button lands on the
 // same view.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { midisOf } from '@voiceshed/lib/practice';
 import { CYCLE_OF_FOURTHS, familyLabel, keyLabel, namePc, PC_FLAT, pretty, QUALITIES, QUALITY, rootNames, type Quality, prettyLabel } from '@voiceshed/lib/theory';
@@ -125,6 +125,7 @@ export function VoicingFilter({
   total,
   shown,
   collapsible = false,
+  below,
 }: {
   voicings: Voicing[];
   value: FilterState;
@@ -134,8 +135,23 @@ export function VoicingFilter({
   shown: number;
   /** Fold the rows away behind a Filter button (the map wants the screen). */
   collapsible?: boolean;
+  /** Kept at the top with the bar: the page's view switch (the owner: "keep map list deck found on the top"). */
+  below?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!collapsible);
+  // The sticky top's height, for what sticks under it (the map's board labels).
+  const topRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = topRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty('--vf-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty('--vf-h');
+    };
+  }, []);
   useEffect(() => setOpen(!collapsible), [collapsible]);
   const f = value;
   const set = (p: Partial<FilterState>) => onChange({ ...f, ...p });
@@ -187,6 +203,7 @@ export function VoicingFilter({
 
   return (
     <>
+      <div className="vf-top" ref={topRef}>
       <div className="vf-bar" role="status" aria-live="polite">
         <div className="vf-tokens">
           {tokens.length ? (
@@ -213,6 +230,8 @@ export function VoicingFilter({
             Filter {open ? '▴' : '▾'}
           </button>
         )}
+      </div>
+      {below && <div className="vf-views">{below}</div>}
       </div>
 
       {open && (
