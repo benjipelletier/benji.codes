@@ -411,7 +411,7 @@ export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () 
             ))}
         </div>
 
-        <Retention v={v} />
+        <Retention v={v} onOpen={onOpen} />
 
         {canEdit && (
           <div className="vt-inline dt-danger">

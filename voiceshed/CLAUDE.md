@@ -463,15 +463,12 @@ wide screen; a run hides both.
   chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
   register, notes, and **how it's holding up** (`components/Retention.tsx`;
   the owner: "is it clear how all the different review types are affecting
-  its retention?"): **a chord's inversions together**, a row each in every
-  mode (the owner wanted them "side by side on the sheet", then found columns
-  "too much especially for diminished chords"): bottom tone, notes, last 6
-  answers as dots, status in a few words (solid, new, "1 of 3", "ready ✓")
-  and the time alone; tap a row for its full detail below (the one opened
-  starts open). The mode's status is the group's (as Review groups them), and
-  when one is fast enough and another isn't, "♭3 on the bottom is fast enough
-  — waiting on ♭7 on the bottom". A mode not in the deck is one line. A
-  voicing with no partner shows its detail straight away. Per mode, solid / shaky / new / not in deck (`cardStatus`)
+  its retention?"): **this inversion's own**, per mode (the owner, of a
+  version that put every inversion on the sheet: "too cluttered and doesn't
+  make sense bc this page is about one specific inversion as indicated by the
+  piano at the top"); under it, a dashed line for each other inversion, which
+  goes solid with it — "With ♭7 on the bottom (C F A E) · 1 of 3 ›", its status
+  in a few words — tap to open that inversion's sheet. Per mode, solid / shaky / new / not in deck (`cardStatus`)
   with what it means (next check, leads your next set), for a shaky one why —
   "Last slip: right but slow in Practice · ii–V–Is in F, 20 hours ago", the
   context gap, or "2 of 3 fast in a row so far"; a card fast enough itself
