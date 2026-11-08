@@ -354,6 +354,10 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const [given, setGiven] = useState<Given | null>(null);
   const [result, setResult] = useState<RunnerResult | null>(null);
   const [tapped, setTapped] = useState<number[]>([]);
+  /** The same keys in the order they were played, for Undo (the owner: "what if that was an accidental press how do I undo it"). */
+  const [order, setOrder] = useState<number[]>([]);
+  /** Big keys: where the window was before it slid up after two notes, to slide back to. */
+  const slidFrom = useRef<number | null>(null);
   /** White keys the Play keyboard has been moved by (an octave is 7). */
   const [shift, setShift] = useState(0);
   const results = useRef<RunnerResult[]>([]);
@@ -403,6 +407,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     setGiven(null);
     setResult(null);
     setTapped([]);
+    setOrder([]);
+    slidFrom.current = null;
     setShift(0);
   }, [index, queue.length, finish, more]);
 
@@ -460,8 +466,15 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
         if (!tapped.includes(m)) submit({ kind: 'play', midis: tapped, moveTo: m });
         return;
       }
-      const nextSet = tapped.includes(m) ? tapped.filter(x => x !== m) : [...tapped, m].sort((a, b) => a - b);
+      const off = tapped.includes(m);
+      const nextSet = off ? tapped.filter(x => x !== m) : [...tapped, m].sort((a, b) => a - b);
       setTapped(nextSet);
+      setOrder(o => (off ? o.filter(x => x !== m) : [...o, m]));
+      // Taken back below two notes: slide back to where it was, to replay the left hand.
+      if (off && nextSet.length < 2 && slidFrom.current != null) {
+        setShift(slidFrom.current);
+        slidFrom.current = null;
+      }
       // Big keys: the left hand's two notes in, slide up so the right hand's come into reach
       // (the owner: "we click the first two … then it's close to the right and let me click
       // the next two") — from where you tapped, so it gives nothing away. Only ever up.
@@ -471,12 +484,28 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
         const top = whiteIdx(Math.max(...nextSet));
         const right = base + shift + whites - 1 - top;
         const want = top - 1;
-        if (right < BIG_REACH && want > base + shift) setShift(want - base);
+        if (right < BIG_REACH && want > base + shift) {
+          slidFrom.current = shift;
+          setShift(want - base);
+        }
       }
       if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
     },
     [phase, v, tapped, submit, big, midis, whites, shift],
   );
+
+  /** Take back the last key played, wherever it is now (and slide back if that leaves under two). */
+  const undo = () => {
+    if (phase !== 'ask' || !order.length) return;
+    const last = order[order.length - 1];
+    const nextSet = tapped.filter(x => x !== last);
+    setTapped(nextSet);
+    setOrder(order.slice(0, -1));
+    if (nextSet.length < 2 && slidFrom.current != null) {
+      setShift(slidFrom.current);
+      slidFrom.current = null;
+    }
+  };
 
   if (!step || !v) return null;
 
@@ -607,7 +636,12 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
                     </button>
                   )}
                 </span>
-                <span className={moving ? 'cr-moving' : ''}>{moving ? 'now move the top' : `${tapped.length} / ${v.notes.length}`}</span>
+                <span className="cr-kb-count">
+                  <span className={moving ? 'cr-moving' : ''}>{moving ? 'now move the top' : `${tapped.length} / ${v.notes.length}`}</span>
+                  <button type="button" className="cr-undo" onClick={undo} disabled={!tapped.length} aria-label="undo the last key">
+                    ⌫ Undo
+                  </button>
+                </span>
                 <span className="cr-kb-move">
                   {(keyPx || big) && (
                     <button type="button" onClick={() => setShift(o => o + 1)} aria-label="one key up">

@@ -1261,3 +1261,8 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-kb-big-track { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
 .cr-kb-big .vk { width: 100%; max-height: none; }
 @media (prefers-reduced-motion: reduce) { .cr-kb-big-track { transition: none; } }
+
+/* Play: Undo beside the count, for a key pressed by accident. */
+.cr-kb-count { display: inline-flex; align-items: center; gap: 10px; }
+.cr-undo { min-height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.cr-undo:disabled { opacity: 0.35; }

@@ -573,8 +573,14 @@ it glides); the window starts at the voicing's bottom note (`playWindow`).
 When two notes are in and fewer than `BIG_REACH` (6) white keys are left to
 the right of the higher one, it slides up so that note sits second from the
 left — from where you tapped, so it gives nothing away; it only ever moves
-up. ‹ › and 8va move it too; no swipe to scroll, since keys sound where a
-finger lands.
+up. It follows the keys you tap, right or wrong (it can't know). ‹ › and 8va
+move it too; no swipe to scroll, since keys sound where a finger lands.
+**Undo** (every Play keyboard, beside the count; the owner: "what if that was
+an accidental press how do I undo it"): takes back the last key played,
+wherever it is now (`order` keeps the tap order); tapping a played key again
+still takes it back. When either leaves fewer than two notes, Big keys slides
+back to where it was before its slide (`slidFrom`). The last note of a
+voicing submits it, so that one can't be undone.
 
 **Sideways on a phone, in a run** (the owner: "support for landscape mode so
 the keyboard can be quite a bit bigger when reviewing cards"): the keys'
