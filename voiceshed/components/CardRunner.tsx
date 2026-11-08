@@ -3,7 +3,7 @@
 // Shows a card in any mode, times it and records the attempt. The clock
 // starts when the card is on screen and stops when the answer is in: Play
 // and Spell submit themselves once as many notes are in as the voicing has,
-// Name once root and quality are picked. A right answer moves
+// Name once the chord type is picked (the root is given). A right answer moves
 // on by itself; a wrong one stays up, with the right voicing on the
 // keyboard, until you tap Next (or press Enter / Space).
 
@@ -14,7 +14,7 @@ import { useBackClose } from './useBackClose';
 import { useTrainer } from './TrainerProvider';
 import { whiteKeyPx } from '@voiceshed/lib/scale';
 import { gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, spellNames, type NameAnswer } from '@voiceshed/lib/practice';
-import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, PC_FLAT, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
+import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
 
@@ -258,13 +258,12 @@ function Prompt({ step, reveal = false }: { step: RunnerStep; reveal?: boolean }
   );
 }
 
-function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; onAnswer: (a: NameAnswer) => void; disabled: boolean }) {
-  const [root, setRoot] = useState<number | null>(null);
+/** Name's answer: the chord type — the root is given on the card. */
+function NamePicker({ root, qualities, onAnswer, disabled }: { root: number; qualities: Quality[]; onAnswer: (a: NameAnswer) => void; disabled: boolean }) {
   const [quality, setQuality] = useState<Quality | null>(null);
   const sent = useRef(false);
-  // The root and the quality: that's the answer (no top note any more).
   useEffect(() => {
-    if (sent.current || root == null || quality == null) return;
+    if (sent.current || quality == null) return;
     sent.current = true;
     onAnswer({ root, quality });
   }, [root, quality, onAnswer]);
@@ -276,16 +275,6 @@ function NamePicker({ qualities, onAnswer, disabled }: { qualities: Quality[]; o
     };
   return (
     <div className="nm">
-      <div className="nm-row nm-roots" role="group" aria-label="root">
-        {/* A black key under both its names: either counts. */}
-        {PC_FLAT.map((_, pc) => (
-          <button type="button" key={pc} className={`nm-btn nm-root ${root === pc ? 'nm-on' : ''}`} onPointerDown={pick(setRoot, pc)} aria-pressed={root === pc} aria-label={rootNames(pc).join(' or ')}>
-            {rootNames(pc).map(n => (
-              <span key={n}>{pretty(n)}</span>
-            ))}
-          </button>
-        ))}
-      </div>
       <div className="nm-row nm-quals" role="group" aria-label="quality">
         {qualities.map(id => (
           <button type="button" key={id} className={`nm-btn ${quality === id ? 'nm-on' : ''}`} onPointerDown={pick(setQuality, id)} aria-pressed={quality === id}>
@@ -486,6 +475,13 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       <div className="cr-card">
         {/* Name mode hides the chord until it's answered; then it's shown like any prompt. */}
         {(step.mode !== 'name' || phase === 'feedback') && <Prompt step={step} reveal={phase === 'feedback'} />}
+        {/* The root, given (the owner: "name has to show us the root otherwise it is ambiguous"): a rootless voicing reads as more than one chord. */}
+        {step.mode === 'name' && phase === 'ask' && (
+          <div className="cr-cue cr-name-root">
+            <span className="cr-cue-lbl">Root</span>
+            <b>{pretty(parseChordLabel(v.chord_label)?.rootName ?? rootNames(v.root)[0])}</b>
+          </div>
+        )}
         {step.mode === 'name' && (
           <div className="cr-name-kb">
             <Keyboard low={fbRange[0]} high={fbRange[1]} marks={phase === 'ask' ? Object.fromEntries(midis.map(m => [m, 'on'])) : fbMarks} labels={phase === 'feedback' ? labels : undefined} />
@@ -567,7 +563,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
             {phase === 'ask' && <NotePad key={index} count={spellNames(v).length} moveSlot={!!v.top_move} degrees={degreesOf(v)} onSubmit={(names, at) => submit({ kind: 'spell', names, enharmonic: gradeSpell(v, names, true).enharmonic }, at)} />}
           </>
         )}
-        {step.mode === 'name' && phase === 'ask' && <NamePicker key={index} qualities={qualities} onAnswer={answer => submit({ kind: 'name', answer })} disabled={false} />}
+        {step.mode === 'name' && phase === 'ask' && <NamePicker key={index} root={v.root} qualities={qualities} onAnswer={answer => submit({ kind: 'name', answer })} disabled={false} />}
       </div>
 
       <div className="cr-actions">

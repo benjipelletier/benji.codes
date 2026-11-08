@@ -13,12 +13,12 @@ import { srsKey } from './types';
  */
 export const TAP_MS: Record<Mode, number> = { play: 350, spell: 300, name: 300 };
 
-/** Taps a card takes: Play a key a note (and the move), Spell a letter a note plus one per accidental, Name root and quality. */
+/** Taps a card takes: Play a key a note (and the move), Spell a letter a note plus one per accidental, Name the chord type (its root is given). */
 export function tapsFor(v: { notes: string[]; top_move: string | null }, mode: Mode): number {
   const notes = [...v.notes, ...(v.top_move ? [v.top_move] : [])];
   if (mode === 'play') return notes.length;
   if (mode === 'spell') return notes.reduce((n, s) => n + 1 + (s.slice(1).match(/[b#]/g)?.length ?? 0), 0);
-  return 2;
+  return 1;
 }
 
 /**

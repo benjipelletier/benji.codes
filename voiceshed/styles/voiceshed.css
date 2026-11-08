@@ -1264,3 +1264,8 @@ button.pm-bg span { color: var(--accent-ink); }
 @media (prefers-reduced-motion: reduce) { .cs-track, .lb-view-pill, .cs { transition: none !important; } }
 .lb-view-drag .lb-view-pill { transition: none; }
 .cs-dragging, .cs-dragging * { user-select: none !important; -webkit-user-select: none !important; }
+
+/* Name: the root, given, above the keys. */
+.cr-name-root { align-self: center; flex: 0 0 auto; min-width: 110px; }
+.cr-name-root .cr-cue-lbl, .cr-name-root > :last-child { margin-bottom: 0; }
+.cr-name-root b { font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1.1; }

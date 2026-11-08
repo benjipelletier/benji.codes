@@ -7,7 +7,7 @@ target time several times in a row: the mode's **thinking time** (default 2 s,
 Review → Settings) plus its typing at a fixed allowance per tap — always a
 phone, no calibration (the owner: "we're always going to assume I'm typing it
 on a phone") — 0.35 s a key in Play (notes, and a move), 0.3 s a letter or
-accidental in Spell (A♭ is two), 0.3 s a pick in Name (root, quality):
+accidental in Spell (A♭ is two), 0.3 s for Name's one pick (the quality; the root is given):
 `TAP_MS`, `tapsFor`, `targetFor(state, mode, settings, voicing)` in `srs.ts`.
 Am7 drop-2 is 3.4 s to play, a So What 3.75 s, E♭m7 (G♭ D♭ F B♭) 4.1 s to
 spell. A card's own target, set on its sheet, replaces the sum. Solid also
@@ -548,9 +548,11 @@ bottom below `lowest_register`), Spell (A–G pad; ♭/♯ after a letter change
 the note before it, as it's said — A then ♭ is A♭, ♭ again A𝄫, a third time A;
 a full pad waits 650 ms for
 an accidental on its last note, timed from the last tap; enharmonics accepted
-unless strict spelling is on), Name (root + quality, no longer the top note —
-the owner: "remove the top note from name"; any library voicing with the same
-keys counts). Play and
+unless strict spelling is on), Name (the root is given — a "Root A" box above
+the keys, the owner: "name has to show us the root otherwise it is ambiguous",
+since a rootless voicing reads as more than one chord — and you pick the
+quality, one tap; no top note either, the owner: "remove the top note from
+name"; any library voicing with the same keys counts). Play and
 Spell submit themselves at the note count. Timed from the card being painted.
 After a miss or "Don't know" the answer is shown: chord, top note, voicing
 type and notes (Name mode reveals its chord then).
