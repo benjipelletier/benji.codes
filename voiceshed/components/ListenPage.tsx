@@ -20,13 +20,14 @@ import { Keyboard, rangeAround } from './Keyboard';
 import { PianoLoader, fmtPct } from './TrainerShell';
 import { midisOf } from '@voiceshed/lib/practice';
 import { shuffle } from '@voiceshed/lib/srs';
-import { audio, loadSounds, playCue, soundsReady } from '@voiceshed/lib/sound';
+import { audio, loadSounds, playArpeggio, playCue, soundsReady } from '@voiceshed/lib/sound';
 import { FOUND, intervalDisplay, intervalName, isIii, mod12, parseChordLabel, prettyLabel, pretty, QUALITIES, QUALITY, type Quality } from '@voiceshed/lib/theory';
 import type { Voicing } from '@voiceshed/lib/types';
 
 /** A missed sound comes back this many sounds later, once. */
 const AGAIN_GAP = 4;
-const RIGHT_ADVANCE_MS = 1300;
+/** How long an all-right sound's answer stays up before moving on (the owner: "doesn't show the success screen for that long"). */
+const RIGHT_ADVANCE_MS = 2800;
 const LEVEL_ADVANCE_MS = 450;
 
 export type Level = 1 | 2 | 3;
@@ -177,6 +178,10 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
   const nextLevel = (from: Level): Level | null => ([2, 3] as Level[]).find(l => l > from && options[l].length > 1) ?? null;
 
   const play = useCallback((x: Voicing) => playCue(x.root, midisOf(x)), []);
+  // Note by note: the bass, then the notes bottom to top (the owner: "a button to play the chord melodically").
+  const arp = useCallback((x: Voicing) => playArpeggio(x.root, midisOf(x)), []);
+  /** Listening again after an all-right answer: stay on it until Next. */
+  const [hold, setHold] = useState(false);
   // Each sound plays as it comes up — once, however often the effect runs.
   const played = useRef(-1);
   useEffect(() => {
@@ -192,6 +197,7 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
     setLevel(1);
     setPicks([]);
     setOver(false);
+    setHold(false);
   }, [index, queue.length, finish]);
 
   const answer = (o: Option) => {
@@ -236,20 +242,20 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
   const allRight = over && picks.every(p => p.right);
   // All right: on by itself.
   useEffect(() => {
-    if (!allRight) return;
+    if (!allRight || hold) return;
     const id = setTimeout(next, RIGHT_ADVANCE_MS);
     return () => clearTimeout(id);
-  }, [allRight, next]);
+  }, [allRight, hold, next]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (over && !allRight && (e.key === 'Enter' || e.key === ' ')) {
+      if (over && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
         next();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [over, allRight, next]);
+  }, [over, next]);
 
   if (!v) return null;
   const m = midisOf(v);
@@ -260,7 +266,7 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
   const shown = options[level];
   const mine = picks.find(p => p.level === level);
   return (
-    <div className={`ls-run ${!over ? 'ls-ask' : allRight ? 'ls-right' : 'ls-wrong'}`} data-voicing-id={v.id} data-level={level}>
+    <div className={`ls-run ${!over ? 'ls-ask' : allRight ? 'ls-right' : 'ls-wrong'} ${hold ? 'ls-hold' : ''}`} data-voicing-id={v.id} data-level={level}>
       <div className="cr-top">
         <span className="cr-mode">Listen</span>
         {item.again && <span className="cr-group">again</span>}
@@ -286,10 +292,15 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
 
       <div className="ls-stage">
         {!over ? (
-          <button type="button" className="ls-play" onClick={() => play(v)} aria-label="Play it again">
-            <span aria-hidden>▶</span>
-            <b>Play again</b>
-          </button>
+          <div className="ls-plays">
+            <button type="button" className="ls-play" onClick={() => play(v)} aria-label="Play it again">
+              <span aria-hidden>▶</span>
+              <b>Play again</b>
+            </button>
+            <button type="button" className="ls-arp" onClick={() => arp(v)}>
+              <span aria-hidden>♪♪♪</span> Note by note
+            </button>
+          </div>
         ) : (
           <div className="ls-answer">
             <span className="ls-mark">{allRight ? '✓' : '✗'}</span>
@@ -332,12 +343,29 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
         </div>
       )}
 
-      {over && !allRight && (
-        <div className="ls-actions">
-          <button type="button" className="vt-secondary" onClick={() => play(v)}>
-            ▶ The answer
+      {over && (
+        <div className={`ls-actions ${allRight ? 'ls-actions-right' : ''}`}>
+          <button
+            type="button"
+            className="vt-secondary"
+            onClick={() => {
+              setHold(true);
+              play(v);
+            }}
+          >
+            ▶ {allRight ? 'Again' : 'The answer'}
           </button>
-          {yours && yours.id !== v.id && (
+          <button
+            type="button"
+            className="vt-secondary"
+            onClick={() => {
+              setHold(true);
+              arp(v);
+            }}
+          >
+            ♪ Note by note
+          </button>
+          {!allRight && yours && yours.id !== v.id && (
             <button type="button" className="vt-secondary" onClick={() => play(yours)}>
               ▶ Hear yours ({wrong!.label})
             </button>

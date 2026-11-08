@@ -255,8 +255,15 @@ wide screen; a run hides both.
   m7); 2 the voicing type (Drop 2 / Quartal / Block), only when the library has more than one for that quality
   (and iii-ness); 3 which inversion, only when the voicing has partners — each
   named by its bottom chord tone, its top under it ("♭3 / top 5"). Steps
-  along the top, numbered by position. Right goes on to the next level (and,
-  after the last, to the next sound by itself); a wrong answer ends the sound:
+  along the top, numbered by position. **Note by note** (under Play again,
+  and on the answer; the owner: "I feel like I'm just guessing randomly maybe
+  we need … a button to play the chord melodically"): `playArpeggio`, the bass
+  then the notes bottom to top 0.42 s apart, each held so they build into the
+  chord — the first after the bass is the bottom note the inversion level asks
+  for. Right goes on to the next level; after the last, the answer stays 2.8 s
+  (the owner: "doesn't show the success screen for that long") with Again, Note
+  by note and Next (a bar on Next fills as it waits; replaying holds it until
+  Next, Enter too); a wrong answer ends the sound:
   the chord, its type, bottom tone and keys, the right option marked, the
   answer again on request, and **Hear yours** playing what was picked (another
   type on the same root, the same chord as the other type, or the other

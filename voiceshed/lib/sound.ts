@@ -108,3 +108,23 @@ export function playCue(root: number, chord: number[], gap = 0.55): number {
   playPiano(chord, t + gap);
   return gap + 2.8;
 }
+
+/**
+ * The same, note by note (the owner: "play the chord melodically and not just
+ * harmonically"): the bass, then the chord's notes one at a time from the
+ * bottom up, each held so they build into the chord — the first one after the
+ * bass is the voicing's bottom note, which is what the inversion level asks.
+ * Returns how long it lasts, in seconds.
+ */
+export function playArpeggio(root: number, chord: number[], step = 0.42): number {
+  const c = audio();
+  const t = c.currentTime + 0.05;
+  const notes = [...chord].sort((a, b) => a - b);
+  const end = 0.7 + notes.length * step + 1.8;
+  playBass(bassNote(root), t, end);
+  notes.forEach((m, i) => {
+    const at = 0.7 + i * step;
+    playPiano([m], t + at, end - at);
+  });
+  return end;
+}

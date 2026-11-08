@@ -1219,3 +1219,12 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-pc-solid .rv-pc-foot { color: var(--good); }
 .rv-pc-solid .rv-pc-back { border-color: color-mix(in srgb, var(--good) 55%, var(--rule)); }
 .rv-deck-link { align-self: flex-start; font-size: 14px; font-weight: 600; color: var(--accent-ink); text-decoration: none; }
+
+/* Listen: note by note under the play button; after a right answer, the timer's bar. */
+.ls-plays { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.ls-arp { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--accent); background: var(--card); color: var(--accent-ink); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+.ls-arp span { letter-spacing: -2px; }
+.ls-actions-right .vt-primary { position: relative; overflow: hidden; }
+.ls-right:not(.ls-hold) .ls-actions-right .vt-primary::after { content: ''; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--good); transform-origin: left; animation: ls-wait 2.8s linear both; }
+@keyframes ls-wait { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .ls-actions-right .vt-primary::after { animation: none; } }
