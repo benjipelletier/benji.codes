@@ -10,8 +10,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, rangeAround } from './Keyboard';
 import { ProgressMap, TWO_HAND } from './ProgressMap';
-import { useCardStats } from './TrainerShell';
+import { relTime, useCardStats } from './TrainerShell';
+import { targetFor } from '@voiceshed/lib/srs';
 import { Retention } from './Retention';
+import { chips, PlayingCard } from './PlayingCard';
+import { deckGroups, type DeckGroup } from '@voiceshed/lib/drill';
 import { cardStatus, type CardStatus } from '@voiceshed/lib/drill';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
@@ -19,26 +22,31 @@ import { formatTime, parseTime, readSource, sourceHref, SOURCE_NAME } from '@voi
 import { hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, FOUND, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
-import { MODES, MODE_LABEL, srsKey, type Voicing } from '@voiceshed/lib/types';
+import { MODES, MODE_LABEL, srsKey, type Mode, type Voicing } from '@voiceshed/lib/types';
 
 const PAGE = 120;
+
+type View = 'map' | 'list' | 'found' | 'deck';
 
 export function VoicingsPage() {
   const t = useTrainer();
   const { voicings, srs, canEdit } = t;
   const { gapKeys, stats } = useCardStats();
   const { settings } = t;
-  // Map or list, kept on this device.
-  const [view, setViewState] = useState<'map' | 'list' | 'found'>('map');
+  // Map, list, found or deck, kept on this device; `?view=deck` (Review's link) wins.
+  const [view, setViewState] = useState<View>('map');
   useEffect(() => {
+    const isView = (v: string | null): v is View => v === 'map' || v === 'list' || v === 'found' || v === 'deck';
+    const asked = new URLSearchParams(location.search).get('view');
+    if (isView(asked)) return setViewState(asked);
     try {
       const v = localStorage.getItem('vs-voicings-view');
-      if (v === 'map' || v === 'list' || v === 'found') setViewState(v);
+      if (isView(v)) setViewState(v);
     } catch {
       // The map, then.
     }
   }, []);
-  const setView = (v: 'map' | 'list' | 'found') => {
+  const setView = (v: View) => {
     setViewState(v);
     try {
       localStorage.setItem('vs-voicings-view', v);
@@ -96,16 +104,17 @@ export function VoicingsPage() {
     <div className="vt-page">
       <VoicingFilter voicings={voicings} value={filter} onChange={changeFilter} tests={tests} total={voicings.length} shown={filtered.length} collapsible={view !== 'list'} />
       <div className="vt-seg lb-view" role="radiogroup" aria-label="View">
-        {(['map', 'list', 'found'] as const).map(m => (
+        {(['map', 'list', 'deck', 'found'] as const).map(m => (
           <button type="button" key={m} role="radio" aria-checked={view === m} className={view === m ? 'on' : ''} onClick={() => setView(m)}>
-            {m === 'map' ? 'Map' : m === 'list' ? 'List' : 'Found'}
+            {m === 'map' ? 'Map' : m === 'list' ? 'List' : m === 'deck' ? 'Deck' : 'Found'}
           </button>
         ))}
       </div>
 
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
       {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}
-      {view !== 'found' && canEdit && <DeckBar shown={deckShown} />}
+      {view !== 'found' && view !== 'deck' && canEdit && <DeckBar shown={deckShown} />}
+      {view === 'deck' && <DeckView voicings={filtered} onOpen={setOpen} />}
       {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing
@@ -888,5 +897,73 @@ function FoundView({ onLog, onOpen }: { onLog: () => void; onOpen: (id: string) 
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The deck to look through (the owner: "a way to explore all the cards in my
+ * deck"): its groups as playing cards — a chord's inversions in one mode —
+ * under Shaky (weakest first), Due a check, Solid (next check soonest first)
+ * and New (in the order added), narrowed by the filter above and a mode. Tap
+ * one for its page.
+ */
+function DeckView({ voicings, onOpen }: { voicings: Voicing[]; onOpen: (id: string) => void }) {
+  const t = useTrainer();
+  const { grouped, gapKeys } = useCardStats();
+  const [mode, setMode] = useState<Mode | 'all'>('all');
+  const groups = useMemo(
+    () =>
+      deckGroups({
+        pool: voicings,
+        srs: t.srs,
+        grouped,
+        gapKeys,
+        modes: mode === 'all' ? [...MODES] : [mode],
+        targetOf: (v, m) => targetFor(t.srs.get(srsKey(v.id, m)), m, t.settings),
+      }),
+    [voicings, t.srs, t.settings, grouped, gapKeys, mode],
+  );
+  const now = Date.now();
+  const sections: { key: string; title: string; hint: string; list: DeckGroup[]; status: string; label: (g: DeckGroup) => string }[] = [
+    { key: 'shaky', title: 'Shaky', hint: 'lead your next sets, weakest first', list: groups.filter(g => g.status === 'shaky').sort((a, b) => a.score - b.score), status: 'shaky', label: () => 'shaky' },
+    { key: 'check', title: 'Due a check', hint: 'in your next set', list: groups.filter(g => g.status === 'solid' && g.at <= now).sort((a, b) => a.at - b.at), status: 'check', label: () => 'check' },
+    { key: 'solid', title: 'Solid', hint: 'next check soonest first', list: groups.filter(g => g.status === 'solid' && g.at > now).sort((a, b) => a.at - b.at), status: 'solid', label: g => relTime(new Date(g.at).toISOString()).replace(/ days?/, 'd').replace(/ hours?/, 'h').replace(/ minutes?/, 'm') },
+    { key: 'new', title: 'New', hint: 'join two at a time', list: groups.filter(g => g.status === 'new').sort((a, b) => a.added.localeCompare(b.added)), status: 'new', label: () => 'new' },
+  ];
+  const cards = groups.reduce((n, g) => n + g.cards.length, 0);
+  return (
+    <div className="dk">
+      <div className="dk-head">
+        <p className="dk-count">
+          <b>{groups.length}</b> chord{groups.length === 1 ? '' : 's'} · {cards} card{cards === 1 ? '' : 's'}
+        </p>
+        <div className="vt-seg dk-modes" role="radiogroup" aria-label="Mode">
+          {(['all', ...MODES] as const).map(m => (
+            <button type="button" key={m} role="radio" aria-checked={mode === m} className={mode === m ? 'on' : ''} onClick={() => setMode(m)}>
+              {m === 'all' ? 'All' : MODE_LABEL[m]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!groups.length ? (
+        <p className="vt-empty">Nothing in your deck{voicings.length < t.voicings.length ? ' with this filter' : ''} yet — add voicings from the Map or the List.</p>
+      ) : (
+        sections
+          .filter(sec => sec.list.length)
+          .map(sec => (
+            <section key={sec.key} className={`dk-sec dk-${sec.key}`}>
+              <h3 className="lb-group-h">
+                {sec.title} <span>{sec.list.length}</span>
+                <em>{sec.hint}</em>
+              </h3>
+              <ul className="rv-set">
+                {sec.list.map(g => (
+                  <PlayingCard key={g.group} g={chips(g.cards)[0]} status={sec.status} label={sec.label(g)} onOpen={onOpen} />
+                ))}
+              </ul>
+            </section>
+          ))
+      )}
+    </div>
   );
 }

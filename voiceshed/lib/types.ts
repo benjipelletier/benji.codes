@@ -53,10 +53,15 @@ export interface Context {
   sort_order: number;
 }
 
+/** An answer's mode: a card's, or Listen's (which schedules nothing). */
+export type AttemptMode = Mode | 'listen';
+
 export interface Attempt {
   id: string;
   voicing_id: string;
-  mode: Mode;
+  mode: AttemptMode;
+  /** Listen only: 1 the chord type, 2 drop-2 or block, 3 which inversion. */
+  listen_level?: 1 | 2 | 3 | null;
   context_type: ContextType;
   context_id: string | null;
   run_id: string | null;

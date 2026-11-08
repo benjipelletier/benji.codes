@@ -51,11 +51,12 @@ export interface ModeStats {
 const RECENT = 10;
 const MIN_FOR_GAP = 3;
 
-/** Attempts grouped by card (voicing + mode), oldest first. */
+/** Attempts grouped by card (voicing + mode), oldest first. Listen's answers aren't a card's: left out. */
 export function groupAttempts(attempts: Attempt[]): Map<string, Attempt[]> {
   const out = new Map<string, Attempt[]>();
   const sorted = [...attempts].sort((a, b) => a.created_at.localeCompare(b.created_at));
   for (const a of sorted) {
+    if (a.mode === 'listen') continue;
     const k = srsKey(a.voicing_id, a.mode);
     let list = out.get(k);
     if (!list) out.set(k, (list = []));

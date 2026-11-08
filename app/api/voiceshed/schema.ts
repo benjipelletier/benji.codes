@@ -51,7 +51,7 @@ export const TRAINER_DDL = [
     id            UUID PRIMARY KEY,
     user_id       TEXT NOT NULL,
     voicing_id    UUID NOT NULL REFERENCES voicings(id) ON DELETE CASCADE,
-    mode          TEXT NOT NULL CHECK (mode IN ('play', 'spell', 'name')),
+    mode          TEXT NOT NULL CHECK (mode IN ('play', 'spell', 'name', 'listen')),
     context_type  TEXT NOT NULL CHECK (context_type IN ('isolated', 'progression', 'tune')),
     context_id    UUID,
     run_id        UUID,
@@ -61,6 +61,17 @@ export const TRAINER_DDL = [
     created_at    TIMESTAMPTZ NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_attempts_user_created ON attempts(user_id, created_at DESC)`,
+  // Listen's answers are attempts too (mode 'listen'), one per level asked: 1
+  // the chord type, 2 drop-2 or block, 3 which inversion. A table made before
+  // has the old mode check: swapped, once, whichever instance gets there first.
+  `ALTER TABLE attempts ADD COLUMN IF NOT EXISTS listen_level SMALLINT`,
+  `DO $$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'attempts_mode_check' AND pg_get_constraintdef(oid) LIKE '%listen%') THEN
+       ALTER TABLE attempts DROP CONSTRAINT IF EXISTS attempts_mode_check;
+       ALTER TABLE attempts ADD CONSTRAINT attempts_mode_check CHECK (mode IN ('play', 'spell', 'name', 'listen'));
+     END IF;
+   EXCEPTION WHEN duplicate_object THEN NULL;
+   END $$`,
   `CREATE TABLE IF NOT EXISTS srs_state (
     user_id        TEXT NOT NULL,
     voicing_id     UUID NOT NULL REFERENCES voicings(id) ON DELETE CASCADE,

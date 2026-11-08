@@ -3,6 +3,8 @@ import { ensureTrainer } from './schema';
 import { isQuality } from '@voiceshed/lib/theory';
 
 const MODES = new Set(['play', 'spell', 'name']);
+/** Answers also come from Listen, which schedules nothing. */
+const ATTEMPT_MODES = new Set([...MODES, 'listen']);
 const CONTEXT_TYPES = new Set(['isolated', 'progression', 'tune']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOTE = /^[A-G](bb|##|b|#)?-?\d$/;
@@ -63,7 +65,7 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
     .map(d => ({ voicing_id: d.voicing_id, mode: d.mode }));
 
   const attempts = list(body.attempts)
-    .filter(a => isId(a.id) && isId(a.voicing_id) && MODES.has(a.mode as string) && CONTEXT_TYPES.has(a.context_type as string) && typeof a.correct === 'boolean' && num(a.response_ms, 0, 3_600_000) && isTime(a.created_at))
+    .filter(a => isId(a.id) && isId(a.voicing_id) && ATTEMPT_MODES.has(a.mode as string) && CONTEXT_TYPES.has(a.context_type as string) && typeof a.correct === 'boolean' && num(a.response_ms, 0, 3_600_000) && isTime(a.created_at))
     .map(a => ({
       id: a.id,
       voicing_id: a.voicing_id,
@@ -75,6 +77,7 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
       slow: a.slow === true,
       response_ms: Math.round(a.response_ms as number),
       created_at: a.created_at,
+      listen_level: a.mode === 'listen' && [1, 2, 3].includes(a.listen_level as number) ? a.listen_level : null,
     }));
 
   const srs = list(body.srs)
@@ -150,10 +153,10 @@ export async function applySync(sql: NeonQueryFunction<false, false>, userId: st
   }
   if (attempts.length) {
     await sql.query(
-      `INSERT INTO attempts (id, user_id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at)
-       SELECT t.id, $2, t.voicing_id, t.mode, t.context_type, t.context_id, t.run_id, t.correct, t.slow, t.response_ms, t.created_at
+      `INSERT INTO attempts (id, user_id, voicing_id, mode, context_type, context_id, run_id, correct, slow, response_ms, created_at, listen_level)
+       SELECT t.id, $2, t.voicing_id, t.mode, t.context_type, t.context_id, t.run_id, t.correct, t.slow, t.response_ms, t.created_at, t.listen_level
        FROM jsonb_to_recordset($1::jsonb) AS t(id uuid, voicing_id uuid, mode text, context_type text, context_id uuid,
-         run_id uuid, correct boolean, slow boolean, response_ms int, created_at timestamptz)
+         run_id uuid, correct boolean, slow boolean, response_ms int, created_at timestamptz, listen_level smallint)
        WHERE EXISTS (SELECT 1 FROM voicings v WHERE v.id = t.voicing_id)
        ON CONFLICT (id) DO NOTHING`,
       [JSON.stringify(attempts), userId],

@@ -82,6 +82,64 @@ export interface SetCounts {
   solid: number;
 }
 
+export type GroupStatus = 'shaky' | 'solid' | 'new';
+
+export interface DeckGroup {
+  group: string;
+  /** Its cards, inversions in order; `why` is the status ('shaky', 'check' for solid, 'new'). */
+  cards: SetCard[];
+  states: SrsState[];
+  status: GroupStatus;
+  /** When its first card is due, ms. */
+  at: number;
+  /** When its first card joined the deck. */
+  added: string;
+  /** Its weakest card's fluency (0 with none). */
+  score: number;
+}
+
+/**
+ * The deck by group (a chord's inversions in one mode): shaky if any card is
+ * (or one is still new beside answered ones), new if all are, solid only if
+ * all are. Today's set draws from it; the Voicings page's Deck view shows it.
+ */
+export function deckGroups(o: {
+  pool: Voicing[];
+  srs: Map<string, SrsState>;
+  grouped: Map<string, Attempt[]>;
+  gapKeys: Set<string>;
+  modes: Mode[];
+  targetOf: (v: Voicing, mode: Mode) => number;
+}): DeckGroup[] {
+  const { pool, srs, grouped, gapKeys, modes, targetOf } = o;
+  const byId = new Map(pool.map(v => [v.id, v]));
+  type Member = { v: Voicing; s: SrsState; score: number | null; state: GroupStatus };
+  const groups = new Map<string, Member[]>();
+  for (const s of srs.values()) {
+    const v = byId.get(s.voicing_id);
+    if (!v || !modes.includes(s.mode)) continue;
+    const key = srsKey(v.id, s.mode);
+    const state: GroupStatus = s.reps === 0 ? 'new' : !s.learned || gapKeys.has(key) ? 'shaky' : 'solid';
+    const g = groupOf(v, s.mode);
+    groups.set(g, [...(groups.get(g) ?? []), { v, s, score: s.reps ? fluencyScore(grouped.get(key), targetOf(v, s.mode)) : null, state }]);
+  }
+  return [...groups].map(([g, ms0]) => {
+    const ms = [...ms0].sort((a, b) => a.v.sort_order - b.v.sort_order);
+    const status: GroupStatus = ms.every(m => m.state === 'new') ? 'new' : ms.some(m => m.state !== 'solid') ? 'shaky' : 'solid';
+    const why: Why = status === 'solid' ? 'check' : status;
+    const scores = ms.map(m => m.score).filter((x): x is number => x != null);
+    return {
+      group: g,
+      cards: ms.map(m => ({ voicing: m.v, mode: m.s.mode, why, score: m.score, group: g })),
+      states: ms.map(m => m.s),
+      status,
+      at: Math.min(...ms.map(m => new Date(m.s.due_at).getTime())),
+      added: ms.reduce((x, m) => (m.s.created_at < x ? m.s.created_at : x), ms[0].s.created_at),
+      score: scores.length ? Math.min(...scores) : 0,
+    };
+  });
+}
+
 /**
  * Today's set, and what's waiting. `pool`: the voicings the set-up allows.
  * Cards go by group (a chord's inversions in one mode): a group is shaky if
@@ -100,44 +158,16 @@ export function chooseSet(o: {
   fresh: boolean;
   now: Date;
 }): { set: SetCard[]; incoming: SetCard[]; counts: SetCounts; waiting: SetCard[] } {
-  const { pool, srs, grouped, gapKeys, modes, targetOf, size, fresh, now } = o;
-  const byId = new Map(pool.map(v => [v.id, v]));
+  const { size, fresh, now, modes } = o;
   const t = now.getTime();
-  type Member = { v: Voicing; s: SrsState; score: number | null; state: 'new' | 'shaky' | 'solid'; at: number };
-  const groups = new Map<string, Member[]>();
-  for (const s of srs.values()) {
-    const v = byId.get(s.voicing_id);
-    if (!v || !modes.includes(s.mode)) continue;
-    const key = srsKey(v.id, s.mode);
-    const state = s.reps === 0 ? 'new' : !s.learned || gapKeys.has(key) ? 'shaky' : 'solid';
-    const m: Member = { v, s, score: s.reps ? fluencyScore(grouped.get(key), targetOf(v, s.mode)) : null, state, at: new Date(s.due_at).getTime() };
-    const g = groupOf(v, s.mode);
-    groups.set(g, [...(groups.get(g) ?? []), m]);
-  }
-  const cardsOf = (g: string, ms: Member[], why: Why): SetCard[] =>
-    [...ms].sort((a, b) => a.v.sort_order - b.v.sort_order).map(m => ({ voicing: m.v, mode: m.s.mode, why, score: m.score, group: g }));
-
-  const shaky: { cards: SetCard[]; score: number }[] = [];
-  const check: { cards: SetCard[]; at: number }[] = [];
-  const ahead: { cards: SetCard[]; at: number }[] = [];
-  const news: { g: string; ms: Member[]; at: string }[] = [];
-  let solid = 0;
-  for (const [g, ms] of groups) {
-    if (ms.every(m => m.state === 'new')) {
-      news.push({ g, ms, at: ms.reduce((x, m) => (m.s.created_at < x ? m.s.created_at : x), ms[0].s.created_at) });
-    } else if (ms.some(m => m.state !== 'solid')) {
-      const scores = ms.map(m => m.score).filter((x): x is number => x != null);
-      shaky.push({ cards: cardsOf(g, ms, 'shaky'), score: scores.length ? Math.min(...scores) : 0 });
-    } else {
-      solid++;
-      const at = Math.min(...ms.map(m => m.at));
-      if (at <= t) check.push({ cards: cardsOf(g, ms, 'check'), at });
-      else ahead.push({ cards: cardsOf(g, ms, 'early'), at });
-    }
-  }
-  shaky.sort((a, b) => a.score - b.score);
-  check.sort((a, b) => a.at - b.at);
-  ahead.sort((a, b) => a.at - b.at);
+  const all = deckGroups(o);
+  type Member = { v: Voicing; s: SrsState };
+  const shaky = all.filter(g => g.status === 'shaky').sort((a, b) => a.score - b.score);
+  const check = all.filter(g => g.status === 'solid' && g.at <= t).sort((a, b) => a.at - b.at).map(g => ({ ...g, cards: g.cards.map(c => ({ ...c, why: 'check' as Why })) }));
+  const ahead = all.filter(g => g.status === 'solid' && g.at > t).sort((a, b) => a.at - b.at).map(g => ({ ...g, cards: g.cards.map(c => ({ ...c, why: 'early' as Why })) }));
+  const solid = all.filter(g => g.status === 'solid').length;
+  const news = all.filter(g => g.status === 'new').map(g => ({ g: g.group, ms: g.cards.map((c, i) => ({ v: c.voicing, s: g.states[i] })), at: g.added }));
+  const cardsOf = (g: string, ms: Member[], why: Why): SetCard[] => ms.map(m => ({ voicing: m.v, mode: m.s.mode, why, score: null, group: g }));
 
   // New: in the order added; round by round each chord's next mode, so one
   // chord's modes don't all land in the same set.

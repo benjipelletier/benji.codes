@@ -4,33 +4,65 @@
 // guitar) and then one of the chords in my deck on piano. I need to click
 // which type of chord it is … just go through the whole deck"). Its own
 // session: every deck voicing once, shuffled, no new-card limits, nothing
-// scheduled. A miss comes back once a few chords later. After a wrong answer,
-// "Hear yours" plays the type you picked on the same bass note, to compare.
-// The summary: accuracy, each chord type, and what was heard as what.
+// scheduled. Each sound asks in levels (the owner: "first is which type of
+// chord, next is drop 2 spread or block, next is which inversion"): a level
+// is skipped when there's nothing to choose (one voicing type for that chord,
+// no other inversion), and a wrong answer ends the sound — the full answer
+// shown, "Hear yours" playing what was picked — and brings it back once a few
+// sounds later. Every level answered is an attempt (mode 'listen', its
+// `listen_level`), shown on the voicing's sheet. The summary: each level's
+// accuracy, each chord type, and what was heard as what.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTrainer } from './TrainerProvider';
+import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { Keyboard, rangeAround } from './Keyboard';
 import { PianoLoader, fmtPct } from './TrainerShell';
 import { midisOf } from '@voiceshed/lib/practice';
 import { shuffle } from '@voiceshed/lib/srs';
 import { audio, loadSounds, playCue, soundsReady } from '@voiceshed/lib/sound';
-import { isIii, parseChordLabel, prettyLabel, pretty, QUALITIES, QUALITY, type Quality } from '@voiceshed/lib/theory';
+import { FOUND, intervalDisplay, intervalName, isIii, mod12, parseChordLabel, prettyLabel, pretty, QUALITIES, QUALITY, type Quality } from '@voiceshed/lib/theory';
 import type { Voicing } from '@voiceshed/lib/types';
 
-/** A missed chord comes back this many chords later, once. */
+/** A missed sound comes back this many sounds later, once. */
 const AGAIN_GAP = 4;
 const RIGHT_ADVANCE_MS = 1300;
+const LEVEL_ADVANCE_MS = 450;
+
+export type Level = 1 | 2 | 3;
+export const LEVEL_NAME: Record<Level, string> = { 1: 'Chord type', 2: 'Drop 2 or block', 3: 'Inversion' };
+const LEVEL_ASK: Record<Level, string> = { 1: 'What kind of chord?', 2: 'Drop 2 or block?', 3: 'Which inversion?' };
+
+/** A voicing type as Listen names it. */
+export const familyShort = (f: string) => (f === 'drop-2 two-hand' ? 'Drop 2' : f === 'closed (block)' ? 'Block' : f);
+
+/** A chord tone as a number: "♭3", "9", "1" for the root. */
+export function toneOf(v: Voicing, midi: number): string {
+  const semis = mod12(midi - v.root);
+  return semis === 0 ? '1' : intervalDisplay(intervalName(v.quality, semis));
+}
 
 interface Item {
   v: Voicing;
   again: boolean;
 }
-interface Answer {
+interface Option {
+  key: string;
+  label: string;
+  sub?: string;
+  /** What it sounds like on the same bass note, for "Hear yours". */
+  voicing: Voicing | null;
+}
+interface Picked {
+  level: Level;
+  key: string;
+  label: string;
+  right: boolean;
+}
+export interface Answer {
   v: Voicing;
-  said: Quality;
   again: boolean;
+  picks: Picked[];
 }
 
 export function ListenPage() {
@@ -102,37 +134,98 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
   const t = useTrainer();
   const [queue, setQueue] = useState<Item[]>(() => shuffle(deck.map(v => ({ v, again: false }))));
   const [index, setIndex] = useState(0);
-  const [said, setSaid] = useState<Quality | null>(null);
+  const [level, setLevel] = useState<Level>(1);
+  const [picks, setPicks] = useState<Picked[]>([]);
+  /** The sound is over: every level right, or one wrong. */
+  const [over, setOver] = useState(false);
   const answers = useRef<Answer[]>([]);
-  // Stable, so a re-render (a sync, say) doesn't restart the move-on timer.
+  const asked = useRef(0);
+  // Stable, so a re-render (a sync, say) doesn't restart the move-on timers.
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
   const finish = useCallback(() => onFinishRef.current(answers.current), []);
   useBackClose(true, finish);
   const item = queue[index];
   const v = item?.v;
-  const right = said != null && said === v?.quality;
+  const inDeck = useMemo(() => new Set([...t.srs.values()].map(s => s.voicing_id)), [t.srs]);
+
+  // The choices at each level for this sound; a level with one choice is skipped.
+  const options = useMemo((): Record<Level, Option[]> => {
+    if (!v) return { 1: [], 2: [], 3: [] };
+    const iii = isIii(v);
+    const onRoot = (q: Quality) => {
+      const all = t.voicings.filter(x => x.root === v.root && x.quality === q && !isIii(x) && x.family !== FOUND);
+      return all.find(x => inDeck.has(x.id)) ?? all[0] ?? null;
+    };
+    const l1 = types.map(q => ({ key: q, label: QUALITY[q].display, voicing: q === v.quality ? v : onRoot(q) }));
+    if (v.family === FOUND) return { 1: l1, 2: [], 3: [] };
+    const fams = [...new Set(t.voicings.filter(x => x.quality === v.quality && isIii(x) === iii && x.family !== FOUND).map(x => x.family))];
+    const l2 = fams.map(f => ({
+      key: f,
+      label: familyShort(f),
+      voicing: f === v.family ? v : (t.voicings.find(x => x.chord_label === v.chord_label && x.family === f && isIii(x) === iii) ?? null),
+    }));
+    const l3 = partnersOf(t.voicings, v)
+      .sort((a, b) => midisOf(a)[0] - midisOf(b)[0])
+      .map(x => {
+        const m = midisOf(x);
+        return { key: x.id, label: toneOf(x, m[0]), sub: `top ${toneOf(x, m[m.length - 1])}`, voicing: x };
+      });
+    return { 1: l1, 2: l2.length > 1 ? l2 : [], 3: l3.length > 1 ? l3 : [] };
+  }, [v, types, t.voicings, inDeck]);
+  const rightKey = (l: Level) => (l === 1 ? v?.quality : l === 2 ? v?.family : v?.id);
+  const nextLevel = (from: Level): Level | null => ([2, 3] as Level[]).find(l => l > from && options[l].length > 1) ?? null;
 
   const play = useCallback((x: Voicing) => playCue(x.root, midisOf(x)), []);
-  // Each chord sounds as it comes up — once, however often the effect runs.
+  // Each sound plays as it comes up — once, however often the effect runs.
   const played = useRef(-1);
   useEffect(() => {
     if (!v || played.current === index) return;
     played.current = index;
+    asked.current = performance.now();
     play(v);
   }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const next = useCallback(() => {
     if (index + 1 >= queue.length) return finish();
     setIndex(i => i + 1);
-    setSaid(null);
+    setLevel(1);
+    setPicks([]);
+    setOver(false);
   }, [index, queue.length, finish]);
 
-  const answer = (q: Quality) => {
-    if (said != null || !v) return;
-    setSaid(q);
-    answers.current.push({ v, said: q, again: item.again });
-    if (q !== v.quality && !item.again) {
+  const answer = (o: Option) => {
+    if (over || !v || picks.some(p => p.level === level)) return;
+    const right = o.key === rightKey(level);
+    const pick: Picked = { level, key: o.key, label: o.label, right };
+    const all = [...picks, pick];
+    setPicks(all);
+    void t.recordAttempts([
+      {
+        id: newId(),
+        voicing_id: v.id,
+        mode: 'listen',
+        listen_level: level,
+        context_type: 'isolated',
+        context_id: null,
+        run_id: null,
+        correct: right,
+        slow: false,
+        response_ms: Math.round(performance.now() - asked.current),
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    const after = right ? nextLevel(level) : null;
+    if (after) {
+      setTimeout(() => {
+        setLevel(after);
+        asked.current = performance.now();
+      }, LEVEL_ADVANCE_MS);
+      return;
+    }
+    setOver(true);
+    answers.current.push({ v, again: item.again, picks: all });
+    if (!right && !item.again) {
       setQueue(list => {
         const copy = [...list];
         copy.splice(Math.min(copy.length, index + 1 + AGAIN_GAP), 0, { v, again: true });
@@ -140,37 +233,34 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
       });
     }
   };
-  // A right answer moves on by itself.
+  const allRight = over && picks.every(p => p.right);
+  // All right: on by itself.
   useEffect(() => {
-    if (!right) return;
+    if (!allRight) return;
     const id = setTimeout(next, RIGHT_ADVANCE_MS);
     return () => clearTimeout(id);
-  }, [right, next]);
+  }, [allRight, next]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (said != null && !right && (e.key === 'Enter' || e.key === ' ')) {
+      if (over && !allRight && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
         next();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [said, right, next]);
-
-  // What the type picked sounds like on the same bass note: the deck's voicing of it on this root, else the library's.
-  const yours = useMemo(() => {
-    if (!v || said == null || said === v.quality) return null;
-    const on = (list: Voicing[]) => list.filter(x => x.root === v.root && x.quality === said && !isIii(x));
-    const ids = new Set([...t.srs.values()].map(s => s.voicing_id));
-    const all = on(t.voicings);
-    return all.find(x => ids.has(x.id)) ?? all[0] ?? null;
-  }, [v, said, t.voicings, t.srs]);
+  }, [over, allRight, next]);
 
   if (!v) return null;
   const m = midisOf(v);
   const [lo, hi] = rangeAround(m, 12);
+  const levels = ([1, 2, 3] as Level[]).filter(l => l === 1 || options[l].length > 1);
+  const wrong = picks.find(p => !p.right);
+  const yours = wrong ? options[wrong.level].find(o => o.key === wrong.key)?.voicing : null;
+  const shown = options[level];
+  const mine = picks.find(p => p.level === level);
   return (
-    <div className={`ls-run ${said == null ? 'ls-ask' : right ? 'ls-right' : 'ls-wrong'}`} data-voicing-id={v.id}>
+    <div className={`ls-run ${!over ? 'ls-ask' : allRight ? 'ls-right' : 'ls-wrong'}`} data-voicing-id={v.id} data-level={level}>
       <div className="cr-top">
         <span className="cr-mode">Listen</span>
         {item.again && <span className="cr-group">again</span>}
@@ -182,18 +272,30 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
         </button>
       </div>
 
+      <ol className="ls-levels" aria-label="Levels for this sound">
+        {levels.map((l, i) => {
+          const p = picks.find(x => x.level === l);
+          return (
+            <li key={l} className={p ? (p.right ? 'ok' : 'bad') : l === level && !over ? 'on' : ''}>
+              <span>{i + 1}</span>
+              {p ? (p.right ? p.label : `✗ ${p.label}`) : LEVEL_NAME[l]}
+            </li>
+          );
+        })}
+      </ol>
+
       <div className="ls-stage">
-        {said == null ? (
+        {!over ? (
           <button type="button" className="ls-play" onClick={() => play(v)} aria-label="Play it again">
             <span aria-hidden>▶</span>
             <b>Play again</b>
           </button>
         ) : (
           <div className="ls-answer">
-            <span className="ls-mark">{right ? '✓' : '✗'}</span>
+            <span className="ls-mark">{allRight ? '✓' : '✗'}</span>
             <b className="ls-chord">{prettyLabel(v.chord_label)}</b>
             <span className="ls-sub">
-              {right ? 'right' : `you said ${QUALITY[said].display}`} · bass {pretty(parseChordLabel(v.chord_label)?.rootName ?? '')}
+              {v.family !== FOUND ? `${familyShort(v.family)} · ${toneOf(v, m[0])} on the bottom · ` : ''}bass {pretty(parseChordLabel(v.chord_label)?.rootName ?? '')}
             </span>
             <div className="ls-kb">
               <Keyboard compact low={lo} high={hi} marks={Object.fromEntries(m.map(x => [x, 'on']))} />
@@ -202,31 +304,42 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
         )}
       </div>
 
-      <div className="ls-types-pick" role="group" aria-label="What kind of chord">
-        {types.map(q => (
-          <button
-            type="button"
-            key={q}
-            className={`nm-btn ${said === q ? (right ? 'ls-good' : 'ls-bad') : said != null && q === v.quality ? 'ls-good' : ''}`}
-            onPointerDown={e => {
-              e.preventDefault();
-              answer(q);
-            }}
-            disabled={said != null}
-          >
-            {QUALITY[q].display}
-          </button>
-        ))}
-      </div>
+      {!over && <h3 className="ls-ask-q">{LEVEL_ASK[level]}</h3>}
+      {(!over || wrong) && (
+        <div className={`ls-types-pick ls-pick-${(wrong?.level ?? level)}`} role="group" aria-label={LEVEL_ASK[wrong?.level ?? level]}>
+          {(wrong ? options[wrong.level] : shown).map(o => {
+            const lv = wrong?.level ?? level;
+            const p = picks.find(x => x.level === lv);
+            const isRight = o.key === rightKey(lv);
+            const cls = p?.key === o.key ? (p.right ? 'ls-good' : 'ls-bad') : p && !p.right && isRight ? 'ls-good' : '';
+            return (
+              <button
+                type="button"
+                key={o.key}
+                data-key={o.key}
+                className={`nm-btn ${cls}`}
+                onPointerDown={e => {
+                  e.preventDefault();
+                  answer(o);
+                }}
+                disabled={over || !!mine}
+              >
+                {o.label}
+                {o.sub && <small>{o.sub}</small>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {said != null && !right && (
+      {over && !allRight && (
         <div className="ls-actions">
           <button type="button" className="vt-secondary" onClick={() => play(v)}>
-            ▶ {QUALITY[v.quality].display}
+            ▶ The answer
           </button>
-          {yours && (
+          {yours && yours.id !== v.id && (
             <button type="button" className="vt-secondary" onClick={() => play(yours)}>
-              ▶ Hear yours ({QUALITY[said].display})
+              ▶ Hear yours ({wrong!.label})
             </button>
           )}
           <button type="button" className="vt-primary" onClick={next} autoFocus>
@@ -240,22 +353,40 @@ function ListenRun({ deck, types, onFinish }: { deck: Voicing[]; types: Quality[
 
 function ListenSummary({ answers, onDone }: { answers: Answer[]; onDone: () => void }) {
   const first = answers.filter(a => !a.again);
-  const right = first.filter(a => a.said === a.v.quality);
+  const all = first.filter(a => a.picks.every(p => p.right));
+  const perLevel = ([1, 2, 3] as Level[])
+    .map(l => {
+      const ps = first.flatMap(a => a.picks.filter(p => p.level === l));
+      return { l, n: ps.length, right: ps.filter(p => p.right).length };
+    })
+    .filter(x => x.n > 0);
   const byType = new Map<Quality, { n: number; right: number }>();
-  const mixed = new Map<string, { heard: Quality; as: Quality; n: number }>();
+  const mixed = new Map<string, { heard: string; as: string; n: number }>();
   for (const a of first) {
+    const p1 = a.picks.find(p => p.level === 1);
+    if (!p1) continue;
     const e = byType.get(a.v.quality) ?? { n: 0, right: 0 };
     e.n++;
-    if (a.said === a.v.quality) e.right++;
+    if (p1.right) e.right++;
     byType.set(a.v.quality, e);
-    if (a.said !== a.v.quality) {
-      const k = `${a.v.quality}>${a.said}`;
-      const x = mixed.get(k) ?? { heard: a.v.quality, as: a.said, n: 0 };
+    if (!p1.right) {
+      const k = `${a.v.quality}>${p1.key}`;
+      const x = mixed.get(k) ?? { heard: QUALITY[a.v.quality].display, as: p1.label, n: 0 };
       x.n++;
       mixed.set(k, x);
     }
   }
   const order = QUALITIES.map(q => q.id).filter(q => byType.has(q));
+  const bar = (right: number, n: number) => (
+    <>
+      <span className="ls-sum-bar">
+        <i style={{ width: `${(right / n) * 100}%` }} />
+      </span>
+      <span className="ls-sum-n">
+        {right}/{n}
+      </span>
+    </>
+  );
   return (
     <div className="vt-page">
       <section className="sm">
@@ -263,25 +394,33 @@ function ListenSummary({ answers, onDone }: { answers: Answer[]; onDone: () => v
         <h2 className="sm-title">Listened</h2>
         <div className="sm-stats">
           <div>
-            <span className="sm-num">{fmtPct(right.length, first.length)}</span>
-            <span className="sm-lbl">first time · {right.length}/{first.length}</span>
+            <span className="sm-num">{fmtPct(all.length, first.length)}</span>
+            <span className="sm-lbl">every level, first time · {all.length}/{first.length}</span>
           </div>
         </div>
+        {perLevel.length > 0 && (
+          <>
+            <h3 className="sm-h">By level</h3>
+            <ul className="ls-sum ls-sum-levels">
+              {perLevel.map(x => (
+                <li key={x.l}>
+                  <b>{LEVEL_NAME[x.l]}</b>
+                  {bar(x.right, x.n)}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {order.length > 0 && (
           <>
-            <h3 className="sm-h">By chord type</h3>
+            <h3 className="sm-h">Chord type, by chord</h3>
             <ul className="ls-sum">
               {order.map(q => {
                 const e = byType.get(q)!;
                 return (
                   <li key={q}>
                     <b>{QUALITY[q].display}</b>
-                    <span className="ls-sum-bar">
-                      <i style={{ width: `${(e.right / e.n) * 100}%` }} />
-                    </span>
-                    <span className="ls-sum-n">
-                      {e.right}/{e.n}
-                    </span>
+                    {bar(e.right, e.n)}
                   </li>
                 );
               })}
@@ -296,7 +435,7 @@ function ListenSummary({ answers, onDone }: { answers: Answer[]; onDone: () => v
                 .sort((a, b) => b.n - a.n)
                 .map(x => (
                   <li key={`${x.heard}>${x.as}`}>
-                    <b>{QUALITY[x.heard].display}</b> heard as <b>{QUALITY[x.as].display}</b>
+                    <b>{x.heard}</b> heard as <b>{x.as}</b>
                     {x.n > 1 ? ` ×${x.n}` : ''}
                   </li>
                 ))}

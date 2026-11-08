@@ -11,7 +11,7 @@
 import { useMemo, useEffect, useState } from 'react';
 import { TrainerProvider, useTrainer } from './TrainerProvider';
 import { groupAttempts, hasContextGap, modeStats, targetFor, type ModeStats } from '@voiceshed/lib/srs';
-import type { Attempt } from '@voiceshed/lib/types';
+import type { Attempt, Mode } from '@voiceshed/lib/types';
 
 export type TrainerPage = 'review' | 'practice' | 'listen' | 'voicings';
 
@@ -246,7 +246,7 @@ export function useCardStats(): { stats: Map<string, ModeStats>; gapKeys: Set<st
     for (const [k, list] of grouped) {
       const s = modeStats(list);
       stats.set(k, s);
-      const mode = list[0].mode;
+      const mode = list[0].mode as Mode;
       if (hasContextGap(s, targetFor(srs.get(k), mode, settings))) gapKeys.add(k);
     }
     return { stats, gapKeys, grouped };

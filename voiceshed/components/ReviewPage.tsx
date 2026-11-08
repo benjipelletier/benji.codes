@@ -13,6 +13,8 @@ import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
+import { VoicingDetail } from './VoicingsPage';
+import { chips, PlayingCard } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
 import { targetFor } from '@voiceshed/lib/srs';
 import {
@@ -34,7 +36,7 @@ import {
 } from '@voiceshed/lib/drill';
 import { midisOf } from '@voiceshed/lib/practice';
 import { FAMILY_SPAN, guessPxPerInch, OCTAVE_MM, WHITE_KEY_MM, whiteKeyPx } from '@voiceshed/lib/scale';
-import { chordDisplay, parseChordLabel, pretty, prettyLabel } from '@voiceshed/lib/theory';
+import { prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Settings, type SrsState, type Voicing } from '@voiceshed/lib/types';
 
 type DrillStep = RunnerStep & { repeat?: boolean; probe?: string | null };
@@ -54,6 +56,9 @@ export function ReviewPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [status, setStatus] = useState('');
   const [report, setReport] = useState<Slot[]>([]);
+  /** A voicing's page, open over the set. */
+  const [open, setOpen] = useState<string | null>(null);
+  const openV = open ? voicings.find(v => v.id === open) : null;
   const drill = useRef<Drill | null>(null);
   const stage = useRef<'drill' | 'context' | 'over'>('drill');
   /** Schedules written this session, ahead of the provider's state catching up. */
@@ -216,10 +221,10 @@ export function ReviewPage() {
           <>
             <ul className="rv-set" aria-label="Today’s set">
               {chips(set).map(g => (
-                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} />
+                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} onOpen={setOpen} />
               ))}
               {chips(incoming).map((g, i) => (
-                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} />
+                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} onOpen={setOpen} />
               ))}
             </ul>
             <p className="rv-legend">
@@ -249,6 +254,9 @@ export function ReviewPage() {
         <p className="rv-note">
           Each card stays until it’s right <em>and</em> fast {FLUENT_STREAK} times in a row, then it’s played in a ii–V–I. {solid} of {srs.size} cards solid.
         </p>
+        <a className="rv-deck-link" href="/voiceshed/voicings?view=deck">
+          Your whole deck · {srs.size} cards ›
+        </a>
       </section>
 
       <section className="vt-panel">
@@ -259,43 +267,9 @@ export function ReviewPage() {
       </section>
 
       <OfflinePanel />
+      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
     </div>
   );
-}
-
-/** A group as a playing card: the chord big, the mode in the corners, its inversions as the cards stacked behind. */
-function PlayingCard({ g, status, label }: { g: Chip; status: string; label: string }) {
-  const p = parseChordLabel(g.label);
-  const d = p ? chordDisplay(p.rootName, p.quality) : { root: g.label, quality: '' };
-  const corner = MODE_LABEL[g.mode];
-  return (
-    <li className={`rv-pc rv-pc-${status}`} aria-label={`${prettyLabel(g.label)}, ${corner}, ${label}${g.n > 1 ? `, ${g.n} inversions` : ''}`}>
-      {Array.from({ length: Math.min(3, g.n - 1) }, (_, i) => (
-        <span key={i} className="rv-pc-back" style={{ ['--i' as string]: i + 1 }} aria-hidden />
-      ))}
-      <span className="rv-pc-face" aria-hidden>
-        <span className="rv-pc-corner">{corner}</span>
-        <span className="rv-pc-chord">
-          {d.root}
-          <small>{d.quality}</small>
-        </span>
-        <span className="rv-pc-foot">{label}</span>
-      </span>
-    </li>
-  );
-}
-
-type Chip = { group: string; label: string; mode: Mode; why: SetCard['why']; n: number };
-
-/** A set's cards as one chip per group (a chord's inversions in one mode). */
-function chips(cards: SetCard[]): Chip[] {
-  const out = new Map<string, Chip>();
-  for (const c of cards) {
-    const e = out.get(c.group);
-    if (e) e.n++;
-    else out.set(c.group, { group: c.group, label: c.voicing.chord_label, mode: c.mode, why: c.why, n: 1 });
-  }
-  return [...out.values()];
 }
 
 /** How each card of the set came out. */

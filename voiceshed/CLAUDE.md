@@ -224,20 +224,36 @@ wide screen; a run hides both.
   the chord big in the middle, the mode in the corner, the status at the foot
   and in the border (red shaky, amber check, dashed new, faded joins later),
   and the group's other inversions as cards fanned behind it (up to three); a
-  legend underneath. The counts are groups.
+  legend underneath. The counts are groups. Tapping a card opens that
+  voicing's sheet over the set (the owner: "clicking the card in review to open
+  its card page"); "Your whole deck ›" goes to the Deck view.
 - `/voiceshed/listen` — **Listen** (`components/ListenPage.tsx`; the owner:
   "play a bass note (bass guitar) and then one of the chords in my deck on
   piano. I need to click which type of chord it is … just go through the whole
   deck, don't need to do any new card capping"): its own session, a fourth tab.
   Every voicing in the deck (any mode scheduled) once, shuffled: the root on a
   bass guitar, E1–E♭2 (`bassNote`), then ~0.55 s later the voicing on piano at
-  its own pitch (`playCue`); tap the chord type (the types the deck has, in
-  `QUALITIES` order; a iii voicing is m7). Right moves on by itself; wrong
-  shows the chord and its keys, marks the right type, plays it again on
-  request, and **Hear yours** plays the type picked on the same root (the
-  deck's voicing of it, else the library's) to compare; a miss comes back
-  once, 4 chords later. Summary: first-time accuracy, each type, and "7♭9
-  heard as 7". Nothing is recorded or scheduled. Sound (`lib/sound.ts`) is **recorded
+  its own pitch (`playCue`). **Levels** (the owner: "first is which type of
+  chord, next is drop 2 spread or block, next is which inversion"): 1 the
+  chord type (the types the deck has, in `QUALITIES` order; a iii voicing is
+  m7); 2 Drop 2 or Block, only when the library has both for that quality
+  (and iii-ness); 3 which inversion, only when the voicing has partners — each
+  named by its bottom chord tone, its top under it ("♭3 / top 5"). Steps
+  along the top, numbered by position. Right goes on to the next level (and,
+  after the last, to the next sound by itself); a wrong answer ends the sound:
+  the chord, its type, bottom tone and keys, the right option marked, the
+  answer again on request, and **Hear yours** playing what was picked (another
+  type on the same root, the same chord as the other type, or the other
+  inversion); a miss comes back once, 4 sounds later. Each level answered is an
+  attempt — mode `listen`, `listen_level` 1–3, `response_ms` from the sound or
+  the level appearing — synced like any answer (the attempts table's mode
+  check is swapped for one allowing 'listen', idempotently, in `TRAINER_DDL`)
+  but kept out of card stats (`groupAttempts`) and nothing is scheduled. A
+  voicing's sheet shows them in a **Listen** box under its modes (the owner:
+  "why doesn't listen show up on a voicings card page"): times heard, each
+  level's right/asked, the last 12 sounds as dots (✓, or ✗ and the level it
+  went wrong at). Summary: every-level accuracy, each level, the chord type by
+  chord, and "7♭9 heard as 7". Sound (`lib/sound.ts`) is **recorded
   instruments** (the owner, of a first synthesized version: "the audio sounds
   are all some shitty guitar"), shipped in `public/voiceshed/sounds/` (870 KB,
   `CREDITS.txt` there), named by MIDI number: Salamander Grand Piano (CC BY
@@ -308,7 +324,13 @@ wide screen; a run hides both.
   Across the 1,460 standards that plays 88% of chords (469 tunes whole); the
   biggest gaps, by chords: bare major triad 2.9%, bare minor triad 1.8%, sus 1.6%, m6 1.4%, 7♯11 1.3%, maj7♯11 0.7%, other altered (7♭5,
   aug, 7♭9♯5) 0.6%, m(maj7) 0.4%, m11 0.3%, 13♭9 / 7♭9♭13 0.2%.
-- `/voiceshed/voicings` — **Map** (default), **List** or **Found**, kept on the device.
+- `/voiceshed/voicings` — **Map** (default), **List**, **Deck** or **Found**, kept on the
+  device (`?view=deck` wins: Review's link). **Deck** (the owner: "a way to
+  explore all the cards in my deck"): the deck's groups (`deckGroups`, the
+  same grouping today's set uses) as playing cards under Shaky (weakest
+  first), Due a check, Solid (next check soonest first, "in 3d" at the foot,
+  green) and New (in the order added), with a count, an All / Play / Spell /
+  Name switch, and the filter above narrowing it; tap a card for its sheet.
   **Found** (the owner: "log extra voicings I hear in the wild … linked to a
   certain time in a YouTube video or a Spotify song, so I always have that
   reference"): "Log a voicing you heard" opens the New voicing form in `found`

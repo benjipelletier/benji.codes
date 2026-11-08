@@ -12,6 +12,7 @@ import { fmtSecs, relTime, useCardStats } from './TrainerShell';
 import { targetFor } from '@voiceshed/lib/srs';
 import { cardStatus, fastStreak, FLUENT_STREAK, fluencyScore, SOURCE_NAME, sourceOf, type Source } from '@voiceshed/lib/drill';
 import { MODES, MODE_LABEL, srsKey, type Attempt, type Mode, type Voicing } from '@voiceshed/lib/types';
+import { LEVEL_NAME, type Level } from './ListenPage';
 
 const SHOWN = 12;
 const verdict = (a: Attempt) => (!a.correct ? 'miss' : a.slow ? 'slow' : 'fast');
@@ -136,6 +137,7 @@ export function Retention({ v }: { v: Voicing }) {
         );
 
       })}
+      <ListenBlock v={v} />
       <p className="vt-hint rt-key">
         Dots, oldest first: <i className="rt-k rt-fast" /> fast <i className="rt-k rt-slow" /> slow <i className="rt-k rt-miss" /> missed. Under each, where:{' '}
         {(['R', 'C', 'P', 'T'] as Source[]).map(k => (
@@ -146,5 +148,73 @@ export function Retention({ v }: { v: Voicing }) {
         — tap one for its detail. Alone and in context are medians of the last ten right answers.
       </p>
     </section>
+  );
+}
+
+/**
+ * Listen's answers for this voicing (the owner: "why doesn't listen show up on
+ * a voicings card page"): each level's accuracy, and the last sounds as dots —
+ * green when every level asked was right, red at the level it went wrong.
+ * Listen schedules nothing, so there's no status here.
+ */
+function ListenBlock({ v }: { v: Voicing }) {
+  const t = useTrainer();
+  const list = useMemo(() => t.attempts.filter(a => a.mode === 'listen' && a.voicing_id === v.id).sort((a, b) => a.created_at.localeCompare(b.created_at)), [t.attempts, v.id]);
+  if (!list.length) {
+    return (
+      <div className="rt-mode rt-listen rt-out">
+        <div className="rt-head">
+          <b>Listen</b>
+          <span className="rt-sub">Not heard yet — it comes up in Listen once it’s in your deck.</span>
+        </div>
+      </div>
+    );
+  }
+  // A sound: its level answers, which come within seconds of each other, from level 1.
+  const sounds: Attempt[][] = [];
+  for (const a of list) {
+    if (a.listen_level === 1 || !sounds.length) sounds.push([a]);
+    else sounds[sounds.length - 1].push(a);
+  }
+  const levels = ([1, 2, 3] as Level[])
+    .map(l => {
+      const xs = list.filter(a => a.listen_level === l);
+      return { l, n: xs.length, right: xs.filter(a => a.correct).length };
+    })
+    .filter(x => x.n);
+  const recent = sounds.slice(-12);
+  return (
+    <div className="rt-mode rt-listen">
+      <div className="rt-head">
+        <b>Listen</b>
+        <span className="rt-sub">
+          {sounds.length} time{sounds.length === 1 ? '' : 's'} heard, last {relTime(list[list.length - 1].created_at)}
+        </span>
+      </div>
+      <ul className="rt-levels">
+        {levels.map(x => (
+          <li key={x.l}>
+            <span>{LEVEL_NAME[x.l]}</span>
+            <span className="rt-bar">
+              <i style={{ width: `${(x.right / x.n) * 100}%` }} />
+            </span>
+            <b>
+              {x.right}/{x.n}
+            </b>
+          </li>
+        ))}
+      </ul>
+      <div className="rt-strip" role="list" aria-label={`Last ${recent.length} times heard, oldest first`}>
+        {recent.map(s => {
+          const miss = s.find(a => !a.correct);
+          return (
+            <span key={s[0].id} role="listitem" className={`rt-dot ${miss ? 'rt-miss' : 'rt-fast'}`} title={miss ? `wrong at ${LEVEL_NAME[miss.listen_level as Level]}` : 'every level right'}>
+              <i />
+              <span>{miss ? `✗${miss.listen_level}` : '✓'}</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }

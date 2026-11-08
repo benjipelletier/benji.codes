@@ -53,14 +53,16 @@ CREATE TABLE IF NOT EXISTS attempts (
   id            UUID PRIMARY KEY,
   user_id       TEXT NOT NULL,
   voicing_id    UUID NOT NULL REFERENCES voicings(id) ON DELETE CASCADE,
-  mode          TEXT NOT NULL CHECK (mode IN ('play', 'spell', 'name')),
+  mode          TEXT NOT NULL CHECK (mode IN ('play', 'spell', 'name', 'listen')),
   context_type  TEXT NOT NULL CHECK (context_type IN ('isolated', 'progression', 'tune')),
   context_id    UUID,
   run_id        UUID,
   correct       BOOLEAN NOT NULL,
   slow          BOOLEAN NOT NULL DEFAULT FALSE,
   response_ms   INT NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL
+  created_at    TIMESTAMPTZ NOT NULL,
+  -- Listen's answers (mode 'listen'): 1 chord type, 2 drop-2 or block, 3 inversion.
+  listen_level  SMALLINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attempts_user_created ON attempts(user_id, created_at DESC);
