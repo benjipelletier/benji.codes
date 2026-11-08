@@ -511,7 +511,7 @@ function KeyboardSizeField({ settings, onSave }: { settings: Settings; onSave: (
       </div>
       {settings.keyboard_size === 'big' && (
         <span className="vt-hint">
-          About an octave of big keys, for two thumbs. Every card starts on the same keys, D3 up — the left hand’s whole range, so it gives nothing away — and once you’ve
+          About an octave of big keys, for two thumbs. Each card starts with the bottom two in view, somewhere different each time so it gives nothing away, and once you’ve
           played two notes it slides up for the rest. ‹ › and 8va move it too. Turn the phone sideways for more, bigger keys.
         </span>
       )}

@@ -569,23 +569,24 @@ the keys.
 **Big keys** (Play keyboard's third size, `keyboard_size: 'big'`; the owner:
 "clicking two thumbs at once one for the three and seven and then the other
 one for the other tones … a scrolling thing where the keyboard is a lot bigger
-but less keys are showed"): eight keys upright (D3–D4, ~47 px on a phone),
+but less keys are showed"): eight keys upright (~47 px on a phone),
 sideways ~72 px each (12 on a phone). `BigKeys` draws three octaves either
 side once per card and slides that inside the window (a transform, so it
-glides). The window starts on the same keys every card, `BIG_START` D3,
-whatever the voicing — the left hand's whole range, since every bottom note is
-E♭3–D4 — so neither edge gives anything away (the owner: "the big keys always
-start on the first note so it's a dead giveaway"; it used to start at the
-bottom note).
-It **follows each tap** (the owner, of Am7 C G B E: the G above the C was off
-screen): after any tap, if fewer than `BIG_REACH` (6) white keys are left to
-the right of the highest note played, it slides up so that note sits second
-from the left — from where you tapped, so it gives nothing away; it only ever
-moves up. It waits for a pause, `BIG_SETTLE_MS` (260 ms) after the last tap,
-so two thumbs landing together count as one move and a key never slides out
-from under the second thumb. It follows the keys you tap, right or wrong (it
-can't know). ‹ › and 8va move it too; no swipe to scroll, since keys sound
-where a finger lands.
+glides). **The bottom two are always in view** (the owner: "I want the bottom
+two to always be in view in big keys mode", to land them together): each card
+starts on a window that shows both whole (a black key with the white above
+it), picked at random among those (`bigStart`), so neither edge gives the
+voicing away (the owner: "the big keys always start on the first note so it's
+a dead giveaway"; it used to start at the bottom note, then always at D3,
+which left Am7's G above the C off screen). Nothing moves until two notes are
+in. Then it **follows each tap**: if fewer than `BIG_REACH` (6) white keys are
+left to the right of the highest note played, it slides up so that note sits
+second from the left — from where you tapped, so it gives nothing away; it
+only ever moves up. It waits for a pause, `BIG_SETTLE_MS` (260 ms) after the
+last tap, so two thumbs landing together count as one move and a key never
+slides out from under the second thumb. It follows the keys you tap, right or
+wrong (it can't know). ‹ › and 8va move it too; no swipe to scroll, since keys
+sound where a finger lands.
 **Undo** (every Play keyboard, beside the count; the owner: "what if that was
 an accidental press how do I undo it"): takes back the last key played,
 wherever it is now (`order` keeps the tap order); tapping a played key again

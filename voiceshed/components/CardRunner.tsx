@@ -93,12 +93,22 @@ const BIG_KEY_PX = 72;
 /** White keys a hand needs above the left hand's notes; fewer than this on screen, the keys slide up. */
 const BIG_REACH = 6;
 /**
- * Where Big keys always starts, whatever the voicing: D3, so the window covers
- * the left hand's whole range (every bottom note is E♭3–D4, lib/theory.ts's
- * register) and gives nothing away (the owner: "the big keys always start on
- * the first note so it's a dead giveaway"). Upright that takes eight keys, D3–D4.
+ * Where Big keys starts: anywhere that shows the bottom two notes whole (the
+ * owner: "I want the bottom two to always be in view in big keys mode", to
+ * land them together), picked at random each card so neither edge gives the
+ * voicing away (the owner: "the big keys always start on the first note so
+ * it's a dead giveaway").
  */
-const BIG_START = 50;
+function bigStart(midis: number[], whites: number, r: number): number {
+  if (!midis.length) return whiteIdx(50);
+  const lo = whiteIdx(midis[0]);
+  const second = midis[Math.min(1, midis.length - 1)];
+  // A black key needs the white above it in view too.
+  const hi = whiteIdx(second) + (WHITE_MIDIS.includes(second) ? 0 : 1);
+  const from = Math.max(0, hi - whites + 1);
+  const to = Math.max(from, Math.min(lo, WHITE_MIDIS.length - whites));
+  return from + Math.floor(r * (to - from + 1));
+}
 const BIG_UPRIGHT = 8;
 /** Big keys waits this long after your last tap before sliding, so two thumbs can land together. */
 const BIG_SETTLE_MS = 260;
@@ -391,6 +401,14 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const step = queue[index];
   const v = step?.voicing;
   const midis = useMemo(() => (v ? midisOf(v) : []), [v]);
+  // Big keys' starting window, fresh each card (and each time a card comes back).
+  const [seed] = useState(() => Math.random());
+  const bigBase = useMemo(() => {
+    const r = Math.abs(Math.sin(seed * 1000 + index * 12.9898) * 43758.5453) % 1;
+    return bigStart(midis, whites, r);
+  }, [midis, whites, index, seed]);
+  const baseRef = useRef(bigBase);
+  baseRef.current = bigBase;
   const qualities = useMemo(() => {
     const present = new Set(library.map(x => x.quality));
     return QUALITIES.map(q => q.id).filter(id => present.has(id));
@@ -497,16 +515,16 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       setOrder(o => (off ? o.filter(x => x !== m) : [...o, m]));
       if (off) slideBack(nextSet.length);
       // Big keys follow your notes up (the owner: "we click the first two … then it's close to
-      // the right and let me click the next two"): once you pause, if a hand's reach isn't left
-      // to the right of your highest note, it slides so that note sits second from the left.
-      // From where you tapped, so it gives nothing away; only ever up. The pause lets two
-      // thumbs land together before anything moves.
-      if (big && !off) {
+      // the right and let me click the next two"): once two notes are in and you pause, if a
+      // hand's reach isn't left to the right of your highest note, it slides so that note sits
+      // second from the left. From where you tapped, so it gives nothing away; only ever up.
+      // Nothing moves before the second note, so the bottom two stay put to land together.
+      if (big && !off && nextSet.length >= 2) {
         if (follow.current) clearTimeout(follow.current);
         follow.current = setTimeout(() => {
           const now = tappedRef.current;
           if (!now.length) return;
-          const base = whiteIdx(BIG_START);
+          const base = baseRef.current;
           const start = base + shiftRef.current;
           const top = whiteIdx(Math.max(...now));
           if (start + whites - 1 - top >= BIG_REACH || top - 1 <= start) return;
@@ -531,8 +549,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   if (!step || !v) return null;
 
-  // Big keys starts in the same place every card; the others centre on the voicing.
-  const bigLo = WHITE_MIDIS[Math.max(0, Math.min(WHITE_MIDIS.length - whites, whiteIdx(BIG_START) + shift))];
+  // Big keys starts showing the bottom two; the others centre on the voicing.
+  const bigLo = WHITE_MIDIS[Math.max(0, Math.min(WHITE_MIDIS.length - whites, bigBase + shift))];
   const [pLo, pHi] = big ? [bigLo, WHITE_MIDIS[Math.min(WHITE_MIDIS.length - 1, whiteIdx(bigLo) + whites - 1)]] : playWindow(midis, whites, shift);
   const moveMidi = v.top_move ? noteMidi(v.top_move) : null;
   const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, pretty(pitchName(v.top_move))]] : [])]);
