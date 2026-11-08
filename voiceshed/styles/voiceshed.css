@@ -1327,3 +1327,26 @@ button.pm-bg span { color: var(--accent-ink); }
 .vt-live.behind { color: var(--accent-ink); font-weight: 700; cursor: pointer; }
 .vt-live.behind i { animation: vt-live-pulse 0.9s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .vt-live i { animation: none !important; } }
+
+/* A chord's page (ChordSheet): each inversion as a mini keyboard and its three cards; tap for its own page. */
+.ch-invs { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.ch-inv { width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border: 1px solid var(--rule); border-radius: 14px; background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.ch-inv.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ch-inv:active { transform: translateY(1px); }
+.ch-inv-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.ch-inv-head b { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1; }
+.ch-inv-head > span:nth-child(2) { font-size: 12px; color: var(--ink-3); }
+.ch-notes { margin-left: auto; font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+.ch-chev { font-size: 20px; color: var(--ink-3); }
+.ch-kb { display: block; pointer-events: none; }
+.ch-kb .vk { max-height: 58px; }
+.ch-modes { display: flex; gap: 6px; }
+.ch-mode { flex: 1; display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border: 1px solid var(--rule); border-radius: 8px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.ch-mode i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-3); flex: 0 0 auto; }
+.ch-mode em { margin-left: auto; font-style: normal; font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-3); }
+.ch-solid i { background: var(--good); border-color: var(--good); }
+.ch-solid em { color: var(--good); }
+.ch-shaky i { border-color: var(--fail); }
+.ch-shaky em { color: var(--fail); }
+.ch-new i { border-style: dashed; }
+.ch-out { opacity: 0.5; }

@@ -15,11 +15,11 @@ import { targetFor } from '@voiceshed/lib/srs';
 import { Retention } from './Retention';
 import { chips, PlayingCard } from './PlayingCard';
 import { deckGroups, type DeckGroup } from '@voiceshed/lib/drill';
-import { cardStatus, type CardStatus } from '@voiceshed/lib/drill';
+import { cardStatus, fastStreak, FLUENT_STREAK, type CardStatus } from '@voiceshed/lib/drill';
 import { newId, partnersOf, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
 import { formatTime, parseTime, readSource, sourceHref, SOURCE_NAME } from '@voiceshed/lib/source';
-import { hasRoot, midisOf } from '@voiceshed/lib/practice';
+import { degreesOf, hasRoot, midisOf } from '@voiceshed/lib/practice';
 import { applyFilter, EMPTY_FILTER, useFilterState, VoicingFilter, type FilterState, type FilterTests } from './VoicingFilter';
 import { chordLabel, CYCLE_OF_FOURTHS, familyLabel, FOUND, midiName, noteMidi, PC_FLAT, pitchName, pretty, QUALITIES, QUALITY, spellMidis, type Quality, prettyLabel } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type Mode, type Voicing } from '@voiceshed/lib/types';
@@ -56,7 +56,8 @@ export function VoicingsPage() {
   };
   const [filter, setFilter] = useFilterState();
   const [shown, setShown] = useState(PAGE);
-  const [open, setOpen] = useState<string | null>(null);
+  const sheets = useVoicingSheets();
+  const setOpen = sheets.openVoicing;
   const [adding, setAdding] = useState(false);
 
   const tests = useMemo<FilterTests>(
@@ -98,8 +99,6 @@ export function VoicingsPage() {
     return [...out];
   }, [filtered, shown]);
 
-  const openV = open ? voicings.find(v => v.id === open) ?? null : null;
-
   return (
     <div className="vt-page">
       <VoicingFilter
@@ -124,7 +123,7 @@ export function VoicingsPage() {
       {/* The map first, the deck's buttons after it; the list keeps them on top, with New voicing. */}
       {view === 'map' && <ProgressMap voicings={filtered} srs={srs} stats={stats} settings={settings} onOpen={setOpen} onOpenCell={(ids, title) => setCell({ ids, title })} onChart={setChart} />}
       {view !== 'found' && view !== 'deck' && canEdit && <DeckBar shown={deckShown} />}
-      {view === 'deck' && <DeckView voicings={filtered} onOpen={setOpen} />}
+      {view === 'deck' && <DeckView voicings={filtered} onOpen={sheets.openCard} />}
       {canEdit && view === 'list' && (
         <button type="button" className="vt-secondary lb-new" onClick={() => setAdding(true)}>
           + New voicing
@@ -159,7 +158,7 @@ export function VoicingsPage() {
       )}
 
       {cell && <CellSheet ids={cell.ids} title={cell.title} onClose={() => setCell(null)} onOpen={setOpen} />}
-      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
+      {sheets.element}
       {adding && <NewVoicing onClose={() => setAdding(false)} onCreated={id => { setAdding(false); setOpen(id); }} />}
       {logging && (
         <NewVoicing
@@ -281,6 +280,127 @@ export function VoicingCard({
       )}
     </div>
   );
+}
+
+/** A few words on where one card stands: "solid", "new", "1/3", "ready", "slow alone", "—" out of the deck. */
+function cardWords(status: CardStatus, streak: number, gap: boolean): string {
+  if (status === 'out') return '—';
+  if (status !== 'shaky') return status;
+  if (gap) return 'slow alone';
+  return streak >= FLUENT_STREAK ? 'ready' : `${streak}/${FLUENT_STREAK}`;
+}
+
+/**
+ * A chord's page, before its inversions' own (the owner, of a sheet that put every inversion
+ * on one voicing's page: "too cluttered … this page is about one specific inversion"; their
+ * pick: a chord page, then inversion pages): each inversion as a mini keyboard with its notes
+ * and where its Play, Spell and Name cards stand; tap one for its own page, back returns here.
+ * Playing cards open it (a chord with no other inversion goes straight to its page).
+ */
+export function ChordSheet({ v, onClose, onPick }: { v: Voicing; onClose: () => void; onPick: (id: string) => void }) {
+  const t = useTrainer();
+  useBackClose(true, onClose);
+  const { grouped, gapKeys } = useCardStats();
+  const invs = partnersOf(t.voicings, v);
+  const deckIn = invs.some(o => MODES.some(m => t.srs.has(srsKey(o.id, m))));
+  return (
+    <div className="vt-modal" role="dialog" aria-modal="true" aria-label={`${v.chord_label}: its inversions`} onClick={onClose}>
+      <div className="vt-sheet ch-sheet" onClick={e => e.stopPropagation()}>
+        <div className="vt-sheet-head">
+          <h2>{prettyLabel(v.chord_label)}</h2>
+          <span className="vt-hint">
+            {familyLabel(v.family)} · {hasRoot(v) ? 'has root' : 'rootless'}
+            {v.tags.includes('iii') ? ' · as iii (8 for 9)' : ''}
+          </span>
+          <button type="button" className="vt-x" onClick={onClose} aria-label="close">
+            ×
+          </button>
+        </div>
+        <p className="vt-hint">
+          {invs.length} inversions — drilled together, and solid only when all are. Tap one for its page.
+        </p>
+        <ul className="ch-invs">
+          {invs.map(o => {
+            const m = midisOf(o);
+            const mv = o.top_move ? noteMidi(o.top_move) : null;
+            const [lo, hi] = rangeAround(mv != null ? [...m, mv] : m, 12);
+            return (
+              <li key={o.id}>
+                <button type="button" className={`ch-inv ${o.id === v.id ? 'on' : ''}`} onClick={() => onPick(o.id)}>
+                  <span className="ch-inv-head">
+                    <b>{degreesOf(o)[0]}</b>
+                    <span>on the bottom</span>
+                    <span className="ch-notes">
+                      {o.notes.map(n => pretty(pitchName(n))).join(' ')}
+                      {o.top_move ? ` → ${pretty(pitchName(o.top_move))}` : ''}
+                    </span>
+                    <span className="ch-chev" aria-hidden>
+                      ›
+                    </span>
+                  </span>
+                  <span className="ch-kb">
+                    <Keyboard low={lo} high={hi} marks={{ ...Object.fromEntries(m.map(x => [x, 'on'])), ...(mv != null ? { [mv]: 'move' } : {}) }} />
+                  </span>
+                  <span className="ch-modes">
+                    {MODES.map(md => {
+                      const key = srsKey(o.id, md);
+                      const gap = gapKeys.has(key);
+                      const status = cardStatus(t.srs.get(key), gap);
+                      return (
+                        <span key={md} className={`ch-mode ch-${status}`}>
+                          <i aria-hidden />
+                          {MODE_LABEL[md]} <em>{cardWords(status, fastStreak(grouped.get(key)), gap)}</em>
+                        </span>
+                      );
+                    })}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {t.canEdit && (
+          <div className="dt-deck">
+            {deckIn ? (
+              <button type="button" className="vt-secondary" onClick={() => confirm(`Take ${prettyLabel(v.chord_label)}'s ${invs.length} inversions out of your deck? Their schedules go; your answers stay.`) && void t.removeFromDeck(invs.map(o => o.id))}>
+                Remove from deck
+              </button>
+            ) : (
+              <button type="button" className="vt-primary dt-add" onClick={() => void t.addToDeck(invs.map(o => o.id))}>
+                Add all {invs.length} to deck
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A voicing's sheets: a playing card opens its chord's page (`openCard`; straight to the
+ * voicing's own page when it has no other inversion), anything else a voicing's own page
+ * (`openVoicing`), which sits over the chord's — back closes it first.
+ */
+export function useVoicingSheets() {
+  const t = useTrainer();
+  const [chord, setChord] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const byId = useMemo(() => new Map(t.voicings.map(v => [v.id, v])), [t.voicings]);
+  const openCard = (id: string) => {
+    const v = byId.get(id);
+    if (v && partnersOf(t.voicings, v).length > 1) setChord(id);
+    else setOpen(id);
+  };
+  const chordV = chord ? byId.get(chord) : undefined;
+  const openV = open ? byId.get(open) : undefined;
+  const element = (
+    <>
+      {chordV && <ChordSheet v={chordV} onClose={() => setChord(null)} onPick={setOpen} />}
+      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
+    </>
+  );
+  return { openCard, openVoicing: setOpen, element };
 }
 
 export function VoicingDetail({ v, onClose, onOpen }: { v: Voicing; onClose: () => void; onOpen?: (id: string) => void }) {

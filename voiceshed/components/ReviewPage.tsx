@@ -14,7 +14,7 @@ import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
 import { useBackClose } from './useBackClose';
-import { VoicingDetail } from './VoicingsPage';
+import { useVoicingSheets } from './VoicingsPage';
 import { chips, PlayingCard } from './PlayingCard';
 import { Keyboard, rangeAround } from './Keyboard';
 import { MIDI_CHORD_MS, MIDI_MOVE_MS, TAP_MS, tapsFor, targetFor } from '@voiceshed/lib/srs';
@@ -60,8 +60,8 @@ export function ReviewPage() {
   const [status, setStatus] = useState('');
   const [report, setReport] = useState<Slot[]>([]);
   /** A voicing's page, open over the set. */
-  const [open, setOpen] = useState<string | null>(null);
-  const openV = open ? voicings.find(v => v.id === open) : null;
+  // A card opens its chord's page, then an inversion's (`useVoicingSheets`).
+  const sheets = useVoicingSheets();
   const drill = useRef<Drill | null>(null);
   const stage = useRef<'drill' | 'context' | 'over'>('drill');
   /** Schedules written this session, ahead of the provider's state catching up. */
@@ -254,10 +254,10 @@ export function ReviewPage() {
           <>
             <ul className="rv-set" aria-label="Today’s set">
               {chips(set).map(g => (
-                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} onOpen={setOpen} />
+                <PlayingCard key={g.group} g={g} status={g.why} label={WHY_LABEL[g.why]} onOpen={sheets.openCard} />
               ))}
               {chips(incoming).map((g, i) => (
-                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} onOpen={setOpen} />
+                <PlayingCard key={g.group} g={g} status={i < NEW_AT_ONCE ? 'new' : 'later'} label={i < NEW_AT_ONCE ? 'new' : 'later'} onOpen={sheets.openCard} />
               ))}
             </ul>
             <p className="rv-legend">
@@ -300,7 +300,7 @@ export function ReviewPage() {
       </section>
 
       <OfflinePanel />
-      {openV && <VoicingDetail v={openV} onClose={() => setOpen(null)} onOpen={setOpen} />}
+      {sheets.element}
     </div>
   );
 }

@@ -393,7 +393,17 @@ wide screen; a run hides both.
   same grouping today's set uses) as playing cards under Shaky (weakest
   first), Due a check, Solid (next check soonest first, "in 3d" at the foot,
   green) and New (in the order added), with a count, an All / Play / Spell /
-  Name switch, and the filter above narrowing it; tap a card for its sheet.
+  Name switch, and the filter above narrowing it; tap a card for its chord's
+  page. **A chord's page** (`ChordSheet`; the owner, of a sheet that put every
+  inversion on one voicing's page: "too cluttered … this page is about one
+  specific inversion"; their pick of three layouts): a playing card (Review's
+  set, the Deck view) opens it — each inversion as a mini keyboard, its bottom
+  tone and notes, and three chips for its Play / Spell / Name cards ("ready",
+  "1/3", "solid", "new"; `cardWords`), the one in front on the card outlined,
+  and Remove from deck / Add all for the chord. Tap an inversion for its own
+  page, which opens over it; back returns to the chord's page. A chord with no
+  other inversion goes straight to its voicing's page (`useVoicingSheets`:
+  `openCard` for cards, `openVoicing` everywhere else).
   **Found** (the owner: "log extra voicings I hear in the wild … linked to a
   certain time in a YouTube video or a Spotify song, so I always have that
   reference"): "Log a voicing you heard" opens the New voicing form in `found`
