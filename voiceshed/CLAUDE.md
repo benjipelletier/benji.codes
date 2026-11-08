@@ -376,7 +376,19 @@ wide screen; a run hides both.
   device (`?view=deck` wins: Review's link). The switch stays at the top with
   the filter's bar (the owner: "keep map list deck found on the top"):
   VoicingFilter's `below`, in its sticky `.vf-top`, whose height it keeps in
-  `--vf-h` for the map's sticky board labels. **Deck** (the owner: "a way to
+  `--vf-h` for the map's sticky board labels. The four views are a
+  **carousel** (`components/Carousel.tsx`; the owner: "make map list deck
+  found a proper carousel"): side by side on a track moved by a transform (the
+  wrapper clips — `overflow: clip`, not a scroll container — so sticky bars
+  still stick), a sideways swipe drags it with the finger and lands on the
+  next view past 22% of the width or a flick, the ends give a little; up and
+  down stay the page's (`touch-action: pan-y`); a swipe starting in something
+  that scrolls sideways itself (the filter's chips) or in a sheet is left to
+  it; no text gets selected mid-drag. The wrapper takes the current view's
+  height, at least the screen below the switch (so a short view can be swiped
+  anywhere); a view renders once current or swiped toward, then stays; a new
+  view starts at its top. The switch's highlight is a pill that slides with
+  the swipe (`--pos`). **Deck** (the owner: "a way to
   explore all the cards in my deck"): the deck's groups (`deckGroups`, the
   same grouping today's set uses) as playing cards under Shaky (weakest
   first), Due a check, Solid (next check soonest first, "in 3d" at the foot,
