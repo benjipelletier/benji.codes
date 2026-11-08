@@ -619,8 +619,17 @@ by playing the keyboard"): Web MIDI, so Chrome on Android or a computer
 MIDI keyboard" asks the browser once, then lists the keyboards plugged in
 ("🎹 LEKATO 88"); it's kept on the device (`vs-midi`) and reconnects on open
 without a prompt when the browser already allowed it, and follows keyboards
-plugged in or out. Any class-compliant USB keyboard works. In a Play card
-(Review, Practice, tunes; a "🎹 keyboard" chip in the top bar) each new key
+plugged in or out. Any class-compliant USB keyboard works. **Said loud** (the
+owner: "make it super obvious when midi is connected"): a green badge in the
+app's top bar on every page — "🎹 LEKATO 88", its light flashing with every key
+(`MidiBadge` in `TrainerShell`; "🎹 plug in", dashed, when on with nothing
+plugged in); a green note sliding down from the top for 4 s when a keyboard is
+plugged in ("… connected — Play cards take your keys") or pulled out ("…
+unplugged — back to tapping"), shown in a run too (`MidiToast`, outside the
+bar); and in a Play card a green edge along the top and a green banner over the
+keys — "Play it on your keyboard", the keyboard's name and its target, a light
+flashing with each key (`cr-keys-banner`); Spell and Name cards say "🎹
+keyboard: Play cards". In a Play card (Review, Practice, tunes) each new key
 down counts as a tap: a chord's keys landing together all count (they arrive
 before a render, so `tappedRef` is set at once), a held key struck again
 doesn't count twice, and letting go takes nothing back. Let go of every key for

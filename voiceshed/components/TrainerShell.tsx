@@ -8,7 +8,8 @@
 // can answer with no connection, where a client-side route change would
 // need the server.
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { useMidi, useMidiNotes } from '@voiceshed/lib/midi';
 import { TrainerProvider, useTrainer } from './TrainerProvider';
 import { groupAttempts, hasContextGap, modeStats, targetFor, type ModeStats } from '@voiceshed/lib/srs';
 import type { Attempt, Mode } from '@voiceshed/lib/types';
@@ -62,6 +63,58 @@ function SyncChip() {
       {text}
     </button>
   );
+}
+
+/**
+ * A MIDI keyboard, said loud (the owner: "make it super obvious when midi is connected"): a
+ * green badge in the top bar with the keyboard's name and a light that flashes with every key,
+ * and a note sliding in when one is plugged in or pulled out — shown in a run too.
+ */
+function MidiBadge() {
+  const midi = useMidi();
+  const [hits, setHits] = useState(0);
+  useMidiNotes(n => {
+    if (n.kind === 'on') setHits(x => x + 1);
+  });
+  const names = midi.status === 'on' ? midi.inputs : [];
+  return (
+    <>
+      {names.length > 0 && (
+        <span className="vt-midi-badge" title={`MIDI keyboard: ${names.join(', ')}`} role="status">
+          <i key={hits} className={hits ? 'hit' : ''} aria-hidden />
+          🎹 <span>{names[0]}</span>
+        </span>
+      )}
+      {midi.status === 'on' && !names.length && <span className="vt-midi-badge vt-midi-wait">🎹 plug in</span>}
+    </>
+  );
+}
+
+/** The note when a keyboard is plugged in or pulled out; outside the top bar, so a run shows it too. */
+function MidiToast() {
+  const midi = useMidi();
+  const names = midi.status === 'on' ? midi.inputs : [];
+  const key = names.join('|');
+  const before = useRef<string[]>([]);
+  const [toast, setToast] = useState<{ text: string; ok: boolean; id: number } | null>(null);
+  useEffect(() => {
+    const was = before.current;
+    const added = names.filter(x => !was.includes(x));
+    const gone = was.filter(x => !names.includes(x));
+    before.current = names;
+    if (added.length) setToast({ text: `${added.join(', ')} connected — Play cards take your keys`, ok: true, id: Date.now() });
+    else if (gone.length) setToast({ text: `${gone.join(', ')} unplugged — back to tapping`, ok: false, id: Date.now() });
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(id);
+  }, [toast]);
+  return toast ? (
+    <div key={toast.id} className={`vt-midi-toast ${toast.ok ? 'ok' : ''}`} role="status">
+      🎹 {toast.text}
+    </div>
+  ) : null;
 }
 
 const TAB_ICONS: Record<TrainerPage, React.ReactNode> = {
@@ -208,8 +261,12 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
             </a>
           ))}
         </nav>
-        <SyncChip />
+        <span className="vt-bar-end">
+          <MidiBadge />
+          <SyncChip />
+        </span>
       </header>
+      <MidiToast />
       <main className="vt-main">
         {error && <p className="vt-error">{error}</p>}
         {!ready ? (

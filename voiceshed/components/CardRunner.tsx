@@ -558,6 +558,8 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   // key starts it over. After the chord, a move's next new key is where the top goes. The
   // sustain pedal goes on to the next card once one is answered.
   const midi = useMidi();
+  /** Keys played on the keyboard, for the banner's light. */
+  const [keyHits, setKeyHits] = useState(0);
   const held = useRef(new Set<number>());
   const allUpAt = useRef(0);
   useMidiNotes(n => {
@@ -571,6 +573,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       return;
     }
     const m = n.note;
+    setKeyHits(x => x + 1);
     const wasUp = held.current.size === 0;
     held.current.add(m);
     if (phase !== 'ask' || !step || step.mode !== 'play' || !v || answered.current === index) return;
@@ -631,14 +634,11 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const seq = showSequence ? sequenceAround(queue, index, step.mode === 'name' && phase === 'ask') : null;
 
   return (
-    <div className={`cr cr-${step.mode} cr-${phase}`} data-voicing-id={v.id}>
+    <div className={`cr cr-${step.mode} cr-${phase} ${keysOn ? 'cr-keys' : ''}`} data-voicing-id={v.id}>
       <div className="cr-top">
         <span className="cr-mode">{MODE_LABEL[step.mode]}</span>
-        {step.mode === 'play' && midi.status === 'on' && midi.inputs.length > 0 && (
-          <span className="cr-midi" title={midi.inputs.join(', ')}>
-            🎹 keyboard
-          </span>
-        )}
+        {/* Spell and Name take taps: say the keyboard is there but not for these. */}
+        {step.mode !== 'play' && midi.status === 'on' && midi.inputs.length > 0 && <span className="cr-midi-idle">🎹 keyboard: Play cards</span>}
         {step.group && <span className="cr-group">{step.group}</span>}
         <span className="cr-pos">{pos}</span>
         <button type="button" className="cr-end" onClick={finish}>
@@ -710,6 +710,17 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       </div>
 
       <div className="cr-input" ref={kbWrap}>
+        {/* A MIDI keyboard, said loud (the owner: "make it super obvious when midi is connected"):
+            a green banner over the keys, its light flashing with every key you play. */}
+        {keysOn && phase === 'ask' && (
+          <div className="cr-keys-banner" role="status">
+            <i key={keyHits} className={keyHits ? 'hit' : ''} aria-hidden />
+            <span>
+              <b>Play it on your keyboard</b>
+              <small>{midi.inputs.join(', ')} · target {secs(clockTarget)}</small>
+            </span>
+          </div>
+        )}
         {step.mode === 'play' &&
           (phase === 'ask' ? (
             <>
