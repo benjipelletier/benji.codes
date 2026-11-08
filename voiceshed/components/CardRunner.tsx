@@ -179,6 +179,7 @@ function typeCue(v: Voicing): [string, string] {
   if (v.family === 'drop-2 two-hand') return ['Drop-2', root];
   if (v.family === 'right-hand rootless') return ['Right-hand', root];
   if (v.family === 'closed (block)') return ['Block', root];
+  if (v.family === 'quartal two-hand') return ['Quartal', root];
   if (v.family === 'found') return ['Found', root];
   return [v.family, root];
 }

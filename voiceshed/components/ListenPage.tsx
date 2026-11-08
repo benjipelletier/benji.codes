@@ -34,7 +34,7 @@ export const LEVEL_NAME: Record<Level, string> = { 1: 'Chord type', 2: 'Drop 2 o
 const LEVEL_ASK: Record<Level, string> = { 1: 'What kind of chord?', 2: 'Drop 2 or block?', 3: 'Which inversion?' };
 
 /** A voicing type as Listen names it. */
-export const familyShort = (f: string) => (f === 'drop-2 two-hand' ? 'Drop 2' : f === 'closed (block)' ? 'Block' : f);
+export const familyShort = (f: string) => (f === 'drop-2 two-hand' ? 'Drop 2' : f === 'closed (block)' ? 'Block' : f === 'quartal two-hand' ? 'Quartal' : f);
 
 /** A chord tone as a number: "♭3", "9", "1" for the root. */
 export function toneOf(v: Voicing, midi: number): string {

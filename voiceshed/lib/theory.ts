@@ -408,8 +408,6 @@ export const SHAPE_SETS: ShapeSet[] = [
         { ivs: ['3', '7', '9', '5'], tag: '3-7-9-5' },
         { ivs: ['7', '3', '5', '9'], tag: '7-3-5-9' },
       ],
-      // The 6 chord: one shape (the owner: "one inversion 3 6 9 5").
-      '6': [{ ivs: ['3', '6', '9', '5'], tag: '3-6-9-5' }],
       // Dominant: the 5 becomes the 13.
       '7': [
         { ivs: ['3', 'b7', '9', '13'], tag: '3-7-9-5' },
@@ -480,6 +478,17 @@ export const SHAPE_SETS: ShapeSet[] = [
       m7b5: [{ ivs: ['b5', 'b7', 'R', 'b3', 'b5'], tag: '5-7-1-3-5' }],
     },
   },
+  {
+    // The 6 chord, 3 6 9 5 (the owner: "one inversion 3 6 9 5"): stacked
+    // fourths, so its own type (the owner: "label the major 6 voice thing we
+    // have as quartal"), two-handed like the others. Last, so no other set's
+    // sort order moves; seed 15 moved the rows filed under drop-2.
+    family: 'quartal two-hand',
+    tags: ['quartal', 'two-handed', 'rootless', '4-note'],
+    shapes: {
+      '6': [{ ivs: ['3', '6', '9', '5'], tag: '3-6-9-5' }],
+    },
+  },
 ];
 
 /**
@@ -491,6 +500,7 @@ export function familyLabel(family: string): string {
   if (family === FOUND) return 'Found · heard in the wild';
   if (family === 'drop-2 two-hand') return 'Two-hand · drop-2';
   if (family === 'closed (block)') return 'Two-hand · block';
+  if (family === 'quartal two-hand') return 'Two-hand · quartal';
   return family.replace('m7b5', 'm7♭5');
 }
 

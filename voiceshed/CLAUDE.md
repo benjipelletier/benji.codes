@@ -93,9 +93,12 @@ iii and for a m7 that's the iii of a tune's home major key, in whatever key
 it's played (`candidatesFor(…, iii)`); everywhere else a m7 keeps its 9. Cards,
 sheets and prompts say "as iii"; the map gives them their own row (m7 as iii).
 
-The 6 chord (C6): one shape only, `drop-2 two-hand` 3 6 9 5 (the owner: "one
-inversion 3 6 9 5"); flat names on black keys (C♯6, F♯6, G♯6 are rare on
-charts).
+The 6 chord (C6): one shape only, 3 6 9 5 (the owner: "one inversion 3 6 9
+5") — stacked fourths, so its own type, `quartal two-hand` ("Two-hand ·
+quartal", "Quartal" on a card and in Listen; the owner: "label the major 6
+voice thing we have as quartal"), tagged `quartal` and `two-handed` (Practice's
+two-hand runs play it); last in `SHAPE_SETS`. Flat names on black keys (C♯6,
+F♯6, G♯6 are rare on charts).
 
 m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — one
 voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
@@ -151,7 +154,8 @@ version 6 added the 6 chord (into the library, not the deck); version 7 the
 version 10 ended the minor ii–V–i on m7; version 11 added the °7's other two
 inversions; version 12 the iii voicings (and the `closed (block)` rename);
 version 13 removed right-hand rootless (for now); version 14 tagged block
-chords `two-handed`.
+chords `two-handed`; version 15 moved the 6 chord from `drop-2 two-hand` to
+`quartal two-hand` (same rows, so cards and answers stay).
 
 ---
 

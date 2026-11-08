@@ -58,7 +58,7 @@ function sumCards(cards: CardView[]): CardView {
   return { state: 'new', due, strength: 0, avgMs: null };
 }
 /** The two-hand types, on one chart (the owner: "see drop-2 and block at the same time, not a toggle"). */
-export const TWO_HAND = ['drop-2 two-hand', 'closed (block)'];
+export const TWO_HAND = ['drop-2 two-hand', 'quartal two-hand', 'closed (block)'];
 /** Which chart a voicing is on: two-hand (drop-2 and block together), else its own type. */
 const chartOf = (v: Voicing) => (TWO_HAND.includes(v.family) ? 'two-hand' : v.family);
 const FAMILY_KEY = 'vt-map-family';
@@ -183,7 +183,7 @@ export function ProgressMap({
     }
     const ord = ['1st', '2nd', '3rd', '4th'];
     let n = 0;
-    return shapes.map(x => (x.family === 'closed (block)' ? 'block' : x.tag === '1-5-7-11' ? 'spread' : ord[n++] ?? `${n}th`));
+    return shapes.map(x => (x.family === 'closed (block)' ? 'block' : x.family === 'quartal two-hand' ? 'quartal' : x.tag === '1-5-7-11' ? 'spread' : ord[n++] ?? `${n}th`));
   };
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 
