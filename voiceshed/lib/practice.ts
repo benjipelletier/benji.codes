@@ -1,7 +1,7 @@
 // Grading answers, and building the practice sets: timed runs through
 // ii–V–Is, a key's chords, a tune's changes or a tag filter.
 
-import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, isIii, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
+import { chartDisplay, prettyLabel, diatonicChords, exactChartChord, isIii, servesIii, mod12, namePc, noteMidi, parseChordLabel, pitchName, PC_FLAT, type Quality } from './theory';
 import type { Context, ContextType, Mode, Tune, Voicing } from './types';
 import { shuffle } from './srs';
 
@@ -197,7 +197,7 @@ export function voiceLead(cands: Voicing[], prev: Voicing | null): Voicing {
 /** `iii`: the chord is a m7 as the iii of a major key — its iii voicings (8 for 9) only; otherwise never them. */
 export function candidatesFor(voicings: Voicing[], root: number, qualities: Quality[], tags: string[], rootName?: string, iii = false): Voicing[] {
   for (const q of qualities) {
-    const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags) && isIii(v) === iii);
+    const c = voicings.filter(v => v.root === root && v.quality === q && matchesTags(v, tags) && (iii ? servesIii(v) : !isIii(v)));
     if (!c.length) continue;
     const spelled = rootName ? c.filter(v => parseChordLabel(v.chord_label)?.rootName === rootName) : [];
     return spelled.length ? spelled : c;

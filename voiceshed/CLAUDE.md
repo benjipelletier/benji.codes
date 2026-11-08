@@ -105,7 +105,11 @@ The **So What chord** (m7, quartal two-hand; the owner: "a 5 note voicing 1,
 like everything, so the tops reach A5), tagged `so-what` and `5-note`, has
 its root; one shape, no inversions. The map calls it "so what"; with drop-2
 also on m7, Listen's second level ("Which voicing type?") asks Drop 2 or
-Quartal for m7s. Not tagged `iii`, so a key's iii doesn't take it.
+Quartal for m7s. It's diatonic as a key's iii too (no 9 to avoid), so it's
+tagged `iii-too`, not `iii` (which would keep it from ii and vi): `servesIii`
+lets a key's iii (Em7 in C, a tune's iii) take it beside the iii voicings, in
+Practice runs (`candidatesFor`) and the Choose voicings sheet, while other m7s
+take it as usual.
 
 m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — one
 voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —

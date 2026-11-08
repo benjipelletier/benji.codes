@@ -16,7 +16,7 @@ import { useBackClose } from './useBackClose';
 import { buildSet, type OrderEntry, type SetSource, type SetSpec, type Skipped } from '@voiceshed/lib/practice';
 import { targetFor } from '@voiceshed/lib/srs';
 import { demote } from '@voiceshed/lib/drill';
-import { keyLabel, LATER_FAMILIES, PC_FLAT, pretty, prettyLabel } from '@voiceshed/lib/theory';
+import { isIii, keyLabel, LATER_FAMILIES, PC_FLAT, pretty, prettyLabel, servesIii } from '@voiceshed/lib/theory';
 import { MODES, MODE_LABEL, srsKey, type ChartPlaylist, type ChartTune, type Mode, type Run, type SrsState, type Tune, type Voicing } from '@voiceshed/lib/types';
 
 const SOURCES: { id: SetSource; label: string; hint: string }[] = [
@@ -358,7 +358,7 @@ function ChooseVoicings({ title, order, tags, tuneId, onClose }: { title: string
       label,
       n,
       iii,
-      vs: t.voicings.filter(v => v.chord_label === label && ofType(v) && v.family !== BLOCK && v.tags.includes('iii') === iii),
+      vs: t.voicings.filter(v => v.chord_label === label && ofType(v) && v.family !== BLOCK && (iii ? servesIii(v) : !isIii(v))),
       // Block chords in a row of their own (the owner: "add block chords to the sheet"); two-hand
       // runs play them, so Add all takes them — the iii's (5 ♭7 1 ♭3 5) and the m7♭5's here…
       block: t.voicings.filter(v => v.chord_label === label && v.family === BLOCK && v.tags.includes('iii') === iii),

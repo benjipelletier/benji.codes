@@ -488,7 +488,8 @@ export const SHAPE_SETS: ShapeSet[] = [
     shapes: {
       // The So What chord (the owner: "a 5 note voicing 1, 4, ♭7, ♭3, 5 for
       // minor chords"): three fourths and a major third, the root on the bottom.
-      m7: [{ ivs: ['R', '11', 'b7', 'b3', '5'], tag: '1-4-7-3-5', tags: ['quartal', 'two-handed', '5-note', 'so-what'] }],
+      // Diatonic as a key's iii too (no 9 to avoid): `iii-too`, so it serves both.
+      m7: [{ ivs: ['R', '11', 'b7', 'b3', '5'], tag: '1-4-7-3-5', tags: ['quartal', 'two-handed', '5-note', 'so-what', 'iii-too'] }],
       '6': [{ ivs: ['3', '6', '9', '5'], tag: '3-6-9-5' }],
     },
   },
@@ -689,6 +690,8 @@ export function starterProgressions(): ProgressionSeed[] {
 
 /** A voicing for a m7 as the iii of a major key: the 8 for the 9 (or a block chord). */
 export const isIii = (v: { tags: string[] }) => v.tags.includes('iii');
+/** Can play a key's iii: its iii voicings, and one that fits any m7 there too (`iii-too`, the So What). */
+export const servesIii = (v: { tags: string[] }) => isIii(v) || v.tags.includes('iii-too');
 
 /** The diatonic seventh chords of a major key: Imaj7 ii-7 iii-7 IVmaj7 V7 vi-7 viiø7 (the iii marked). */
 export function diatonicChords(key: number): { root: number; quality: Quality; rootName: string; iii: boolean }[] {
