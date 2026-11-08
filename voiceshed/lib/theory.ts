@@ -486,6 +486,9 @@ export const SHAPE_SETS: ShapeSet[] = [
     family: 'quartal two-hand',
     tags: ['quartal', 'two-handed', 'rootless', '4-note'],
     shapes: {
+      // The So What chord (the owner: "a 5 note voicing 1, 4, ♭7, ♭3, 5 for
+      // minor chords"): three fourths and a major third, the root on the bottom.
+      m7: [{ ivs: ['R', '11', 'b7', 'b3', '5'], tag: '1-4-7-3-5', tags: ['quartal', 'two-handed', '5-note', 'so-what'] }],
       '6': [{ ivs: ['3', '6', '9', '5'], tag: '3-6-9-5' }],
     },
   },

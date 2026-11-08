@@ -138,8 +138,10 @@ export const TRAINER_DDL = [
  *      two-hand` (the owner: "label the major 6 voice thing we have as
  *      quartal"), tagged `quartal` for `drop-2`. Same rows, so cards and
  *      answers stay with them.
+ *  16: the So What chord joins (quartal two-hand, m7: 1 4 ♭7 ♭3 5): into the
+ *      library, not the deck.
  */
-const SEED_VERSION = 15;
+const SEED_VERSION = 16;
 
 const VOICING_COLUMNS = `chord_label text, root int, quality text, notes text[], top_note text, top_move text, family text, tags text[], lowest_register int, sort_order int`;
 

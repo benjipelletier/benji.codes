@@ -100,6 +100,13 @@ voice thing we have as quartal"), tagged `quartal` and `two-handed` (Practice's
 two-hand runs play it); last in `SHAPE_SETS`. Flat names on black keys (C♯6,
 F♯6, G♯6 are rare on charts).
 
+The **So What chord** (m7, quartal two-hand; the owner: "a 5 note voicing 1,
+4, ♭7, ♭3, 5 for minor chords"): Dm7 = D G C F A, root on the bottom (E♭3–D4
+like everything, so the tops reach A5), tagged `so-what` and `5-note`, has
+its root; one shape, no inversions. The map calls it "so what"; with drop-2
+also on m7, Listen's second level ("Which voicing type?") asks Drop 2 or
+Quartal for m7s. Not tagged `iii`, so a key's iii doesn't take it.
+
 m7♭5: the spread 1 ♭5 ♭7 11, whose top voice then moves to the ♭3 — one
 voicing, a **movement**, not two (`top_move`; tags `spread`, `movement`) —
 files under `drop-2 two-hand` (the owner: "only the spread one goes under
@@ -155,7 +162,8 @@ version 10 ended the minor ii–V–i on m7; version 11 added the °7's other tw
 inversions; version 12 the iii voicings (and the `closed (block)` rename);
 version 13 removed right-hand rootless (for now); version 14 tagged block
 chords `two-handed`; version 15 moved the 6 chord from `drop-2 two-hand` to
-`quartal two-hand` (same rows, so cards and answers stay).
+`quartal two-hand` (same rows, so cards and answers stay); version 16 added
+the So What chord (library, not the deck).
 
 ---
 
@@ -240,7 +248,7 @@ wide screen; a run hides both.
   its own pitch (`playCue`). **Levels** (the owner: "first is which type of
   chord, next is drop 2 spread or block, next is which inversion"): 1 the
   chord type (the types the deck has, in `QUALITIES` order; a iii voicing is
-  m7); 2 Drop 2 or Block, only when the library has both for that quality
+  m7); 2 the voicing type (Drop 2 / Quartal / Block), only when the library has more than one for that quality
   (and iii-ness); 3 which inversion, only when the voicing has partners — each
   named by its bottom chord tone, its top under it ("♭3 / top 5"). Steps
   along the top, numbered by position. Right goes on to the next level (and,

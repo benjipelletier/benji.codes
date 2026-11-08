@@ -30,8 +30,8 @@ const RIGHT_ADVANCE_MS = 1300;
 const LEVEL_ADVANCE_MS = 450;
 
 export type Level = 1 | 2 | 3;
-export const LEVEL_NAME: Record<Level, string> = { 1: 'Chord type', 2: 'Drop 2 or block', 3: 'Inversion' };
-const LEVEL_ASK: Record<Level, string> = { 1: 'What kind of chord?', 2: 'Drop 2 or block?', 3: 'Which inversion?' };
+export const LEVEL_NAME: Record<Level, string> = { 1: 'Chord type', 2: 'Voicing type', 3: 'Inversion' };
+const LEVEL_ASK: Record<Level, string> = { 1: 'What kind of chord?', 2: 'Which voicing type?', 3: 'Which inversion?' };
 
 /** A voicing type as Listen names it. */
 export const familyShort = (f: string) => (f === 'drop-2 two-hand' ? 'Drop 2' : f === 'closed (block)' ? 'Block' : f === 'quartal two-hand' ? 'Quartal' : f);

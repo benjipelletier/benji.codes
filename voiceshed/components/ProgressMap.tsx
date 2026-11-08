@@ -183,7 +183,7 @@ export function ProgressMap({
     }
     const ord = ['1st', '2nd', '3rd', '4th'];
     let n = 0;
-    return shapes.map(x => (x.family === 'closed (block)' ? 'block' : x.family === 'quartal two-hand' ? 'quartal' : x.tag === '1-5-7-11' ? 'spread' : ord[n++] ?? `${n}th`));
+    return shapes.map(x => (x.family === 'closed (block)' ? 'block' : x.family === 'quartal two-hand' ? (x.tag === '1-4-7-3-5' ? 'so what' : 'quartal') : x.tag === '1-5-7-11' ? 'spread' : ord[n++] ?? `${n}th`));
   };
   const cols = useMemo(() => CYCLE_OF_FOURTHS.filter(k => voicings.some(v => v.root === k)), [voicings]);
 

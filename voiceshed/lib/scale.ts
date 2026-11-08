@@ -34,6 +34,6 @@ export function whiteKeyPx(pxPerInch: number | null, scale = 1): number {
 export const FAMILY_SPAN: [string, number, number][] = [
   ['right-hand rootless', 6, 8],
   ['m7b5 closed', 8, 9],
-  ['quartal two-hand', 10, 11],
+  ['quartal two-hand', 10, 12],
   ['drop-2 two-hand', 10, 12],
 ];
