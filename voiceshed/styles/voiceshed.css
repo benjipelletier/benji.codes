@@ -1295,3 +1295,9 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-pc-dealt { animation: rv-pc-deal 0.22s ease-out; }
 @keyframes rv-pc-deal { from { transform: translateY(-6px) rotate(-2deg); opacity: 0.6; } }
 @media (prefers-reduced-motion: reduce) { .rv-pc-dealt { animation: none; } }
+
+/* A USB MIDI keyboard: Settings, and the chip in a Play run's top bar. */
+.vt-midi { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.vt-midi-st { font-size: 13px; color: var(--ink-3); }
+.vt-midi-st.ok { color: var(--good); }
+.cr-midi { font-family: var(--mono); font-size: 11px; color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; }

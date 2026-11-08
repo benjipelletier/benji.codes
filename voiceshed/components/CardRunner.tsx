@@ -17,6 +17,7 @@ import { degreesOf, gradeName, gradePlay, gradeSpell, hasRoot, midisOf, nameOf, 
 import { chordDisplay, intervalDisplay, intervalName, mod12, parseChordLabel, pitchName, pretty, QUALITIES, QUALITY, rootNames, prettyLabel, noteMidi, type Quality } from '@voiceshed/lib/theory';
 import type { ContextType, Mode, Voicing } from '@voiceshed/lib/types';
 import { MODE_LABEL } from '@voiceshed/lib/types';
+import { useMidi, useMidiNotes } from '@voiceshed/lib/midi';
 
 export interface RunnerStep {
   voicing: Voicing;
@@ -104,6 +105,11 @@ function bigStart(midis: number[], whites: number, r: number): number {
 const BIG_UPRIGHT = 8;
 /** Big keys waits this long after your last tap before sliding, so two thumbs can land together. */
 const BIG_SETTLE_MS = 260;
+/**
+ * A MIDI keyboard: let go of every key for this long with the chord unfinished
+ * and the next key starts it over (a fumble needs no Undo).
+ */
+const MIDI_RESTART_MS = 700;
 
 /**
  * How many white keys show and how tall they are. Fit: as many as fit
@@ -539,6 +545,47 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     slideBack(nextSet.length);
   };
 
+  // A USB MIDI keyboard plays Play cards (the owner: "I want to be able to review my cards by
+  // playing the keyboard"). Each new key down is a key played, as a tap is — a chord's keys
+  // landing together are all counted, held keys aren't counted twice, and letting go doesn't
+  // take one back. Let go of everything for a moment with the chord unfinished and the next
+  // key starts it over. After the chord, a move's next new key is where the top goes. The
+  // sustain pedal goes on to the next card once one is answered.
+  const midi = useMidi();
+  const held = useRef(new Set<number>());
+  const allUpAt = useRef(0);
+  useMidiNotes(n => {
+    if (n.kind === 'pedal') {
+      if (n.down && phase === 'feedback') next();
+      return;
+    }
+    if (n.kind === 'off') {
+      held.current.delete(n.note);
+      if (!held.current.size) allUpAt.current = performance.now();
+      return;
+    }
+    const m = n.note;
+    const wasUp = held.current.size === 0;
+    held.current.add(m);
+    if (phase !== 'ask' || !step || step.mode !== 'play' || !v || answered.current === index) return;
+    let cur = tappedRef.current;
+    const restart = cur.length > 0 && cur.length < v.notes.length && wasUp && performance.now() - allUpAt.current > MIDI_RESTART_MS;
+    if (restart) {
+      cur = [];
+      slideBack(0);
+    }
+    if (v.top_move && cur.length >= v.notes.length) {
+      if (!cur.includes(m)) submit({ kind: 'play', midis: cur, moveTo: m });
+      return;
+    }
+    if (cur.includes(m)) return;
+    const nextSet = [...cur, m].sort((a, b) => a - b);
+    tappedRef.current = nextSet; // a chord's keys arrive in one go, before a render
+    setTapped(nextSet);
+    setOrder(o => (restart ? [m] : [...o, m]));
+    if (nextSet.length >= v.notes.length && !v.top_move) submit({ kind: 'play', midis: nextSet, moveTo: null });
+  });
+
   if (!step || !v) return null;
 
   // Big keys starts showing the bottom two; the others centre on the voicing.
@@ -578,6 +625,11 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
     <div className={`cr cr-${step.mode} cr-${phase}`} data-voicing-id={v.id}>
       <div className="cr-top">
         <span className="cr-mode">{MODE_LABEL[step.mode]}</span>
+        {step.mode === 'play' && midi.status === 'on' && midi.inputs.length > 0 && (
+          <span className="cr-midi" title={midi.inputs.join(', ')}>
+            🎹 keyboard
+          </span>
+        )}
         {step.group && <span className="cr-group">{step.group}</span>}
         <span className="cr-pos">{pos}</span>
         <button type="button" className="cr-end" onClick={finish}>

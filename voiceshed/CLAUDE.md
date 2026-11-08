@@ -611,6 +611,25 @@ each started and how many notes were in), so it sits where it was when that
 many notes were down. The last note of a
 voicing submits it, so that one can't be undone.
 
+**A MIDI keyboard** (`lib/midi.ts`; the owner: "support an external keyboard
+… a Lekato 88 … USB type-C to USB type-C. I want to be able to review my cards
+by playing the keyboard"): Web MIDI, so Chrome on Android or a computer
+(Safari has none; Settings says so). Review → Settings → MIDI keyboard → "Use a
+MIDI keyboard" asks the browser once, then lists the keyboards plugged in
+("🎹 LEKATO 88"); it's kept on the device (`vs-midi`) and reconnects on open
+without a prompt when the browser already allowed it, and follows keyboards
+plugged in or out. Any class-compliant USB keyboard works. In a Play card
+(Review, Practice, tunes; a "🎹 keyboard" chip in the top bar) each new key
+down counts as a tap: a chord's keys landing together all count (they arrive
+before a render, so `tappedRef` is set at once), a held key struck again
+doesn't count twice, and letting go takes nothing back. Let go of every key for
+`MIDI_RESTART_MS` (0.7 s) with the chord unfinished and the next key starts it
+over — a fumble needs no Undo. Any octave counts, as with taps (never below
+E♭3). After a move's chord, the next new key is where the top goes. The sustain
+pedal goes on to the next card once one is answered. The keys on screen still
+work. Targets stay the phone's (per tap), so a chord played at once comes in
+well under them.
+
 **Sideways on a phone, in a run** (the owner: "support for landscape mode so
 the keyboard can be quite a bit bigger when reviewing cards"): the keys'
 height comes from the screen — `useKeyboardFit` aims for 46% of it — not a

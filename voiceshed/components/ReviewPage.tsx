@@ -9,6 +9,7 @@
 // how each card came out, accuracy and the slowest cards.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { connectMidi, disconnectMidi, useMidi } from '@voiceshed/lib/midi';
 import { CardRunner, type RunnerResult, type RunnerStep } from './CardRunner';
 import { fmtPct, fmtSecs, PianoLoader, relTime, signIn, signOut, useCardStats } from './TrainerShell';
 import { newId, useTrainer } from './TrainerProvider';
@@ -471,6 +472,7 @@ function SettingsForm({ settings, onSave }: { settings: Settings; onSave: (s: Se
         <span className="vt-hint">Always with the voicing type. The answer shows both.</span>
       </div>
       <KeyboardSizeField settings={settings} onSave={onSave} />
+      <MidiField />
       <label className="vt-check">
         <input type="checkbox" checked={settings.strict_spelling} onChange={e => onSave({ ...settings, strict_spelling: e.target.checked })} />
         Strict spelling (G♯ isn’t A♭ in Spell mode)
@@ -487,6 +489,47 @@ const CARD_MM = 85.6;
  * size takes a one-time check — a bar a bank card wide, nudged until a card
  * held against it matches — because a screen won't say how big its pixels are.
  */
+/** A USB MIDI keyboard for Play cards: turn it on here; the browser asks the first time. */
+function MidiField() {
+  const midi = useMidi();
+  const on = midi.status === 'on';
+  return (
+    <div className="vt-field">
+      <span className="vt-field-lbl">MIDI keyboard</span>
+      {midi.status === 'unsupported' ? (
+        <span className="vt-hint">This browser can’t use a MIDI keyboard — Chrome on Android or a computer can (Safari can’t).</span>
+      ) : (
+        <>
+          <div className="vt-midi">
+            {on ? (
+              <button type="button" className="vt-secondary" onClick={disconnectMidi}>
+                Turn off
+              </button>
+            ) : (
+              <button type="button" className="vt-secondary" onClick={() => void connectMidi()} disabled={midi.status === 'asking'}>
+                {midi.status === 'asking' ? 'Asking…' : 'Use a MIDI keyboard'}
+              </button>
+            )}
+            <span className={`vt-midi-st ${on && midi.inputs.length ? 'ok' : ''}`}>
+              {midi.status === 'denied'
+                ? 'Not allowed — allow MIDI for this site in the browser’s settings'
+                : on
+                  ? midi.inputs.length
+                    ? `🎹 ${midi.inputs.join(', ')}`
+                    : 'On — plug the keyboard in (USB-C)'
+                  : 'Off'}
+            </span>
+          </div>
+          <span className="vt-hint">
+            Play cards take the keys you press: play the voicing, in any octave (not below E♭3). Let go of every key for a moment to start a chord over. The sustain pedal moves on to the next card. The
+            keys on screen still work.
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
 function KeyboardSizeField({ settings, onSave }: { settings: Settings; onSave: (s: Settings) => void }) {
   const [guess, setGuess] = useState(132);
   useEffect(() => setGuess(guessPxPerInch()), []);
