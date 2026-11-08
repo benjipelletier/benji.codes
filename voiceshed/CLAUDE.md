@@ -566,10 +566,14 @@ the keys.
 **Big keys** (Play keyboard's third size, `keyboard_size: 'big'`; the owner:
 "clicking two thumbs at once one for the three and seven and then the other
 one for the other tones … a scrolling thing where the keyboard is a lot bigger
-but less keys are showed"): about an octave of keys upright (7 on a phone,
-~52 px), sideways ~72 px each (12 on a phone). `BigKeys` draws three octaves
-either side once per card and slides that inside the window (a transform, so
-it glides); the window starts at the voicing's bottom note (`playWindow`).
+but less keys are showed"): eight keys upright (D3–D4, ~47 px on a phone),
+sideways ~72 px each (12 on a phone). `BigKeys` draws three octaves either
+side once per card and slides that inside the window (a transform, so it
+glides). The window starts on the same keys every card, `BIG_START` D3,
+whatever the voicing — the left hand's whole range, since every bottom note is
+E♭3–D4 — so neither edge gives anything away (the owner: "the big keys always
+start on the first note so it's a dead giveaway"; it used to start at the
+bottom note).
 When two notes are in and fewer than `BIG_REACH` (6) white keys are left to
 the right of the higher one, it slides up so that note sits second from the
 left — from where you tapped, so it gives nothing away; it only ever moves

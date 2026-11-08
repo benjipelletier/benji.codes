@@ -92,6 +92,14 @@ const secs = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 const BIG_KEY_PX = 72;
 /** White keys a hand needs above the left hand's notes; fewer than this on screen, the keys slide up. */
 const BIG_REACH = 6;
+/**
+ * Where Big keys always starts, whatever the voicing: D3, so the window covers
+ * the left hand's whole range (every bottom note is E♭3–D4, lib/theory.ts's
+ * register) and gives nothing away (the owner: "the big keys always start on
+ * the first note so it's a dead giveaway"). Upright that takes eight keys, D3–D4.
+ */
+const BIG_START = 50;
+const BIG_UPRIGHT = 8;
 
 /**
  * How many white keys show and how tall they are. Fit: as many as fit
@@ -120,7 +128,7 @@ function useKeyboardFit(ref: React.RefObject<HTMLElement | null>, keyPx: number 
   // Room for the keys' height: what the screen spares beside the card.
   const room = box.height * (sideways ? 0.46 : 0.4);
   if (big) {
-    const whites = box.width ? (sideways ? Math.max(8, Math.round(box.width / BIG_KEY_PX)) : 7) : 7;
+    const whites = box.width ? (sideways ? Math.max(8, Math.round(box.width / BIG_KEY_PX)) : BIG_UPRIGHT) : BIG_UPRIGHT;
     const w = (box.width || 380) / whites;
     return { whites, aspect: Math.min(100 / 24, room / w), width: undefined };
   }
@@ -480,7 +488,7 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
       // the next two") — from where you tapped, so it gives nothing away. Only ever up.
       // Only when the room to its right is short of a hand's reach (sideways it usually isn't).
       if (big && nextSet.length === 2 && v.notes.length > 2) {
-        const base = whiteIdx(playWindow(midis, whites, 0)[0]);
+        const base = whiteIdx(BIG_START);
         const top = whiteIdx(Math.max(...nextSet));
         const right = base + shift + whites - 1 - top;
         const want = top - 1;
@@ -509,7 +517,9 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
 
   if (!step || !v) return null;
 
-  const [pLo, pHi] = playWindow(midis, whites, shift);
+  // Big keys starts in the same place every card; the others centre on the voicing.
+  const bigLo = WHITE_MIDIS[Math.max(0, Math.min(WHITE_MIDIS.length - whites, whiteIdx(BIG_START) + shift))];
+  const [pLo, pHi] = big ? [bigLo, WHITE_MIDIS[Math.min(WHITE_MIDIS.length - 1, whiteIdx(bigLo) + whites - 1)]] : playWindow(midis, whites, shift);
   const moveMidi = v.top_move ? noteMidi(v.top_move) : null;
   const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, pretty(pitchName(v.top_move))]] : [])]);
   const moving = step.mode === 'play' && !!v.top_move && tapped.length >= v.notes.length && phase === 'ask';
