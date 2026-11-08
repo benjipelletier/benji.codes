@@ -17,8 +17,8 @@ import { pitchName, pretty } from '@voiceshed/lib/theory';
 import { LEVEL_NAME, type Level } from './ListenPage';
 
 const SHOWN = 12;
-/** Answers shown in an inversion's column, beside the others. */
-const SHOWN_SHORT = 6;
+/** Answers shown as dots on an inversion's row. */
+const SHOWN_ROW = 6;
 const verdict = (a: Attempt) => (!a.correct ? 'miss' : a.slow ? 'slow' : 'fast');
 const VERDICT: Record<string, string> = { fast: 'Right, in time', slow: 'Right but slow', miss: 'Missed' };
 
@@ -34,13 +34,15 @@ export function Retention({ v }: { v: Voicing }) {
   const progs = useMemo(() => new Map(t.contexts.map(c => [c.id, c])), [t.contexts]);
   const src = (a: Attempt) => sourceOf(a, runs, progs);
   const [picked, setPicked] = useState<{ key: string; id: string } | null>(null);
+  /** Inversion rows opened or closed by hand (card key → open); unset, the one opened is open. */
+  const [rows, setRows] = useState<Record<string, boolean>>({});
   const where = (a: Attempt) => {
     const s = src(a);
     return `${SOURCE_NAME[s.src]}${s.what ? ` · ${s.what}` : ''}`;
   };
-  // The chord's inversions side by side in each mode (the owner: "I would like to see the
-  // inversions side by side on the sheet"): Review drills them together and they go solid
-  // together, so one alone doesn't say where the chord stands. The one opened is outlined.
+  // The chord's inversions together in each mode, a row each (the owner wanted them "side by
+  // side on the sheet", then found columns too much): Review drills them together and they go
+  // solid together, so one alone doesn't say where the chord stands.
   const invs = useMemo(() => {
     const ps = partnersOf(t.voicings, v);
     return ps.length > 1 ? ps : [v];
@@ -85,20 +87,22 @@ export function Retention({ v }: { v: Voicing }) {
     const due = cells.map(c => c.st!.due_at).sort()[0];
     return new Date(due).getTime() <= Date.now() ? 'Check due — in your next set' : `Next check ${relTime(due)}`;
   };
-  /** Why one card is shaky, in full (one inversion) or in a few words (a column). */
-  const whyOf = (c: Cell, cells: Cell[], short: boolean): string | null => {
+  /** Why one card is shaky. */
+  const whyOf = (c: Cell): string | null => {
     if (c.status !== 'shaky') return null;
-    if (c.gap) return short ? 'Slow alone' : 'Fast in a progression but slow on its own.';
+    if (c.gap) return 'Fast in a progression but slow on its own.';
     const slip = [...c.list].reverse().find(a => verdict(a) !== 'fast');
-    if (slip && c.streak === 0) {
-      return short
-        ? `Last: ${VERDICT[verdict(slip)].toLowerCase()} · ${relTime(slip.created_at)}`
-        : `Last slip: ${VERDICT[verdict(slip)].toLowerCase()} in ${where(slip)}, ${relTime(slip.created_at)}.`;
-    }
+    if (slip && c.streak === 0) return `Last slip: ${VERDICT[verdict(slip)].toLowerCase()} in ${where(slip)}, ${relTime(slip.created_at)}.`;
     if (!c.list.length) return null;
-    if (c.streak < FLUENT_STREAK) return short ? `${c.streak} of ${FLUENT_STREAK} fast in a row` : `${c.streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`;
-    if (short) return `Fast enough · ${c.streak} in a row`;
+    if (c.streak < FLUENT_STREAK) return `${c.streak} of ${FLUENT_STREAK} fast in a row so far — finish it in Review.`;
     return `Fast enough (${c.streak} in a row) — goes solid when a Review set sees it through: ${FLUENT_STREAK} fast in a row there.`;
+  };
+  /** A row's few words: where this inversion stands. */
+  const shortOf = (c: Cell): string => {
+    if (c.status === 'out') return 'not in deck';
+    if (c.status !== 'shaky') return c.status;
+    if (c.gap) return 'slow alone';
+    return c.streak >= FLUENT_STREAK ? 'ready ✓' : `${c.streak} of ${FLUENT_STREAK}`;
   };
   /** A chord whose inversions stand apart: who's ready and who it waits on. */
   const groupWhy = (cells: Cell[]): string | null => {
@@ -110,13 +114,13 @@ export function Retention({ v }: { v: Voicing }) {
     return `${names(ready)} ${ready.length > 1 ? 'are' : 'is'} fast enough — waiting on ${names(behind)}. They go solid together, in Review.`;
   };
 
-  const body = (c: Cell, cells: Cell[], short: boolean) => {
-    const recent = c.list.slice(short ? -SHOWN_SHORT : -SHOWN);
+  const body = (c: Cell) => {
+    const recent = c.list.slice(-SHOWN);
     const sel = picked?.key === c.key ? recent.find(a => a.id === picked.id) : undefined;
-    const why = whyOf(c, cells, short);
+    const why = whyOf(c);
     return (
       <>
-        {why && <p className={short ? `rt-inv-why ${c.streak >= FLUENT_STREAK ? 'ready' : ''}` : 'rt-why'}>{why}</p>}
+        {why && <p className="rt-why">{why}</p>}
         {c.score != null && (
           <div className="rt-fluency" title="Each of the last 6 answers scores target ÷ time (1 if in time), a miss 0">
             <span className="rt-lbl">Fluency</span>
@@ -196,22 +200,39 @@ export function Retention({ v }: { v: Voicing }) {
               <span className="rt-sub">{subOf(status, cells)}</span>
             </div>
             {status === 'out' && many ? null : !many ? (
-              body(cells[0], cells, false)
+              body(cells[0])
             ) : (
               <>
                 {gw && <p className="rt-why">{gw}</p>}
-                <div className={`rt-invs ${cells.length > 2 ? 'rt-invs-4' : ''}`}>
-                  {cells.map(c => (
-                    <div key={c.key} className={`rt-inv rt-${c.status} ${c.o.id === v.id ? 'on' : ''}`} aria-label={`${bottomOf(c.o)} on the bottom: ${spelled(c.o)}`}>
-                      <div className="rt-inv-head">
-                        <b>{bottomOf(c.o)}</b>
-                        <span className="rt-inv-lbl">bottom</span>
-                        <span className="rt-pill">{c.status === 'out' ? 'out' : c.status}</span>
-                        <span className="rt-inv-notes">{spelled(c.o)}</span>
+                {/* A row per inversion (the owner, of columns: "too much especially for diminished
+                    chords"): tap one for its full detail; the one opened starts open. */}
+                <div className="rt-rows">
+                  {cells.map(c => {
+                    const open = rows[c.key] ?? c.o.id === v.id;
+                    return (
+                      <div key={c.key} className={`rt-row rt-${c.status} ${open ? 'open' : ''}`}>
+                        <button type="button" className="rt-row-head" aria-expanded={open} onClick={() => setRows(r => ({ ...r, [c.key]: !open }))}>
+                          <b>{bottomOf(c.o)}</b>
+                          <span className="rt-row-mid">
+                            <span className="rt-row-notes">{spelled(c.o)}</span>
+                            <span className="rt-row-dots" aria-hidden>
+                              {c.list.slice(-SHOWN_ROW).map(a => (
+                                <i key={a.id} className={`rt-k rt-${verdict(a)}`} />
+                              ))}
+                            </span>
+                          </span>
+                          <span className="rt-row-end">
+                            <span className="rt-row-st">{shortOf(c)}</span>
+                            <span>{fmtSecs(c.s?.isolatedMs)}</span>
+                          </span>
+                          <span className="rt-row-chev" aria-hidden>
+                            ›
+                          </span>
+                        </button>
+                        {open && <div className="rt-row-body">{body(c)}</div>}
                       </div>
-                      {body(c, cells, true)}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

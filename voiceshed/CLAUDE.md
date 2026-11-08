@@ -264,11 +264,16 @@ wide screen; a run hides both.
   "a less detail actual card shape like a playing card shape"), one per group:
   the chord big in the middle, the mode in the corner, the status at the foot
   and in the border (red shaky, amber check, dashed new, faded joins later),
-  and the group's other inversions as cards fanned behind it (up to three),
-  plus a mark per inversion under the chord — its bottom tone (♭3, ♭7; a °7's
-  four), filled green when solid, red when shaky, dashed when new (the owner:
-  "on the card if we could indicate the different inversions too"); a
-  legend underneath. The counts are groups. Tapping a card opens that
+  and the group's other inversions as cards fanned behind it (up to three).
+  When its inversions stand apart (one solid, one shaky), the front card and
+  each card behind take their own inversion's colour (green solid, red shaky,
+  dashed new); the foot keeps the chord's status. **Swipe up or down** on a
+  card (or ↑ ↓ on a focused one) to bring the next inversion to the front —
+  the foot shows its bottom tone ("♭7 bottom") for a moment — and a tap opens
+  the front one (the owner: "colour the cards behind and allow me to switch
+  between them by swiping up or down"; labels on the card were "too messy").
+  A card with inversions takes only sideways pans (`touch-action: pan-x`), so
+  a vertical swipe starting on it doesn't scroll the page. A legend underneath. The counts are groups. Tapping a card opens that
   voicing's sheet over the set (the owner: "clicking the card in review to open
   its card page"); "Your whole deck ›" goes to the Deck view.
 - `/voiceshed/listen` — **Listen** (`components/ListenPage.tsx`; the owner:
@@ -457,14 +462,15 @@ wide screen; a run hides both.
   chord, round the cycle of fourths. A voicing's sheet: tags, muddy, lowest
   register, notes, and **how it's holding up** (`components/Retention.tsx`;
   the owner: "is it clear how all the different review types are affecting
-  its retention?"): **a chord's inversions side by side** in each mode (the
-  owner: "I would like to see the inversions side by side on the sheet"; a
-  °7's four as 2 × 2), each column headed by its bottom tone and notes, the
-  one opened outlined, the mode's status the group's (as Review groups them),
-  and when one is fast enough and another isn't, "♭3 on the bottom is fast
-  enough — waiting on ♭7 on the bottom"; a column shows its status, a short
-  why, fluency, its last 6 answers, medians and target. A mode not in the deck
-  is one line. Per mode, solid / shaky / new / not in deck (`cardStatus`)
+  its retention?"): **a chord's inversions together**, a row each in every
+  mode (the owner wanted them "side by side on the sheet", then found columns
+  "too much especially for diminished chords"): bottom tone, notes, last 6
+  answers as dots, status in a few words (solid, new, "1 of 3", "ready ✓")
+  and the time alone; tap a row for its full detail below (the one opened
+  starts open). The mode's status is the group's (as Review groups them), and
+  when one is fast enough and another isn't, "♭3 on the bottom is fast enough
+  — waiting on ♭7 on the bottom". A mode not in the deck is one line. A
+  voicing with no partner shows its detail straight away. Per mode, solid / shaky / new / not in deck (`cardStatus`)
   with what it means (next check, leads your next set), for a shaky one why —
   "Last slip: right but slow in Practice · ii–V–Is in F, 20 hours ago", the
   context gap, or "2 of 3 fast in a row so far"; a card fast enough itself

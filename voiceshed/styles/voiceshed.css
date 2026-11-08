@@ -1267,34 +1267,31 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-undo { min-height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .cr-undo:disabled { opacity: 0.35; }
 
-/* A voicing's sheet: the chord's inversions side by side in each mode (2, or a °7's 4 as 2 × 2). */
-.rt-invs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.rt-inv { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--rule); border-left-width: 3px; border-radius: 10px; }
-.rt-inv.rt-solid { border-left-color: var(--good); }
-.rt-inv.rt-shaky { border-left-color: var(--fail); }
-.rt-inv.rt-new, .rt-inv.rt-out { border-left-style: dashed; border-left-color: var(--ink-3); }
-.rt-inv.on { background: var(--paper); box-shadow: inset 0 0 0 1px var(--accent); }
-.rt-inv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 5px; }
-.rt-inv-head b { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1; }
-.rt-inv-lbl { font-size: 11px; color: var(--ink-3); }
-.rt-inv-head .rt-pill { margin-left: auto; font-size: 9px; padding: 1px 5px; }
-.rt-inv-notes { flex-basis: 100%; font-size: 12px; color: var(--ink-3); }
-.rt-inv-why { font-size: 12px; color: var(--ink); }
-.rt-inv-why.ready { color: var(--good); }
-.rt-inv .rt-fluency { grid-template-columns: 1fr 26px; gap: 6px; }
-.rt-inv .rt-fluency .rt-lbl { display: none; }
-.rt-inv .rt-dot { width: 20px; }
-.rt-inv .rt-dot i { width: 12px; height: 12px; }
-.rt-inv .rt-foot { flex-direction: column; align-items: flex-start; gap: 2px; }
-.rt-inv .rt-target { margin-left: 0; }
-.rt-inv .rt-pick { font-size: 12px; }
+/* A voicing's sheet: a row per inversion in each mode; tap one for its detail. */
+.rt-rows { display: flex; flex-direction: column; gap: 6px; }
+.rt-row { border: 1px solid var(--rule); border-left-width: 3px; border-radius: 10px; }
+.rt-row.rt-solid { border-left-color: var(--good); }
+.rt-row.rt-shaky { border-left-color: var(--fail); }
+.rt-row.rt-new, .rt-row.rt-out { border-left-style: dashed; border-left-color: var(--ink-3); }
+.rt-row-head { width: 100%; display: grid; grid-template-columns: 30px 1fr auto 12px; align-items: center; gap: 8px; padding: 7px 8px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.rt-row-head b { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1; }
+.rt-row-mid { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rt-row-notes { font-size: 13px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-row-dots { display: flex; gap: 3px; min-height: 8px; }
+.rt-row-dots i.rt-k { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.rt-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.rt-row-st { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+.rt-row.rt-solid .rt-row-st { color: var(--good); }
+.rt-row.rt-shaky .rt-row-st { color: var(--fail); }
+.rt-row-chev { color: var(--ink-3); transition: transform 0.15s; }
+.rt-row.open .rt-row-chev { transform: rotate(90deg); }
+.rt-row-body { display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px; }
 
-/* A playing card's inversions: a mark each under the chord, its bottom tone in its own status. */
-.rv-pc-invs { align-self: center; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%; }
-.rv-pc-inv { font-style: normal; font-family: var(--mono); font-size: 8px; line-height: 1; padding: 2px 3px; border-radius: 4px; border: 1px solid var(--ink-3); color: var(--ink-3); white-space: nowrap; }
-.rv-pc-inv-solid { border-color: var(--good); background: var(--good); color: var(--card); }
-.rv-pc-inv-shaky { border-color: var(--fail); color: var(--fail); }
-.rv-pc-inv-new, .rv-pc-inv-out { border-style: dashed; }
-.rt-mode .rt-inv .rt-pill { color: var(--ink-3); }
-.rt-mode .rt-inv.rt-solid .rt-pill { color: var(--good); }
-.rt-mode .rt-inv.rt-shaky .rt-pill { color: var(--fail); }
+/* A playing card's inversions: each card in its own status when they stand apart; swipe up or down to turn them. */
+.rv-pc-swipe .rv-pc-open { touch-action: pan-x; }
+.rv-pc .rv-pc-own-solid { border-color: var(--good); border-style: solid; }
+.rv-pc .rv-pc-own-shaky { border-color: var(--fail); border-style: solid; }
+.rv-pc .rv-pc-own-new { border-color: var(--ink-3); border-style: dashed; }
+.rv-pc-dealt { animation: rv-pc-deal 0.22s ease-out; }
+@keyframes rv-pc-deal { from { transform: translateY(-6px) rotate(-2deg); opacity: 0.6; } }
+@media (prefers-reduced-motion: reduce) { .rv-pc-dealt { animation: none; } }
