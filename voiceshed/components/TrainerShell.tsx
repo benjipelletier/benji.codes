@@ -92,8 +92,10 @@ function ago(iso: string | undefined, now: number): string {
  * push, amber "● NEW PUSH 1 min ago — tap ↻", which reloads (pages come from the network
  * first, so a reload online gets it).
  */
-function useLiveCheck(): { latest: Push | null; online: boolean } {
+type Commit = { sha: string; at: string };
+function useLiveCheck(): { latest: Push | null; push: Commit | null; online: boolean } {
   const [latest, setLatest] = useState<Push | null>(null);
+  const [push, setPush] = useState<Commit | null>(null);
   const [online, setOnline] = useState(true);
   useEffect(() => {
     try {
@@ -105,11 +107,12 @@ function useLiveCheck(): { latest: Push | null; online: boolean } {
       try {
         const r = await fetch('/api/voiceshed/live', { cache: 'no-store' });
         if (!r.ok) throw new Error(String(r.status));
-        const d = (await r.json()) as { latest: Push | null; server: Push };
+        const d = (await r.json()) as { latest: Push | null; server: Push; push: Commit | null };
         // The database's, or the server's own build if that's newer (its first run not written yet).
         const best = d.latest && d.latest.built_at >= d.server.built_at ? d.latest : d.server;
         if (!alive) return;
         setLatest(best);
+        if (d.push) setPush(d.push);
         setOnline(true);
         try {
           localStorage.setItem(LIVE_KEY, JSON.stringify(best));
@@ -130,14 +133,21 @@ function useLiveCheck(): { latest: Push | null; online: boolean } {
       window.removeEventListener('online', check);
     };
   }, []);
-  return { latest, online };
+  return { latest, push, online };
 }
 
 /** A newer push than this build: another build, built later. */
 const isBehind = (latest: Push | null) => !!latest?.build && !!MINE.build && latest.build !== MINE.build && latest.built_at > MINE.built_at;
 
-/** Under the name: live (and when the last push went out), or a newer push to reload into. */
-function LiveLine({ latest, online }: { latest: Push | null; online: boolean }) {
+/** A push not live after this long probably failed to build. */
+const STUCK_MS = 20 * 60 * 1000;
+
+/**
+ * Under the name: live (and when the last push went out); deploying — main has a newer commit
+ * that isn't running anywhere yet (the owner: "still shows live even though we just pushed and
+ * it hasn't been deployed yet"); or a newer build to reload into.
+ */
+function LiveLine({ latest, push, online }: { latest: Push | null; push: Commit | null; online: boolean }) {
   // Tick, so "pushed 4 min ago" stays true.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -145,6 +155,16 @@ function LiveLine({ latest, online }: { latest: Push | null; online: boolean }) 
     return () => clearInterval(id);
   }, []);
   const pushed = latest?.at ?? latest?.built_at ?? (MINE.built_at || undefined);
+  // Main's newest commit isn't this build and no newer build is running yet: deploying.
+  const deploying = online && !!push && !!MINE.build && !push.sha.startsWith(MINE.build) && !isBehind(latest);
+  if (deploying) {
+    const stuck = now - new Date(push!.at).getTime() > STUCK_MS;
+    return (
+      <span className={`vt-live ${stuck ? 'stuck' : 'deploying'}`} title={`Commit ${push!.sha.slice(0, 7)} on main isn’t live yet`}>
+        <i aria-hidden /> {stuck ? `Push not live · ${ago(push!.at, now)} — build failed?` : `Deploying… · pushed ${ago(push!.at, now)}`}
+      </span>
+    );
+  }
   if (isBehind(latest)) {
     return (
       <button type="button" className="vt-live behind" onClick={() => window.location.reload()} title="A newer push is out: reload to get it">

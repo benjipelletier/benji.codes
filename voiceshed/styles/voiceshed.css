@@ -1325,6 +1325,10 @@ button.pm-bg span { color: var(--accent-ink); }
 .vt-live.on i { animation: vt-live-pulse 1.8s ease-out infinite; }
 @keyframes vt-live-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 70%, 100% { box-shadow: 0 0 0 6px transparent; } }
 .vt-live.behind { color: var(--accent-ink); font-weight: 700; cursor: pointer; }
+.vt-live.deploying { color: var(--ink-2); }
+.vt-live.deploying i { animation: vt-live-blink 0.8s steps(2, jump-none) infinite; }
+@keyframes vt-live-blink { 50% { opacity: 0.2; } }
+.vt-live.stuck { color: var(--fail); }
 .vt-live.behind i { animation: vt-live-pulse 0.9s ease-out infinite; }
 @media (prefers-reduced-motion: reduce) { .vt-live i { animation: none !important; } }
 

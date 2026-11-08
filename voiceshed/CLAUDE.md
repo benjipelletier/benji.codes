@@ -728,7 +728,15 @@ kept on the device, `vs-live`), and shows under the name: a pulsing green
 "● LIVE · PUSHED 4 MIN AGO" on the newest build; "● OFFLINE · pushed …" grey
 with no connection; and when a newer push is out, amber "● NEW PUSH 1 MIN AGO —
 TAP ↻", which reloads (pages come from the network first, so a reload online
-gets it). "dev" on a build with no commit.
+gets it). "dev" on a build with no commit. **Deploying** (the owner: "still
+shows live even though we just pushed and it hasn't been deployed yet"): the
+endpoint also returns main's newest commit, from GitHub's API (the repo is
+public; kept a minute on the server, `GITHUB_TOKEN` used if set); when that
+isn't this build and no newer build is running yet, the line says "● DEPLOYING…
+· PUSHED 1 MIN AGO" (blinking), and after 20 minutes still not live, "PUSH NOT
+LIVE · 25 MIN — BUILD FAILED?" in red. Then the new build's first run writes
+the database and it turns to "NEW PUSH — TAP ↻". If GitHub can't be reached,
+it's LIVE / NEW PUSH as before.
 
 ## Offline
 
