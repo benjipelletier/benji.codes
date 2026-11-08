@@ -4,32 +4,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NextConfig } from "next";
 
-// Versions, 0.1.N: N counts the commits that touch a project, so every
-// release that changes it goes up by one — 重复习's, and Voiceshed's (which
-// writes the one running to its database, so an open app can tell it's
-// behind). Counted at build time, by the first of these that works: the
-// checkout, when it has the whole history (anywhere but Vercel, which clones
-// only the last few commits); a copy of the history alone, cloned from GitHub
-// (the repo is public); GitHub's API. The build log says which
-// ("重复习 v0.1.N, counted by …").
+// 重复习's version, 0.1.N: N counts the commits that touch it, so every
+// release that changes it goes up by one. Counted at build time, by the first
+// of these that works: the checkout, when it has the whole history (anywhere
+// but Vercel, which clones only the last few commits); a copy of the history
+// alone, cloned from GitHub (the repo is public); GitHub's API. The build log
+// says which ("重复习 v0.1.N, counted by …").
 const REPO = "benjipelletier/benji.codes";
-const PROJECTS = {
-  chongfuxi: { label: "重复习", paths: ["chongfuxi", "app/chongfuxi", "app/api/chongfuxi"] },
-  voiceshed: { label: "Voiceshed", paths: ["voiceshed", "app/voiceshed", "app/api/voiceshed", "public/voiceshed", "public/voiceshed-sw.js"] },
-};
-type Project = keyof typeof PROJECTS;
-type Versions = Record<Project, string> & { commit: string };
+const CHONGFUXI_PATHS = ["chongfuxi", "app/chongfuxi", "app/api/chongfuxi"];
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8", timeout: 90_000, stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
-const count = (cwd: string, commit: string, paths: string[]) => Number(git(cwd, "rev-list", "--count", commit, "--", ...paths));
+const count = (cwd: string, commit: string) => Number(git(cwd, "rev-list", "--count", commit, "--", ...CHONGFUXI_PATHS));
 
 /** Each path's commits up to `commit` from GitHub's API, counted once each. */
-async function countByApi(commit: string, paths: string[]): Promise<number> {
+async function countByApi(commit: string): Promise<number> {
   const seen = new Set<string>();
-  for (const path of paths) {
+  for (const path of CHONGFUXI_PATHS) {
     for (let page = 1; ; page++) {
       const r = await fetch(`https://api.github.com/repos/${REPO}/commits?sha=${commit}&path=${path}&per_page=100&page=${page}`, {
         headers: process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {},
@@ -44,68 +37,59 @@ async function countByApi(commit: string, paths: string[]): Promise<number> {
   return seen.size;
 }
 
-async function countVersions(): Promise<Versions> {
+async function chongfuxiVersion(): Promise<{ version: string; commit: string }> {
   let commit = process.env.VERCEL_GIT_COMMIT_SHA ?? "";
   const failed: string[] = [];
-  const names = Object.keys(PROJECTS) as Project[];
-  const uncounted = (): Versions => ({ commit, ...(Object.fromEntries(names.map((n) => [n, "0.1"])) as Record<Project, string>) });
-  const done = (counted: (n: Project) => number, how: string): Versions => {
-    const out = uncounted();
-    for (const n of names) {
-      out[n] = `0.1.${counted(n)}`;
-      console.log(`${PROJECTS[n].label} v${out[n]}, counted by ${how}${failed.length ? ` (${failed.join("; ")})` : ""}`);
-    }
-    return out;
+  const done = (n: number, how: string) => {
+    console.log(`重复习 v0.1.${n}, counted by ${how}${failed.length ? ` (${failed.join("; ")})` : ""}`);
+    return { version: `0.1.${n}`, commit };
   };
   const why = (e: unknown) => (e instanceof Error ? e.message : String(e)).split("\n").slice(0, 2).join(" ");
 
   try {
     commit ||= git(".", "rev-parse", "HEAD");
-    if (git(".", "rev-parse", "--is-shallow-repository") === "false") return done((n) => count(".", commit, PROJECTS[n].paths), "the checkout");
+    if (git(".", "rev-parse", "--is-shallow-repository") === "false") return done(count(".", commit), "the checkout");
     failed.push("the checkout is shallow");
   } catch (e) {
     failed.push(`checkout: ${why(e)}`);
   }
   if (!commit) {
-    console.log("versions: no commit to count from");
-    return uncounted();
+    console.log("重复习 v0.1: no commit to count from");
+    return { version: "0.1", commit };
   }
   try {
     // The history without file contents: a second or two.
-    const dir = mkdtempSync(join(tmpdir(), "benji-history-"));
+    const dir = mkdtempSync(join(tmpdir(), "chongfuxi-history-"));
     git(dir, "clone", "--quiet", "--bare", "--filter=blob:none", `https://github.com/${REPO}.git`, ".");
-    return done((n) => count(dir, commit, PROJECTS[n].paths), "a clone of the history");
+    return done(count(dir, commit), "a clone of the history");
   } catch (e) {
     failed.push(`clone: ${why(e)}`);
   }
   try {
-    const counts = new Map<Project, number>();
-    for (const n of names) counts.set(n, await countByApi(commit, PROJECTS[n].paths));
-    return done((n) => counts.get(n)!, "GitHub's API");
+    return done(await countByApi(commit), "GitHub's API");
   } catch (e) {
     failed.push(`API: ${why(e)}`);
   }
-  console.log(`versions: not counted (${failed.join("; ")})`);
-  return uncounted();
+  console.log(`重复习 v0.1: not counted (${failed.join("; ")})`);
+  return { version: "0.1", commit };
 }
 
 export default async function config(): Promise<NextConfig> {
   // The build loads this config in several processes; count once, and pass
   // the result on through the environment they inherit.
-  let v: Versions;
-  try {
-    v = JSON.parse(process.env.BENJI_VERSIONS_COUNTED ?? "") as Versions;
-  } catch {
-    v = await countVersions();
-    process.env.BENJI_VERSIONS_COUNTED = JSON.stringify(v);
-  }
+  const known = process.env.CHONGFUXI_VERSION_COUNTED?.split(" ");
+  const { version, commit } = known?.length === 2 ? { version: known[0], commit: known[1] } : await chongfuxiVersion();
+  process.env.CHONGFUXI_VERSION_COUNTED = `${version} ${commit}`;
+  // Voiceshed's live check: which build this is and when it was built (no version number);
+  // the app compares it with the newest build the database has seen.
+  process.env.BENJI_BUILT_AT ||= new Date().toISOString();
   return {
     ...nextConfig,
     env: {
-      NEXT_PUBLIC_CHONGFUXI_VERSION: v.chongfuxi,
-      NEXT_PUBLIC_CHONGFUXI_COMMIT: v.commit.slice(0, 7),
-      NEXT_PUBLIC_VOICESHED_VERSION: v.voiceshed,
-      NEXT_PUBLIC_VOICESHED_COMMIT: v.commit.slice(0, 7),
+      NEXT_PUBLIC_CHONGFUXI_VERSION: version,
+      NEXT_PUBLIC_CHONGFUXI_COMMIT: commit.slice(0, 7),
+      NEXT_PUBLIC_VOICESHED_BUILD: commit.slice(0, 7),
+      NEXT_PUBLIC_VOICESHED_BUILT_AT: process.env.BENJI_BUILT_AT,
     },
   };
 }

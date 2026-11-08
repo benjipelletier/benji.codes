@@ -697,25 +697,24 @@ playlists as tunes), `POST sync` (owner only; voicing
 upserts/deletes, attempts, srs, runs; idempotent, newer schedule wins),
 `GET viewer`.
 
-## Version check
+## Live check
 
-The owner: "some signal at the very top of the app to let me know when we are
-on [the latest] version … whenever we push write something to the database so
-that it checks". Voiceshed's version is **0.1.N**, N counting the commits that
-touch it (`voiceshed`, `app/voiceshed`, `app/api/voiceshed`, `public/voiceshed*`),
-counted at build time in `next.config.ts` alongside 重复习's (one history clone
-for both; `NEXT_PUBLIC_VOICESHED_VERSION` / `_COMMIT`). The first time a
-production build runs (`ensureTrainer` → `recordVersion`, `VERCEL_ENV ===
-'production'` only, and only forward) it writes `{version, commit, at}` to
-`voiceshed_meta` as `app_version`. `GET /api/voiceshed/version` returns that and
-the server's own build. The app (`useVersionCheck` in `TrainerShell`) asks on
-open, on coming back to the front, when the connection returns and every 5
-minutes, keeps the last answer on the device (`vs-latest`), and shows under the
-name in the top bar "v0.1.86 ✓ latest" (green), "offline", "checking…", or
-"dev build" (uncounted); behind, "⚠ out of date" and an amber bar under the top
-bar — "↻ New version v0.1.88 · You're on v0.1.86 — tap to update" — that
-reloads (pages come from the network first, so a reload online gets the new
-build). The bar hides during a run.
+The owner: "some signal at the very top of the app … whenever we push write
+something to the database so that it checks", then, of a first try with
+version numbers, "a lot more like live thing with no version" (their pick: a
+live dot and the last push's time). Each build knows its commit and build time
+(`NEXT_PUBLIC_VOICESHED_BUILD` / `_BUILT_AT`, set in `next.config.ts`). The first
+time a production build runs (`ensureTrainer` → `recordBuild`; `VERCEL_ENV ===
+'production'` only, and only forward by build time) it writes `{build,
+built_at, at}` to `voiceshed_meta` as `live_build`, `at` being when it first
+ran. `GET /api/voiceshed/live` returns that and the server's own build. The app
+(`useLiveCheck` / `LiveLine` in `TrainerShell`) asks on open, on coming back to
+the front, when the connection returns and every 2 minutes (the last answer
+kept on the device, `vs-live`), and shows under the name: a pulsing green
+"● LIVE · PUSHED 4 MIN AGO" on the newest build; "● OFFLINE · pushed …" grey
+with no connection; and when a newer push is out, amber "● NEW PUSH 1 MIN AGO —
+TAP ↻", which reloads (pages come from the network first, so a reload online
+gets it). "dev" on a build with no commit.
 
 ## Offline
 

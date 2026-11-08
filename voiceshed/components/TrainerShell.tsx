@@ -65,48 +65,54 @@ function SyncChip() {
   );
 }
 
-/** The build this app is running (counted in next.config.ts). */
-const MINE = { version: process.env.NEXT_PUBLIC_VOICESHED_VERSION ?? '0.1', commit: process.env.NEXT_PUBLIC_VOICESHED_COMMIT ?? '' };
-/** A version's count, 0.1.N → N; null when it wasn't counted (a dev build). */
-const countOf = (v: string | undefined) => {
-  const m = v?.match(/^\d+\.\d+\.(\d+)$/);
-  return m ? Number(m[1]) : null;
-};
-type Latest = { version: string; commit: string; at?: string };
-/** Kept on the device: the latest version last heard of, for when there's no connection. */
-const LATEST_KEY = 'vs-latest';
-const CHECK_MS = 5 * 60 * 1000;
+/** The build this app is running: its commit and when it was built (next.config.ts). */
+const MINE = { build: process.env.NEXT_PUBLIC_VOICESHED_BUILD ?? '', built_at: process.env.NEXT_PUBLIC_VOICESHED_BUILT_AT ?? '' };
+type Push = { build: string; built_at: string; at?: string };
+/** Kept on the device: the newest push last heard of, for when there's no connection. */
+const LIVE_KEY = 'vs-live';
+const CHECK_MS = 2 * 60 * 1000;
+
+/** "just now", "4 min ago", "3 h ago", "2 d ago". */
+function ago(iso: string | undefined, now: number): string {
+  if (!iso) return '';
+  const s = Math.max(0, (now - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+}
 
 /**
- * Whether this app is the latest Voiceshed (the owner: "some signal at the very top of the
- * app to let me know when we are on [the latest] version … whenever we push write something
- * to the database so that it checks"): each production build writes its version to the
- * database when it first runs; the app asks for it on open, when it comes back to the front,
- * when the connection returns and every 5 minutes, and compares it with the build it's
- * running. Under the name in the top bar: "v0.1.86 ✓ latest"; behind, an amber bar under the
- * top bar: "New version v0.1.88 — tap to update" (a reload: pages come from the network first).
+ * Live or not (the owner: "some signal at the very top of the app … whenever we push write
+ * something to the database so that it checks", then "a lot more like live thing with no
+ * version"; their pick: a live dot and the last push's time): each production build writes
+ * itself to the database when it first runs; the app asks for the newest on open, on coming
+ * back to the front, when the connection returns and every 2 minutes, and compares it with
+ * the build it's running. Under the name: a pulsing green "● LIVE · pushed 4 min ago"; a newer
+ * push, amber "● NEW PUSH 1 min ago — tap ↻", which reloads (pages come from the network
+ * first, so a reload online gets it).
  */
-function useVersionCheck(): { latest: Latest | null; online: boolean } {
-  const [latest, setLatest] = useState<Latest | null>(null);
+function useLiveCheck(): { latest: Push | null; online: boolean } {
+  const [latest, setLatest] = useState<Push | null>(null);
   const [online, setOnline] = useState(true);
   useEffect(() => {
     try {
-      const kept = localStorage.getItem(LATEST_KEY);
+      const kept = localStorage.getItem(LIVE_KEY);
       if (kept) setLatest(JSON.parse(kept));
     } catch {}
     let alive = true;
     const check = async () => {
       try {
-        const r = await fetch('/api/voiceshed/version', { cache: 'no-store' });
+        const r = await fetch('/api/voiceshed/live', { cache: 'no-store' });
         if (!r.ok) throw new Error(String(r.status));
-        const d = (await r.json()) as { latest: Latest | null; server: Latest };
-        // The database's, or the server's own build if that's further on (the database not yet written).
-        const best = d.latest && (countOf(d.latest.version) ?? -1) >= (countOf(d.server.version) ?? -1) ? d.latest : d.server;
+        const d = (await r.json()) as { latest: Push | null; server: Push };
+        // The database's, or the server's own build if that's newer (its first run not written yet).
+        const best = d.latest && d.latest.built_at >= d.server.built_at ? d.latest : d.server;
         if (!alive) return;
         setLatest(best);
         setOnline(true);
         try {
-          localStorage.setItem(LATEST_KEY, JSON.stringify(best));
+          localStorage.setItem(LIVE_KEY, JSON.stringify(best));
         } catch {}
       } catch {
         if (alive) setOnline(false);
@@ -127,35 +133,37 @@ function useVersionCheck(): { latest: Latest | null; online: boolean } {
   return { latest, online };
 }
 
-function isBehind(latest: Latest | null): boolean {
-  if (!latest) return false;
-  const mine = countOf(MINE.version);
-  const theirs = countOf(latest.version);
-  if (mine != null && theirs != null) return theirs > mine;
-  return false;
-}
+/** A newer push than this build: another build, built later. */
+const isBehind = (latest: Push | null) => !!latest?.build && !!MINE.build && latest.build !== MINE.build && latest.built_at > MINE.built_at;
 
-/** Under the name: the version running, and whether it's the latest. */
-function VersionLine({ latest, online }: { latest: Latest | null; online: boolean }) {
-  const behind = isBehind(latest);
-  const dev = countOf(MINE.version) == null;
-  const state = dev ? 'dev build' : behind ? 'out of date' : !online ? 'offline' : latest ? 'latest' : 'checking…';
+/** Under the name: live (and when the last push went out), or a newer push to reload into. */
+function LiveLine({ latest, online }: { latest: Push | null; online: boolean }) {
+  // Tick, so "pushed 4 min ago" stays true.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const pushed = latest?.at ?? latest?.built_at ?? (MINE.built_at || undefined);
+  if (isBehind(latest)) {
+    return (
+      <button type="button" className="vt-live behind" onClick={() => window.location.reload()} title="A newer push is out: reload to get it">
+        <i aria-hidden /> New push {ago(pushed, now)} — tap ↻
+      </button>
+    );
+  }
+  if (!MINE.build) {
+    return (
+      <span className="vt-live dev">
+        <i aria-hidden /> dev
+      </span>
+    );
+  }
   return (
-    <span className={`vt-ver ${behind ? 'behind' : state === 'latest' ? 'ok' : ''}`} title={`Voiceshed v${MINE.version}${MINE.commit ? ` (${MINE.commit})` : ''}${latest ? ` · latest v${latest.version}` : ''}`}>
-      v{MINE.version} {state === 'latest' ? '✓ ' : behind ? '⚠ ' : ''}
-      {state}
+    <span className={`vt-live ${online ? 'on' : 'off'}`} title={`Build ${MINE.build}`}>
+      <i aria-hidden /> {online ? 'Live' : 'Offline'}
+      {pushed ? ` · pushed ${ago(pushed, now)}` : ''}
     </span>
-  );
-}
-
-/** Behind: an amber bar under the top bar, tap to update. */
-function UpdateBar({ latest }: { latest: Latest | null }) {
-  if (!isBehind(latest)) return null;
-  return (
-    <button type="button" className="vt-update" onClick={() => window.location.reload()}>
-      <b>↻ New version v{latest!.version}</b>
-      <span>You’re on v{MINE.version} — tap to update</span>
-    </button>
   );
 }
 
@@ -331,7 +339,7 @@ function useTapNotes() {
 function Frame({ page, children }: { page: TrainerPage; children: React.ReactNode }) {
   const { ready, error, voicings, status } = useTrainer();
   useTapNotes();
-  const ver = useVersionCheck();
+  const live = useLiveCheck();
   return (
     <div className="vt">
       {/* A phone on its side outside a run (CSS decides; a run sets html.vt-running). */}
@@ -347,7 +355,7 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
           <a href="/voiceshed" className="vt-brand" aria-label="Voiceshed home">
             Voice<em>shed</em>
           </a>
-          <VersionLine {...ver} />
+          <LiveLine {...live} />
         </span>
         <nav className="vt-tabs" aria-label="Voiceshed">
           {PAGES.map(p => (
@@ -364,7 +372,6 @@ function Frame({ page, children }: { page: TrainerPage; children: React.ReactNod
           <SyncChip />
         </span>
       </header>
-      <UpdateBar latest={ver.latest} />
       <MidiToast />
       <main className="vt-main">
         {error && <p className="vt-error">{error}</p>}

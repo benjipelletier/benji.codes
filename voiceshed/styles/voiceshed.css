@@ -1319,11 +1319,13 @@ button.pm-bg span { color: var(--accent-ink); }
 .cr-midi-idle { font-family: var(--mono); font-size: 11px; color: var(--ink-3); border: 1px dashed var(--good); border-radius: 999px; padding: 1px 7px; }
 @media (prefers-reduced-motion: reduce) { .vt-midi-badge i.hit, .cr-keys-banner i.hit, .vt-midi-toast { animation: none; } }
 
-/* Which version is running (TrainerShell's VersionLine), and the bar when there's a newer one. */
-.vt-brand-wrap { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.vt-ver { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; color: var(--ink-3); white-space: nowrap; }
-.vt-ver.ok { color: var(--good); }
-.vt-ver.behind { color: var(--accent-ink); font-weight: 600; }
-.vt-update { position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 19; width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 10px; padding: 9px 16px; border: 0; border-bottom: 1px solid var(--accent); background: var(--accent); color: var(--paper); font: inherit; font-size: 14px; cursor: pointer; }
-.vt-update span { font-size: 12px; opacity: 0.85; }
-.vt:has(.cr) .vt-update, .vt:has(.ls-run) .vt-update { display: none; }
+/* Live or not (TrainerShell's LiveLine): a pulsing dot and the last push's time under the name. */
+.vt-brand-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vt-live { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.vt-live i { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.vt-live.on { color: var(--good); }
+.vt-live.on i { animation: vt-live-pulse 1.8s ease-out infinite; }
+@keyframes vt-live-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 70%, 100% { box-shadow: 0 0 0 6px transparent; } }
+.vt-live.behind { color: var(--accent-ink); font-weight: 700; cursor: pointer; }
+.vt-live.behind i { animation: vt-live-pulse 0.9s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vt-live i { animation: none !important; } }

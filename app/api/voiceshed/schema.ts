@@ -232,24 +232,24 @@ async function seed(sql: Sql) {
 let ready: Promise<void> | null = null;
 
 /** Tables made and starter data seeded: once per server instance. */
-/** This build's version (counted in next.config.ts), as the app running it shows it. */
-export const APP_VERSION = { version: process.env.NEXT_PUBLIC_VOICESHED_VERSION ?? '0.1', commit: process.env.NEXT_PUBLIC_VOICESHED_COMMIT ?? '' };
+/** This build: its commit and when it was built (next.config.ts). */
+export const BUILD = { build: process.env.NEXT_PUBLIC_VOICESHED_BUILD ?? '', built_at: process.env.NEXT_PUBLIC_VOICESHED_BUILT_AT ?? '' };
 
 /**
- * The version deployed, written to `voiceshed_meta` ('app_version') the first time a
- * production build starts (the owner: "whenever we push write something to the database so
- * that it checks" against the app that's open). Only ever forward — never back to a lower
- * count — and only from production, so a preview or a dev server can't claim to be latest.
- * `at` is when that version first ran.
+ * The newest push, written to `voiceshed_meta` ('live_build') the first time a production
+ * build runs (the owner: "whenever we push write something to the database so that it
+ * checks" against the app that's open): `{build, built_at, at}`, `at` being when it first
+ * ran — the push time the app shows. Only ever forward (a later build time), and only from
+ * production, so a preview or a dev server can't claim to be live.
  */
-async function recordVersion(sql: Sql) {
-  const { version, commit } = APP_VERSION;
-  if (process.env.VERCEL_ENV !== 'production' || !/^\d+\.\d+\.\d+$/.test(version)) return;
+async function recordBuild(sql: Sql) {
+  const { build, built_at } = BUILD;
+  if (process.env.VERCEL_ENV !== 'production' || !build || !built_at) return;
   await sql.query(
-    `INSERT INTO voiceshed_meta (key, value) VALUES ('app_version', $1)
+    `INSERT INTO voiceshed_meta (key, value) VALUES ('live_build', $1)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-     WHERE split_part(voiceshed_meta.value::jsonb->>'version', '.', 3)::int < split_part(EXCLUDED.value::jsonb->>'version', '.', 3)::int`,
-    [JSON.stringify({ version, commit, at: new Date().toISOString() })],
+     WHERE (voiceshed_meta.value::jsonb->>'built_at')::timestamptz < (EXCLUDED.value::jsonb->>'built_at')::timestamptz`,
+    [JSON.stringify({ build, built_at, at: new Date().toISOString() })],
   );
 }
 
@@ -257,7 +257,7 @@ export function ensureTrainer(sql: Sql): Promise<void> {
   ready ??= (async () => {
     for (const ddl of TRAINER_DDL) await sql.query(ddl);
     await seed(sql);
-    await recordVersion(sql);
+    await recordBuild(sql);
   })().catch(err => {
     ready = null;
     throw err;
