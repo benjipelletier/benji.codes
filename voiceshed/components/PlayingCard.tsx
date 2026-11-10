@@ -39,6 +39,8 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
   /** Swipes so far, so each one replays the deal. */
   const [turns, setTurns] = useState(0);
   const n = invs.length;
+  /** The back card furthest behind (up to three are drawn). */
+  const deepest = Math.min(3, n - 1);
   const order = Array.from({ length: n }, (_, i) => invs[(front + i) % n]);
   // Only when the inversions stand apart does each card take its own colour; else the group's look.
   const apart = new Set(invs.map(i => i.status)).size > 1;
@@ -47,7 +49,7 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
   const start = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
   const flashT = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** The card just swiped away, flying off the way the finger went (the owner: "it doesn't look like anything changes"). */
+  /** The card just swiped away: it lifts off the way the finger went and tucks behind the stack (the owner: "instead of the cards just fading, can you have them actually swap"). */
   const [leaving, setLeaving] = useState<{ status: string; up: boolean; id: number } | null>(null);
   const turn = (by: number) => {
     if (n < 2) return;
@@ -98,7 +100,7 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
       {Array.from({ length: Math.min(3, n - 1) }, (_, i) => (
         <span key={i} className={`rv-pc-back ${own(i + 1)}`} style={{ ['--i' as string]: i + 1 }} aria-hidden />
       ))}
-      <span key={turns} className={`rv-pc-face ${own(0)} ${turns ? 'rv-pc-dealt' : ''}`} aria-hidden>
+      <span key={turns} className={`rv-pc-face ${own(0)} ${turns ? 'rv-pc-dealt' : ''}`} style={{ ['--from' as string]: leaving && !leaving.up ? deepest : 1 }} aria-hidden>
         <span className="rv-pc-corner">{corner}</span>
         <span className="rv-pc-chord">
           {d.root}
@@ -118,6 +120,7 @@ export function PlayingCard({ g, status, label, onOpen }: { g: Chip; status: str
         <span
           key={`leave-${leaving.id}`}
           className={`rv-pc-face rv-pc-leave ${leaving.up ? 'up' : 'down'} ${apart ? `rv-pc-own-${leaving.status}` : ''}`}
+          style={{ ['--to' as string]: leaving.up ? deepest : 1 }}
           onAnimationEnd={() => setLeaving(l => (l?.id === leaving.id ? null : l))}
           aria-hidden
         >

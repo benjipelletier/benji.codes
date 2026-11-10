@@ -1279,12 +1279,27 @@ button.pm-bg span { color: var(--accent-ink); }
 .rv-pc .rv-pc-own-shaky { border-color: var(--fail); border-style: solid; }
 .rv-pc .rv-pc-own-new { border-color: var(--ink-3); border-style: dashed; }
 /* A swipe: the front card flies off the way the finger went, the next rises from the stack. */
-.rv-pc-dealt { animation: rv-pc-deal 0.32s cubic-bezier(0.2, 0.8, 0.3, 1.2); }
-@keyframes rv-pc-deal { from { transform: translate(6px, -4px) rotate(6deg) scale(0.92); opacity: 0.5; } }
-.rv-pc-leave { z-index: 2; pointer-events: none; animation: rv-pc-leave-up 0.32s ease-in forwards; }
-.rv-pc-leave.down { animation-name: rv-pc-leave-down; }
-@keyframes rv-pc-leave-up { to { transform: translateY(-70%) rotate(-12deg); opacity: 0; } }
-@keyframes rv-pc-leave-down { to { transform: translateY(55%) rotate(10deg); opacity: 0; } }
+.rv-pc-dealt { animation: rv-pc-forward 0.46s cubic-bezier(0.3, 0.7, 0.3, 1) both; }
+@keyframes rv-pc-forward { from { transform: translate(calc(var(--from, 1) * 3px), calc(var(--from, 1) * -2px)) rotate(calc(var(--from, 1) * 3deg)) scale(0.97); } }
+/* The front card swaps to the back: lifted off the way the finger went, then tucked behind
+   the stack where the back card sits — over the new front first, under it after. */
+.rv-pc-leave { pointer-events: none; transform-origin: 50% 100%; animation: rv-pc-tuck-up 0.46s ease-in-out forwards; }
+.rv-pc-leave.down { animation-name: rv-pc-tuck-down; }
+.rv-pc-leave > * { animation: rv-pc-tuck-face 0.46s linear forwards; }
+@keyframes rv-pc-tuck-up {
+  0% { transform: none; z-index: 2; }
+  45% { transform: translateY(-58%) rotate(-6deg); z-index: 2; }
+  55% { transform: translateY(-58%) rotate(-6deg); z-index: 0; }
+  100% { transform: translate(calc(var(--to, 1) * 3px), calc(var(--to, 1) * -2px)) rotate(calc(var(--to, 1) * 3deg)); z-index: 0; background-color: var(--paper); }
+}
+@keyframes rv-pc-tuck-down {
+  0% { transform: none; z-index: 2; }
+  45% { transform: translateY(48%) rotate(6deg); z-index: 2; }
+  55% { transform: translateY(48%) rotate(6deg); z-index: 0; }
+  100% { transform: translate(calc(var(--to, 1) * 3px), calc(var(--to, 1) * -2px)) rotate(calc(var(--to, 1) * 3deg)); z-index: 0; background-color: var(--paper); }
+}
+/* Its face goes blank as it tucks in: the backs are plain. */
+@keyframes rv-pc-tuck-face { 0%, 50% { opacity: 1; } 60%, 100% { opacity: 0; } }
 /* Page dots: which inversion is in front. */
 .rv-pc-dots { align-self: center; display: flex; gap: 3px; }
 .rv-pc-dots i { width: 5px; height: 5px; border-radius: 50%; border: 1px solid var(--ink-3); }

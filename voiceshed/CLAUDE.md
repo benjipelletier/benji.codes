@@ -269,8 +269,12 @@ wide screen; a run hides both.
   each card behind take their own inversion's colour (green solid, red shaky,
   dashed new); the foot keeps the chord's status. **Swipe up or down** on a
   card (or ↑ ↓ on a focused one) to bring the next inversion to the front —
-  the front card flies off the way the finger went and the next rises from the
-  stack (the owner: "it doesn't look like anything changes"), page dots under
+  the cards swap (the owner: "it doesn't look like anything changes", then
+  "instead of the cards just fading, can you have them actually swap"): the
+  front lifts off the way the finger went, tucks behind the stack and settles
+  where the back card sits, while the card behind slides forward into the front
+  (up: the next comes forward, the old front goes to the very back; down: the
+  reverse); page dots under
   the chord (● ○, a °7's four) say which is in front, and the foot shows its
   bottom tone in amber ("♭7 bottom") for a moment — and a tap opens
   the front one (the owner: "colour the cards behind and allow me to switch
