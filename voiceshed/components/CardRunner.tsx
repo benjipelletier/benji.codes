@@ -107,10 +107,17 @@ function bigStart(midis: number[], whites: number, r: number): number {
   const second = midis[Math.min(1, midis.length - 1)];
   // A black key needs the white above it in view too.
   const hi = whiteIdx(second) + (WHITE_MIDIS.includes(second) ? 0 : 1);
-  const from = Math.max(0, hi - whites + 1);
-  const to = Math.max(from, Math.min(lo, WHITE_MIDIS.length - whites));
+  // A white key clear either side of the two (`KEY_PAD`), when the window has room for it.
+  const span = (pad: number) => {
+    const from = Math.max(0, hi + pad - whites + 1);
+    const to = Math.min(lo - pad, WHITE_MIDIS.length - whites);
+    return to >= from ? [from, to] : null;
+  };
+  const [from, to] = span(KEY_PAD) ?? span(0) ?? [Math.max(0, hi - whites + 1), Math.max(0, hi - whites + 1)];
   return from + Math.floor(r * (to - from + 1));
 }
+/** White keys kept clear beyond a voicing's lowest and highest notes on the Play keyboard. */
+const KEY_PAD = 1;
 const BIG_UPRIGHT = 8;
 /** Big keys waits this long after your last tap before sliding, so two thumbs can land together. */
 const BIG_SETTLE_MS = 260;
@@ -181,16 +188,23 @@ export function playWindow(midis: number[], whites: number, shift: number): [num
   if (highIdx < 0) highIdx = last;
   lowIdx = Math.max(0, lowIdx);
   const isEdge = (i: number) => WHITE_MIDIS[i] % 12 === 0 || WHITE_MIDIS[i] % 12 === 5;
-  const fits = (s: number) => s >= 0 && s <= lowIdx && s + whites - 1 >= highIdx && s + whites - 1 <= last;
-  // Centred on the voicing, then onto a C or an F — whichever way keeps it all in view.
+  // With `pad` white keys clear of the voicing at each end, so neither its lowest nor its highest
+  // note is the first or last key on screen (the owner: "make sure the bottom and top most note
+  // on the keyboard isn't in the voicing, I want some padding").
+  const fits = (s: number, pad: number) => s >= 0 && s <= lowIdx - pad && s + whites - 1 >= highIdx + pad && s + whites - 1 <= last;
+  // Centred on the voicing, then onto a C or an F — whichever way keeps it all in view, padded
+  // if it can be; else centred with the padding; else as close as it fits.
   const centred = Math.round((lowIdx + highIdx) / 2 - (whites - 1) / 2);
   let start = centred;
   let down = centred;
   while (down > 0 && !isEdge(down)) down--;
   let up = centred;
   while (up < last && !isEdge(up)) up++;
-  if (fits(down)) start = down;
-  else if (fits(up)) start = up;
+  if (fits(down, KEY_PAD)) start = down;
+  else if (fits(up, KEY_PAD)) start = up;
+  else if (fits(centred, KEY_PAD)) start = centred;
+  else if (fits(down, 0)) start = down;
+  else if (fits(up, 0)) start = up;
   // Too wide to show whole (real-size keys): start from its bottom note, so you
   // play up from the left hand and move right once, rather than both ends cut.
   else if (highIdx - lowIdx + 1 > whites) start = lowIdx;

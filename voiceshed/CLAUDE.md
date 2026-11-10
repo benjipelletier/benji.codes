@@ -539,6 +539,15 @@ keyboard size — Big keys always has it in view, since its window keeps the
 bottom two notes in view. Once played it's a played key like the rest. Not shown when
 the cards show the top only (`cues` 'top').
 
+**Padding** (the owner: "make sure the bottom and top most note on the
+keyboard isn't in the voicing, I want some padding"): a Play keyboard keeps at
+least `KEY_PAD` (1) white key clear beyond the voicing's lowest and highest
+notes (`playWindow`: on a C or F if that fits padded, else centred padded,
+else unpadded), and Big keys' starting window keeps one clear either side of
+its bottom two (`bigStart`). Real piano size can't always fit a whole
+two-hand voicing, so there it starts from the bottom note as before. The
+answer's keyboard and the sheets already leave about two keys (`rangeAround`).
+
 **The iii and the root, said loud**: a iii card has a "No 9!" sticker under the
 chord — a 9 in a circle struck through, "it's the iii · play the 8", tilted,
 dashed, wiggling now and then (the owner: "a big warning sign that says no 9!",
