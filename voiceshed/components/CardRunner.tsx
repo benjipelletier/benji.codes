@@ -614,6 +614,14 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
   const moveMidi = v.top_move ? noteMidi(v.top_move) : null;
   const labels = Object.fromEntries([...v.notes.map((n, i) => [midis[i], pretty(pitchName(n))]), ...(v.top_move ? [[moveMidi!, pretty(pitchName(v.top_move))]] : [])]);
   const moving = step.mode === 'play' && !!v.top_move && tapped.length >= v.notes.length && phase === 'ask';
+  // The key the voicing starts on, outlined with a ▲ until it's played (the owner: "I sometimes
+  // can start with a 3-7 inversion but the question is asking me for a 7-3 … I want to be able
+  // to do it unambiguously"): which inversion, at a glance. Not when the cards show only the top.
+  const showStart = step.mode === 'play' && phase === 'ask' && (settings.cues ?? 'both') !== 'top';
+  const playMarks: Record<number, KeyMark> = {
+    ...(showStart && midis.length ? { [midis[0]]: 'start' as KeyMark } : {}),
+    ...Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on'] as [number, KeyMark])),
+  };
 
   // Feedback keyboard: the right voicing, with what was played over it.
   let fbMarks: Record<number, KeyMark> = {};
@@ -733,10 +741,10 @@ export function CardRunner({ steps, library, strictSpelling, requeueMisses = fal
           (phase === 'ask' ? (
             <>
               {big ? (
-                <BigKeys key={index} lo={pLo} whites={whites} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
+                <BigKeys key={index} lo={pLo} whites={whites} marks={playMarks} onKey={onKey} aspect={fit.aspect} />
               ) : (
                 <div className={`cr-kb ${keyPx ? 'cr-kb-real' : ''}`} style={kbStyle}>
-                  <Keyboard low={pLo} high={pHi} marks={Object.fromEntries(tapped.map(m => [m, moving && m === tapped[tapped.length - 1] ? 'lift' : 'on']))} onKey={onKey} aspect={fit.aspect} />
+                  <Keyboard low={pLo} high={pHi} marks={playMarks} onKey={onKey} aspect={fit.aspect} />
                 </div>
               )}
               <div className="cr-kb-shift">

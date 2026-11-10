@@ -148,15 +148,17 @@ const STUCK_MS = 20 * 60 * 1000;
  * it hasn't been deployed yet"); or a newer build to reload into.
  */
 function LiveLine({ latest, push, online }: { latest: Push | null; push: Commit | null; online: boolean }) {
-  // Tick, so "pushed 4 min ago" stays true.
-  const [now, setNow] = useState(() => Date.now());
+  // Tick, so "pushed 4 min ago" stays true. 0 until mounted: the server's clock isn't the
+  // phone's, so times are only worked out in the browser (else the page doesn't hydrate).
+  const [now, setNow] = useState(0);
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
   const pushed = latest?.at ?? latest?.built_at ?? (MINE.built_at || undefined);
   // Main's newest commit isn't this build and no newer build is running yet: deploying.
-  const deploying = online && !!push && !!MINE.build && !push.sha.startsWith(MINE.build) && !isBehind(latest);
+  const deploying = now > 0 && online && !!push && !!MINE.build && !push.sha.startsWith(MINE.build) && !isBehind(latest);
   if (deploying) {
     const stuck = now - new Date(push!.at).getTime() > STUCK_MS;
     return (
@@ -182,7 +184,7 @@ function LiveLine({ latest, push, online }: { latest: Push | null; push: Commit 
   return (
     <span className={`vt-live ${online ? 'on' : 'off'}`} title={`Build ${MINE.build}`}>
       <i aria-hidden /> {online ? 'Live' : 'Offline'}
-      {pushed ? ` · pushed ${ago(pushed, now)}` : ''}
+      {pushed && now ? ` · pushed ${ago(pushed, now)}` : ''}
     </span>
   );
 }

@@ -7,7 +7,8 @@
 import { memo, useId, useMemo } from 'react';
 
 /** on: held; right / wrong: answered; missed: the answer; move: where the top voice moves to; lift: the top about to move. */
-export type KeyMark = 'on' | 'right' | 'wrong' | 'missed' | 'move' | 'lift';
+/** `start`: the key a Play card's voicing starts on, outlined with a ▲ (which inversion, at a glance). */
+export type KeyMark = 'on' | 'right' | 'wrong' | 'missed' | 'move' | 'lift' | 'start';
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 const isBlack = (m: number) => BLACK.has(((m % 12) + 12) % 12);
@@ -94,7 +95,11 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
       {whites.map((m, i) => (
         <g key={m} onPointerDown={down(m)} data-midi={m}>
           <rect className={cls('vk-w', m)} x={i * WW + 0.5} y={0.5} width={WW - 1} height={WH - 1} rx={2.5} style={marks[m] === 'move' ? { fill: `url(#vk-stripe-w-${uid})` } : undefined} />
-          {labels[m] && !compact ? (
+          {marks[m] === 'start' ? (
+            <text className="vk-start-lbl" x={i * WW + WW / 2} y={WH - 10} textAnchor="middle">
+              ▲
+            </text>
+          ) : labels[m] && !compact ? (
             <text className="vk-lbl vk-lbl-w" x={i * WW + WW / 2} y={WH - 9} textAnchor="middle">
               {labels[m]}
             </text>
@@ -108,10 +113,17 @@ function KeyboardImpl({ low, high, marks = {}, labels = {}, onKey, compact = fal
       {blacks.map(({ midi, x }) => (
         <g key={midi} onPointerDown={down(midi)} data-midi={midi}>
           <rect className={cls('vk-b', midi)} x={x} y={0.5} width={BW} height={BH} rx={2} style={marks[midi] === 'move' ? { fill: `url(#vk-stripe-b-${uid})` } : undefined} />
-          {labels[midi] && !compact && (
-            <text className="vk-lbl vk-lbl-b" x={x + BW / 2} y={BH - 8} textAnchor="middle">
-              {labels[midi]}
+          {marks[midi] === 'start' ? (
+            <text className="vk-start-lbl vk-start-lbl-b" x={x + BW / 2} y={BH - 9} textAnchor="middle">
+              ▲
             </text>
+          ) : (
+            labels[midi] &&
+            !compact && (
+              <text className="vk-lbl vk-lbl-b" x={x + BW / 2} y={BH - 8} textAnchor="middle">
+                {labels[midi]}
+              </text>
+            )
           )}
         </g>
       ))}

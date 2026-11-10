@@ -1369,3 +1369,9 @@ button.pm-bg span { color: var(--accent-ink); }
 .ch-shaky em { color: var(--fail); }
 .ch-new i { border-style: dashed; }
 .ch-out { opacity: 0.5; }
+
+/* A Play card's starting key: outlined, with a ▲ — which inversion, at a glance. */
+.vk-w-start { fill: color-mix(in srgb, var(--accent) 22%, var(--key-white)); stroke: var(--accent-ink); stroke-width: 3; }
+.vk-b-start { stroke: var(--accent); stroke-width: 3; }
+.vk-start-lbl { fill: var(--accent-ink); font-size: 15px; font-weight: 700; pointer-events: none; }
+.vk-start-lbl-b { fill: var(--accent); font-size: 11px; }

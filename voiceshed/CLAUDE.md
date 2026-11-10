@@ -530,6 +530,15 @@ degree under it, bottom to top, then the moved-to one after the arrow ("♭7 ♭
 owner: "under the lines put out the degree it should be"), the next one in
 amber.
 
+**The starting key** (Play; the owner: "sometimes I can start with a 3-7
+inversion but the question is asking me for a 7-3 … I want to be able to do it
+unambiguously" without reading the Bottom box; their pick of three): while a
+Play card is asked, the key its voicing starts on is outlined in the accent
+with a ▲ on it (`KeyMark` 'start', `playMarks` in CardRunner), on every
+keyboard size — Big keys always has it in view, since its window keeps the
+bottom two notes in view. Once played it's a played key like the rest. Not shown when
+the cards show the top only (`cues` 'top').
+
 **The iii and the root, said loud**: a iii card has a "No 9!" sticker under the
 chord — a 9 in a circle struck through, "it's the iii · play the 8", tilted,
 dashed, wiggling now and then (the owner: "a big warning sign that says no 9!",
