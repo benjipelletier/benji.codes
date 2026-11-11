@@ -130,6 +130,9 @@ export function stall(e: unknown) {
  * Send everything waiting, oldest first. One attempt runs at a time; a call
  * made while one runs waits for it, then sends whatever is still here.
  */
+/** A batch of answers not answered within this long is given up on, to try again later (Wi-Fi with no internet hangs). */
+const SEND_LIMIT_MS = 20_000;
+
 export function flush(progress?: (sent: number, of: number) => void): Promise<Flushed> {
   if (running) return running.then(() => flush(progress));
   running = attempt(progress).finally(() => {
@@ -148,7 +151,7 @@ async function attempt(progress?: (sent: number, of: number) => void): Promise<F
       const batch = read().slice(0, CHUNK);
       if (!batch.length) break;
       const sentAt = Date.now();
-      const reply = await send<BatchReply>("review/batch", { reviews: batch.map((r) => ({ ...r, sentAt })) });
+      const reply = await send<BatchReply>("review/batch", { reviews: batch.map((r) => ({ ...r, sentAt })) }, "POST", undefined, { timeoutMs: SEND_LIMIT_MS });
       const taken = [...reply.done, ...reply.refused.map((r) => r.id)];
       // A reply that takes nothing would send the same batch forever.
       if (!taken.length) throw new Error("The server took none of the waiting answers.");

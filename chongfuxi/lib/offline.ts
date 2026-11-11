@@ -90,6 +90,8 @@ export async function downloadPack(onProgress: (n: number) => void): Promise<Pac
     onProgress(list.length);
   }
   await warmAppCache();
+  // Kept for good, not cleared when the phone runs short of space (granted to an installed or much-used app).
+  await navigator.storage?.persist?.().catch(() => false);
   const meta: PackMeta = { at: Date.now(), day: day.day, cards: list.length };
   await (await caches.open(CACHE)).put(KEY, new Response(JSON.stringify({ ...meta, list }), { headers: { "Content-Type": "application/json" } }));
   loaded = null;

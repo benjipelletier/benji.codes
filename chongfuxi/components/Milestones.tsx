@@ -49,7 +49,7 @@ export function MilestoneList() {
   const [list, setList] = useState<Milestone[] | null>(null);
   useEffect(() => {
     get<{ milestones: Milestone[] }>("milestones")
-      .then((r) => setList(r.milestones))
+      .then((r) => setList(r.milestones ?? []))
       .catch(() => setList([]));
   }, []);
   if (!list?.length) return null;
@@ -74,7 +74,7 @@ export function MilestoneSheet({ shell }: { shell: Shell }) {
   const [fresh, setFresh] = useState<Milestone[]>([]);
   const load = useCallback(() => {
     get<{ milestones: Milestone[] }>("milestones", { unseen: 1 })
-      .then((r) => setFresh(r.milestones))
+      .then((r) => setFresh(r.milestones ?? []))
       .catch(() => setFresh([]));
   }, []);
   useEffect(() => {

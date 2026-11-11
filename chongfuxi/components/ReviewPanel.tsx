@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { CardHistory, LookupFrom, ReviewInput, ReviewResult, SentenceInfo, SessionCard, SessionKinds, Summary, WordDetail } from "@chongfuxi/lib/api";
-import { ApiError, get, send, today } from "@chongfuxi/lib/client";
+import { ApiError, get, isOffline, send, today } from "@chongfuxi/lib/client";
 import { displayPinyin } from "@chongfuxi/lib/hanzi";
 import * as bugs from "@chongfuxi/lib/bugs";
 import * as offline from "@chongfuxi/lib/offline";
@@ -518,6 +518,10 @@ export interface ListReview {
 /** A list's review takes both kinds of word card and no sentences. */
 const LIST_KINDS: SessionKinds = { read: true, recall: true, sentences: false, learn: false };
 
+/** How long a session waits on answers still being sent before dealing anyway, and on the server for cards before taking them from the download (ms). */
+const FLUSH_WAIT_MS = 3000;
+const SESSION_WAIT_MS = 8000;
+
 export function Session({
   shell,
   kinds: chosen,
@@ -622,8 +626,9 @@ export function Session({
     if (loading.current || exhausted.current) return;
     loading.current = true;
     try {
-      // Answers kept on the device go first, so the server knows those cards were seen.
-      if (outbox.getState().pending) await outbox.flush();
+      // Answers kept on the device go first, so the server knows those cards were seen; but a send
+      // that hangs (Wi-Fi with no internet) mustn't hold up the cards: they are dealt after a few seconds.
+      if (outbox.getState().pending) await Promise.race([outbox.flush(), new Promise((r) => setTimeout(r, FLUSH_WAIT_MS))]);
       const held = queueRef.current.map((c) => c.id);
       const { cards } = await get<{ cards: SessionCard[] }>("session", {
         ...today(),
@@ -636,7 +641,7 @@ export function Session({
         sentences: kinds.sentences ? undefined : 0,
         list: list?.list,
         more: more ? 1 : undefined,
-      });
+      }, { timeoutMs: SESSION_WAIT_MS });
       if (!cards.length) exhausted.current = true;
       // The same card can't be in hand twice, whatever the timing.
       const have = new Set(queueRef.current.map((c) => c.id));
@@ -648,7 +653,7 @@ export function Session({
     } catch (e) {
       // No connection: deal from the cards downloaded for it (lib/offline.ts), if there are any.
       const pack =
-        e instanceof TypeError && !list && !more
+        isOffline(e) && !list && !more
           ? await offline
               .dealFromPack({
                 held: [...queueRef.current.map((c) => c.id), ...recentIds.current],
@@ -665,7 +670,7 @@ export function Session({
         setError(null);
       } else {
         setError(
-          e instanceof TypeError
+          isOffline(e)
             ? "No connection. Answer the cards in hand; more come when it is back, and your answers are kept until then."
             : message(e),
         );

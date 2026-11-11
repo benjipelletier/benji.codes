@@ -158,6 +158,29 @@ check every screen at 360px wide first.
   (`warmAppCache`), so it works from the first visit. Tested on a
   production build: saved, cut off, reopened, reviewed, back online, sent.
   Word pages, Look up, Muse and episodes still need the connection.
+  **Wi-Fi that is connected but not online** (the owner, on the flight:
+  the plane's Wi-Fi came on for a moment and then the download "stopped
+  working"): requests then hang, or the plane's sign-in page answers
+  every address with its own page, and the first version only fell back
+  on a clean network error, and waited on the outbox with no time limit
+  before dealing. Now: the client turns a failed request, one past its
+  time limit, or a reply that isn't the app's JSON into `OfflineError`
+  (`isOffline` also counts a 5xx), and `get` / `send` take a `timeoutMs`;
+  a session waits at most `FLUSH_WAIT_MS` (3 s) on the outbox and
+  `SESSION_WAIT_MS` (8 s) on the server before dealing from the pack, on
+  any failure to reach it; the outbox gives a batch up after 20 s
+  (`SEND_LIMIT_MS`) to try again later. The service worker gives the
+  network 4 s for the page and 5 s for Today's reads before the kept copy,
+  keeps only the app's own page (from this site, not redirected, loading
+  /_next/static) and JSON (never a sign-in page; the page and API caches
+  start afresh at v2 in case one was kept, and any web page in the code
+  cache is dropped), and stands an empty script in for Vercel's analytics
+  after 2 s (it held the page's load). Saving asks for persistent storage
+  (`navigator.storage.persist()`), so the browser doesn't clear the pack
+  for space. Tested on a production build through five stages: saved
+  online; a sign-in page answering everything (opened, reviewed from the
+  pack); a moment online (the waiting answers sent); every request
+  hanging (kept reviewing from the pack); reopened while hanging.
 
 ## Look
 
